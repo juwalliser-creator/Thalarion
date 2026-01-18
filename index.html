@@ -75,7 +75,8 @@
         <input type="color" onchange="fmtValue('foreColor', this.value)" title="Textfarbe" />
       </div>
 
-      <div id="content" contenteditable="true" style="min-height:220px; background:#333; border:1px solid #555; padding:0.5rem;"></div>
+      <div id="content" contenteditable="true"
+        style="min-height:220px; background:#333; border:1px solid #555; padding:0.5rem;"></div>
 
       <button onclick="saveEntry()">Speichern</button>
       <button onclick="newEntry()">Neuer Eintrag</button>
@@ -117,6 +118,27 @@ categories.forEach(c => {
   o.text = c;
   typeSelect.add(o);
 });
+
+/* ===== SCHRITT 1: NEUE FUNKTION ===== */
+async function loadEntriesFromJSON() {
+  try {
+    const response = await fetch('world.json', { cache: 'no-store' });
+    if (!response.ok) return;
+
+    const parsed = await response.json();
+    const data = Array.isArray(parsed)
+      ? parsed
+      : parsed && Array.isArray(parsed.entries)
+        ? parsed.entries
+        : null;
+
+    if (!data) return;
+    entries = data;
+  } catch (e) {
+    console.warn('JSON konnte nicht geladen werden');
+  }
+}
+/* ===== ENDE SCHRITT 1 ===== */
 
 function toggleDM() {
   if (isDM) {
@@ -164,7 +186,6 @@ function renderSidebar() {
       (isDM || e.visibility === 'player') &&
       e.title.toLowerCase().includes(query)
     );
-
 
     const h = document.createElement('h3');
     h.innerText = (expandedCategories[cat] || query ? '▼ ' : '▶ ') + cat;
@@ -253,61 +274,22 @@ function exportData() {
   a.click();
 }
 
-/* ✅ NUR HIER GEÄNDERT */
 function importData(ev) {
   if (!isDM) return;
   const file = ev.target.files[0];
   if (!file) return;
-
   const r = new FileReader();
   r.onload = e => {
-    let parsed;
-    try {
-      parsed = JSON.parse(e.target.result);
-    } catch {
-      alert('Ungültige JSON-Datei');
-      return;
-    }
-
-    const data = Array.isArray(parsed)
-      ? parsed
-      : parsed && Array.isArray(parsed.entries)
-        ? parsed.entries
-        : null;
-
-    if (!data) return;
-
-    data.forEach(d => {
-      if (!d || !d.title || !d.type) return;
-
-      let mappedType = d.type;
-      if (mappedType === 'Stadt') mappedType = 'Städte';
-      if (mappedType === 'Königreich') mappedType = 'Königreiche';
-
-      if (!categories.includes(mappedType)) return;
-
-      d.type = mappedType;
-      if (!d.visibility) d.visibility = 'dm';
-      if (!d.content) d.content = '';
-
-      const exists = entries.some(e =>
-        e.title === d.title && e.type === d.type
-      );
-
-      if (!exists) {
-        entries.push(d);
-        expandedCategories[d.type] = true;
-      }
-    });
-
-    document.getElementById('search').value = '';
+    entries = JSON.parse(e.target.result);
     renderSidebar();
   };
-
   r.readAsText(file);
 }
 
-updateUI();
+/* ===== SCHRITT 2: AUFRUF ANPASSEN ===== */
+loadEntriesFromJSON().then(updateUI);
+/* ===== ENDE SCHRITT 2 ===== */
+
 </script>
 </body>
 </html>
