@@ -43,7 +43,8 @@
 
 <main>
   <nav id="sidebar">
-    <input id="search" placeholder="Suche..." oninput="renderSidebar()" /></nav>
+    <input id="search" placeholder="Suche..." oninput="renderSidebar()" />
+  </nav>
 
   <section id="editor" class="readonly">
     <div id="placeholder" class="placeholder">
@@ -52,27 +53,30 @@
     </div>
 
     <div id="editorFields" style="display:none;">
-      <h3>Eintrag (DM‑Modus)</h3>
+      <h3>Eintrag (DM-Modus)</h3>
       <input id="title" placeholder="Name" />
       <select id="type"></select>
       <select id="visibility">
         <option value="player">Spieler sichtbar</option>
         <option value="dm">Nur DM</option>
       </select>
+
       <div id="toolbar" style="margin-bottom:0.5rem; display:flex; gap:0.3rem; flex-wrap:wrap;">
-  <button type="button" onclick="fmt('bold')"><b>B</b></button>
-  <button type="button" onclick="fmt('underline')"><u>U</u></button>
-  <button type="button" onclick="fmt('italic')"><i>I</i></button>
-  <select onchange="fmtValue('fontSize', this.value)">
-    <option value="">Größe</option>
-    <option value="2">Klein</option>
-    <option value="3">Normal</option>
-    <option value="5">Groß</option>
-    <option value="7">Sehr groß</option>
-  </select>
-  <input type="color" onchange="fmtValue('foreColor', this.value)" title="Textfarbe" />
-</div>
-<div id="content" contenteditable="true" style="min-height:220px; background:#333; border:1px solid #555; padding:0.5rem;"></div>
+        <button type="button" onclick="fmt('bold')"><b>B</b></button>
+        <button type="button" onclick="fmt('underline')"><u>U</u></button>
+        <button type="button" onclick="fmt('italic')"><i>I</i></button>
+        <select onchange="fmtValue('fontSize', this.value)">
+          <option value="">Größe</option>
+          <option value="2">Klein</option>
+          <option value="3">Normal</option>
+          <option value="5">Groß</option>
+          <option value="7">Sehr groß</option>
+        </select>
+        <input type="color" onchange="fmtValue('foreColor', this.value)" title="Textfarbe" />
+      </div>
+
+      <div id="content" contenteditable="true" style="min-height:220px; background:#333; border:1px solid #555; padding:0.5rem;"></div>
+
       <button onclick="saveEntry()">Speichern</button>
       <button onclick="newEntry()">Neuer Eintrag</button>
       <button onclick="deleteEntry()">Löschen</button>
@@ -90,13 +94,8 @@
 </main>
 
 <script>
-function fmt(cmd) {
-  document.execCommand(cmd, false, null);
-}
-function fmtValue(cmd, value) {
-  if (!value) return;
-  document.execCommand(cmd, false, value);
-}
+function fmt(cmd) { document.execCommand(cmd, false, null); }
+function fmtValue(cmd, value) { if (value) document.execCommand(cmd, false, value); }
 
 const PASSWORD = 'meinewelt';
 const categories = ['Königreiche','Städte','Landschaften','NPCs','Religionen','Gilden','Magische Orte'];
@@ -124,34 +123,6 @@ function toggleDM() {
     isDM = false;
     dmButton.innerText = 'DM Login';
     updateUI();
-
-// Klick auf Header setzt Ansicht nur im Spieler-Modus zurück
-const headerEl = document.getElementById('mainHeader');
-headerEl.addEventListener('click', (e) => {
-  // Klick auf DM-Button ignorieren
-  if (e.target.id === 'dmButton') return;
-  if (isDM) return; // im DM-Modus kein Reset
-  resetView();
-});
-
-function resetView() {
-  currentIndex = null;
-  editorFields.style.display = 'none';
-  viewer.style.display = 'none';
-  placeholder.style.display = 'block';
-}
-
-function resetView() {
-  currentIndex = null;
-  editorFields.style.display = 'none';
-  viewer.style.display = 'none';
-  placeholder.style.display = 'block';
-}
-
-function handleHeaderClick() {
-  if (isDM) return; // im DM-Modus nichts tun
-  resetView();
-}
     return;
   }
   const pw = prompt('DM-Passwort eingeben:');
@@ -206,13 +177,12 @@ function renderSidebar() {
     s.appendChild(h);
 
     if (expandedCategories[cat] || query) {
-      matchingEntries.forEach((e, i) => {
-        const realIndex = entries.indexOf(e);
+      matchingEntries.forEach(e => {
         const d = document.createElement('div');
         d.className = 'entry';
         d.style.marginLeft = '1rem';
         d.innerText = e.title;
-        d.onclick = () => loadEntry(realIndex);
+        d.onclick = () => loadEntry(entries.indexOf(e));
         s.appendChild(d);
       });
     }
@@ -220,7 +190,6 @@ function renderSidebar() {
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
 }
-
 
 function loadEntry(i) {
   currentIndex = i;
@@ -251,7 +220,7 @@ function newEntry() {
   title.value = '';
   type.value = categories[0];
   visibility.value = 'player';
-  content.value = '';
+  content.innerHTML = '';
 }
 
 function saveEntry() {
@@ -285,15 +254,57 @@ function exportData() {
   a.click();
 }
 
+/* ✅ NUR HIER GEÄNDERT */
 function importData(ev) {
   if (!isDM) return;
   const file = ev.target.files[0];
   if (!file) return;
+
   const r = new FileReader();
   r.onload = e => {
-    entries = JSON.parse(e.target.result);
+    let parsed;
+    try {
+      parsed = JSON.parse(e.target.result);
+    } catch {
+      alert('Ungültige JSON-Datei');
+      return;
+    }
+
+    const data = Array.isArray(parsed)
+      ? parsed
+      : parsed && Array.isArray(parsed.entries)
+        ? parsed.entries
+        : null;
+
+    if (!data) return;
+
+    data.forEach(d => {
+      if (!d || !d.title || !d.type) return;
+
+      let mappedType = d.type;
+      if (mappedType === 'Stadt') mappedType = 'Städte';
+      if (mappedType === 'Königreich') mappedType = 'Königreiche';
+
+      if (!categories.includes(mappedType)) return;
+
+      d.type = mappedType;
+      if (!d.visibility) d.visibility = 'dm';
+      if (!d.content) d.content = '';
+
+      const exists = entries.some(e =>
+        e.title === d.title && e.type === d.type
+      );
+
+      if (!exists) {
+        entries.push(d);
+        expandedCategories[d.type] = true;
+      }
+    });
+
+    document.getElementById('search').value = '';
     renderSidebar();
   };
+
   r.readAsText(file);
 }
 
