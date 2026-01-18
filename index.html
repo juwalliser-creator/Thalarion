@@ -103,7 +103,9 @@ const categories = ['Königreiche','Städte','Landschaften','NPCs','Religionen',
 let expandedCategories = {};
 
 const STORAGE_KEY = 'thalarion_world_data';
-let entries = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+
+/* 🔽 HIER GEÄNDERT: entries startet leer */
+let entries = [];
 let currentIndex = null;
 let isDM = false;
 
@@ -118,27 +120,6 @@ categories.forEach(c => {
   o.text = c;
   typeSelect.add(o);
 });
-
-/* ===== SCHRITT 1: NEUE FUNKTION ===== */
-async function loadEntriesFromJSON() {
-  try {
-    const response = await fetch('world.json', { cache: 'no-store' });
-    if (!response.ok) return;
-
-    const parsed = await response.json();
-    const data = Array.isArray(parsed)
-      ? parsed
-      : parsed && Array.isArray(parsed.entries)
-        ? parsed.entries
-        : null;
-
-    if (!data) return;
-    entries = data;
-  } catch (e) {
-    console.warn('JSON konnte nicht geladen werden');
-  }
-}
-/* ===== ENDE SCHRITT 1 ===== */
 
 function toggleDM() {
   if (isDM) {
@@ -207,8 +188,6 @@ function renderSidebar() {
       });
     }
   });
-
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
 }
 
 function loadEntry(i) {
@@ -286,9 +265,18 @@ function importData(ev) {
   r.readAsText(file);
 }
 
-/* ===== SCHRITT 2: AUFRUF ANPASSEN ===== */
-loadEntriesFromJSON().then(updateUI);
-/* ===== ENDE SCHRITT 2 ===== */
+/* ✅ NEU: AUTOMATISCHES LADEN VON world.json */
+fetch('world.json')
+  .then(r => r.json())
+  .then(data => {
+    if (Array.isArray(data)) {
+      entries = data;
+      renderSidebar();
+    }
+  })
+  .catch(() => {
+    renderSidebar();
+  });
 
 </script>
 </body>
