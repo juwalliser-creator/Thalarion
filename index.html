@@ -2,299 +2,324 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Thalarion – Das Blutsiegel</title>
+
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; background: #1e1e1e; color: #f0f0f0; }
-    header { background: #2b2b2b; padding: 1rem; text-align: center; position: relative; }
-    header .title { font-size: 2rem; font-weight: bold; }
-    header .subtitle { font-size: 1rem; color: #ccc; }
-    #dmButton { position: absolute; right: 1rem; top: 1rem; width: auto; }
+    * { box-sizing: border-box; }
 
-    main { display: flex; height: calc(100vh - 100px); }
-    nav { width: 300px; background: #252525; padding: 1rem; overflow-y: auto; }
-    nav h3 { margin-top: 1rem; border-bottom: 1px solid #444; }
-    .entry { padding: 0.3rem; cursor: pointer; border-radius: 4px; }
-    .entry:hover { background: #333; }
-
-    section { flex: 1; padding: 2rem; padding-bottom: 5rem; }
-    input, textarea, select, button {
-      width: 100%; margin-bottom: 0.5rem; padding: 0.4rem;
-      background: #333; color: #fff; border: 1px solid #555;
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #1e1e1e;
+      color: #f0f0f0;
     }
-    textarea { height: 220px; }
-    .readonly input, .readonly textarea, .readonly select, .readonly button {
-      pointer-events: none; opacity: 0.6;
+
+    header {
+      background: #2b2b2b;
+      padding: 1rem;
+      text-align: center;
+      position: relative;
+    }
+
+    .title { font-size: 2rem; font-weight: bold; cursor: pointer; }
+    .subtitle { font-size: 1rem; color: #ccc; cursor: pointer; }
+
+    #dmButton {
+      position: absolute;
+      right: 1rem;
+      top: 1rem;
+    }
+
+    main {
+      display: flex;
+      height: calc(100vh - 90px);
+    }
+
+    nav {
+      width: 280px;
+      background: #252525;
+      padding: 0.8rem;
+      overflow-y: auto;
+    }
+
+    nav input {
+      margin-bottom: 0.8rem;
+    }
+
+    nav h3 {
+      cursor: pointer;
+      margin: 0.8rem 0 0.3rem;
+      border-bottom: 1px solid #444;
+    }
+
+    .entry {
+      padding: 0.4rem;
+      margin-left: 1rem;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    .entry:hover {
+      background: #333;
+    }
+
+    section {
+      flex: 1;
+      padding: 1.5rem;
+      overflow-y: auto;
+    }
+
+    input, select, button {
+      width: 100%;
+      padding: 0.5rem;
+      margin-bottom: 0.5rem;
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+    }
+
+    .readonly input,
+    .readonly select,
+    .readonly button,
+    .readonly [contenteditable] {
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    #toolbar button,
+    #toolbar select,
+    #toolbar input[type=color] {
+      width: auto;
+    }
+
+    #content {
+      min-height: 220px;
+      background: #333;
+      border: 1px solid #555;
+      padding: 0.5rem;
+      margin-bottom: 0.5rem;
     }
 
     .placeholder {
       text-align: center;
       color: #aaa;
-      font-size: 1.2rem;
       margin-top: 20%;
+    }
+
+    #dmPanel {
+      display: none;
+      background: #262626;
+      border: 1px solid #444;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    /* 📱 Mobile */
+    @media (max-width: 768px) {
+      main { flex-direction: column; height: auto; }
+      nav { width: 100%; max-height: 40vh; }
     }
   </style>
 </head>
+
 <body>
-<header id="mainHeader">
-  <div class="title" style="cursor:pointer;">Thalarion</div>
-  <div class="subtitle" style="cursor:pointer;">Das Blutsiegel</div>
+<header>
+  <div class="title" onclick="resetView()">Thalarion</div>
+  <div class="subtitle" onclick="resetView()">Das Blutsiegel</div>
   <button id="dmButton" onclick="toggleDM()">DM Login</button>
 </header>
 
 <main>
-  <nav id="sidebar">
-    <input id="search" placeholder="Suche..." oninput="renderSidebar()" /></nav>
+  <nav id="sidebar"></nav>
 
   <section id="editor" class="readonly">
+
+    <div id="dmPanel">
+      <h3>DM-Verwaltung</h3>
+      <button onclick="exportData()">🌍 Welt exportieren</button>
+      <button onclick="document.getElementById('importFile').click()">📥 Welt importieren</button>
+      <input id="importFile" type="file" accept=".json" style="display:none" onchange="importData(event)">
+    </div>
+
     <div id="placeholder" class="placeholder">
-      Wähle links einen Ort, ein Reich oder einen anderen Eintrag aus,<br>
-      um mehr über die Welt von <strong>Thalarion</strong> zu erfahren.
+      Wähle links einen Eintrag aus, um mehr über die Welt von <b>Thalarion</b> zu erfahren.
     </div>
 
     <div id="editorFields" style="display:none;">
-      <h3>Eintrag (DM‑Modus)</h3>
       <input id="title" placeholder="Name" />
       <select id="type"></select>
       <select id="visibility">
         <option value="player">Spieler sichtbar</option>
         <option value="dm">Nur DM</option>
       </select>
-      <div id="toolbar" style="margin-bottom:0.5rem; display:flex; gap:0.3rem; flex-wrap:wrap;">
-  <button type="button" onclick="fmt('bold')"><b>B</b></button>
-  <button type="button" onclick="fmt('underline')"><u>U</u></button>
-  <button type="button" onclick="fmt('italic')"><i>I</i></button>
-  <select onchange="fmtValue('fontSize', this.value)">
-    <option value="">Größe</option>
-    <option value="2">Klein</option>
-    <option value="3">Normal</option>
-    <option value="5">Groß</option>
-    <option value="7">Sehr groß</option>
-  </select>
-  <input type="color" onchange="fmtValue('foreColor', this.value)" title="Textfarbe" />
-</div>
-<div id="content" contenteditable="true" style="min-height:220px; background:#333; border:1px solid #555; padding:0.5rem;"></div>
+
+      <div id="toolbar" style="display:flex; gap:0.3rem; flex-wrap:wrap;">
+        <button onclick="fmt('bold')"><b>B</b></button>
+        <button onclick="fmt('italic')"><i>I</i></button>
+        <button onclick="fmt('underline')"><u>U</u></button>
+        <select onchange="fmtValue('fontSize', this.value)">
+          <option value="">Größe</option>
+          <option value="2">Klein</option>
+          <option value="3">Normal</option>
+          <option value="5">Groß</option>
+        </select>
+        <input type="color" onchange="fmtValue('foreColor', this.value)">
+      </div>
+
+      <div id="content" contenteditable="true"></div>
+
       <button onclick="saveEntry()">Speichern</button>
       <button onclick="newEntry()">Neuer Eintrag</button>
       <button onclick="deleteEntry()">Löschen</button>
-      <hr>
-      <button onclick="exportData()">Export (JSON)</button>
-      <input type="file" onchange="importData(event)" />
     </div>
 
     <div id="viewer" style="display:none;">
       <h2 id="viewTitle"></h2>
-      <div id="viewType" style="color:#aaa; margin-bottom:0.5rem;"></div>
-      <div id="viewContent" style="white-space:pre-wrap; line-height:1.5;"></div>
+      <div id="viewType" style="color:#aaa;"></div>
+      <div id="viewContent"></div>
     </div>
   </section>
 </main>
 
 <script>
-function fmt(cmd) {
-  document.execCommand(cmd, false, null);
-}
-function fmtValue(cmd, value) {
-  if (!value) return;
-  document.execCommand(cmd, false, value);
-}
+const PASSWORD = "meinewelt";
+const STORAGE_KEY = "thalarion_world_data";
+const categories = ["Königreiche","Städte","Landschaften","NPCs","Religionen","Gilden","Magische Orte"];
 
-const PASSWORD = 'meinewelt';
-const categories = ['Königreiche','Städte','Landschaften','NPCs','Religionen','Gilden','Magische Orte'];
-let expandedCategories = {};
-
-const STORAGE_KEY = 'thalarion_world_data';
 let entries = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-let currentIndex = null;
 let isDM = false;
+let currentIndex = null;
+let expanded = {};
 
-const editor = document.getElementById('editor');
-const editorFields = document.getElementById('editorFields');
-const placeholder = document.getElementById('placeholder');
-const dmButton = document.getElementById('dmButton');
+const typeSelect = document.getElementById("type");
+categories.forEach(c => typeSelect.add(new Option(c, c)));
 
-const typeSelect = document.getElementById('type');
-categories.forEach(c => {
-  const o = document.createElement('option');
-  o.text = c;
-  typeSelect.add(o);
-});
+function fmt(cmd){ document.execCommand(cmd); }
+function fmtValue(cmd,val){ if(val) document.execCommand(cmd,false,val); }
 
-function toggleDM() {
-  if (isDM) {
-    isDM = false;
-    dmButton.innerText = 'DM Login';
-    updateUI();
-
-// Klick auf Header setzt Ansicht nur im Spieler-Modus zurück
-const headerEl = document.getElementById('mainHeader');
-headerEl.addEventListener('click', (e) => {
-  // Klick auf DM-Button ignorieren
-  if (e.target.id === 'dmButton') return;
-  if (isDM) return; // im DM-Modus kein Reset
-  resetView();
-});
-
-function resetView() {
-  currentIndex = null;
-  editorFields.style.display = 'none';
-  viewer.style.display = 'none';
-  placeholder.style.display = 'block';
-}
-
-function resetView() {
-  currentIndex = null;
-  editorFields.style.display = 'none';
-  viewer.style.display = 'none';
-  placeholder.style.display = 'block';
-}
-
-function handleHeaderClick() {
-  if (isDM) return; // im DM-Modus nichts tun
-  resetView();
-}
-    return;
+function toggleDM(){
+  if(isDM){
+    isDM=false;
+    dmButton.innerText="DM Login";
+  } else {
+    if(prompt("DM-Passwort:") === PASSWORD){
+      isDM=true;
+      dmButton.innerText="DM Logout";
+    } else return alert("Falsches Passwort");
   }
-  const pw = prompt('DM-Passwort eingeben:');
-  if (pw === PASSWORD) {
-    isDM = true;
-    dmButton.innerText = 'DM Logout';
-    updateUI();
-  } else alert('Falsches Passwort');
+  updateUI();
 }
 
-function updateUI() {
-  if (isDM) editor.classList.remove('readonly');
-  else editor.classList.add('readonly');
+function updateUI(){
+  editor.classList.toggle("readonly", !isDM);
+  dmPanel.style.display = isDM ? "block" : "none";
   renderSidebar();
 }
 
-function renderSidebar() {
-  const s = document.getElementById('sidebar');
-  const query = document.getElementById('search')?.value.toLowerCase() || '';
-  s.innerHTML = '';
+function resetView(){
+  if(isDM) return;
+  placeholder.style.display="block";
+  editorFields.style.display="none";
+  viewer.style.display="none";
+}
 
-  const searchInput = document.createElement('input');
-  searchInput.id = 'search';
-  searchInput.placeholder = 'Suche...';
-  searchInput.value = query;
-  searchInput.oninput = renderSidebar;
-  s.appendChild(searchInput);
+function renderSidebar(){
+  const s = sidebar;
+  s.innerHTML = "";
+  const search = document.createElement("input");
+  search.placeholder="Suche...";
+  search.oninput = renderSidebar;
+  s.appendChild(search);
 
-  if (isDM) {
-    const btn = document.createElement('button');
-    btn.innerText = '+ Neuer Eintrag';
-    btn.onclick = newEntry;
-    s.appendChild(btn);
+  if(isDM){
+    const b=document.createElement("button");
+    b.innerText="+ Neuer Eintrag";
+    b.onclick=newEntry;
+    s.appendChild(b);
   }
 
-  categories.forEach(cat => {
-    const matchingEntries = entries.filter(e =>
-      e.type === cat &&
-      (isDM || e.visibility === 'player') &&
-      e.title.toLowerCase().includes(query)
-    );
+  categories.forEach(cat=>{
+    const list = entries.filter(e=>e.type===cat && (isDM||e.visibility==="player") && e.title.toLowerCase().includes(search.value.toLowerCase()));
+    if(!list.length) return;
 
-    if (query && matchingEntries.length === 0) return;
-
-    const h = document.createElement('h3');
-    h.innerText = (expandedCategories[cat] || query ? '▼ ' : '▶ ') + cat;
-    h.style.cursor = 'pointer';
-    h.onclick = () => {
-      expandedCategories[cat] = !expandedCategories[cat];
-      renderSidebar();
-    };
+    const h=document.createElement("h3");
+    h.innerText=(expanded[cat]?"▼ ":"▶ ")+cat;
+    h.onclick=()=>{expanded[cat]=!expanded[cat]; renderSidebar();};
     s.appendChild(h);
 
-    if (expandedCategories[cat] || query) {
-      matchingEntries.forEach((e, i) => {
-        const realIndex = entries.indexOf(e);
-        const d = document.createElement('div');
-        d.className = 'entry';
-        d.style.marginLeft = '1rem';
-        d.innerText = e.title;
-        d.onclick = () => loadEntry(realIndex);
+    if(expanded[cat]){
+      list.forEach(e=>{
+        const d=document.createElement("div");
+        d.className="entry";
+        d.innerText=e.title;
+        d.onclick=()=>loadEntry(entries.indexOf(e));
         s.appendChild(d);
       });
     }
   });
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(entries));
 }
 
-
-function loadEntry(i) {
-  currentIndex = i;
-  const e = entries[i];
-  placeholder.style.display = 'none';
-
-  if (isDM) {
-    editorFields.style.display = 'block';
-    viewer.style.display = 'none';
-    title.value = e.title;
-    type.value = e.type;
-    visibility.value = e.visibility;
-    content.innerHTML = e.content || '';
+function loadEntry(i){
+  currentIndex=i;
+  const e=entries[i];
+  placeholder.style.display="none";
+  if(isDM){
+    editorFields.style.display="block";
+    viewer.style.display="none";
+    title.value=e.title;
+    type.value=e.type;
+    visibility.value=e.visibility;
+    content.innerHTML=e.content||"";
   } else {
-    editorFields.style.display = 'none';
-    viewer.style.display = 'block';
-    viewTitle.innerText = e.title;
-    viewType.innerText = e.type;
-    viewContent.innerHTML = e.content || '';
+    editorFields.style.display="none";
+    viewer.style.display="block";
+    viewTitle.innerText=e.title;
+    viewType.innerText=e.type;
+    viewContent.innerHTML=e.content||"";
   }
 }
 
-function newEntry() {
-  if (!isDM) return;
-  currentIndex = null;
-  placeholder.style.display = 'none';
-  editorFields.style.display = 'block';
-  title.value = '';
-  type.value = categories[0];
-  visibility.value = 'player';
-  content.value = '';
+function newEntry(){
+  currentIndex=null;
+  editorFields.style.display="block";
+  placeholder.style.display="none";
+  title.value="";
+  content.innerHTML="";
 }
 
-function saveEntry() {
-  if (!isDM) return;
-  const e = {
-    title: title.value,
-    type: type.value,
-    visibility: visibility.value,
-    content: content.innerHTML
-  };
-  if (!e.title) return alert('Name fehlt');
-  if (currentIndex === null) entries.push(e);
-  else entries[currentIndex] = e;
+function saveEntry(){
+  const e={title:title.value,type:type.value,visibility:visibility.value,content:content.innerHTML};
+  if(!e.title) return alert("Name fehlt");
+  currentIndex==null?entries.push(e):entries[currentIndex]=e;
   renderSidebar();
 }
 
-function deleteEntry() {
-  if (!isDM || currentIndex === null) return;
-  entries.splice(currentIndex, 1);
-  editorFields.style.display = 'none';
-  placeholder.style.display = 'block';
+function deleteEntry(){
+  if(currentIndex==null) return;
+  entries.splice(currentIndex,1);
+  resetView();
   renderSidebar();
 }
 
-function exportData() {
-  if (!isDM) return;
-  const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'thalarion_world.json';
+function exportData(){
+  const blob=new Blob([JSON.stringify(entries,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="thalarion_world.json";
   a.click();
 }
 
-function importData(ev) {
-  if (!isDM) return;
-  const file = ev.target.files[0];
-  if (!file) return;
-  const r = new FileReader();
-  r.onload = e => {
-    entries = JSON.parse(e.target.result);
+function importData(ev){
+  const r=new FileReader();
+  r.onload=e=>{
+    entries=JSON.parse(e.target.result);
     renderSidebar();
+    alert("Import erfolgreich");
   };
-  r.readAsText(file);
+  r.readAsText(ev.target.files[0]);
 }
 
 updateUI();
