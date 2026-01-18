@@ -165,7 +165,6 @@ function renderSidebar() {
       e.title.toLowerCase().includes(query)
     );
 
-    if (query && matchingEntries.length === 0) return;
 
     const h = document.createElement('h3');
     h.innerText = (expandedCategories[cat] || query ? '▼ ' : '▶ ') + cat;
