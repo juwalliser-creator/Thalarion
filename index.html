@@ -32,6 +32,14 @@
       font-size: 1.2rem;
       margin-top: 20%;
     }
+
+    /* 🆕 NUR DAS: einheitliche Größe für Suchfeld + Button */
+    .sidebar-control {
+      width: 100%;
+      height: 34px;
+      padding: 0 0.4rem;
+      box-sizing: border-box;
+    }
   </style>
 </head>
 <body>
@@ -102,9 +110,6 @@ const PASSWORD = 'meinewelt';
 const categories = ['Updates','Königreiche','Städte','Landschaften','NPCs','Götter','Religionen','Gilden','Magische Orte'];
 let expandedCategories = {};
 
-const STORAGE_KEY = 'thalarion_world_data';
-
-/* 🔽 HIER GEÄNDERT: entries startet leer */
 let entries = [];
 let currentIndex = null;
 let isDM = false;
@@ -149,6 +154,7 @@ function renderSidebar() {
 
   const searchInput = document.createElement('input');
   searchInput.id = 'search';
+  searchInput.className = 'sidebar-control';   // 🆕
   searchInput.placeholder = 'Suche...';
   searchInput.value = query;
   searchInput.oninput = renderSidebar;
@@ -156,6 +162,7 @@ function renderSidebar() {
 
   if (isDM) {
     const btn = document.createElement('button');
+    btn.className = 'sidebar-control';          // 🆕
     btn.innerText = '+ Neuer Eintrag';
     btn.onclick = newEntry;
     s.appendChild(btn);
@@ -265,7 +272,6 @@ function importData(ev) {
   r.readAsText(file);
 }
 
-/* ✅ NEU: AUTOMATISCHES LADEN VON world.json */
 fetch('world.json')
   .then(r => r.json())
   .then(data => {
@@ -277,7 +283,6 @@ fetch('world.json')
   .catch(() => {
     renderSidebar();
   });
-
 </script>
 </body>
 </html>
