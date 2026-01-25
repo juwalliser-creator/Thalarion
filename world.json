@@ -57,7 +57,7 @@
     "title": "Das tote Land",
     "type": "Landschaften",
     "visibility": "player",
-    "content": "Ehemals \"Schwarzer Palas\", hier verursachte böser Dude die \"lange Dunkelheit\""
+    "content": "Das tote Land ist der Ort, an dem <b>der Zeitlose </b>das Blutsiegel zerstört hat um die dunklen Mächte auf Thalarion zu entfesseln. In diesem Gebiet wartet nichts als Tod und Verderben für alle, die es wagen hineinzugehen.&nbsp;"
   },
   {
     "title": "Malkar (Menschenkönig)",
@@ -148,5 +148,11 @@
     "type": "Religionen",
     "visibility": "player",
     "content": "Ritter Orden, die Magie als Mittel für den guten Zweck ablehnen. Die stehen eher drauf mit Muskeln und Schwertern auf's Problem einzudreschen bis es sich auflöst."
+  },
+  {
+    "title": "Palandieus (Menschen)",
+    "type": "Götter",
+    "visibility": "player",
+    "content": "Menschengott"
   }
 ]
