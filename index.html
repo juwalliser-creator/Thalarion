@@ -2,287 +2,1047 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Thalarion – Das Blutsiegel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet" />
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; background: #1e1e1e; color: #f0f0f0; }
-    header { background: #2b2b2b; padding: 1rem; text-align: center; position: relative; }
-    header .title { font-size: 2rem; font-weight: bold; }
-    header .subtitle { font-size: 1rem; color: #ccc; }
-    #dmButton { position: absolute; right: 1rem; top: 1rem; width: auto; }
-
-    main { display: flex; height: calc(100vh - 100px); }
-    nav { width: 300px; background: #252525; padding: 1rem; overflow-y: auto; }
-    nav h3 { margin-top: 1rem; border-bottom: 1px solid #444; }
-    .entry { padding: 0.3rem; cursor: pointer; border-radius: 4px; }
-    .entry:hover { background: #333; }
-
-    section { flex: 1; padding: 2rem; padding-bottom: 5rem; }
-    input, textarea, select, button {
-      width: 100%; margin-bottom: 0.5rem; padding: 0.4rem;
-      background: #333; color: #fff; border: 1px solid #555;
-    }
-    textarea { height: 220px; }
-    .readonly input, .readonly textarea, .readonly select, .readonly button {
-      pointer-events: none; opacity: 0.6;
+    :root {
+      --bg: #100e0c;
+      --bg-soft: #161310;
+      --panel: #1c1814;
+      --panel-2: #241f19;
+      --ink: #f3ead8;
+      --muted: #b3a48c;
+      --gold: #d4b36a;
+      --gold-dim: #8d7340;
+      --blood: #9a3333;
+      --blood-deep: #6e2222;
+      --line: #3d342a;
+      --ok: #7d9a5a;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+      --sidebar: 320px;
     }
 
-    .placeholder {
-      text-align: center;
-      color: #aaa;
-      font-size: 1.2rem;
-      margin-top: 20%;
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(1200px 500px at 50% -10%, rgba(154, 51, 51, 0.16), transparent 50%),
+        var(--bg);
+      color: var(--ink);
+      font-family: "Source Serif 4", Georgia, serif;
+      letter-spacing: 0.01em;
     }
 
-    /* 🆕 NUR DAS: einheitliche Größe für Suchfeld + Button */
-    .sidebar-control {
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .app {
+      min-height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.85rem 1.25rem;
+      border-bottom: 1px solid var(--line);
+      background: rgba(16, 14, 12, 0.92);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .brand {
+      background: none;
+      border: 0;
+      color: inherit;
+      text-align: left;
+      padding: 0;
+      min-width: 0;
+    }
+    .brand strong {
+      display: block;
+      font-family: Cinzel, serif;
+      font-size: 1.35rem;
+      letter-spacing: 0.12em;
+      color: var(--gold);
+    }
+    .brand span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.82rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .top-nav {
+      display: flex;
+      gap: 0.4rem;
+      margin-left: 0.5rem;
+    }
+    .top-nav button,
+    .ghost, .primary, .danger, .icon-btn {
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      color: var(--ink);
+      padding: 0.45rem 0.8rem;
+    }
+    .top-nav button.active,
+    .primary {
+      background: linear-gradient(180deg, #c9a35c, #9a7a38);
+      color: #1a140c;
+      border-color: #e0c27a;
+      font-weight: 600;
+    }
+    .danger {
+      background: var(--blood-deep);
+      border-color: #b14a4a;
+    }
+    .ghost:hover, .icon-btn:hover, .top-nav button:hover { border-color: var(--gold-dim); }
+    .header-spacer { flex: 1; }
+
+    .dm-chip {
+      display: none;
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #f0d0d0;
+      background: rgba(154, 51, 51, 0.28);
+      border: 1px solid #b14a4a;
+      border-radius: 999px;
+      padding: 0.28rem 0.7rem;
+    }
+    body.is-dm .dm-chip { display: inline-flex; }
+    body.is-dm header { box-shadow: inset 0 -2px 0 var(--blood); }
+
+    #menuBtn { display: none; }
+
+    .shell {
+      display: grid;
+      grid-template-columns: var(--sidebar) 1fr;
+      min-height: 0;
+    }
+
+    aside {
+      border-right: 1px solid var(--line);
+      background: var(--bg-soft);
+      padding: 1rem;
+      overflow: auto;
+    }
+
+    .search-wrap { position: relative; margin-bottom: 0.75rem; }
+    .search-wrap input,
+    .field input, .field select, .login-card input {
       width: 100%;
-      height: 34px;
-      padding: 0 0.4rem;
-      box-sizing: border-box;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      border-radius: 8px;
+      padding: 0.6rem 0.75rem;
+    }
+    .search-wrap input:focus,
+    .field input:focus, .field select:focus,
+    .login-card input:focus, .editor-canvas:focus {
+      outline: 2px solid rgba(212, 179, 106, 0.35);
+      border-color: var(--gold-dim);
+    }
+
+    .aside-actions { display: grid; gap: 0.5rem; margin-bottom: 1rem; }
+    .cat {
+      border-top: 1px solid var(--line);
+    }
+    .cat-head {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      background: none;
+      border: 0;
+      color: var(--gold);
+      font-family: Cinzel, serif;
+      letter-spacing: 0.06em;
+      padding: 0.7rem 0.15rem;
+      text-align: left;
+    }
+    .cat-head .chev { width: 0.8rem; color: var(--muted); }
+    .cat-head .count {
+      margin-left: auto;
+      color: var(--muted);
+      font-family: "Source Serif 4", serif;
+      font-size: 0.8rem;
+    }
+    .entry {
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: 0;
+      color: var(--ink);
+      padding: 0.4rem 0.4rem 0.4rem 1.35rem;
+      border-radius: 6px;
+    }
+    .entry:hover { background: rgba(212, 179, 106, 0.08); }
+    .entry.active {
+      background: rgba(212, 179, 106, 0.16);
+      color: var(--gold);
+    }
+    .lock {
+      margin-left: 0.35rem;
+      color: #d08888;
+      font-size: 0.75rem;
+    }
+
+    .content {
+      overflow: auto;
+      padding: 1.5rem 2rem 3rem;
+    }
+
+    .panel {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      text-align: center;
+      padding: 2.2rem 1rem 1.6rem;
+    }
+    .seal {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 1rem;
+      border: 2px solid var(--gold-dim);
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: var(--gold);
+      font-family: Cinzel, serif;
+      box-shadow: 0 0 0 8px rgba(141, 115, 64, 0.08);
+    }
+    .hero h1 {
+      font-family: Cinzel, serif;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      margin: 0 0 0.4rem;
+    }
+    .hero p { color: var(--muted); margin: 0 auto; max-width: 38rem; line-height: 1.6; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 0.8rem;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1rem;
+      color: inherit;
+      text-align: left;
+      box-shadow: var(--shadow);
+    }
+    .card:hover { border-color: var(--gold-dim); }
+    .card b {
+      display: block;
+      font-family: Cinzel, serif;
+      margin-bottom: 0.25rem;
+    }
+    .card span { color: var(--muted); font-size: 0.92rem; }
+
+    .article {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 1.6rem 1.8rem 2rem;
+      box-shadow: var(--shadow);
+    }
+    .kicker {
+      color: var(--gold);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      margin-bottom: 0.35rem;
+    }
+    .article h2 {
+      font-family: Cinzel, serif;
+      font-weight: 500;
+      margin: 0 0 1rem;
+      line-height: 1.25;
+    }
+    .prose { line-height: 1.75; color: #f6efe2; }
+    .prose p { margin: 0 0 1rem; }
+    .article-actions { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+
+    .editor-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 1.3rem;
+      box-shadow: var(--shadow);
+    }
+    .editor-card h2 {
+      font-family: Cinzel, serif;
+      font-weight: 500;
+      margin: 0 0 1rem;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 0.75rem;
+    }
+    .field { display: grid; gap: 0.35rem; margin-bottom: 0.75rem; }
+    .field label, .toolbar-label {
+      color: var(--muted);
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
+      margin-bottom: 0.55rem;
+    }
+    .toolbar button, .toolbar select, .toolbar input[type="color"] {
+      width: auto;
+      min-width: 2.2rem;
+      height: 2.2rem;
+      padding: 0 0.55rem;
+    }
+    .editor-canvas {
+      min-height: 280px;
+      background: #14110e;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0.9rem;
+      line-height: 1.65;
+    }
+    .editor-actions, .data-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.9rem;
+    }
+    details.data-box {
+      margin-top: 1.1rem;
+      border-top: 1px solid var(--line);
+      padding-top: 0.8rem;
+      color: var(--muted);
+    }
+    details.data-box summary { cursor: pointer; color: var(--gold); }
+
+    .banner {
+      max-width: 860px;
+      margin: 0 auto 1rem;
+      padding: 0.75rem 1rem;
+      border-radius: 10px;
+      border: 1px solid var(--gold-dim);
+      background: rgba(212, 179, 106, 0.08);
+      color: var(--ink);
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    .map-wrap {
+      background: #0b0908;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      overflow: auto;
+      max-height: calc(100vh - 8rem);
+      box-shadow: var(--shadow);
+    }
+    .map-wrap img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 6, 5, 0.72);
+      display: grid;
+      place-items: center;
+      z-index: 40;
+      padding: 1rem;
+    }
+    .login-card {
+      width: min(420px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 1.4rem;
+      box-shadow: var(--shadow);
+    }
+    .login-card h2 {
+      font-family: Cinzel, serif;
+      margin: 0 0 0.35rem;
+    }
+    .login-card p { color: var(--muted); margin: 0 0 1rem; }
+    .login-error { color: #e7a0a0; min-height: 1.2rem; margin: 0.4rem 0 0.8rem; }
+
+    .toast {
+      position: fixed;
+      right: 1rem;
+      bottom: 1rem;
+      background: var(--panel-2);
+      border: 1px solid var(--gold-dim);
+      color: var(--ink);
+      padding: 0.7rem 0.9rem;
+      border-radius: 10px;
+      z-index: 50;
+      box-shadow: var(--shadow);
+    }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 860px) {
+      .shell { grid-template-columns: 1fr; }
+      aside {
+        position: fixed;
+        inset: 64px auto 0 0;
+        width: min(86vw, 320px);
+        z-index: 15;
+        transform: translateX(-105%);
+        transition: transform 0.2s ease;
+      }
+      aside.open { transform: none; }
+      #menuBtn { display: inline-flex; }
+      .content { padding: 1rem; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .brand strong { font-size: 1.1rem; }
     }
   </style>
 </head>
 <body>
-<header id="mainHeader">
-  <div class="title" style="cursor:pointer;">Thalarion</div>
-  <div class="subtitle" style="cursor:pointer;">Das Blutsiegel</div>
-  <button id="dmButton" onclick="toggleDM()">DM Login</button>
-</header>
+  <div class="app">
+    <header>
+      <button class="ghost icon-btn" id="menuBtn" type="button" aria-label="Menü">☰</button>
+      <button class="brand" id="homeBtn" type="button">
+        <strong>Thalarion</strong>
+        <span>Das Blutsiegel</span>
+      </button>
+      <nav class="top-nav">
+        <button type="button" id="navCodex" class="active">Codex</button>
+        <button type="button" id="navMap">Karte</button>
+      </nav>
+      <div class="header-spacer"></div>
+      <span class="dm-chip">DM-Modus</span>
+      <button class="ghost" id="dmButton" type="button">DM Login</button>
+    </header>
 
-<main>
-  <nav id="sidebar">
-    <input id="search" placeholder="Suche..." oninput="renderSidebar()" />
-  </nav>
+    <div class="shell">
+      <aside id="sidebar"></aside>
+      <main class="content" id="main">
+        <section id="homeView" class="panel">
+          <div class="hero">
+            <div class="seal">T</div>
+            <h1>Der Codex von Thalarion</h1>
+            <p>Wähle links einen Eintrag oder öffne eine Kategorie, um Reiche, Städte, Götter und Geheimnisse dieser Welt zu lesen.</p>
+          </div>
+          <div class="cards" id="homeCards"></div>
+        </section>
 
-  <section id="editor" class="readonly">
-    <div id="placeholder" class="placeholder">
-      Wähle links einen Ort, ein Reich oder einen anderen Eintrag aus,<br>
-      um mehr über die Welt von <strong>Thalarion</strong> zu erfahren.
+        <section id="viewer" class="panel hidden">
+          <article class="article">
+            <div class="article-actions hidden" id="playerToEdit">
+              <button class="ghost" id="editCurrent" type="button">Eintrag bearbeiten</button>
+            </div>
+            <div class="kicker" id="viewType"></div>
+            <h2 id="viewTitle"></h2>
+            <div class="prose" id="viewContent"></div>
+          </article>
+        </section>
+
+        <section id="editorView" class="panel hidden">
+          <div class="editor-card">
+            <h2 id="editorHeading">Neuer Eintrag</h2>
+            <div class="grid-2">
+              <div class="field">
+                <label for="title">Name</label>
+                <input id="title" placeholder="z. B. Caldeum" />
+              </div>
+              <div class="field">
+                <label for="type">Kategorie</label>
+                <select id="type"></select>
+              </div>
+            </div>
+            <div class="field">
+              <label for="visibility">Sichtbarkeit</label>
+              <select id="visibility">
+                <option value="player">Für Spieler sichtbar</option>
+                <option value="dm">Nur für den DM</option>
+              </select>
+            </div>
+            <div class="toolbar-label">Text</div>
+            <div class="toolbar">
+              <button type="button" onclick="fmt('bold')"><b>B</b></button>
+              <button type="button" onclick="fmt('italic')"><i>I</i></button>
+              <button type="button" onclick="fmt('underline')"><u>U</u></button>
+              <select onchange="fmtValue('fontSize', this.value)">
+                <option value="">Größe</option>
+                <option value="2">Klein</option>
+                <option value="3">Normal</option>
+                <option value="5">Groß</option>
+                <option value="7">Sehr groß</option>
+              </select>
+              <input type="color" onchange="fmtValue('foreColor', this.value)" title="Textfarbe" value="#f3ead8" />
+            </div>
+            <div id="content" class="editor-canvas" contenteditable="true"></div>
+            <div class="editor-actions">
+              <button class="primary" id="saveBtn" type="button">Speichern</button>
+              <button class="ghost" id="previewBtn" type="button">Vorschau</button>
+              <button class="ghost" id="cancelEdit" type="button">Abbrechen</button>
+              <button class="danger" id="deleteBtn" type="button">Löschen</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="mapView" class="hidden">
+          <div class="map-wrap">
+            <img src="Thalarion%20Karte.png" alt="Karte von Thalarion" />
+          </div>
+        </section>
+      </main>
     </div>
+  </div>
 
-    <div id="editorFields" style="display:none;">
-      <h3>Eintrag (DM-Modus)</h3>
-      <input id="title" placeholder="Name" />
-      <select id="type"></select>
-      <select id="visibility">
-        <option value="player">Spieler sichtbar</option>
-        <option value="dm">Nur DM</option>
-      </select>
-
-      <div id="toolbar" style="margin-bottom:0.5rem; display:flex; gap:0.3rem; flex-wrap:wrap;">
-        <button type="button" onclick="fmt('bold')"><b>B</b></button>
-        <button type="button" onclick="fmt('underline')"><u>U</u></button>
-        <button type="button" onclick="fmt('italic')"><i>I</i></button>
-        <select onchange="fmtValue('fontSize', this.value)">
-          <option value="">Größe</option>
-          <option value="2">Klein</option>
-          <option value="3">Normal</option>
-          <option value="5">Groß</option>
-          <option value="7">Sehr groß</option>
-        </select>
-        <input type="color" onchange="fmtValue('foreColor', this.value)" title="Textfarbe" />
+  <div id="loginOverlay" class="overlay hidden">
+    <form class="login-card" id="loginForm">
+      <h2>DM-Zugang</h2>
+      <p>Nur zum Bearbeiten. Spieler bleiben im Lesemodus.</p>
+      <div class="field">
+        <label for="dmUser">Benutzername</label>
+        <input id="dmUser" type="text" autocomplete="username" />
       </div>
+      <div class="field">
+        <label for="dmPassword">Passwort</label>
+        <input id="dmPassword" type="password" autocomplete="current-password" />
+      </div>
+      <p class="login-error" id="loginError"></p>
+      <div class="editor-actions">
+        <button class="primary" type="submit">Anmelden</button>
+        <button class="ghost" id="loginCancel" type="button">Abbrechen</button>
+      </div>
+    </form>
+  </div>
 
-      <div id="content" contenteditable="true"
-        style="min-height:220px; background:#333; border:1px solid #555; padding:0.5rem;"></div>
+  <div id="tokenOverlay" class="overlay hidden">
+    <form class="login-card" id="tokenForm">
+      <h2>Einmalig verbinden</h2>
+      <p>Damit Speichern für alle Spieler gilt, braucht die Seite einmal einen GitHub-Token. Danach reicht nur noch der Speichern-Knopf.</p>
+      <div class="field">
+        <label for="ghToken">GitHub-Token</label>
+        <input id="ghToken" type="password" autocomplete="off" />
+      </div>
+      <p class="login-error" id="tokenError"></p>
+      <div class="editor-actions">
+        <button class="primary" type="submit">Speichern verbinden</button>
+        <button class="ghost" id="tokenCancel" type="button">Abbrechen</button>
+      </div>
+    </form>
+  </div>
 
-      <button onclick="saveEntry()">Speichern</button>
-      <button onclick="newEntry()">Neuer Eintrag</button>
-      <button onclick="deleteEntry()">Löschen</button>
-      <hr>
-      <button onclick="exportData()">Export (JSON)</button>
-      <input type="file" onchange="importData(event)" />
-    </div>
+  <div id="toast" class="toast hidden"></div>
 
-    <div id="viewer" style="display:none;">
-      <h2 id="viewTitle"></h2>
-      <div id="viewType" style="color:#aaa; margin-bottom:0.5rem;"></div>
-      <div id="viewContent" style="white-space:pre-wrap; line-height:1.5;"></div>
-    </div>
-  </section>
-</main>
+  <script>
+    function fmt(cmd) { document.execCommand(cmd, false, null); }
+    function fmtValue(cmd, value) { if (value) document.execCommand(cmd, false, value); }
 
-<script>
-function fmt(cmd) { document.execCommand(cmd, false, null); }
-function fmtValue(cmd, value) { if (value) document.execCommand(cmd, false, value); }
+    const categories = ['Updates','Königreiche','Städte','Landschaften','NPCs','Götter','Religionen','Gilden','Magische Orte'];
+    const typeAliases = { Stadt: 'Städte', Königreich: 'Königreiche', Landschaft: 'Landschaften', Gott: 'Götter', Religion: 'Religionen', Gilde: 'Gilden' };
+    const LOCAL_KEY = 'thalarion_world_data';
+    const SESSION_KEY = 'thalarion_dm';
+    const GH_TOKEN_KEY = 'thalarion_gh_token';
+    const GH_REPO = 'juwalliser-creator/Thalarion';
+    const GH_FILE = 'world.json';
+    const DM_USER = 'dm';
+    const DM_PASS = 'bWVpbmV3ZWx0';
 
-const PASSWORD = 'meinewelt';
-const categories = ['Updates','Königreiche','Städte','Landschaften','NPCs','Götter','Religionen','Gilden','Magische Orte'];
-let expandedCategories = {};
+    let serverEntries = [];
+    let entries = [];
+    let fileSha = null;
+    let currentIndex = null;
+    let isDM = false;
+    let expandedCategories = {};
+    let currentPage = 'codex';
+    let dirty = false;
 
-let entries = [];
-let currentIndex = null;
-let isDM = false;
-
-const editor = document.getElementById('editor');
-const editorFields = document.getElementById('editorFields');
-const placeholder = document.getElementById('placeholder');
-const dmButton = document.getElementById('dmButton');
-
-const typeSelect = document.getElementById('type');
-categories.forEach(c => {
-  const o = document.createElement('option');
-  o.text = c;
-  typeSelect.add(o);
-});
-
-function toggleDM() {
-  if (isDM) {
-    isDM = false;
-    dmButton.innerText = 'DM Login';
-    updateUI();
-    return;
-  }
-  const pw = prompt('DM-Passwort eingeben:');
-  if (pw === PASSWORD) {
-    isDM = true;
-    dmButton.innerText = 'DM Logout';
-    updateUI();
-  } else alert('Falsches Passwort');
-}
-
-function updateUI() {
-  if (isDM) editor.classList.remove('readonly');
-  else editor.classList.add('readonly');
-  renderSidebar();
-}
-
-function renderSidebar() {
-  const s = document.getElementById('sidebar');
-  const query = document.getElementById('search')?.value.toLowerCase() || '';
-  s.innerHTML = '';
-
-  const searchInput = document.createElement('input');
-  searchInput.id = 'search';
-  searchInput.className = 'sidebar-control';   // 🆕
-  searchInput.placeholder = 'Suche...';
-  searchInput.value = query;
-  searchInput.oninput = renderSidebar;
-  s.appendChild(searchInput);
-
-  if (isDM) {
-    const btn = document.createElement('button');
-    btn.className = 'sidebar-control';          // 🆕
-    btn.innerText = '+ Neuer Eintrag';
-    btn.onclick = newEntry;
-    s.appendChild(btn);
-  }
-
-  categories.forEach(cat => {
-    const matchingEntries = entries.filter(e =>
-      e.type === cat &&
-      (isDM || e.visibility === 'player') &&
-      e.title.toLowerCase().includes(query)
-    );
-
-    const h = document.createElement('h3');
-    h.innerText = (expandedCategories[cat] || query ? '▼ ' : '▶ ') + cat;
-    h.style.cursor = 'pointer';
-    h.onclick = () => {
-      expandedCategories[cat] = !expandedCategories[cat];
-      renderSidebar();
+    const els = {
+      sidebar: document.getElementById('sidebar'),
+      homeView: document.getElementById('homeView'),
+      homeCards: document.getElementById('homeCards'),
+      viewer: document.getElementById('viewer'),
+      editorView: document.getElementById('editorView'),
+      mapView: document.getElementById('mapView'),
+      dmButton: document.getElementById('dmButton'),
+      loginOverlay: document.getElementById('loginOverlay'),
+      loginForm: document.getElementById('loginForm'),
+      dmUser: document.getElementById('dmUser'),
+      dmPassword: document.getElementById('dmPassword'),
+      loginError: document.getElementById('loginError'),
+      toast: document.getElementById('toast'),
+      title: document.getElementById('title'),
+      type: document.getElementById('type'),
+      visibility: document.getElementById('visibility'),
+      content: document.getElementById('content'),
+      editorHeading: document.getElementById('editorHeading'),
+      playerToEdit: document.getElementById('playerToEdit'),
+      navCodex: document.getElementById('navCodex'),
+      navMap: document.getElementById('navMap')
     };
-    s.appendChild(h);
 
-    if (expandedCategories[cat] || query) {
-      matchingEntries.forEach(e => {
-        const d = document.createElement('div');
-        d.className = 'entry';
-        d.style.marginLeft = '1rem';
-        d.innerText = e.title;
-        d.onclick = () => loadEntry(entries.indexOf(e));
-        s.appendChild(d);
+    categories.forEach(c => {
+      const o = document.createElement('option');
+      o.value = c;
+      o.textContent = c;
+      els.type.appendChild(o);
+    });
+
+    function normalizeType(type) {
+      return typeAliases[type] || type;
+    }
+
+    function normalizeEntries(list) {
+      return (Array.isArray(list) ? list : []).map(e => ({
+        title: e.title || '',
+        type: normalizeType(e.type || categories[0]),
+        visibility: e.visibility === 'dm' ? 'dm' : 'player',
+        content: e.content || ''
+      }));
+    }
+
+    function visibleEntries() {
+      return entries.filter(e => isDM || e.visibility === 'player');
+    }
+
+    function toast(msg) {
+      els.toast.textContent = msg;
+      els.toast.classList.remove('hidden');
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => els.toast.classList.add('hidden'), 2600);
+    }
+
+    function persistLocal() {
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(entries, null, 2));
+    }
+
+    function decodeGithubContent(content) {
+      const clean = (content || '').replace(/\n/g, '');
+      return decodeURIComponent(escape(atob(clean)));
+    }
+
+    function encodeGithubContent(text) {
+      return btoa(unescape(encodeURIComponent(text)));
+    }
+
+    async function loadFromGithub() {
+      const r = await fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_FILE, {
+        headers: { Accept: 'application/vnd.github+json' }
+      });
+      if (!r.ok) throw new Error('GitHub ' + r.status);
+      const data = await r.json();
+      fileSha = data.sha;
+      return normalizeEntries(JSON.parse(decodeGithubContent(data.content)));
+    }
+
+    function askForToken() {
+      return new Promise(resolve => {
+        const overlay = document.getElementById('tokenOverlay');
+        const form = document.getElementById('tokenForm');
+        const input = document.getElementById('ghToken');
+        const error = document.getElementById('tokenError');
+        const cancel = document.getElementById('tokenCancel');
+        error.textContent = '';
+        input.value = '';
+        overlay.classList.remove('hidden');
+        input.focus();
+
+        const finish = value => {
+          form.onsubmit = null;
+          cancel.onclick = null;
+          overlay.classList.add('hidden');
+          resolve(value);
+        };
+        form.onsubmit = ev => {
+          ev.preventDefault();
+          const value = input.value.trim();
+          if (!value) {
+            error.textContent = 'Bitte den Token einfügen.';
+            return;
+          }
+          localStorage.setItem(GH_TOKEN_KEY, value);
+          finish(value);
+        };
+        cancel.onclick = () => finish(null);
       });
     }
-  });
-}
 
-function loadEntry(i) {
-  currentIndex = i;
-  const e = entries[i];
-  placeholder.style.display = 'none';
+    async function saveToGithub(list) {
+      let auth = localStorage.getItem(GH_TOKEN_KEY);
+      if (!auth) auth = await askForToken();
+      if (!auth) throw new Error('Speichern abgebrochen');
+      if (!fileSha) await loadFromGithub();
+      const body = JSON.stringify(list, null, 2);
+      const r = await fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_FILE, {
+        method: 'PUT',
+        headers: {
+          Accept: 'application/vnd.github+json',
+          Authorization: 'Bearer ' + auth,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: 'Weltstand aktualisiert',
+          content: encodeGithubContent(body),
+          sha: fileSha
+        })
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (r.status === 401 || r.status === 403) localStorage.removeItem(GH_TOKEN_KEY);
+        throw new Error(data.message || ('GitHub ' + r.status));
+      }
+      fileSha = data.content && data.content.sha ? data.content.sha : fileSha;
+    }
 
-  if (isDM) {
-    editorFields.style.display = 'block';
-    viewer.style.display = 'none';
-    title.value = e.title;
-    type.value = e.type;
-    visibility.value = e.visibility;
-    content.innerHTML = e.content || '';
-  } else {
-    editorFields.style.display = 'none';
-    viewer.style.display = 'block';
-    viewTitle.innerText = e.title;
-    viewType.innerText = e.type;
-    viewContent.innerHTML = e.content || '';
-  }
-}
+    async function persistWorld() {
+      persistLocal();
+      await saveToGithub(entries);
+    }
 
-function newEntry() {
-  if (!isDM) return;
-  currentIndex = null;
-  placeholder.style.display = 'none';
-  editorFields.style.display = 'block';
-  title.value = '';
-  type.value = categories[0];
-  visibility.value = 'player';
-  content.innerHTML = '';
-}
+    function showPage(page) {
+      currentPage = page;
+      els.navCodex.classList.toggle('active', page === 'codex');
+      els.navMap.classList.toggle('active', page === 'map');
+      els.mapView.classList.toggle('hidden', page !== 'map');
+      if (page === 'map') {
+        els.homeView.classList.add('hidden');
+        els.viewer.classList.add('hidden');
+        els.editorView.classList.add('hidden');
+      }
+    }
 
-function saveEntry() {
-  if (!isDM) return;
-  const e = {
-    title: title.value,
-    type: type.value,
-    visibility: visibility.value,
-    content: content.innerHTML
-  };
-  if (!e.title) return alert('Name fehlt');
-  if (currentIndex === null) entries.push(e);
-  else entries[currentIndex] = e;
-  renderSidebar();
-}
-
-function deleteEntry() {
-  if (!isDM || currentIndex === null) return;
-  entries.splice(currentIndex, 1);
-  editorFields.style.display = 'none';
-  placeholder.style.display = 'block';
-  renderSidebar();
-}
-
-function exportData() {
-  if (!isDM) return;
-  const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'thalarion_world.json';
-  a.click();
-}
-
-function importData(ev) {
-  if (!isDM) return;
-  const file = ev.target.files[0];
-  if (!file) return;
-  const r = new FileReader();
-  r.onload = e => {
-    entries = JSON.parse(e.target.result);
-    renderSidebar();
-  };
-  r.readAsText(file);
-}
-
-fetch('world.json')
-  .then(r => r.json())
-  .then(data => {
-    if (Array.isArray(data)) {
-      entries = data;
+    function showHome() {
+      showPage('codex');
+      currentIndex = null;
+      els.homeView.classList.remove('hidden');
+      els.viewer.classList.add('hidden');
+      els.editorView.classList.add('hidden');
+      renderHome();
       renderSidebar();
     }
-  })
-  .catch(() => {
-    renderSidebar();
-  });
-</script>
+
+    function renderHome() {
+      els.homeCards.innerHTML = '';
+      categories.forEach(cat => {
+        const count = visibleEntries().filter(e => e.type === cat).length;
+        const btn = document.createElement('button');
+        btn.className = 'card';
+        btn.innerHTML = `<b>${cat}</b><span>${count} ${count === 1 ? 'Eintrag' : 'Einträge'}</span>`;
+        btn.onclick = () => {
+          expandedCategories = { [cat]: true };
+          renderSidebar();
+          document.getElementById('sidebar').classList.add('open');
+        };
+        els.homeCards.appendChild(btn);
+      });
+    }
+
+    function renderSidebar() {
+      const query = (document.getElementById('search')?.value || '').toLowerCase();
+      const s = els.sidebar;
+      s.innerHTML = '';
+
+      const wrap = document.createElement('div');
+      wrap.className = 'search-wrap';
+      const search = document.createElement('input');
+      search.id = 'search';
+      search.placeholder = 'Suche nach Name oder Text…';
+      search.value = query;
+      search.oninput = renderSidebar;
+      wrap.appendChild(search);
+      s.appendChild(wrap);
+
+      if (isDM) {
+        const actions = document.createElement('div');
+        actions.className = 'aside-actions';
+        const add = document.createElement('button');
+        add.className = 'primary';
+        add.textContent = '+ Neuer Eintrag';
+        add.onclick = newEntry;
+        actions.appendChild(add);
+        s.appendChild(actions);
+      }
+
+      categories.forEach(cat => {
+        const matching = entries
+          .map((e, i) => ({ e, i }))
+          .filter(({ e }) =>
+            e.type === cat &&
+            (isDM || e.visibility === 'player') &&
+            (!query || e.title.toLowerCase().includes(query) || (e.content || '').toLowerCase().includes(query))
+          );
+
+        const box = document.createElement('div');
+        box.className = 'cat';
+        const head = document.createElement('button');
+        head.type = 'button';
+        head.className = 'cat-head';
+        const open = !!(expandedCategories[cat] || query);
+        head.innerHTML = `<span class="chev">${open ? '▼' : '▶'}</span><span>${cat}</span><span class="count">${matching.length}</span>`;
+        head.onclick = () => {
+          expandedCategories[cat] = !expandedCategories[cat];
+          renderSidebar();
+        };
+        box.appendChild(head);
+
+        if (open) {
+          matching.forEach(({ e, i }) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'entry' + (currentIndex === i ? ' active' : '');
+            b.innerHTML = e.title + (isDM && e.visibility === 'dm' ? '<span class="lock">nur DM</span>' : '');
+            b.onclick = () => loadEntry(i);
+            box.appendChild(b);
+          });
+        }
+        s.appendChild(box);
+      });
+    }
+
+    function confirmLeaveEditor() {
+      if (!dirty || !isDM || els.editorView.classList.contains('hidden')) return true;
+      return confirm('Du hast ungespeicherte Änderungen. Wirklich verlassen?');
+    }
+
+    function loadEntry(i) {
+      if (!confirmLeaveEditor()) return;
+      dirty = false;
+      currentIndex = i;
+      const e = entries[i];
+      showPage('codex');
+      els.homeView.classList.add('hidden');
+      els.editorView.classList.add('hidden');
+      els.viewer.classList.remove('hidden');
+      document.getElementById('viewTitle').textContent = e.title;
+      document.getElementById('viewType').textContent = e.type + (e.visibility === 'dm' ? ' · nur DM' : '');
+      document.getElementById('viewContent').innerHTML = e.content || '<p><em>Noch kein Text.</em></p>';
+      els.playerToEdit.classList.toggle('hidden', !isDM);
+      renderSidebar();
+      document.getElementById('sidebar').classList.remove('open');
+    }
+
+    function fillEditor(e) {
+      els.title.value = e?.title || '';
+      els.type.value = e?.type || categories[0];
+      els.visibility.value = e?.visibility || 'player';
+      els.content.innerHTML = e?.content || '';
+      els.editorHeading.textContent = e?.title ? 'Eintrag bearbeiten' : 'Neuer Eintrag';
+      document.getElementById('deleteBtn').disabled = currentIndex === null;
+      dirty = false;
+    }
+
+    function openEditor() {
+      showPage('codex');
+      els.homeView.classList.add('hidden');
+      els.viewer.classList.add('hidden');
+      els.editorView.classList.remove('hidden');
+    }
+
+    function newEntry() {
+      if (!isDM) return;
+      if (!confirmLeaveEditor()) return;
+      currentIndex = null;
+      fillEditor(null);
+      openEditor();
+      renderSidebar();
+      els.title.focus();
+    }
+
+    function editCurrent() {
+      if (!isDM) return;
+      if (dirty || els.title.value) {
+        openEditor();
+        return;
+      }
+      if (currentIndex === null) return;
+      fillEditor(entries[currentIndex]);
+      openEditor();
+    }
+
+    async function saveEntry() {
+      if (!isDM) return;
+      const e = {
+        title: els.title.value.trim(),
+        type: els.type.value,
+        visibility: els.visibility.value,
+        content: els.content.innerHTML
+      };
+      if (!e.title) return toast('Bitte einen Namen vergeben.');
+      const saveBtn = document.getElementById('saveBtn');
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Speichert…';
+      const previous = currentIndex === null ? null : entries[currentIndex];
+      if (currentIndex === null) {
+        entries.push(e);
+        currentIndex = entries.length - 1;
+      } else {
+        entries[currentIndex] = e;
+      }
+      try {
+        await persistWorld();
+        dirty = false;
+        toast('Gespeichert. Spieler sehen es in etwa einer Minute.');
+        loadEntry(currentIndex);
+      } catch (err) {
+        if (previous === null) entries.pop();
+        else entries[currentIndex] = previous;
+        if (previous === null) currentIndex = null;
+        toast('Speichern fehlgeschlagen: ' + err.message);
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Speichern';
+      }
+    }
+
+    async function deleteEntry() {
+      if (!isDM || currentIndex === null) return;
+      const name = entries[currentIndex].title;
+      if (!confirm(`„${name}“ wirklich löschen?`)) return;
+      const removed = entries.splice(currentIndex, 1)[0];
+      const oldIndex = currentIndex;
+      currentIndex = null;
+      try {
+        await persistWorld();
+        dirty = false;
+        toast('Eintrag gelöscht.');
+        showHome();
+      } catch (err) {
+        entries.splice(oldIndex, 0, removed);
+        currentIndex = oldIndex;
+        toast('Löschen fehlgeschlagen: ' + err.message);
+      }
+    }
+
+    function setDM(on) {
+      isDM = on;
+      document.body.classList.toggle('is-dm', on);
+      els.dmButton.textContent = on ? 'DM Logout' : 'DM Login';
+      if (on) sessionStorage.setItem(SESSION_KEY, '1');
+      else sessionStorage.removeItem(SESSION_KEY);
+      if (!on && !els.editorView.classList.contains('hidden')) {
+        if (currentIndex !== null) loadEntry(currentIndex);
+        else showHome();
+      } else {
+        renderHome();
+        renderSidebar();
+        els.playerToEdit.classList.toggle('hidden', !on || currentIndex === null || els.viewer.classList.contains('hidden'));
+      }
+    }
+
+    function openLogin() {
+      els.loginError.textContent = '';
+      els.dmUser.value = '';
+      els.dmPassword.value = '';
+      els.loginOverlay.classList.remove('hidden');
+      els.dmUser.focus();
+    }
+
+    function closeLogin() {
+      els.loginOverlay.classList.add('hidden');
+    }
+
+    document.getElementById('homeBtn').onclick = () => {
+      if (!confirmLeaveEditor()) return;
+      dirty = false;
+      showHome();
+    };
+    document.getElementById('navCodex').onclick = () => {
+      if (currentPage === 'map') {
+        if (currentIndex !== null) loadEntry(currentIndex);
+        else showHome();
+      }
+    };
+    document.getElementById('navMap').onclick = () => {
+      if (!confirmLeaveEditor()) return;
+      dirty = false;
+      showPage('map');
+    };
+    document.getElementById('menuBtn').onclick = () => els.sidebar.classList.toggle('open');
+    document.getElementById('dmButton').onclick = () => {
+      if (isDM) setDM(false);
+      else openLogin();
+    };
+    document.getElementById('loginCancel').onclick = closeLogin;
+    els.loginOverlay.addEventListener('click', ev => {
+      if (ev.target === els.loginOverlay) closeLogin();
+    });
+    els.loginForm.addEventListener('submit', ev => {
+      ev.preventDefault();
+      const userOk = (els.dmUser.value || '').trim().toLowerCase() === DM_USER;
+      const passOk = btoa(els.dmPassword.value) === DM_PASS;
+      if (userOk && passOk) {
+        closeLogin();
+        setDM(true);
+        toast('Angemeldet als DM.');
+      } else {
+        els.loginError.textContent = 'Benutzername oder Passwort stimmt nicht.';
+      }
+    });
+    document.getElementById('saveBtn').onclick = saveEntry;
+    document.getElementById('deleteBtn').onclick = deleteEntry;
+    document.getElementById('cancelEdit').onclick = () => {
+      if (!confirmLeaveEditor()) return;
+      dirty = false;
+      if (currentIndex !== null) loadEntry(currentIndex);
+      else showHome();
+    };
+    document.getElementById('previewBtn').onclick = () => {
+      if (!els.title.value.trim()) return toast('Bitte zuerst einen Namen vergeben.');
+      document.getElementById('viewTitle').textContent = els.title.value;
+      document.getElementById('viewType').textContent = els.type.value + ' · Vorschau';
+      document.getElementById('viewContent').innerHTML = els.content.innerHTML || '<p><em>Noch kein Text.</em></p>';
+      els.playerToEdit.classList.add('hidden');
+      els.editorView.classList.add('hidden');
+      els.viewer.classList.remove('hidden');
+      toast('Vorschau. Über „Eintrag bearbeiten“ kommst du zurück.');
+    };
+    document.getElementById('editCurrent').onclick = editCurrent;
+    ['title', 'type', 'visibility'].forEach(id => {
+      document.getElementById(id).addEventListener('input', () => { dirty = true; });
+      document.getElementById(id).addEventListener('change', () => { dirty = true; });
+    });
+    els.content.addEventListener('input', () => { dirty = true; });
+
+    if (sessionStorage.getItem(SESSION_KEY) === '1') setDM(true);
+
+    (async function boot() {
+      try {
+        entries = await loadFromGithub();
+        serverEntries = entries.slice();
+        persistLocal();
+      } catch {
+        try {
+          const r = await fetch('world.json');
+          entries = normalizeEntries(await r.json());
+          serverEntries = entries.slice();
+        } catch {
+          const local = localStorage.getItem(LOCAL_KEY);
+          entries = local ? normalizeEntries(JSON.parse(local)) : [];
+        }
+      }
+      showHome();
+    })();
+  </script>
 </body>
 </html>
