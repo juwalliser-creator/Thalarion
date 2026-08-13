@@ -1255,13 +1255,7 @@
         chosen = localPack;
         upload = true;
       } else {
-        try {
-          const r = await fetch('world.json');
-          chosen = parseWorldPayload(await r.json());
-          upload = true;
-        } catch {
-          chosen = { entries: [], updatedAt: 0 };
-        }
+        chosen = { entries: [], updatedAt: 0 };
       }
 
       entries = chosen.entries || [];
