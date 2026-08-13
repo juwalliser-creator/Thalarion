@@ -417,6 +417,7 @@
       </button>
       <nav class="top-nav">
         <button type="button" id="navCodex" class="active">Kompendium</button>
+        <button type="button" id="navEntstehung">Entstehung</button>
         <button type="button" id="navMap">Karte</button>
       </nav>
       <div class="header-spacer"></div>
@@ -492,6 +493,15 @@
           </div>
         </section>
 
+        <section id="entstehungView" class="panel hidden">
+          <div class="hero">
+            <div class="seal">E</div>
+            <h1>Die Entstehung Thalarions</h1>
+            <p>Die Geschichte, wie diese Welt wurde, was sie ist.</p>
+          </div>
+          <div class="cards" id="entstehungCards"></div>
+        </section>
+
         <section id="mapView" class="hidden">
           <div class="map-toolbar hidden" id="mapToolbar">
             <button class="primary" id="uploadMapBtn" type="button">Neue Karte hochladen</button>
@@ -537,7 +547,9 @@
     function fmt(cmd) { document.execCommand(cmd, false, null); }
     function fmtValue(cmd, value) { if (value) document.execCommand(cmd, false, value); }
 
-    const categories = ['Updates','Königreiche','Städte','Landschaften','NPCs','Götter','Religionen','Gilden','Magische Orte'];
+    const STORY_CAT = 'Entstehung';
+    const categories = [STORY_CAT,'Updates','Königreiche','Städte','Landschaften','NPCs','Götter','Religionen','Gilden','Magische Orte'];
+    const kompendiumCategories = categories.filter(c => c !== STORY_CAT);
     const typeAliases = { Stadt: 'Städte', Königreich: 'Königreiche', Landschaft: 'Landschaften', Gott: 'Götter', Religion: 'Religionen', Gilde: 'Gilden' };
     const LOCAL_KEY = 'thalarion_world_data';
     const SESSION_KEY = 'thalarion_dm';
@@ -564,6 +576,8 @@
       viewer: document.getElementById('viewer'),
       editorView: document.getElementById('editorView'),
       mapView: document.getElementById('mapView'),
+      entstehungView: document.getElementById('entstehungView'),
+      entstehungCards: document.getElementById('entstehungCards'),
       dmButton: document.getElementById('dmButton'),
       loginOverlay: document.getElementById('loginOverlay'),
       loginForm: document.getElementById('loginForm'),
@@ -578,6 +592,7 @@
       editorHeading: document.getElementById('editorHeading'),
       playerToEdit: document.getElementById('playerToEdit'),
       navCodex: document.getElementById('navCodex'),
+      navEntstehung: document.getElementById('navEntstehung'),
       navMap: document.getElementById('navMap')
     };
 
@@ -670,6 +685,7 @@
       const i = indexByTitle(currentTitle);
       currentIndex = i;
       if (i !== null && !dirty) loadEntry(i);
+      else if (currentPage === 'entstehung') showEntstehung();
       else if (currentTitle && i === null) showHome();
       else {
         renderHome();
@@ -961,12 +977,14 @@
     function showPage(page) {
       currentPage = page;
       els.navCodex.classList.toggle('active', page === 'codex');
+      els.navEntstehung.classList.toggle('active', page === 'entstehung');
       els.navMap.classList.toggle('active', page === 'map');
       els.mapView.classList.toggle('hidden', page !== 'map');
       if (page === 'map') {
         els.homeView.classList.add('hidden');
         els.viewer.classList.add('hidden');
         els.editorView.classList.add('hidden');
+        els.entstehungView.classList.add('hidden');
       }
     }
 
@@ -977,13 +995,54 @@
       els.homeView.classList.remove('hidden');
       els.viewer.classList.add('hidden');
       els.editorView.classList.add('hidden');
+      els.entstehungView.classList.add('hidden');
       renderHome();
       renderSidebar();
     }
 
+    function showEntstehung() {
+      if (!confirmLeaveEditor()) return;
+      dirty = false;
+      showPage('entstehung');
+      currentIndex = null;
+      currentTitle = null;
+      els.homeView.classList.add('hidden');
+      els.viewer.classList.add('hidden');
+      els.editorView.classList.add('hidden');
+      els.entstehungView.classList.remove('hidden');
+      renderEntstehung();
+      renderSidebar();
+    }
+
+    function renderEntstehung() {
+      els.entstehungCards.innerHTML = '';
+      const chapters = visibleEntries()
+        .map((e, i) => ({ e, i }))
+        .filter(({ e }) => e.type === STORY_CAT)
+        .sort((a, b) => a.e.title.localeCompare(b.e.title, 'de'));
+      if (!chapters.length) {
+        const empty = document.createElement('p');
+        empty.style.gridColumn = '1 / -1';
+        empty.style.color = 'var(--muted)';
+        empty.style.textAlign = 'center';
+        empty.textContent = isDM
+          ? 'Noch kein Kapitel. Lege als DM einen Eintrag der Kategorie „Entstehung“ an.'
+          : 'Die Entstehungsgeschichte wird hier erscheinen.';
+        els.entstehungCards.appendChild(empty);
+        return;
+      }
+      chapters.forEach(({ e, i }) => {
+        const btn = document.createElement('button');
+        btn.className = 'card';
+        btn.innerHTML = `<b>${e.title}</b><span>Kapitel öffnen</span>`;
+        btn.onclick = () => loadEntry(i);
+        els.entstehungCards.appendChild(btn);
+      });
+    }
+
     function renderHome() {
       els.homeCards.innerHTML = '';
-      categories.forEach(cat => {
+      kompendiumCategories.forEach(cat => {
         const count = visibleEntries().filter(e => e.type === cat).length;
         const btn = document.createElement('button');
         btn.className = 'card';
@@ -1043,7 +1102,7 @@
       }
 
       list.innerHTML = '';
-      categories.forEach(cat => {
+      kompendiumCategories.forEach(cat => {
         const matching = entries
           .map((e, i) => ({ e, i }))
           .filter(({ e }) =>
@@ -1090,8 +1149,10 @@
       currentIndex = i;
       const e = entries[i];
       currentTitle = e.title;
-      showPage('codex');
+      const stay = currentPage === 'entstehung' || e.type === STORY_CAT ? 'entstehung' : 'codex';
+      showPage(stay);
       els.homeView.classList.add('hidden');
+      els.entstehungView.classList.add('hidden');
       els.editorView.classList.add('hidden');
       els.viewer.classList.remove('hidden');
       document.getElementById('viewTitle').textContent = e.title;
@@ -1104,7 +1165,7 @@
 
     function fillEditor(e) {
       els.title.value = e?.title || '';
-      els.type.value = e?.type || categories[0];
+      els.type.value = e?.type || (currentPage === 'entstehung' ? STORY_CAT : 'Updates');
       els.visibility.value = e?.visibility || 'player';
       els.content.innerHTML = e?.content || '';
       els.editorHeading.textContent = e?.title ? 'Eintrag bearbeiten' : 'Neuer Eintrag';
@@ -1113,8 +1174,10 @@
     }
 
     function openEditor() {
-      showPage('codex');
+      const stay = currentPage === 'entstehung' ? 'entstehung' : 'codex';
+      showPage(stay);
       els.homeView.classList.add('hidden');
+      els.entstehungView.classList.add('hidden');
       els.viewer.classList.add('hidden');
       els.editorView.classList.remove('hidden');
     }
@@ -1124,6 +1187,7 @@
       if (!confirmLeaveEditor()) return;
       currentIndex = null;
       fillEditor(null);
+      if (currentPage === 'entstehung') els.type.value = STORY_CAT;
       openEditor();
       renderSidebar();
       els.title.focus();
@@ -1182,7 +1246,8 @@
         await persistWorld();
         dirty = false;
         toast('Eintrag gelöscht.');
-        showHome();
+        if (removed.type === STORY_CAT) showEntstehung();
+        else showHome();
       } catch (err) {
         entries.splice(oldIndex, 0, removed);
         currentIndex = oldIndex;
@@ -1225,10 +1290,12 @@
       showHome();
     };
     document.getElementById('navCodex').onclick = () => {
-      if (currentPage === 'map') {
-        if (currentIndex !== null) loadEntry(currentIndex);
-        else showHome();
-      }
+      if (!confirmLeaveEditor()) return;
+      dirty = false;
+      showHome();
+    };
+    document.getElementById('navEntstehung').onclick = () => {
+      showEntstehung();
     };
     document.getElementById('navMap').onclick = () => {
       if (!confirmLeaveEditor()) return;
