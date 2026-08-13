@@ -324,35 +324,18 @@
       padding: 0.9rem;
       line-height: 1.65;
     }
-    .editor-actions, .data-actions {
+    .editor-actions {
       display: flex;
       flex-wrap: wrap;
       gap: 0.5rem;
       margin-top: 0.9rem;
     }
-    details.data-box {
-      margin-top: 1.1rem;
-      border-top: 1px solid var(--line);
-      padding-top: 0.8rem;
-      color: var(--muted);
-    }
-    details.data-box summary { cursor: pointer; color: var(--gold); }
 
-    .banner {
-      max-width: 860px;
-      margin: 0 auto 1rem;
-      padding: 0.75rem 1rem;
-      border-radius: 10px;
-      border: 1px solid var(--gold-dim);
-      background: rgba(212, 179, 106, 0.08);
-      color: var(--ink);
+    .map-toolbar {
       display: flex;
-      gap: 0.75rem;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
+      justify-content: flex-end;
+      margin-bottom: 0.75rem;
     }
-
     .map-wrap {
       background: #0b0908;
       border: 1px solid var(--line);
@@ -503,7 +486,6 @@
             <div id="content" class="editor-canvas" contenteditable="true"></div>
             <div class="editor-actions">
               <button class="primary" id="saveBtn" type="button">Speichern</button>
-              <button class="ghost" id="previewBtn" type="button">Vorschau</button>
               <button class="ghost" id="cancelEdit" type="button">Abbrechen</button>
               <button class="danger" id="deleteBtn" type="button">Löschen</button>
             </div>
@@ -511,8 +493,11 @@
         </section>
 
         <section id="mapView" class="hidden">
+          <div class="map-toolbar hidden" id="mapToolbar">
+            <button class="primary" id="uploadMapBtn" type="button">Neue Karte hochladen</button>
+          </div>
           <div class="map-wrap">
-            <img src="Thalarion%20Karte.png" alt="Karte von Thalarion" />
+            <img id="worldMap" src="Thalarion%20Karte.png" alt="Karte von Thalarion" />
           </div>
         </section>
       </main>
@@ -541,6 +526,7 @@
 
   <input id="uploadAllInput" class="hidden" type="file" accept=".txt,.md,text/plain" />
   <input id="uploadOneInput" class="hidden" type="file" accept=".txt,.md,text/plain" />
+  <input id="mapFileInput" class="hidden" type="file" accept="image/*" />
 
   <div id="toast" class="toast hidden"></div>
 
@@ -561,9 +547,11 @@
 
     let db = null;
     let worldUpdatedAt = 0;
+    let mapUpdatedAt = 0;
     let writingRemote = false;
     let entries = [];
     let currentIndex = null;
+    let currentTitle = null;
     let isDM = false;
     let expandedCategories = {};
     let currentPage = 'codex';
@@ -656,10 +644,6 @@
       }
     }
 
-    function sameEntryList(a, b) {
-      return JSON.stringify(a || []) === JSON.stringify(b || []);
-    }
-
     function initFirebase() {
       if (!window.firebase || !window.FIREBASE_CONFIG) return false;
       if (!firebase.apps.length) firebase.initializeApp(window.FIREBASE_CONFIG);
@@ -671,9 +655,22 @@
       return db.collection('world').doc(WORLD_DOC);
     }
 
+    function mapRef() {
+      return db.collection('world').doc('map');
+    }
+
+    function indexByTitle(title) {
+      if (!title) return null;
+      const i = entries.findIndex(e => e.title === title);
+      return i < 0 ? null : i;
+    }
+
     function refreshOpenView() {
       if (currentPage === 'map') return;
-      if (currentIndex !== null && entries[currentIndex] && !dirty) loadEntry(currentIndex);
+      const i = indexByTitle(currentTitle);
+      currentIndex = i;
+      if (i !== null && !dirty) loadEntry(i);
+      else if (currentTitle && i === null) showHome();
       else {
         renderHome();
         renderSidebar();
@@ -696,15 +693,16 @@
     }
 
     async function persistWorld() {
-      worldUpdatedAt = Date.now();
-      persistLocal();
-      if (!db) return;
+      if (!db) throw new Error('Keine Verbindung zur Cloud.');
+      const nextAt = Date.now();
       writingRemote = true;
       try {
         await worldRef().set({
-          updatedAt: worldUpdatedAt,
+          updatedAt: nextAt,
           entries: entries
         });
+        worldUpdatedAt = nextAt;
+        persistLocal();
       } finally {
         writingRemote = false;
       }
@@ -715,7 +713,75 @@
       worldRef().onSnapshot(snap => {
         if (writingRemote || !snap.exists) return;
         applyRemote(snap.data());
+      }, () => {
+        toast('Keine Verbindung zur Cloud.');
       });
+    }
+
+    function applyMap(data) {
+      if (!data || !data.image) return;
+      const at = Number(data.updatedAt) || 0;
+      if (at && at <= mapUpdatedAt) return;
+      mapUpdatedAt = at;
+      document.getElementById('worldMap').src = data.image;
+    }
+
+    function listenMap() {
+      if (!db) return;
+      mapRef().onSnapshot(snap => {
+        if (snap.exists) applyMap(snap.data());
+      });
+    }
+
+    function fileToMapImage(file) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          let w = img.width;
+          let h = img.height;
+          const maxSide = 1800;
+          if (Math.max(w, h) > maxSide) {
+            const scale = maxSide / Math.max(w, h);
+            w = Math.round(w * scale);
+            h = Math.round(h * scale);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          let quality = 0.82;
+          let data = canvas.toDataURL('image/jpeg', quality);
+          while (data.length > 700000 && quality > 0.35) {
+            quality -= 0.12;
+            data = canvas.toDataURL('image/jpeg', quality);
+          }
+          if (data.length > 900000) reject(new Error('Die Karte ist zu groß. Bitte ein kleineres Bild wählen.'));
+          else resolve(data);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error('Das Bild konnte nicht gelesen werden.'));
+        };
+        img.src = url;
+      });
+    }
+
+    async function uploadMapFile(file) {
+      if (!isDM || !file) return;
+      if (!db) return toast('Keine Verbindung zur Cloud.');
+      toast('Karte wird hochgeladen…');
+      try {
+        const image = await fileToMapImage(file);
+        const updatedAt = Date.now();
+        await mapRef().set({ image: image, updatedAt: updatedAt });
+        mapUpdatedAt = updatedAt;
+        document.getElementById('worldMap').src = image;
+        toast('Neue Karte ist für alle Laptops gespeichert.');
+      } catch (err) {
+        toast(err.message || 'Karte konnte nicht hochgeladen werden.');
+      }
     }
 
     function htmlToText(html) {
@@ -907,6 +973,7 @@
     function showHome() {
       showPage('codex');
       currentIndex = null;
+      currentTitle = null;
       els.homeView.classList.remove('hidden');
       els.viewer.classList.add('hidden');
       els.editorView.classList.add('hidden');
@@ -1012,6 +1079,7 @@
       dirty = false;
       currentIndex = i;
       const e = entries[i];
+      currentTitle = e.title;
       showPage('codex');
       els.homeView.classList.add('hidden');
       els.editorView.classList.add('hidden');
@@ -1052,12 +1120,7 @@
     }
 
     function editCurrent() {
-      if (!isDM) return;
-      if (dirty || els.title.value) {
-        openEditor();
-        return;
-      }
-      if (currentIndex === null) return;
+      if (!isDM || currentIndex === null) return;
       fillEditor(entries[currentIndex]);
       openEditor();
     }
@@ -1084,6 +1147,7 @@
       try {
         await persistWorld();
         dirty = false;
+        currentTitle = e.title;
         toast('Gespeichert.');
         loadEntry(currentIndex);
       } catch (err) {
@@ -1122,6 +1186,7 @@
       els.dmButton.textContent = on ? 'DM Logout' : 'DM Login';
       if (on) sessionStorage.setItem(SESSION_KEY, '1');
       else sessionStorage.removeItem(SESSION_KEY);
+      document.getElementById('mapToolbar').classList.toggle('hidden', !on);
       if (!on && !els.editorView.classList.contains('hidden')) {
         if (currentIndex !== null) loadEntry(currentIndex);
         else showHome();
@@ -1189,16 +1254,6 @@
       if (currentIndex !== null) loadEntry(currentIndex);
       else showHome();
     };
-    document.getElementById('previewBtn').onclick = () => {
-      if (!els.title.value.trim()) return toast('Bitte zuerst einen Namen vergeben.');
-      document.getElementById('viewTitle').textContent = els.title.value;
-      document.getElementById('viewType').textContent = els.type.value + ' · Vorschau';
-      document.getElementById('viewContent').innerHTML = els.content.innerHTML || '<p><em>Noch kein Text.</em></p>';
-      els.playerToEdit.classList.add('hidden');
-      els.editorView.classList.add('hidden');
-      els.viewer.classList.remove('hidden');
-      toast('Vorschau. Über „Eintrag bearbeiten“ kommst du zurück.');
-    };
     document.getElementById('editCurrent').onclick = editCurrent;
     document.getElementById('downloadOneBtn').onclick = downloadOneEntry;
     document.getElementById('uploadOneBtn').onclick = () => {
@@ -1215,6 +1270,15 @@
       ev.target.value = '';
       uploadOneEntry(file);
     };
+    document.getElementById('uploadMapBtn').onclick = () => {
+      if (!isDM) return;
+      document.getElementById('mapFileInput').click();
+    };
+    document.getElementById('mapFileInput').onchange = ev => {
+      const file = ev.target.files[0];
+      ev.target.value = '';
+      uploadMapFile(file);
+    };
     ['title', 'type', 'visibility'].forEach(id => {
       document.getElementById(id).addEventListener('input', () => { dirty = true; });
       document.getElementById(id).addEventListener('change', () => { dirty = true; });
@@ -1224,32 +1288,25 @@
     if (sessionStorage.getItem(SESSION_KEY) === '1') setDM(true);
 
     (async function boot() {
-      initFirebase();
+      if (!initFirebase()) toast('Keine Verbindung zur Cloud.');
       const localPack = readLocalPack();
       let remotePack = null;
       if (db) {
         try {
           const snap = await worldRef().get();
           if (snap.exists) remotePack = parseWorldPayload(snap.data());
+          const mapSnap = await mapRef().get();
+          if (mapSnap.exists) applyMap(mapSnap.data());
         } catch (err) {
           console.warn(err);
+          toast('Keine Verbindung zur Cloud.');
         }
       }
 
       let chosen = null;
       let upload = false;
 
-      if (localPack && remotePack) {
-        if (localPack.legacy && !sameEntryList(localPack.entries, remotePack.entries)) {
-          chosen = localPack;
-          upload = true;
-        } else if (localPack.updatedAt > remotePack.updatedAt) {
-          chosen = localPack;
-          upload = true;
-        } else {
-          chosen = remotePack;
-        }
-      } else if (remotePack) {
+      if (remotePack) {
         chosen = remotePack;
       } else if (localPack) {
         chosen = localPack;
@@ -1271,6 +1328,7 @@
 
       showHome();
       listenWorld();
+      listenMap();
     })();
   </script>
 </body>
