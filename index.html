@@ -998,23 +998,33 @@
     }
 
     function renderSidebar() {
-      const query = (document.getElementById('search')?.value || '').toLowerCase();
       const s = els.sidebar;
-      s.innerHTML = '';
+      let search = document.getElementById('search');
+      let actions = document.getElementById('sidebarActions');
+      let list = document.getElementById('sidebarList');
 
-      const wrap = document.createElement('div');
-      wrap.className = 'search-wrap';
-      const search = document.createElement('input');
-      search.id = 'search';
-      search.placeholder = 'Suche nach Name oder Text…';
-      search.value = query;
-      search.oninput = renderSidebar;
-      wrap.appendChild(search);
-      s.appendChild(wrap);
-
-      if (isDM) {
-        const actions = document.createElement('div');
+      if (!search || !actions || !list) {
+        s.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.className = 'search-wrap';
+        search = document.createElement('input');
+        search.id = 'search';
+        search.placeholder = 'Suche nach Name oder Text…';
+        search.oninput = renderSidebar;
+        wrap.appendChild(search);
+        s.appendChild(wrap);
+        actions = document.createElement('div');
+        actions.id = 'sidebarActions';
         actions.className = 'aside-actions';
+        s.appendChild(actions);
+        list = document.createElement('div');
+        list.id = 'sidebarList';
+        s.appendChild(list);
+      }
+
+      const query = (search.value || '').toLowerCase();
+      actions.innerHTML = '';
+      if (isDM) {
         const add = document.createElement('button');
         add.className = 'primary';
         add.textContent = '+ Neuer Eintrag';
@@ -1030,9 +1040,9 @@
         actions.appendChild(add);
         actions.appendChild(dlAll);
         actions.appendChild(ulAll);
-        s.appendChild(actions);
       }
 
+      list.innerHTML = '';
       categories.forEach(cat => {
         const matching = entries
           .map((e, i) => ({ e, i }))
@@ -1065,7 +1075,7 @@
             box.appendChild(b);
           });
         }
-        s.appendChild(box);
+        list.appendChild(box);
       });
     }
 
