@@ -539,27 +539,14 @@
     </form>
   </div>
 
-  <div id="tokenOverlay" class="overlay hidden">
-    <form class="login-card" id="tokenForm">
-      <h2>Einmalig verbinden</h2>
-      <p>Damit Speichern für alle Spieler gilt, braucht die Seite einmal einen GitHub-Token. Danach reicht nur noch der Speichern-Knopf.</p>
-      <div class="field">
-        <label for="ghToken">GitHub-Token</label>
-        <input id="ghToken" type="password" autocomplete="off" />
-      </div>
-      <p class="login-error" id="tokenError"></p>
-      <div class="editor-actions">
-        <button class="primary" type="submit">Speichern verbinden</button>
-        <button class="ghost" id="tokenCancel" type="button">Abbrechen</button>
-      </div>
-    </form>
-  </div>
-
   <input id="uploadAllInput" class="hidden" type="file" accept=".txt,.md,text/plain" />
   <input id="uploadOneInput" class="hidden" type="file" accept=".txt,.md,text/plain" />
 
   <div id="toast" class="toast hidden"></div>
 
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
   <script>
     function fmt(cmd) { document.execCommand(cmd, false, null); }
     function fmtValue(cmd, value) { if (value) document.execCommand(cmd, false, value); }
@@ -568,15 +555,14 @@
     const typeAliases = { Stadt: 'Städte', Königreich: 'Königreiche', Landschaft: 'Landschaften', Gott: 'Götter', Religion: 'Religionen', Gilde: 'Gilden' };
     const LOCAL_KEY = 'thalarion_world_data';
     const SESSION_KEY = 'thalarion_dm';
-    const GH_TOKEN_KEY = 'thalarion_gh_token';
-    const GH_REPO = 'juwalliser-creator/Thalarion';
-    const GH_FILE = 'world.json';
+    const WORLD_DOC = 'codex';
     const DM_USER = 'dm';
     const DM_PASS = 'bWVpbmV3ZWx0';
 
-    let serverEntries = [];
+    let db = null;
+    let worldUpdatedAt = 0;
+    let writingRemote = false;
     let entries = [];
-    let fileSha = null;
     let currentIndex = null;
     let isDM = false;
     let expandedCategories = {};
@@ -639,90 +625,67 @@
     }
 
     function persistLocal() {
-      localStorage.setItem(LOCAL_KEY, JSON.stringify(entries, null, 2));
+      localStorage.setItem(LOCAL_KEY, JSON.stringify({
+        updatedAt: worldUpdatedAt,
+        entries: entries
+      }));
     }
 
-    function decodeGithubContent(content) {
-      const clean = (content || '').replace(/\n/g, '');
-      return decodeURIComponent(escape(atob(clean)));
+    function initFirebase() {
+      if (!window.firebase || !window.FIREBASE_CONFIG) return false;
+      if (!firebase.apps.length) firebase.initializeApp(window.FIREBASE_CONFIG);
+      db = firebase.firestore();
+      return true;
     }
 
-    function encodeGithubContent(text) {
-      return btoa(unescape(encodeURIComponent(text)));
+    function worldRef() {
+      return db.collection('world').doc(WORLD_DOC);
     }
 
-    async function loadFromGithub() {
-      const r = await fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_FILE, {
-        headers: { Accept: 'application/vnd.github+json' }
-      });
-      if (!r.ok) throw new Error('GitHub ' + r.status);
-      const data = await r.json();
-      fileSha = data.sha;
-      return normalizeEntries(JSON.parse(decodeGithubContent(data.content)));
-    }
-
-    function askForToken() {
-      return new Promise(resolve => {
-        const overlay = document.getElementById('tokenOverlay');
-        const form = document.getElementById('tokenForm');
-        const input = document.getElementById('ghToken');
-        const error = document.getElementById('tokenError');
-        const cancel = document.getElementById('tokenCancel');
-        error.textContent = '';
-        input.value = '';
-        overlay.classList.remove('hidden');
-        input.focus();
-
-        const finish = value => {
-          form.onsubmit = null;
-          cancel.onclick = null;
-          overlay.classList.add('hidden');
-          resolve(value);
-        };
-        form.onsubmit = ev => {
-          ev.preventDefault();
-          const value = input.value.trim();
-          if (!value) {
-            error.textContent = 'Bitte den Token einfügen.';
-            return;
-          }
-          localStorage.setItem(GH_TOKEN_KEY, value);
-          finish(value);
-        };
-        cancel.onclick = () => finish(null);
-      });
-    }
-
-    async function saveToGithub(list) {
-      let auth = localStorage.getItem(GH_TOKEN_KEY);
-      if (!auth) auth = await askForToken();
-      if (!auth) throw new Error('Speichern abgebrochen');
-      if (!fileSha) await loadFromGithub();
-      const body = JSON.stringify(list, null, 2);
-      const r = await fetch('https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_FILE, {
-        method: 'PUT',
-        headers: {
-          Accept: 'application/vnd.github+json',
-          Authorization: 'Bearer ' + auth,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          message: 'Weltstand aktualisiert',
-          content: encodeGithubContent(body),
-          sha: fileSha
-        })
-      });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) {
-        if (r.status === 401 || r.status === 403) localStorage.removeItem(GH_TOKEN_KEY);
-        throw new Error(data.message || ('GitHub ' + r.status));
+    function refreshOpenView() {
+      if (currentPage === 'map') return;
+      if (currentIndex !== null && entries[currentIndex] && !dirty) loadEntry(currentIndex);
+      else {
+        renderHome();
+        renderSidebar();
       }
-      fileSha = data.content && data.content.sha ? data.content.sha : fileSha;
+    }
+
+    function applyRemote(data) {
+      if (!data || !Array.isArray(data.entries)) return;
+      const at = Number(data.updatedAt) || 0;
+      if (at <= worldUpdatedAt) return;
+      if (dirty) {
+        toast('Ein anderer Laptop hat gespeichert. Erst Speichern oder Abbrechen, dann erscheint der neue Stand.');
+        return;
+      }
+      worldUpdatedAt = at;
+      entries = normalizeEntries(data.entries);
+      persistLocal();
+      refreshOpenView();
     }
 
     async function persistWorld() {
+      worldUpdatedAt = Date.now();
       persistLocal();
-      await saveToGithub(entries);
+      if (!db) return;
+      writingRemote = true;
+      try {
+        await worldRef().set({
+          updatedAt: worldUpdatedAt,
+          entries: entries
+        });
+      } finally {
+        writingRemote = false;
+      }
+    }
+
+    function listenWorld() {
+      if (!db) return;
+      worldRef().onSnapshot(snap => {
+        if (writingRemote || !snap.exists) return;
+        applyRemote(snap.data());
+      });
     }
 
     function htmlToText(html) {
@@ -1091,7 +1054,7 @@
       try {
         await persistWorld();
         dirty = false;
-        toast('Gespeichert. Spieler sehen es in etwa einer Minute.');
+        toast('Gespeichert.');
         loadEntry(currentIndex);
       } catch (err) {
         if (previous === null) entries.pop();
@@ -1231,21 +1194,59 @@
     if (sessionStorage.getItem(SESSION_KEY) === '1') setDM(true);
 
     (async function boot() {
-      try {
-        entries = await loadFromGithub();
-        serverEntries = entries.slice();
-        persistLocal();
-      } catch {
+      initFirebase();
+      let loaded = false;
+
+      if (db) {
+        try {
+          const snap = await worldRef().get();
+          const data = snap.exists ? snap.data() : null;
+          if (data && Array.isArray(data.entries) && data.entries.length) {
+            worldUpdatedAt = Number(data.updatedAt) || Date.now();
+            entries = normalizeEntries(data.entries);
+            persistLocal();
+            loaded = true;
+          }
+        } catch (err) {
+          console.warn(err);
+        }
+      }
+
+      if (!loaded) {
+        const raw = localStorage.getItem(LOCAL_KEY);
+        if (raw) {
+          try {
+            const data = JSON.parse(raw);
+            if (Array.isArray(data)) entries = normalizeEntries(data);
+            else {
+              entries = normalizeEntries(data.entries || []);
+              worldUpdatedAt = Number(data.updatedAt) || 0;
+            }
+            loaded = entries.length > 0;
+          } catch { /* fallback below */ }
+        }
+      }
+
+      if (!loaded) {
         try {
           const r = await fetch('world.json');
           entries = normalizeEntries(await r.json());
-          serverEntries = entries.slice();
         } catch {
-          const local = localStorage.getItem(LOCAL_KEY);
-          entries = local ? normalizeEntries(JSON.parse(local)) : [];
+          entries = [];
         }
       }
+
+      if (db && entries.length) {
+        try {
+          const snap = await worldRef().get();
+          if (!snap.exists) await persistWorld();
+        } catch (err) {
+          console.warn(err);
+        }
+      }
+
       showHome();
+      listenWorld();
     })();
   </script>
 </body>
