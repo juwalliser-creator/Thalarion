@@ -416,7 +416,7 @@
         <span>Das Blutsiegel</span>
       </button>
       <nav class="top-nav">
-        <button type="button" id="navCodex" class="active">Codex</button>
+        <button type="button" id="navCodex" class="active">Kompendium</button>
         <button type="button" id="navMap">Karte</button>
       </nav>
       <div class="header-spacer"></div>
@@ -430,7 +430,7 @@
         <section id="homeView" class="panel">
           <div class="hero">
             <div class="seal">T</div>
-            <h1>Der Codex von Thalarion</h1>
+            <h1>Das Kompendium von Thalarion</h1>
             <p>Wähle links einen Eintrag oder öffne eine Kategorie, um Reiche, Städte, Götter und Geheimnisse dieser Welt zu lesen.</p>
           </div>
           <div class="cards" id="homeCards"></div>
@@ -839,7 +839,7 @@
 
     function formatCodexFile(list) {
       return [
-        '# Thalarion – Codex',
+        '# Thalarion – Kompendium',
         '# Bitte die Markierungen ===== EINTRAG START ===== und ===== EINTRAG ENDE ===== behalten.',
         '# Titel, Kategorie und Sichtbarkeit in den Kopfzeilen lassen.',
         '',
@@ -893,7 +893,7 @@
 
     function downloadAllEntries() {
       if (!isDM) return;
-      downloadText('Thalarion-Codex.txt', formatCodexFile(entries));
+      downloadText('Thalarion-Kompendium.txt', formatCodexFile(entries));
       toast('Datei heruntergeladen.');
     }
 
