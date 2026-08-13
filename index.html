@@ -278,6 +278,8 @@
     }
     .prose { line-height: 1.75; color: #f6efe2; }
     .prose p { margin: 0 0 1rem; }
+    .origin-article { margin-bottom: 1.4rem; }
+    .origin-article + .origin-article { margin-top: 0.4rem; }
     .article-actions { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
 
     .editor-card {
@@ -416,8 +418,8 @@
         <span>Das Blutsiegel</span>
       </button>
       <nav class="top-nav">
-        <button type="button" id="navCodex" class="active">Kompendium</button>
         <button type="button" id="navEntstehung">Entstehung</button>
+        <button type="button" id="navCodex" class="active">Kompendium</button>
         <button type="button" id="navMap">Karte</button>
       </nav>
       <div class="header-spacer"></div>
@@ -499,7 +501,7 @@
             <h1>Die Entstehung Thalarions</h1>
             <p>Die Geschichte, wie diese Welt wurde, was sie ist.</p>
           </div>
-          <div class="cards" id="entstehungCards"></div>
+          <div id="entstehungText"></div>
         </section>
 
         <section id="mapView" class="hidden">
@@ -577,7 +579,7 @@
       editorView: document.getElementById('editorView'),
       mapView: document.getElementById('mapView'),
       entstehungView: document.getElementById('entstehungView'),
-      entstehungCards: document.getElementById('entstehungCards'),
+      entstehungText: document.getElementById('entstehungText'),
       dmButton: document.getElementById('dmButton'),
       loginOverlay: document.getElementById('loginOverlay'),
       loginForm: document.getElementById('loginForm'),
@@ -1015,28 +1017,50 @@
     }
 
     function renderEntstehung() {
-      els.entstehungCards.innerHTML = '';
+      const box = els.entstehungText;
+      box.innerHTML = '';
       const chapters = visibleEntries()
         .map((e, i) => ({ e, i }))
         .filter(({ e }) => e.type === STORY_CAT)
         .sort((a, b) => a.e.title.localeCompare(b.e.title, 'de'));
       if (!chapters.length) {
         const empty = document.createElement('p');
-        empty.style.gridColumn = '1 / -1';
         empty.style.color = 'var(--muted)';
         empty.style.textAlign = 'center';
         empty.textContent = isDM
-          ? 'Noch kein Kapitel. Lege als DM einen Eintrag der Kategorie „Entstehung“ an.'
+          ? 'Noch kein Text. Lege als DM einen Eintrag der Kategorie „Entstehung“ an.'
           : 'Die Entstehungsgeschichte wird hier erscheinen.';
-        els.entstehungCards.appendChild(empty);
+        box.appendChild(empty);
         return;
       }
       chapters.forEach(({ e, i }) => {
-        const btn = document.createElement('button');
-        btn.className = 'card';
-        btn.innerHTML = `<b>${e.title}</b><span>Kapitel öffnen</span>`;
-        btn.onclick = () => loadEntry(i);
-        els.entstehungCards.appendChild(btn);
+        const article = document.createElement('article');
+        article.className = 'article origin-article';
+        if (isDM) {
+          const actions = document.createElement('div');
+          actions.className = 'article-actions';
+          const edit = document.createElement('button');
+          edit.className = 'ghost';
+          edit.type = 'button';
+          edit.textContent = 'Bearbeiten';
+          edit.onclick = () => {
+            currentIndex = i;
+            currentTitle = e.title;
+            fillEditor(e);
+            openEditor();
+          };
+          actions.appendChild(edit);
+          article.appendChild(actions);
+        }
+        const kicker = document.createElement('div');
+        kicker.className = 'kicker';
+        kicker.textContent = e.title;
+        const prose = document.createElement('div');
+        prose.className = 'prose';
+        prose.innerHTML = e.content || '<p><em>Noch kein Text.</em></p>';
+        article.appendChild(kicker);
+        article.appendChild(prose);
+        box.appendChild(article);
       });
     }
 
@@ -1223,7 +1247,8 @@
         dirty = false;
         currentTitle = e.title;
         toast('Gespeichert.');
-        loadEntry(currentIndex);
+        if (e.type === STORY_CAT) showEntstehung();
+        else loadEntry(currentIndex);
       } catch (err) {
         if (previous === null) entries.pop();
         else entries[currentIndex] = previous;
@@ -1263,11 +1288,13 @@
       else sessionStorage.removeItem(SESSION_KEY);
       document.getElementById('mapToolbar').classList.toggle('hidden', !on);
       if (!on && !els.editorView.classList.contains('hidden')) {
-        if (currentIndex !== null) loadEntry(currentIndex);
+        if (currentIndex !== null && entries[currentIndex]?.type === STORY_CAT) showEntstehung();
+        else if (currentIndex !== null) loadEntry(currentIndex);
         else showHome();
       } else {
         renderHome();
         renderSidebar();
+        if (!els.entstehungView.classList.contains('hidden')) renderEntstehung();
         els.playerToEdit.classList.toggle('hidden', !on || currentIndex === null || els.viewer.classList.contains('hidden'));
       }
     }
@@ -1328,7 +1355,8 @@
     document.getElementById('cancelEdit').onclick = () => {
       if (!confirmLeaveEditor()) return;
       dirty = false;
-      if (currentIndex !== null) loadEntry(currentIndex);
+      if (currentIndex !== null && entries[currentIndex]?.type === STORY_CAT) showEntstehung();
+      else if (currentIndex !== null) loadEntry(currentIndex);
       else showHome();
     };
     document.getElementById('editCurrent').onclick = editCurrent;
