@@ -631,6 +631,35 @@
       }));
     }
 
+    function parseWorldPayload(data) {
+      if (!data) return null;
+      if (Array.isArray(data)) {
+        return { entries: normalizeEntries(data), updatedAt: 0, legacy: true };
+      }
+      if (Array.isArray(data.entries)) {
+        return {
+          entries: normalizeEntries(data.entries),
+          updatedAt: Number(data.updatedAt) || 0,
+          legacy: false
+        };
+      }
+      return null;
+    }
+
+    function readLocalPack() {
+      const raw = localStorage.getItem(LOCAL_KEY);
+      if (!raw) return null;
+      try {
+        return parseWorldPayload(JSON.parse(raw));
+      } catch {
+        return null;
+      }
+    }
+
+    function sameEntryList(a, b) {
+      return JSON.stringify(a || []) === JSON.stringify(b || []);
+    }
+
     function initFirebase() {
       if (!window.firebase || !window.FIREBASE_CONFIG) return false;
       if (!firebase.apps.length) firebase.initializeApp(window.FIREBASE_CONFIG);
@@ -652,15 +681,16 @@
     }
 
     function applyRemote(data) {
-      if (!data || !Array.isArray(data.entries)) return;
-      const at = Number(data.updatedAt) || 0;
+      const pack = parseWorldPayload(data);
+      if (!pack || !pack.entries.length) return;
+      const at = pack.updatedAt;
       if (at <= worldUpdatedAt) return;
       if (dirty) {
         toast('Ein anderer Laptop hat gespeichert. Erst Speichern oder Abbrechen, dann erscheint der neue Stand.');
         return;
       }
       worldUpdatedAt = at;
-      entries = normalizeEntries(data.entries);
+      entries = pack.entries;
       persistLocal();
       refreshOpenView();
     }
@@ -1195,51 +1225,51 @@
 
     (async function boot() {
       initFirebase();
-      let loaded = false;
-
+      const localPack = readLocalPack();
+      let remotePack = null;
       if (db) {
         try {
           const snap = await worldRef().get();
-          const data = snap.exists ? snap.data() : null;
-          if (data && Array.isArray(data.entries) && data.entries.length) {
-            worldUpdatedAt = Number(data.updatedAt) || Date.now();
-            entries = normalizeEntries(data.entries);
-            persistLocal();
-            loaded = true;
-          }
+          if (snap.exists) remotePack = parseWorldPayload(snap.data());
         } catch (err) {
           console.warn(err);
         }
       }
 
-      if (!loaded) {
-        const raw = localStorage.getItem(LOCAL_KEY);
-        if (raw) {
-          try {
-            const data = JSON.parse(raw);
-            if (Array.isArray(data)) entries = normalizeEntries(data);
-            else {
-              entries = normalizeEntries(data.entries || []);
-              worldUpdatedAt = Number(data.updatedAt) || 0;
-            }
-            loaded = entries.length > 0;
-          } catch { /* fallback below */ }
-        }
-      }
+      let chosen = null;
+      let upload = false;
 
-      if (!loaded) {
+      if (localPack && remotePack) {
+        if (localPack.legacy && !sameEntryList(localPack.entries, remotePack.entries)) {
+          chosen = localPack;
+          upload = true;
+        } else if (localPack.updatedAt > remotePack.updatedAt) {
+          chosen = localPack;
+          upload = true;
+        } else {
+          chosen = remotePack;
+        }
+      } else if (remotePack) {
+        chosen = remotePack;
+      } else if (localPack) {
+        chosen = localPack;
+        upload = true;
+      } else {
         try {
           const r = await fetch('world.json');
-          entries = normalizeEntries(await r.json());
+          chosen = parseWorldPayload(await r.json());
+          upload = true;
         } catch {
-          entries = [];
+          chosen = { entries: [], updatedAt: 0 };
         }
       }
 
-      if (db && entries.length) {
+      entries = chosen.entries || [];
+      worldUpdatedAt = chosen.updatedAt || 0;
+      persistLocal();
+      if (db && upload && entries.length) {
         try {
-          const snap = await worldRef().get();
-          if (!snap.exists) await persistWorld();
+          await persistWorld();
         } catch (err) {
           console.warn(err);
         }
