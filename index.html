@@ -278,7 +278,7 @@
     }
     .prose { line-height: 1.75; color: #f6efe2; }
     .prose p { margin: 0 0 1rem; }
-    .article-actions { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .article-actions { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
 
     .editor-card {
       background: var(--panel);
@@ -457,6 +457,8 @@
           <article class="article">
             <div class="article-actions hidden" id="playerToEdit">
               <button class="ghost" id="editCurrent" type="button">Eintrag bearbeiten</button>
+              <button class="ghost" id="downloadOneBtn" type="button">Nur diesen Eintrag herunterladen</button>
+              <button class="ghost" id="uploadOneBtn" type="button">Hochladen</button>
             </div>
             <div class="kicker" id="viewType"></div>
             <h2 id="viewTitle"></h2>
@@ -552,6 +554,9 @@
       </div>
     </form>
   </div>
+
+  <input id="uploadAllInput" class="hidden" type="file" accept=".txt,.md,text/plain" />
+  <input id="uploadOneInput" class="hidden" type="file" accept=".txt,.md,text/plain" />
 
   <div id="toast" class="toast hidden"></div>
 
@@ -720,6 +725,180 @@
       await saveToGithub(entries);
     }
 
+    function htmlToText(html) {
+      const d = document.createElement('div');
+      d.innerHTML = html || '';
+      d.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+      d.querySelectorAll('p, div, h1, h2, h3, li, blockquote').forEach(el => {
+        el.insertAdjacentText('afterend', '\n\n');
+      });
+      return (d.textContent || '')
+        .replace(/\u00a0/g, ' ')
+        .replace(/[ \t]+\n/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function textToHtml(text) {
+      return (text || '').trim().split(/\n{2,}/).filter(Boolean).map(block => {
+        return '<p>' + escapeHtml(block).replace(/\n/g, '<br>') + '</p>';
+      }).join('');
+    }
+
+    function visibilityLabel(v) {
+      return v === 'dm' ? 'Nur DM' : 'Spieler';
+    }
+
+    function parseVisibility(v) {
+      const s = (v || '').toLowerCase();
+      return /dm|nur/.test(s) ? 'dm' : 'player';
+    }
+
+    function fileNameFor(title) {
+      const clean = (title || 'eintrag').replace(/[<>:"/\\|?*]+/g, '').trim().slice(0, 60);
+      return (clean || 'eintrag') + '.txt';
+    }
+
+    function formatEntryBlock(e) {
+      return [
+        '===== EINTRAG START =====',
+        'Titel: ' + (e.title || ''),
+        'Kategorie: ' + (e.type || ''),
+        'Sichtbarkeit: ' + visibilityLabel(e.visibility),
+        '',
+        htmlToText(e.content),
+        '===== EINTRAG ENDE ====='
+      ].join('\n');
+    }
+
+    function formatCodexFile(list) {
+      return [
+        '# Thalarion – Codex',
+        '# Bitte die Markierungen ===== EINTRAG START ===== und ===== EINTRAG ENDE ===== behalten.',
+        '# Titel, Kategorie und Sichtbarkeit in den Kopfzeilen lassen.',
+        '',
+        list.map(formatEntryBlock).join('\n\n')
+      ].join('\n');
+    }
+
+    function parseCodexFile(text) {
+      const chunks = String(text || '').split(/===== EINTRAG START =====/i).slice(1);
+      return chunks.map(chunk => {
+        const body = chunk.split(/===== EINTRAG ENDE =====/i)[0];
+        const lines = body.replace(/^\uFEFF/, '').split(/\r?\n/);
+        const meta = { title: '', type: categories[0], visibility: 'player' };
+        let i = 0;
+        while (i < lines.length) {
+          const line = lines[i];
+          const m = line.match(/^\s*(Titel|Kategorie|Sichtbarkeit)\s*:\s*(.*)$/i);
+          if (m) {
+            const key = m[1].toLowerCase();
+            const val = m[2].trim();
+            if (key === 'titel') meta.title = val;
+            else if (key === 'kategorie') meta.type = normalizeType(val);
+            else meta.visibility = parseVisibility(val);
+            i += 1;
+            continue;
+          }
+          if (line.trim() === '') {
+            i += 1;
+            break;
+          }
+          break;
+        }
+        const content = lines.slice(i).join('\n').trim();
+        return {
+          title: meta.title,
+          type: categories.includes(meta.type) ? meta.type : normalizeType(meta.type),
+          visibility: meta.visibility,
+          content: textToHtml(content)
+        };
+      }).filter(e => e.title);
+    }
+
+    function downloadText(filename, text) {
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+
+    function downloadAllEntries() {
+      if (!isDM) return;
+      downloadText('Thalarion-Codex.txt', formatCodexFile(entries));
+      toast('Datei heruntergeladen.');
+    }
+
+    function downloadOneEntry() {
+      if (!isDM || currentIndex === null) return;
+      const e = entries[currentIndex];
+      downloadText(fileNameFor(e.title), formatCodexFile([e]));
+      toast('Eintrag heruntergeladen.');
+    }
+
+    function readUploadedFile(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result || ''));
+        r.onerror = () => reject(new Error('Datei konnte nicht gelesen werden.'));
+        r.readAsText(file, 'UTF-8');
+      });
+    }
+
+    async function uploadAllEntries(file) {
+      if (!isDM || !file) return;
+      let parsed;
+      try {
+        parsed = parseCodexFile(await readUploadedFile(file));
+      } catch (err) {
+        return toast(err.message);
+      }
+      if (!parsed.length) return toast('In der Datei wurde kein Eintrag gefunden.');
+      if (!confirm(parsed.length + ' Einträge aus der Datei übernehmen und die bisherigen ersetzen?')) return;
+      const previous = entries.slice();
+      entries = parsed;
+      try {
+        await persistWorld();
+        toast('Alle Einträge übernommen.');
+        showHome();
+      } catch (err) {
+        entries = previous;
+        toast('Hochladen fehlgeschlagen: ' + err.message);
+      }
+    }
+
+    async function uploadOneEntry(file) {
+      if (!isDM || !file || currentIndex === null) return;
+      let parsed;
+      try {
+        parsed = parseCodexFile(await readUploadedFile(file));
+      } catch (err) {
+        return toast(err.message);
+      }
+      if (!parsed.length) return toast('In der Datei wurde kein Eintrag gefunden.');
+      const current = entries[currentIndex];
+      const incoming = parsed.find(e => e.title.toLowerCase() === current.title.toLowerCase()) || parsed[0];
+      const previous = Object.assign({}, current);
+      entries[currentIndex] = incoming;
+      try {
+        await persistWorld();
+        toast('Eintrag übernommen.');
+        loadEntry(currentIndex);
+      } catch (err) {
+        entries[currentIndex] = previous;
+        toast('Hochladen fehlgeschlagen: ' + err.message);
+      }
+    }
+
     function showPage(page) {
       currentPage = page;
       els.navCodex.classList.toggle('active', page === 'codex');
@@ -780,7 +959,17 @@
         add.className = 'primary';
         add.textContent = '+ Neuer Eintrag';
         add.onclick = newEntry;
+        const dlAll = document.createElement('button');
+        dlAll.className = 'ghost';
+        dlAll.textContent = 'Alles herunterladen';
+        dlAll.onclick = downloadAllEntries;
+        const ulAll = document.createElement('button');
+        ulAll.className = 'ghost';
+        ulAll.textContent = 'Alles hochladen';
+        ulAll.onclick = () => document.getElementById('uploadAllInput').click();
         actions.appendChild(add);
+        actions.appendChild(dlAll);
+        actions.appendChild(ulAll);
         s.appendChild(actions);
       }
 
@@ -1018,6 +1207,21 @@
       toast('Vorschau. Über „Eintrag bearbeiten“ kommst du zurück.');
     };
     document.getElementById('editCurrent').onclick = editCurrent;
+    document.getElementById('downloadOneBtn').onclick = downloadOneEntry;
+    document.getElementById('uploadOneBtn').onclick = () => {
+      if (!isDM || currentIndex === null) return;
+      document.getElementById('uploadOneInput').click();
+    };
+    document.getElementById('uploadAllInput').onchange = ev => {
+      const file = ev.target.files[0];
+      ev.target.value = '';
+      uploadAllEntries(file);
+    };
+    document.getElementById('uploadOneInput').onchange = ev => {
+      const file = ev.target.files[0];
+      ev.target.value = '';
+      uploadOneEntry(file);
+    };
     ['title', 'type', 'visibility'].forEach(id => {
       document.getElementById(id).addEventListener('input', () => { dirty = true; });
       document.getElementById(id).addEventListener('change', () => { dirty = true; });
