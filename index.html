@@ -183,6 +183,58 @@
     }
     body.is-dm .dm-chip { display: inline-flex; }
     body.is-dm header { box-shadow: inset 0 -2px 0 var(--blood); }
+    .player-chip {
+      display: none;
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #efe3c4;
+      background: rgba(212, 179, 106, 0.2);
+      border: 1px solid var(--gold-dim);
+      border-radius: 999px;
+      padding: 0.28rem 0.7rem;
+    }
+    body.is-player .player-chip { display: inline-flex; }
+
+    .auth-tabs {
+      display: flex;
+      gap: 0.4rem;
+      margin-bottom: 0.9rem;
+    }
+    .char-layout {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 1.2rem;
+      align-items: start;
+    }
+    .char-layout.solo { grid-template-columns: 1fr; }
+    .char-roster {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0.8rem;
+      box-shadow: var(--shadow);
+    }
+    .char-roster h3 {
+      font-family: Cinzel, serif;
+      font-size: 0.95rem;
+      margin: 0 0 0.6rem;
+      color: var(--gold);
+    }
+    .char-roster button {
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: 0;
+      color: var(--ink);
+      padding: 0.45rem 0.5rem;
+      border-radius: 6px;
+    }
+    .char-roster button:hover { background: rgba(212, 179, 106, 0.08); }
+    .char-roster button.active {
+      background: rgba(212, 179, 106, 0.16);
+      color: var(--gold);
+    }
 
     #menuBtn { display: none; }
 
@@ -608,6 +660,7 @@
         <button type="button" id="navBestiarium">Bestiarium</button>
         <button type="button" id="navGlossar">Glossar</button>
         <button type="button" id="navMap">Karte</button>
+        <button type="button" id="navCharakter">Charakter</button>
       </nav>
       <div class="header-search">
         <div class="search-wrap">
@@ -616,6 +669,8 @@
         <div id="searchResults" class="search-results hidden"></div>
       </div>
       <div class="header-spacer"></div>
+      <span class="player-chip" id="playerChip">Spieler</span>
+      <button class="ghost" id="playerButton" type="button">Spieler Login</button>
       <span class="dm-chip">DM-Modus</span>
       <button class="ghost" id="dmButton" type="button">DM Login</button>
     </header>
@@ -717,6 +772,51 @@
             </div>
           </div>
         </section>
+
+        <section id="charView" class="panel hidden">
+          <div id="charGuest">
+            <div class="hero">
+              <div class="seal">C</div>
+              <h1>Dein Charakter</h1>
+              <p>Registriere dich oder melde dich an, um dein Charakterblatt zu sehen. Nur du und der DM können es lesen.</p>
+            </div>
+            <div class="page-toolbar">
+              <button class="primary" id="charLoginBtn" type="button">Anmelden</button>
+              <button class="ghost" id="charRegisterBtn" type="button">Registrieren</button>
+            </div>
+          </div>
+          <div id="charApp" class="hidden">
+            <div class="char-layout" id="charLayout">
+              <div class="char-roster hidden" id="charRoster">
+                <h3>Spieler</h3>
+                <div id="charRosterList"></div>
+              </div>
+              <div class="editor-card">
+                <h2 id="charHeading">Charakterblatt</h2>
+                <p id="charBlurb" style="color:var(--muted);margin:-0.4rem 0 1rem;">Notizen, Werte und Ausrüstung — nur für dich und den DM.</p>
+                <div class="toolbar-label">Charakterblatt</div>
+                <div class="toolbar">
+                  <button type="button" onclick="fmt('bold')"><b>B</b></button>
+                  <button type="button" onclick="fmt('italic')"><i>I</i></button>
+                  <button type="button" onclick="fmt('underline')"><u>U</u></button>
+                  <select onchange="fmtValue('fontSize', this.value)">
+                    <option value="">Größe</option>
+                    <option value="2">Klein</option>
+                    <option value="3">Normal</option>
+                    <option value="5">Groß</option>
+                    <option value="7">Sehr groß</option>
+                  </select>
+                  <input type="color" onchange="fmtValue('foreColor', this.value)" title="Textfarbe" value="#f3ead8" />
+                </div>
+                <div id="sheetContent" class="editor-canvas" contenteditable="true"></div>
+                <div class="editor-actions">
+                  <button class="primary" id="saveSheetBtn" type="button">Blatt speichern</button>
+                  <button class="danger hidden" id="deletePlayerBtn" type="button">Spieler entfernen</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   </div>
@@ -737,6 +837,34 @@
       <div class="editor-actions">
         <button class="primary" type="submit">Anmelden</button>
         <button class="ghost" id="loginCancel" type="button">Abbrechen</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="playerOverlay" class="overlay hidden">
+    <form class="login-card" id="playerForm">
+      <h2 id="playerFormTitle">Spieler-Zugang</h2>
+      <p id="playerFormHint">Einfache Anmeldung für dein Charakterblatt.</p>
+      <div class="auth-tabs">
+        <button class="primary" id="playerTabLogin" type="button">Anmelden</button>
+        <button class="ghost" id="playerTabRegister" type="button">Registrieren</button>
+      </div>
+      <div class="field">
+        <label for="playerUser">Name</label>
+        <input id="playerUser" type="text" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label for="playerPassword">Passwort</label>
+        <input id="playerPassword" type="password" autocomplete="current-password" />
+      </div>
+      <div class="field hidden" id="playerPass2Wrap">
+        <label for="playerPassword2">Passwort wiederholen</label>
+        <input id="playerPassword2" type="password" autocomplete="new-password" />
+      </div>
+      <p class="login-error" id="playerError"></p>
+      <div class="editor-actions">
+        <button class="primary" id="playerSubmit" type="submit">Anmelden</button>
+        <button class="ghost" id="playerCancel" type="button">Abbrechen</button>
       </div>
     </form>
   </div>
@@ -798,8 +926,11 @@
     const LOCAL_KEY = 'thalarion_world_data';
     const SESSION_KEY = 'thalarion_dm';
     const WORLD_DOC = 'codex';
+    const PLAYERS_DOC = 'players';
     const DM_USER = 'dm';
     const DM_PASS = 'bWVpbmV3ZWx0';
+    const PLAYER_SESSION_KEY = 'thalarion_player';
+    const DEFAULT_SHEET = '<p><b>Name:</b></p><p><b>Volk:</b></p><p><b>Klasse:</b></p><p><b>Stufe:</b></p><p><b>Hintergrund:</b></p><p><b>Werte:</b> ST — GE — KO — IN — WE — CH</p><p><b>Trefferpunkte:</b></p><p><b>Rüstung:</b></p><p><b>Fertigkeiten:</b></p><p></p><p><b>Ausrüstung:</b></p><p></p><p><b>Notizen:</b></p><p></p>';
 
     let db = null;
     let worldUpdatedAt = 0;
@@ -818,6 +949,13 @@
     let currentPage = 'entstehung';
     let selectedHomeCat = null;
     let dirty = false;
+    let sheetDirty = false;
+    let playerAccounts = {};
+    let playersUpdatedAt = 0;
+    let writingPlayers = false;
+    let currentPlayerId = null;
+    let currentSheetOwner = null;
+    let playerFormMode = 'login';
 
     const els = {
       sidebar: document.getElementById('sidebar'),
@@ -845,7 +983,9 @@
       navEntstehung: document.getElementById('navEntstehung'),
       navBestiarium: document.getElementById('navBestiarium'),
       navGlossar: document.getElementById('navGlossar'),
-      navMap: document.getElementById('navMap')
+      navMap: document.getElementById('navMap'),
+      navCharakter: document.getElementById('navCharakter'),
+      charView: document.getElementById('charView')
     };
 
     function fillTypeSelect(page) {
@@ -995,6 +1135,253 @@
       return db.collection('world').doc('mapPins');
     }
 
+    function playersRef() {
+      return db.collection('world').doc(PLAYERS_DOC);
+    }
+
+    function playerIdFromName(name) {
+      return (name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    }
+
+    function normalizeAccounts(raw) {
+      const out = {};
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+      Object.keys(raw).forEach(key => {
+        const a = raw[key] || {};
+        const id = playerIdFromName(a.name || key);
+        if (!id) return;
+        out[id] = {
+          name: (a.name || key).trim(),
+          password: a.password || '',
+          sheet: a.sheet || DEFAULT_SHEET,
+          createdAt: Number(a.createdAt) || 0
+        };
+      });
+      return out;
+    }
+
+    function applyPlayers(data) {
+      if (!data) return;
+      const at = Number(data.updatedAt) || 0;
+      if (at && at <= playersUpdatedAt) return;
+      if (sheetDirty) return;
+      playersUpdatedAt = at;
+      playerAccounts = normalizeAccounts(data.accounts);
+      if (currentPlayerId && !playerAccounts[currentPlayerId]) setPlayer(null);
+      if (currentPage === 'char') renderCharakter();
+      else updatePlayerChrome();
+    }
+
+    function listenPlayers() {
+      if (!db) return;
+      playersRef().onSnapshot(snap => {
+        if (writingPlayers || !snap.exists) return;
+        applyPlayers(snap.data());
+      });
+    }
+
+    async function persistPlayers() {
+      if (!db) throw new Error('Keine Verbindung zur Cloud.');
+      const nextAt = Date.now();
+      writingPlayers = true;
+      try {
+        await playersRef().set({
+          updatedAt: nextAt,
+          accounts: playerAccounts
+        });
+        playersUpdatedAt = nextAt;
+      } finally {
+        writingPlayers = false;
+      }
+    }
+
+    function updatePlayerChrome() {
+      const on = !!currentPlayerId;
+      document.body.classList.toggle('is-player', on);
+      const acc = currentPlayerId ? playerAccounts[currentPlayerId] : null;
+      document.getElementById('playerChip').textContent = acc ? acc.name : 'Spieler';
+      document.getElementById('playerButton').textContent = on ? 'Spieler Logout' : 'Spieler Login';
+    }
+
+    function setPlayer(id) {
+      currentPlayerId = id;
+      if (id) sessionStorage.setItem(PLAYER_SESSION_KEY, id);
+      else sessionStorage.removeItem(PLAYER_SESSION_KEY);
+      if (id) currentSheetOwner = id;
+      else if (!isDM) currentSheetOwner = null;
+      updatePlayerChrome();
+    }
+
+    function setPlayerFormMode(mode) {
+      playerFormMode = mode === 'register' ? 'register' : 'login';
+      const register = playerFormMode === 'register';
+      document.getElementById('playerFormTitle').textContent = register ? 'Registrieren' : 'Spieler-Zugang';
+      document.getElementById('playerFormHint').textContent = register
+        ? 'Wähle einen Namen und ein Passwort. Danach siehst du dein Charakterblatt.'
+        : 'Einfache Anmeldung für dein Charakterblatt.';
+      document.getElementById('playerTabLogin').className = register ? 'ghost' : 'primary';
+      document.getElementById('playerTabRegister').className = register ? 'primary' : 'ghost';
+      document.getElementById('playerPass2Wrap').classList.toggle('hidden', !register);
+      document.getElementById('playerSubmit').textContent = register ? 'Konto anlegen' : 'Anmelden';
+      document.getElementById('playerError').textContent = '';
+    }
+
+    function openPlayerLogin(mode) {
+      setPlayerFormMode(mode || 'login');
+      document.getElementById('playerError').textContent = '';
+      document.getElementById('playerUser').value = '';
+      document.getElementById('playerPassword').value = '';
+      document.getElementById('playerPassword2').value = '';
+      document.getElementById('playerOverlay').classList.remove('hidden');
+      document.getElementById('playerUser').focus();
+    }
+
+    function closePlayerLogin() {
+      document.getElementById('playerOverlay').classList.add('hidden');
+    }
+
+    async function registerPlayer(name, password) {
+      const id = playerIdFromName(name);
+      if (id.length < 2) throw new Error('Bitte einen Namen mit mindestens 2 Zeichen wählen.');
+      if (id === DM_USER) throw new Error('Dieser Name ist reserviert.');
+      if (!password) throw new Error('Bitte ein Passwort setzen.');
+      if (playerAccounts[id]) throw new Error('Diesen Namen gibt es schon.');
+      const previous = playerAccounts;
+      playerAccounts = Object.assign({}, playerAccounts);
+      playerAccounts[id] = {
+        name: name.trim().replace(/\s+/g, ' '),
+        password: btoa(password),
+        sheet: DEFAULT_SHEET,
+        createdAt: Date.now()
+      };
+      try {
+        await persistPlayers();
+      } catch (err) {
+        playerAccounts = previous;
+        throw err;
+      }
+      setPlayer(id);
+    }
+
+    function loginPlayer(name, password) {
+      const id = playerIdFromName(name);
+      const acc = playerAccounts[id];
+      if (!acc || acc.password !== btoa(password)) throw new Error('Name oder Passwort stimmt nicht.');
+      setPlayer(id);
+    }
+
+    function showCharakter() {
+      if (!confirmLeaveEditor()) return;
+      dirty = false;
+      sheetDirty = false;
+      showPage('char');
+      currentIndex = null;
+      currentTitle = null;
+      renderCharakter();
+    }
+
+    function renderCharakter() {
+      const guest = document.getElementById('charGuest');
+      const app = document.getElementById('charApp');
+      const canUse = isDM || !!currentPlayerId;
+      guest.classList.toggle('hidden', canUse);
+      app.classList.toggle('hidden', !canUse);
+      if (!canUse) return;
+
+      const roster = document.getElementById('charRoster');
+      const layout = document.getElementById('charLayout');
+      const ids = Object.keys(playerAccounts).sort((a, b) =>
+        playerAccounts[a].name.localeCompare(playerAccounts[b].name, 'de')
+      );
+      if (isDM) {
+        roster.classList.remove('hidden');
+        layout.classList.remove('solo');
+        const list = document.getElementById('charRosterList');
+        list.innerHTML = '';
+        if (!ids.length) {
+          const empty = document.createElement('p');
+          empty.style.color = 'var(--muted)';
+          empty.style.margin = '0';
+          empty.textContent = 'Noch keine Spieler.';
+          list.appendChild(empty);
+        }
+        ids.forEach(id => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = currentSheetOwner === id ? 'active' : '';
+          btn.textContent = playerAccounts[id].name;
+          btn.onclick = () => {
+            if (currentSheetOwner === id) return;
+            if (sheetDirty && !confirm('Das Charakterblatt ist nicht gespeichert. Wirklich wechseln?')) return;
+            currentSheetOwner = id;
+            sheetDirty = false;
+            renderCharakter();
+          };
+          list.appendChild(btn);
+        });
+        if (!currentSheetOwner || !playerAccounts[currentSheetOwner]) {
+          currentSheetOwner = ids[0] || null;
+        }
+      } else {
+        roster.classList.add('hidden');
+        layout.classList.add('solo');
+        currentSheetOwner = currentPlayerId;
+      }
+
+      const acc = currentSheetOwner ? playerAccounts[currentSheetOwner] : null;
+      const del = document.getElementById('deletePlayerBtn');
+      del.classList.toggle('hidden', !isDM || !acc);
+      if (!acc) {
+        document.getElementById('charHeading').textContent = 'Charakterblatt';
+        document.getElementById('sheetContent').innerHTML = '';
+        return;
+      }
+      document.getElementById('charHeading').textContent = 'Charakterblatt · ' + acc.name;
+      if (!sheetDirty) document.getElementById('sheetContent').innerHTML = acc.sheet || DEFAULT_SHEET;
+    }
+
+    async function saveSheet() {
+      if (!currentSheetOwner || !playerAccounts[currentSheetOwner]) return;
+      if (!isDM && currentSheetOwner !== currentPlayerId) return;
+      const previous = playerAccounts[currentSheetOwner].sheet;
+      playerAccounts[currentSheetOwner].sheet = document.getElementById('sheetContent').innerHTML;
+      const btn = document.getElementById('saveSheetBtn');
+      btn.disabled = true;
+      btn.textContent = 'Speichert…';
+      try {
+        await persistPlayers();
+        sheetDirty = false;
+        toast('Charakterblatt gespeichert.');
+      } catch (err) {
+        playerAccounts[currentSheetOwner].sheet = previous;
+        toast('Speichern fehlgeschlagen: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Blatt speichern';
+      }
+    }
+
+    async function deletePlayerAccount() {
+      if (!isDM || !currentSheetOwner || !playerAccounts[currentSheetOwner]) return;
+      const acc = playerAccounts[currentSheetOwner];
+      if (!confirm('Spieler „' + acc.name + '“ und das Charakterblatt wirklich entfernen?')) return;
+      const previous = playerAccounts;
+      const removedId = currentSheetOwner;
+      playerAccounts = Object.assign({}, playerAccounts);
+      delete playerAccounts[removedId];
+      try {
+        await persistPlayers();
+        if (currentPlayerId === removedId) setPlayer(null);
+        currentSheetOwner = null;
+        sheetDirty = false;
+        toast('Spieler entfernt.');
+        renderCharakter();
+      } catch (err) {
+        playerAccounts = previous;
+        toast('Löschen fehlgeschlagen: ' + err.message);
+      }
+    }
+
     function indexByTitle(title) {
       if (!title) return null;
       const i = entries.findIndex(e => e.title === title);
@@ -1005,6 +1392,10 @@
       if (currentPage === 'map') {
         renderMapPins();
         renderSidebar();
+        return;
+      }
+      if (currentPage === 'char') {
+        renderCharakter();
         return;
       }
       const i = indexByTitle(currentTitle);
@@ -1502,9 +1893,11 @@
       els.navBestiarium.classList.toggle('active', page === 'bestiarium');
       els.navGlossar.classList.toggle('active', page === 'glossar');
       els.navMap.classList.toggle('active', page === 'map');
+      els.navCharakter.classList.toggle('active', page === 'char');
       els.mapView.classList.toggle('hidden', page !== 'map');
+      els.charView.classList.toggle('hidden', page !== 'char');
       updateSidebarVisibility(page);
-      if (page === 'map') {
+      if (page === 'map' || page === 'char') {
         els.homeView.classList.add('hidden');
         els.viewer.classList.add('hidden');
         els.editorView.classList.add('hidden');
@@ -1816,8 +2209,15 @@
     }
 
     function confirmLeaveEditor() {
-      if (!dirty || !isDM || els.editorView.classList.contains('hidden')) return true;
-      return confirm('Du hast ungespeicherte Änderungen. Wirklich verlassen?');
+      if (dirty && isDM && !els.editorView.classList.contains('hidden')) {
+        if (!confirm('Du hast ungespeicherte Änderungen. Wirklich verlassen?')) return false;
+        dirty = false;
+      }
+      if (sheetDirty && !els.charView.classList.contains('hidden')) {
+        if (!confirm('Das Charakterblatt ist nicht gespeichert. Wirklich verlassen?')) return false;
+        sheetDirty = false;
+      }
+      return true;
     }
 
     function loadEntry(i) {
@@ -1957,6 +2357,7 @@
         renderHome();
         renderSidebar();
         if (!els.entstehungView.classList.contains('hidden')) renderEntstehung();
+        if (currentPage === 'char') renderCharakter();
         els.playerToEdit.classList.toggle('hidden', !on || currentIndex === null || els.viewer.classList.contains('hidden'));
         updateExtraToolbars();
       }
@@ -2000,9 +2401,13 @@
     document.getElementById('navMap').onclick = () => {
       if (!confirmLeaveEditor()) return;
       dirty = false;
+      sheetDirty = false;
       showPage('map');
       renderSidebar();
       renderMapPins();
+    };
+    document.getElementById('navCharakter').onclick = () => {
+      showCharakter();
     };
     document.getElementById('globalSearch').addEventListener('input', renderGlobalSearch);
     document.getElementById('globalSearch').addEventListener('focus', renderGlobalSearch);
@@ -2018,6 +2423,51 @@
     document.getElementById('homeNewBtn').onclick = newEntry;
     document.getElementById('entstehungNewBtn').onclick = newEntry;
     document.getElementById('menuBtn').onclick = () => els.sidebar.classList.toggle('open');
+    document.getElementById('playerButton').onclick = () => {
+      if (currentPlayerId) {
+        if (currentPage === 'char' && sheetDirty && !confirm('Das Charakterblatt ist nicht gespeichert. Wirklich abmelden?')) return;
+        sheetDirty = false;
+        setPlayer(null);
+        if (currentPage === 'char') renderCharakter();
+        toast('Spieler abgemeldet.');
+      } else {
+        openPlayerLogin('login');
+      }
+    };
+    document.getElementById('charLoginBtn').onclick = () => openPlayerLogin('login');
+    document.getElementById('charRegisterBtn').onclick = () => openPlayerLogin('register');
+    document.getElementById('playerTabLogin').onclick = () => setPlayerFormMode('login');
+    document.getElementById('playerTabRegister').onclick = () => setPlayerFormMode('register');
+    document.getElementById('playerCancel').onclick = closePlayerLogin;
+    document.getElementById('playerOverlay').addEventListener('click', ev => {
+      if (ev.target === document.getElementById('playerOverlay')) closePlayerLogin();
+    });
+    document.getElementById('playerForm').addEventListener('submit', async ev => {
+      ev.preventDefault();
+      const name = document.getElementById('playerUser').value;
+      const password = document.getElementById('playerPassword').value;
+      const errEl = document.getElementById('playerError');
+      errEl.textContent = '';
+      try {
+        if (playerFormMode === 'register') {
+          const again = document.getElementById('playerPassword2').value;
+          if (password !== again) throw new Error('Die Passwörter stimmen nicht überein.');
+          await registerPlayer(name, password);
+          closePlayerLogin();
+          toast('Willkommen, ' + playerAccounts[currentPlayerId].name + '.');
+        } else {
+          loginPlayer(name, password);
+          closePlayerLogin();
+          toast('Angemeldet als ' + playerAccounts[currentPlayerId].name + '.');
+        }
+        showCharakter();
+      } catch (err) {
+        errEl.textContent = err.message || 'Das hat nicht geklappt.';
+      }
+    });
+    document.getElementById('saveSheetBtn').onclick = saveSheet;
+    document.getElementById('deletePlayerBtn').onclick = deletePlayerAccount;
+    document.getElementById('sheetContent').addEventListener('input', () => { sheetDirty = true; });
     document.getElementById('dmButton').onclick = () => {
       if (isDM) setDM(false);
       else openLogin();
@@ -2112,6 +2562,8 @@
           if (mapSnap.exists) applyMap(mapSnap.data());
           const pinSnap = await pinsRef().get();
           if (pinSnap.exists) applyPins(pinSnap.data());
+          const playerSnap = await playersRef().get();
+          if (playerSnap.exists) applyPlayers(playerSnap.data());
         } catch (err) {
           console.warn(err);
           toast('Keine Verbindung zur Cloud.');
@@ -2141,10 +2593,14 @@
         }
       }
 
+      const savedPlayer = sessionStorage.getItem(PLAYER_SESSION_KEY);
+      if (savedPlayer && playerAccounts[savedPlayer]) setPlayer(savedPlayer);
+
       showEntstehung();
       listenWorld();
       listenMap();
       listenPins();
+      listenPlayers();
     })();
   </script>
 </body>
