@@ -573,8 +573,8 @@
 
     const STORY_CAT = 'Entstehung';
     const KOMPENDIUM_CATS = ['Updates','Königreiche','Städte','Landschaften','NPCs','Götter','Religionen','Gilden','Magische Orte'];
-    const BESTIARIUM_CATS = ['Bestien','Monster','Drachen','Untote','Humanoiden','Magische Wesen','Geister'];
-    const GLOSSAR_CATS = ['Begriffe','Magie','Titel & Ämter','Gegenstände','Sprachen','Feste & Rituale'];
+    const BESTIARIUM_CATS = ['Hochfänge','Niederfänge','Dunkelwesen','Dunkelpflanzen','Bestien','Monster','Drachen','Humanoiden','Magische Wesen','Geister'];
+    const GLOSSAR_CATS = ['Begriffe','Nutzpflanzen','Titel & Ämter','Gegenstände','Sprachen','Feste & Rituale'];
     const PAGE_CATS = {
       entstehung: [STORY_CAT],
       codex: KOMPENDIUM_CATS,
@@ -595,11 +595,11 @@
       glossar: {
         seal: 'G',
         title: 'Das Glossar von Thalarion',
-        blurb: 'Öffne eine Kategorie, um Namen, Magie, Titel und andere Fachworte dieser Welt nachzuschlagen.'
+        blurb: 'Öffne eine Kategorie, um Namen, Nutzpflanzen, Titel und andere Fachworte dieser Welt nachzuschlagen.'
       }
     };
     const categories = [STORY_CAT, ...KOMPENDIUM_CATS, ...BESTIARIUM_CATS, ...GLOSSAR_CATS];
-    const typeAliases = { Stadt: 'Städte', Königreich: 'Königreiche', Landschaft: 'Landschaften', Gott: 'Götter', Religion: 'Religionen', Gilde: 'Gilden' };
+    const typeAliases = { Stadt: 'Städte', Königreich: 'Königreiche', Landschaft: 'Landschaften', Gott: 'Götter', Religion: 'Religionen', Gilde: 'Gilden', Magie: 'Nutzpflanzen' };
     const LOCAL_KEY = 'thalarion_world_data';
     const SESSION_KEY = 'thalarion_dm';
     const WORLD_DOC = 'codex';
