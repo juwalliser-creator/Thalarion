@@ -405,8 +405,15 @@
 
     .map-toolbar {
       display: flex;
+      align-items: center;
       justify-content: flex-end;
+      gap: 0.6rem;
       margin-bottom: 0.75rem;
+    }
+    .map-hint {
+      margin: 0 auto 0 0;
+      color: var(--gold);
+      font-size: 0.92rem;
     }
     .map-wrap {
       background: #0b0908;
@@ -416,11 +423,113 @@
       max-height: calc(100vh - 8rem);
       box-shadow: var(--shadow);
     }
+    .map-stage {
+      position: relative;
+      width: 100%;
+    }
+    .map-stage.placing { cursor: crosshair; }
     .map-wrap img {
       display: block;
       width: 100%;
       height: auto;
     }
+    .map-pins {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .map-pin {
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      transform: translate(-50%, -50%);
+      pointer-events: auto;
+      cursor: pointer;
+      z-index: 2;
+    }
+    .map-pin::before {
+      content: "";
+      position: absolute;
+      inset: 4px;
+      border-radius: 50%;
+      background: var(--blood);
+      border: 2px solid #e0c27a;
+      box-shadow: 0 0 0 4px rgba(212, 179, 106, 0.28);
+    }
+    .map-pin:hover,
+    .map-pin:focus {
+      z-index: 4;
+      transform: translate(-50%, -50%) scale(1.2);
+    }
+    .map-pin-label {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 10px);
+      transform: translateX(-50%);
+      display: none;
+      align-items: center;
+      gap: 0.35rem;
+      white-space: nowrap;
+      background: var(--panel-2);
+      border: 1px solid var(--gold-dim);
+      color: var(--ink);
+      padding: 0.28rem 0.55rem;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      box-shadow: var(--shadow);
+    }
+    .map-pin:hover .map-pin-label,
+    .map-pin:focus .map-pin-label {
+      display: flex;
+    }
+    .map-pin-del {
+      display: none;
+      width: 1.3rem;
+      height: 1.3rem;
+      padding: 0;
+      line-height: 1;
+      border-radius: 4px;
+    }
+    body.is-dm .map-pin-del { display: inline-flex; align-items: center; justify-content: center; }
+    .pin-card {
+      width: min(520px, 100%);
+      max-height: min(80vh, 640px);
+      display: flex;
+      flex-direction: column;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 1.2rem;
+      box-shadow: var(--shadow);
+    }
+    .pin-card h2 {
+      font-family: Cinzel, serif;
+      margin: 0 0 0.35rem;
+    }
+    .pin-card p { color: var(--muted); margin: 0 0 0.8rem; }
+    .pin-list {
+      overflow: auto;
+      min-height: 180px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--bg-soft);
+      margin: 0.75rem 0;
+    }
+    .pin-list button {
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      border-radius: 0;
+      color: var(--ink);
+      padding: 0.5rem 0.75rem;
+    }
+    .pin-list button:hover { background: rgba(212, 179, 106, 0.1); }
+    .pin-list .search-group-label { padding: 0.45rem 0.75rem 0.15rem; }
 
     .overlay {
       position: fixed;
@@ -597,10 +706,15 @@
 
         <section id="mapView" class="hidden">
           <div class="map-toolbar hidden" id="mapToolbar">
+            <p class="map-hint hidden" id="mapHint">Klicke auf die Stelle auf der Karte, dann wähle den Eintrag.</p>
+            <button class="ghost" id="placePinBtn" type="button">Ort setzen</button>
             <button class="primary" id="uploadMapBtn" type="button">Neue Karte hochladen</button>
           </div>
           <div class="map-wrap">
-            <img id="worldMap" src="Thalarion%20Karte.png" alt="Karte von Thalarion" />
+            <div class="map-stage" id="mapStage">
+              <img id="worldMap" src="Thalarion%20Karte.png" alt="Karte von Thalarion" />
+              <div class="map-pins" id="mapPins"></div>
+            </div>
           </div>
         </section>
       </main>
@@ -629,7 +743,19 @@
 
   <input id="uploadAllInput" class="hidden" type="file" accept=".txt,.md,text/plain" />
   <input id="uploadOneInput" class="hidden" type="file" accept=".txt,.md,text/plain" />
-  <input id="mapFileInput" class="hidden" type="file" accept="image/*" />
+  <div id="pinOverlay" class="overlay hidden">
+    <div class="pin-card">
+      <h2>Ort verknüpfen</h2>
+      <p>Welcher Eintrag gehört zu dieser Stelle?</p>
+      <div class="search-wrap">
+        <input id="pinSearch" type="search" placeholder="Eintrag suchen…" autocomplete="off" />
+      </div>
+      <div class="pin-list" id="pinList"></div>
+      <div class="editor-actions">
+        <button class="ghost" id="pinCancel" type="button">Abbrechen</button>
+      </div>
+    </div>
+  </div>
 
   <div id="toast" class="toast hidden"></div>
 
@@ -678,6 +804,11 @@
     let db = null;
     let worldUpdatedAt = 0;
     let mapUpdatedAt = 0;
+    let mapPins = [];
+    let mapPinsUpdatedAt = 0;
+    let writingPins = false;
+    let placingPin = false;
+    let pendingPin = null;
     let writingRemote = false;
     let entries = [];
     let currentIndex = null;
@@ -860,6 +991,10 @@
       return db.collection('world').doc('map');
     }
 
+    function pinsRef() {
+      return db.collection('world').doc('mapPins');
+    }
+
     function indexByTitle(title) {
       if (!title) return null;
       const i = entries.findIndex(e => e.title === title);
@@ -867,7 +1002,11 @@
     }
 
     function refreshOpenView() {
-      if (currentPage === 'map') return;
+      if (currentPage === 'map') {
+        renderMapPins();
+        renderSidebar();
+        return;
+      }
       const i = indexByTitle(currentTitle);
       currentIndex = i;
       if (i !== null && !dirty) loadEntry(i);
@@ -933,6 +1072,202 @@
       mapRef().onSnapshot(snap => {
         if (snap.exists) applyMap(snap.data());
       });
+    }
+
+    function normalizePins(list) {
+      return (Array.isArray(list) ? list : []).map(p => ({
+        title: p.title || '',
+        x: Number(p.x),
+        y: Number(p.y)
+      })).filter(p => p.title && Number.isFinite(p.x) && Number.isFinite(p.y));
+    }
+
+    function applyPins(data) {
+      if (!data) return;
+      const at = Number(data.updatedAt) || 0;
+      if (at && at <= mapPinsUpdatedAt) return;
+      mapPinsUpdatedAt = at;
+      mapPins = normalizePins(data.pins);
+      renderMapPins();
+    }
+
+    function listenPins() {
+      if (!db) return;
+      pinsRef().onSnapshot(snap => {
+        if (writingPins || !snap.exists) return;
+        applyPins(snap.data());
+      });
+    }
+
+    async function persistPins() {
+      if (!db) throw new Error('Keine Verbindung zur Cloud.');
+      const nextAt = Date.now();
+      writingPins = true;
+      try {
+        await pinsRef().set({
+          updatedAt: nextAt,
+          pins: mapPins
+        });
+        mapPinsUpdatedAt = nextAt;
+      } finally {
+        writingPins = false;
+      }
+    }
+
+    function setPlacingPin(on) {
+      placingPin = !!on && isDM;
+      pendingPin = null;
+      const stage = document.getElementById('mapStage');
+      const btn = document.getElementById('placePinBtn');
+      const hint = document.getElementById('mapHint');
+      stage.classList.toggle('placing', placingPin);
+      btn.classList.toggle('primary', placingPin);
+      btn.classList.toggle('ghost', !placingPin);
+      btn.textContent = placingPin ? 'Fertig' : 'Ort setzen';
+      hint.classList.toggle('hidden', !placingPin);
+      if (!placingPin) closePinPicker();
+    }
+
+    function visibleMapPins() {
+      return mapPins.filter(pin => {
+        const i = indexByTitle(pin.title);
+        if (i === null) return isDM;
+        return isDM || entries[i].visibility === 'player';
+      });
+    }
+
+    function renderMapPins() {
+      const box = document.getElementById('mapPins');
+      if (!box) return;
+      box.innerHTML = '';
+      visibleMapPins().forEach((pin, pinIndex) => {
+        const i = indexByTitle(pin.title);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'map-pin';
+        btn.style.left = pin.x + '%';
+        btn.style.top = pin.y + '%';
+        btn.title = pin.title;
+        const label = document.createElement('span');
+        label.className = 'map-pin-label';
+        const name = document.createElement('span');
+        name.textContent = pin.title + (i === null ? ' (fehlt)' : '');
+        label.appendChild(name);
+        if (isDM) {
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'ghost map-pin-del';
+          del.textContent = '×';
+          del.title = 'Ort entfernen';
+          del.onclick = ev => {
+            ev.stopPropagation();
+            removeMapPin(pin.title);
+          };
+          label.appendChild(del);
+        }
+        btn.appendChild(label);
+        btn.onclick = ev => {
+          ev.stopPropagation();
+          if (i === null) {
+            toast('Dieser Eintrag existiert nicht mehr. Als DM kannst du die Markierung löschen.');
+            return;
+          }
+          loadEntry(i);
+        };
+        box.appendChild(btn);
+      });
+    }
+
+    async function removeMapPin(title) {
+      if (!isDM) return;
+      const previous = mapPins.slice();
+      mapPins = mapPins.filter(p => p.title !== title);
+      renderMapPins();
+      try {
+        await persistPins();
+        toast('Ort entfernt.');
+      } catch (err) {
+        mapPins = previous;
+        renderMapPins();
+        toast('Konnte den Ort nicht speichern: ' + err.message);
+      }
+    }
+
+    function closePinPicker() {
+      pendingPin = null;
+      document.getElementById('pinOverlay').classList.add('hidden');
+    }
+
+    function openPinPicker() {
+      document.getElementById('pinSearch').value = '';
+      renderPinPicker();
+      document.getElementById('pinOverlay').classList.remove('hidden');
+      document.getElementById('pinSearch').focus();
+    }
+
+    function renderPinPicker() {
+      const list = document.getElementById('pinList');
+      const query = (document.getElementById('pinSearch').value || '').toLowerCase();
+      const used = new Set(mapPins.map(p => p.title.toLowerCase()));
+      list.innerHTML = '';
+      let total = 0;
+      SEARCH_GROUPS.forEach(group => {
+        if (group.page === 'entstehung') return;
+        const hits = entries
+          .map((e, i) => ({ e, i }))
+          .filter(({ e }) =>
+            pageForType(e.type) === group.page &&
+            (isDM || e.visibility === 'player') &&
+            !used.has((e.title || '').toLowerCase()) &&
+            (!query || e.title.toLowerCase().includes(query) || htmlToText(e.content).toLowerCase().includes(query))
+          );
+        if (!hits.length) return;
+        total += hits.length;
+        const label = document.createElement('div');
+        label.className = 'search-group-label';
+        label.textContent = group.label;
+        list.appendChild(label);
+        hits.forEach(({ e }) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.textContent = e.title + ' · ' + e.type;
+          btn.onclick = () => addMapPin(e.title);
+          list.appendChild(btn);
+        });
+      });
+      if (!total) {
+        const empty = document.createElement('div');
+        empty.className = 'search-empty';
+        empty.textContent = query ? 'Kein passender Eintrag.' : 'Keine freien Einträge. Lege zuerst einen an oder lösche eine Markierung.';
+        list.appendChild(empty);
+      }
+    }
+
+    async function addMapPin(title) {
+      if (!isDM || !pendingPin || !title) return;
+      const previous = mapPins.slice();
+      mapPins.push({ title: title, x: pendingPin.x, y: pendingPin.y });
+      closePinPicker();
+      renderMapPins();
+      try {
+        await persistPins();
+        toast('Ort verknüpft: ' + title);
+      } catch (err) {
+        mapPins = previous;
+        renderMapPins();
+        toast('Konnte den Ort nicht speichern: ' + err.message);
+      }
+    }
+
+    function mapClickToPercent(ev) {
+      const img = document.getElementById('worldMap');
+      const rect = img.getBoundingClientRect();
+      if (rect.width < 8 || rect.height < 8) return null;
+      if (ev.clientX < rect.left || ev.clientX > rect.right || ev.clientY < rect.top || ev.clientY > rect.bottom) return null;
+      return {
+        x: ((ev.clientX - rect.left) / rect.width) * 100,
+        y: ((ev.clientY - rect.top) / rect.height) * 100
+      };
     }
 
     function fileToMapImage(file) {
@@ -1610,6 +1945,8 @@
       if (on) sessionStorage.setItem(SESSION_KEY, '1');
       else sessionStorage.removeItem(SESSION_KEY);
       document.getElementById('mapToolbar').classList.toggle('hidden', !on);
+      if (!on) setPlacingPin(false);
+      renderMapPins();
       if (!on && !els.editorView.classList.contains('hidden')) {
         if (currentIndex !== null && entries[currentIndex]?.type === STORY_CAT) showEntstehung();
         else if (currentIndex !== null) loadEntry(currentIndex);
@@ -1665,6 +2002,7 @@
       dirty = false;
       showPage('map');
       renderSidebar();
+      renderMapPins();
     };
     document.getElementById('globalSearch').addEventListener('input', renderGlobalSearch);
     document.getElementById('globalSearch').addEventListener('focus', renderGlobalSearch);
@@ -1727,6 +2065,24 @@
       ev.target.value = '';
       uploadOneEntry(file);
     };
+    document.getElementById('placePinBtn').onclick = () => {
+      if (!isDM) return;
+      setPlacingPin(!placingPin);
+    };
+    document.getElementById('mapStage').addEventListener('click', ev => {
+      if (!placingPin || !isDM) return;
+      if (ev.target.closest('.map-pin')) return;
+      const pos = mapClickToPercent(ev);
+      if (!pos) return;
+      pendingPin = pos;
+      openPinPicker();
+    });
+    document.getElementById('worldMap').addEventListener('load', renderMapPins);
+    document.getElementById('pinSearch').addEventListener('input', renderPinPicker);
+    document.getElementById('pinCancel').onclick = closePinPicker;
+    document.getElementById('pinOverlay').addEventListener('click', ev => {
+      if (ev.target === document.getElementById('pinOverlay')) closePinPicker();
+    });
     document.getElementById('uploadMapBtn').onclick = () => {
       if (!isDM) return;
       document.getElementById('mapFileInput').click();
@@ -1754,6 +2110,8 @@
           if (snap.exists) remotePack = parseWorldPayload(snap.data());
           const mapSnap = await mapRef().get();
           if (mapSnap.exists) applyMap(mapSnap.data());
+          const pinSnap = await pinsRef().get();
+          if (pinSnap.exists) applyPins(pinSnap.data());
         } catch (err) {
           console.warn(err);
           toast('Keine Verbindung zur Cloud.');
@@ -1786,6 +2144,7 @@
       showEntstehung();
       listenWorld();
       listenMap();
+      listenPins();
     })();
   </script>
 </body>
