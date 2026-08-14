@@ -49,6 +49,7 @@
 
     header {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       gap: 1rem;
       padding: 0.85rem 1.25rem;
@@ -85,6 +86,7 @@
 
     .top-nav {
       display: flex;
+      flex-wrap: wrap;
       gap: 0.4rem;
       margin-left: 0.5rem;
     }
@@ -420,6 +422,8 @@
       <nav class="top-nav">
         <button type="button" id="navEntstehung">Entstehung</button>
         <button type="button" id="navCodex" class="active">Kompendium</button>
+        <button type="button" id="navBestiarium">Bestiarium</button>
+        <button type="button" id="navGlossar">Glossar</button>
         <button type="button" id="navMap">Karte</button>
       </nav>
       <div class="header-spacer"></div>
@@ -432,9 +436,9 @@
       <main class="content" id="main">
         <section id="homeView" class="panel">
           <div class="hero">
-            <div class="seal">T</div>
-            <h1>Das Kompendium von Thalarion</h1>
-            <p>Wähle links einen Eintrag oder öffne eine Kategorie, um Reiche, Städte, Götter und Geheimnisse dieser Welt zu lesen.</p>
+            <div class="seal" id="homeSeal">T</div>
+            <h1 id="homeTitle">Das Kompendium von Thalarion</h1>
+            <p id="homeBlurb">Wähle links einen Eintrag oder öffne eine Kategorie, um Reiche, Städte, Götter und Geheimnisse dieser Welt zu lesen.</p>
           </div>
           <div class="cards" id="homeCards"></div>
         </section>
@@ -550,8 +554,33 @@
     function fmtValue(cmd, value) { if (value) document.execCommand(cmd, false, value); }
 
     const STORY_CAT = 'Entstehung';
-    const categories = [STORY_CAT,'Updates','Königreiche','Städte','Landschaften','NPCs','Götter','Religionen','Gilden','Magische Orte'];
-    const kompendiumCategories = categories.filter(c => c !== STORY_CAT);
+    const KOMPENDIUM_CATS = ['Updates','Königreiche','Städte','Landschaften','NPCs','Götter','Religionen','Gilden','Magische Orte'];
+    const BESTIARIUM_CATS = ['Bestien','Monster','Drachen','Untote','Humanoiden','Magische Wesen','Geister'];
+    const GLOSSAR_CATS = ['Begriffe','Magie','Titel & Ämter','Gegenstände','Sprachen','Feste & Rituale'];
+    const PAGE_CATS = {
+      entstehung: [STORY_CAT],
+      codex: KOMPENDIUM_CATS,
+      bestiarium: BESTIARIUM_CATS,
+      glossar: GLOSSAR_CATS
+    };
+    const PAGE_HERO = {
+      codex: {
+        seal: 'T',
+        title: 'Das Kompendium von Thalarion',
+        blurb: 'Wähle links einen Eintrag oder öffne eine Kategorie, um Reiche, Städte, Götter und Geheimnisse dieser Welt zu lesen.'
+      },
+      bestiarium: {
+        seal: 'B',
+        title: 'Das Bestiarium von Thalarion',
+        blurb: 'Wähle links eine Kategorie, um Bestien, Monster und andere Wesen dieser Welt nachzuschlagen.'
+      },
+      glossar: {
+        seal: 'G',
+        title: 'Das Glossar von Thalarion',
+        blurb: 'Wähle links einen Begriff, um Namen, Magie, Titel und andere Fachworte dieser Welt nachzuschlagen.'
+      }
+    };
+    const categories = [STORY_CAT, ...KOMPENDIUM_CATS, ...BESTIARIUM_CATS, ...GLOSSAR_CATS];
     const typeAliases = { Stadt: 'Städte', Königreich: 'Königreiche', Landschaft: 'Landschaften', Gott: 'Götter', Religion: 'Religionen', Gilde: 'Gilden' };
     const LOCAL_KEY = 'thalarion_world_data';
     const SESSION_KEY = 'thalarion_dm';
@@ -595,18 +624,52 @@
       playerToEdit: document.getElementById('playerToEdit'),
       navCodex: document.getElementById('navCodex'),
       navEntstehung: document.getElementById('navEntstehung'),
+      navBestiarium: document.getElementById('navBestiarium'),
+      navGlossar: document.getElementById('navGlossar'),
       navMap: document.getElementById('navMap')
     };
 
-    categories.forEach(c => {
-      const o = document.createElement('option');
-      o.value = c;
-      o.textContent = c;
-      els.type.appendChild(o);
+    [
+      ['Kompendium', KOMPENDIUM_CATS],
+      ['Bestiarium', BESTIARIUM_CATS],
+      ['Glossar', GLOSSAR_CATS],
+      ['Entstehung', [STORY_CAT]]
+    ].forEach(([label, cats]) => {
+      const group = document.createElement('optgroup');
+      group.label = label;
+      cats.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c;
+        o.textContent = c;
+        group.appendChild(o);
+      });
+      els.type.appendChild(group);
     });
 
     function normalizeType(type) {
       return typeAliases[type] || type;
+    }
+
+    function pageForType(type) {
+      if (type === STORY_CAT) return 'entstehung';
+      if (BESTIARIUM_CATS.includes(type)) return 'bestiarium';
+      if (GLOSSAR_CATS.includes(type)) return 'glossar';
+      return 'codex';
+    }
+
+    function catalogCats() {
+      if (currentPage === 'bestiarium' || currentPage === 'glossar' || currentPage === 'codex') {
+        return PAGE_CATS[currentPage];
+      }
+      return KOMPENDIUM_CATS;
+    }
+
+    function defaultTypeForPage(page) {
+      return (PAGE_CATS[page] || KOMPENDIUM_CATS)[0];
+    }
+
+    function isCatalogPage(page) {
+      return page === 'codex' || page === 'bestiarium' || page === 'glossar';
     }
 
     function normalizeEntries(list) {
@@ -688,7 +751,7 @@
       currentIndex = i;
       if (i !== null && !dirty) loadEntry(i);
       else if (currentPage === 'entstehung') showEntstehung();
-      else if (currentTitle && i === null) showHome();
+      else if (currentTitle && i === null) showCatalog(currentPage);
       else {
         renderHome();
         renderSidebar();
@@ -980,6 +1043,8 @@
       currentPage = page;
       els.navCodex.classList.toggle('active', page === 'codex');
       els.navEntstehung.classList.toggle('active', page === 'entstehung');
+      els.navBestiarium.classList.toggle('active', page === 'bestiarium');
+      els.navGlossar.classList.toggle('active', page === 'glossar');
       els.navMap.classList.toggle('active', page === 'map');
       els.mapView.classList.toggle('hidden', page !== 'map');
       if (page === 'map') {
@@ -990,14 +1055,27 @@
       }
     }
 
+    function updateHomeHero(page) {
+      const hero = PAGE_HERO[page] || PAGE_HERO.codex;
+      document.getElementById('homeSeal').textContent = hero.seal;
+      document.getElementById('homeTitle').textContent = hero.title;
+      document.getElementById('homeBlurb').textContent = hero.blurb;
+    }
+
     function showHome() {
-      showPage('codex');
+      showCatalog('codex');
+    }
+
+    function showCatalog(page) {
+      if (!isCatalogPage(page)) page = 'codex';
+      showPage(page);
       currentIndex = null;
       currentTitle = null;
       els.homeView.classList.remove('hidden');
       els.viewer.classList.add('hidden');
       els.editorView.classList.add('hidden');
       els.entstehungView.classList.add('hidden');
+      updateHomeHero(page);
       renderHome();
       renderSidebar();
     }
@@ -1066,7 +1144,7 @@
 
     function renderHome() {
       els.homeCards.innerHTML = '';
-      kompendiumCategories.forEach(cat => {
+      catalogCats().forEach(cat => {
         const count = visibleEntries().filter(e => e.type === cat).length;
         const btn = document.createElement('button');
         btn.className = 'card';
@@ -1126,7 +1204,7 @@
       }
 
       list.innerHTML = '';
-      kompendiumCategories.forEach(cat => {
+      catalogCats().forEach(cat => {
         const matching = entries
           .map((e, i) => ({ e, i }))
           .filter(({ e }) =>
@@ -1173,8 +1251,7 @@
       currentIndex = i;
       const e = entries[i];
       currentTitle = e.title;
-      const stay = currentPage === 'entstehung' || e.type === STORY_CAT ? 'entstehung' : 'codex';
-      showPage(stay);
+      showPage(pageForType(e.type));
       els.homeView.classList.add('hidden');
       els.entstehungView.classList.add('hidden');
       els.editorView.classList.add('hidden');
@@ -1189,7 +1266,7 @@
 
     function fillEditor(e) {
       els.title.value = e?.title || '';
-      els.type.value = e?.type || (currentPage === 'entstehung' ? STORY_CAT : 'Updates');
+      els.type.value = e?.type || defaultTypeForPage(currentPage);
       els.visibility.value = e?.visibility || 'player';
       els.content.innerHTML = e?.content || '';
       els.editorHeading.textContent = e?.title ? 'Eintrag bearbeiten' : 'Neuer Eintrag';
@@ -1198,7 +1275,7 @@
     }
 
     function openEditor() {
-      const stay = currentPage === 'entstehung' ? 'entstehung' : 'codex';
+      const stay = currentPage === 'map' ? 'codex' : currentPage;
       showPage(stay);
       els.homeView.classList.add('hidden');
       els.entstehungView.classList.add('hidden');
@@ -1211,7 +1288,7 @@
       if (!confirmLeaveEditor()) return;
       currentIndex = null;
       fillEditor(null);
-      if (currentPage === 'entstehung') els.type.value = STORY_CAT;
+      els.type.value = defaultTypeForPage(currentPage);
       openEditor();
       renderSidebar();
       els.title.focus();
@@ -1272,7 +1349,7 @@
         dirty = false;
         toast('Eintrag gelöscht.');
         if (removed.type === STORY_CAT) showEntstehung();
-        else showHome();
+        else showCatalog(pageForType(removed.type));
       } catch (err) {
         entries.splice(oldIndex, 0, removed);
         currentIndex = oldIndex;
@@ -1290,6 +1367,8 @@
       if (!on && !els.editorView.classList.contains('hidden')) {
         if (currentIndex !== null && entries[currentIndex]?.type === STORY_CAT) showEntstehung();
         else if (currentIndex !== null) loadEntry(currentIndex);
+        else if (isCatalogPage(currentPage)) showCatalog(currentPage);
+        else if (currentPage === 'entstehung') showEntstehung();
         else showHome();
       } else {
         renderHome();
@@ -1319,10 +1398,20 @@
     document.getElementById('navCodex').onclick = () => {
       if (!confirmLeaveEditor()) return;
       dirty = false;
-      showHome();
+      showCatalog('codex');
     };
     document.getElementById('navEntstehung').onclick = () => {
       showEntstehung();
+    };
+    document.getElementById('navBestiarium').onclick = () => {
+      if (!confirmLeaveEditor()) return;
+      dirty = false;
+      showCatalog('bestiarium');
+    };
+    document.getElementById('navGlossar').onclick = () => {
+      if (!confirmLeaveEditor()) return;
+      dirty = false;
+      showCatalog('glossar');
     };
     document.getElementById('navMap').onclick = () => {
       if (!confirmLeaveEditor()) return;
@@ -1357,6 +1446,8 @@
       dirty = false;
       if (currentIndex !== null && entries[currentIndex]?.type === STORY_CAT) showEntstehung();
       else if (currentIndex !== null) loadEntry(currentIndex);
+      else if (isCatalogPage(currentPage)) showCatalog(currentPage);
+      else if (currentPage === 'entstehung') showEntstehung();
       else showHome();
     };
     document.getElementById('editCurrent').onclick = editCurrent;
