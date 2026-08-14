@@ -110,7 +110,65 @@
       border-color: #b14a4a;
     }
     .ghost:hover, .icon-btn:hover, .top-nav button:hover { border-color: var(--gold-dim); }
-    .header-spacer { flex: 1; }
+    .header-spacer { flex: 0 0 0.25rem; }
+
+    .header-search {
+      position: relative;
+      flex: 1 1 240px;
+      min-width: 180px;
+      max-width: 440px;
+    }
+    .header-search .search-wrap { margin: 0; }
+    .search-results {
+      position: absolute;
+      top: calc(100% + 0.4rem);
+      left: 0;
+      right: 0;
+      max-height: min(70vh, 440px);
+      overflow: auto;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      z-index: 30;
+      padding: 0.35rem 0;
+    }
+    .search-group {
+      padding: 0.35rem 0 0.2rem;
+    }
+    .search-group-label {
+      padding: 0.35rem 0.85rem 0.2rem;
+      color: var(--gold);
+      font-family: Cinzel, serif;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .search-hit {
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: 0;
+      color: var(--ink);
+      padding: 0.45rem 0.85rem;
+      border-radius: 0;
+    }
+    .search-hit:hover,
+    .search-hit.active {
+      background: rgba(212, 179, 106, 0.12);
+    }
+    .search-hit b {
+      display: block;
+      font-weight: 600;
+    }
+    .search-hit span {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .search-empty {
+      padding: 0.7rem 0.85rem;
+      color: var(--muted);
+    }
 
     .dm-chip {
       display: none;
@@ -419,6 +477,11 @@
       .content { padding: 1rem; }
       .grid-2 { grid-template-columns: 1fr; }
       .brand strong { font-size: 1.1rem; }
+      .header-search {
+        flex: 1 1 100%;
+        max-width: none;
+        order: 5;
+      }
     }
   </style>
 </head>
@@ -437,6 +500,12 @@
         <button type="button" id="navGlossar">Glossar</button>
         <button type="button" id="navMap">Karte</button>
       </nav>
+      <div class="header-search">
+        <div class="search-wrap">
+          <input id="globalSearch" type="search" placeholder="Suche in der ganzen Welt…" autocomplete="off" />
+        </div>
+        <div id="searchResults" class="search-results hidden"></div>
+      </div>
       <div class="header-spacer"></div>
       <span class="dm-chip">DM-Modus</span>
       <button class="ghost" id="dmButton" type="button">DM Login</button>
@@ -1171,6 +1240,7 @@
       chapters.forEach(({ e, i }) => {
         const article = document.createElement('article');
         article.className = 'article origin-article';
+        article.id = 'origin-' + i;
         if (isDM) {
           const actions = document.createElement('div');
           actions.className = 'article-actions';
@@ -1262,20 +1332,11 @@
 
     function renderSidebar() {
       const s = els.sidebar;
-      let search = document.getElementById('search');
       let actions = document.getElementById('sidebarActions');
       let list = document.getElementById('sidebarList');
 
-      if (!search || !actions || !list) {
+      if (!actions || !list) {
         s.innerHTML = '';
-        const wrap = document.createElement('div');
-        wrap.className = 'search-wrap';
-        search = document.createElement('input');
-        search.id = 'search';
-        search.placeholder = 'Suche nach Name oder Text…';
-        search.oninput = renderSidebar;
-        wrap.appendChild(search);
-        s.appendChild(wrap);
         actions = document.createElement('div');
         actions.id = 'sidebarActions';
         actions.className = 'aside-actions';
@@ -1285,7 +1346,6 @@
         s.appendChild(list);
       }
 
-      const query = (search.value || '').toLowerCase();
       actions.innerHTML = '';
       if (isDM) {
         const add = document.createElement('button');
@@ -1311,8 +1371,7 @@
           .map((e, i) => ({ e, i }))
           .filter(({ e }) =>
             e.type === cat &&
-            (isDM || e.visibility === 'player') &&
-            (!query || e.title.toLowerCase().includes(query) || (e.content || '').toLowerCase().includes(query))
+            (isDM || e.visibility === 'player')
           );
 
         const box = document.createElement('div');
@@ -1320,7 +1379,7 @@
         const head = document.createElement('button');
         head.type = 'button';
         head.className = 'cat-head';
-        const open = !!(expandedCategories[cat] || query);
+        const open = !!expandedCategories[cat];
         head.innerHTML = `<span class="chev">${open ? '▼' : '▶'}</span><span>${cat}</span><span class="count">${matching.length}</span>`;
         head.onclick = () => {
           expandedCategories[cat] = !expandedCategories[cat];
@@ -1340,6 +1399,85 @@
         }
         list.appendChild(box);
       });
+    }
+
+    const SEARCH_GROUPS = [
+      { page: 'entstehung', label: 'Entstehung' },
+      { page: 'codex', label: 'Kompendium' },
+      { page: 'bestiarium', label: 'Bestiarium' },
+      { page: 'glossar', label: 'Glossar' }
+    ];
+
+    function closeSearchResults() {
+      document.getElementById('searchResults').classList.add('hidden');
+    }
+
+    function entryMatchesQuery(e, query) {
+      if (!query) return false;
+      const title = (e.title || '').toLowerCase();
+      const body = htmlToText(e.content).toLowerCase();
+      return title.includes(query) || body.includes(query);
+    }
+
+    function renderGlobalSearch() {
+      const box = document.getElementById('searchResults');
+      const query = (document.getElementById('globalSearch').value || '').trim().toLowerCase();
+      box.innerHTML = '';
+      if (!query) {
+        box.classList.add('hidden');
+        return;
+      }
+      let total = 0;
+      SEARCH_GROUPS.forEach(group => {
+        const hits = entries
+          .map((e, i) => ({ e, i }))
+          .filter(({ e }) =>
+            pageForType(e.type) === group.page &&
+            (isDM || e.visibility === 'player') &&
+            entryMatchesQuery(e, query)
+          );
+        if (!hits.length) return;
+        total += hits.length;
+        const wrap = document.createElement('div');
+        wrap.className = 'search-group';
+        const label = document.createElement('div');
+        label.className = 'search-group-label';
+        label.textContent = group.label;
+        wrap.appendChild(label);
+        hits.forEach(({ e, i }) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'search-hit';
+          btn.innerHTML = '<b>' + e.title + (isDM && e.visibility === 'dm' ? ' <span class="lock">nur DM</span>' : '') + '</b><span>' + e.type + '</span>';
+          btn.onclick = () => openSearchHit(i);
+          wrap.appendChild(btn);
+        });
+        box.appendChild(wrap);
+      });
+      if (!total) {
+        const empty = document.createElement('div');
+        empty.className = 'search-empty';
+        empty.textContent = 'Keine Treffer.';
+        box.appendChild(empty);
+      }
+      box.classList.remove('hidden');
+    }
+
+    function openSearchHit(i) {
+      if (!confirmLeaveEditor()) return;
+      dirty = false;
+      const e = entries[i];
+      document.getElementById('globalSearch').value = '';
+      closeSearchResults();
+      if (e.type === STORY_CAT) {
+        showEntstehung();
+        requestAnimationFrame(() => {
+          const el = document.getElementById('origin-' + i);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        return;
+      }
+      loadEntry(i);
     }
 
     function confirmLeaveEditor() {
@@ -1528,6 +1666,17 @@
       showPage('map');
       renderSidebar();
     };
+    document.getElementById('globalSearch').addEventListener('input', renderGlobalSearch);
+    document.getElementById('globalSearch').addEventListener('focus', renderGlobalSearch);
+    document.getElementById('globalSearch').addEventListener('keydown', ev => {
+      if (ev.key === 'Escape') {
+        closeSearchResults();
+        ev.target.blur();
+      }
+    });
+    document.addEventListener('click', ev => {
+      if (!ev.target.closest('.header-search')) closeSearchResults();
+    });
     document.getElementById('homeNewBtn').onclick = newEntry;
     document.getElementById('entstehungNewBtn').onclick = newEntry;
     document.getElementById('menuBtn').onclick = () => els.sidebar.classList.toggle('open');
