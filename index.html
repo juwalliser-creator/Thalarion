@@ -120,17 +120,17 @@
     }
     .header-search .search-wrap { margin: 0; }
     .search-results {
-      position: absolute;
-      top: calc(100% + 0.4rem);
+      position: fixed;
+      top: 0;
       left: 0;
-      right: 0;
+      width: 280px;
       max-height: min(70vh, 440px);
       overflow: auto;
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 10px;
       box-shadow: var(--shadow);
-      z-index: 30;
+      z-index: 35;
       padding: 0.35rem 0;
     }
     .search-group {
@@ -666,7 +666,6 @@
         <div class="search-wrap">
           <input id="globalSearch" type="search" placeholder="Suche in der ganzen Welt…" autocomplete="off" />
         </div>
-        <div id="searchResults" class="search-results hidden"></div>
       </div>
       <div class="header-spacer"></div>
       <span class="player-chip" id="playerChip">Spieler</span>
@@ -820,6 +819,8 @@
       </main>
     </div>
   </div>
+
+  <div id="searchResults" class="search-results hidden"></div>
 
   <div id="loginOverlay" class="overlay hidden">
     <form class="login-card" id="loginForm">
@@ -2141,6 +2142,18 @@
       document.getElementById('searchResults').classList.add('hidden');
     }
 
+    function placeSearchResults() {
+      const input = document.getElementById('globalSearch');
+      const box = document.getElementById('searchResults');
+      const r = input.getBoundingClientRect();
+      const width = Math.max(r.width, 280);
+      let left = r.left;
+      if (left + width > window.innerWidth - 8) left = Math.max(8, window.innerWidth - width - 8);
+      box.style.top = (r.bottom + 6) + 'px';
+      box.style.left = left + 'px';
+      box.style.width = width + 'px';
+    }
+
     function entryMatchesQuery(e, query) {
       if (!query) return false;
       const title = (e.title || '').toLowerCase();
@@ -2189,6 +2202,7 @@
         empty.textContent = 'Keine Treffer.';
         box.appendChild(empty);
       }
+      placeSearchResults();
       box.classList.remove('hidden');
     }
 
@@ -2419,8 +2433,12 @@
       }
     });
     document.addEventListener('click', ev => {
-      if (!ev.target.closest('.header-search')) closeSearchResults();
+      if (!ev.target.closest('.header-search') && !ev.target.closest('#searchResults')) closeSearchResults();
     });
+    window.addEventListener('resize', closeSearchResults);
+    window.addEventListener('scroll', () => {
+      if (!document.getElementById('searchResults').classList.contains('hidden')) placeSearchResults();
+    }, true);
     document.getElementById('homeNewBtn').onclick = newEntry;
     document.getElementById('entstehungNewBtn').onclick = newEntry;
     document.getElementById('menuBtn').onclick = () => els.sidebar.classList.toggle('open');
