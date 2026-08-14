@@ -462,11 +462,13 @@
       gap: 0.6rem;
       margin-bottom: 0.75rem;
     }
-    .map-hint {
+    .map-hint,
+    .map-file-hint {
       margin: 0 auto 0 0;
       color: var(--gold);
       font-size: 0.92rem;
     }
+    .map-file-hint { color: var(--muted); max-width: 36rem; }
     .map-wrap {
       background: #0b0908;
       border: 1px solid var(--line);
@@ -762,8 +764,8 @@
         <section id="mapView" class="hidden">
           <div class="map-toolbar hidden" id="mapToolbar">
             <p class="map-hint hidden" id="mapHint">Klicke auf die Stelle auf der Karte, dann wähle den Eintrag.</p>
+            <p class="map-file-hint">Neue Karte: Datei „Thalarion Karte.png“ im Projektordner ersetzen, dann in GitHub Desktop pushen.</p>
             <button class="ghost" id="placePinBtn" type="button">Ort setzen</button>
-            <button class="primary" id="uploadMapBtn" type="button">Neue Karte hochladen</button>
           </div>
           <div class="map-wrap">
             <div class="map-stage" id="mapStage">
@@ -1450,12 +1452,8 @@
       });
     }
 
-    function applyMap(data) {
-      if (!data || !data.image) return;
-      const at = Number(data.updatedAt) || 0;
-      if (at && at <= mapUpdatedAt) return;
-      mapUpdatedAt = at;
-      document.getElementById('worldMap').src = data.image;
+    function applyMap() {
+      /* Die Karte liegt als Datei im Projekt, nicht in der Cloud-Notiz. */
     }
 
     function listenMap() {
@@ -1659,57 +1657,6 @@
         x: ((ev.clientX - rect.left) / rect.width) * 100,
         y: ((ev.clientY - rect.top) / rect.height) * 100
       };
-    }
-
-    function fileToMapImage(file) {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        const url = URL.createObjectURL(file);
-        img.onload = () => {
-          URL.revokeObjectURL(url);
-          let w = img.width;
-          let h = img.height;
-          const maxSide = 1800;
-          if (Math.max(w, h) > maxSide) {
-            const scale = maxSide / Math.max(w, h);
-            w = Math.round(w * scale);
-            h = Math.round(h * scale);
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-          let quality = 0.82;
-          let data = canvas.toDataURL('image/jpeg', quality);
-          while (data.length > 700000 && quality > 0.35) {
-            quality -= 0.12;
-            data = canvas.toDataURL('image/jpeg', quality);
-          }
-          if (data.length > 900000) reject(new Error('Die Karte ist zu groß. Bitte ein kleineres Bild wählen.'));
-          else resolve(data);
-        };
-        img.onerror = () => {
-          URL.revokeObjectURL(url);
-          reject(new Error('Das Bild konnte nicht gelesen werden.'));
-        };
-        img.src = url;
-      });
-    }
-
-    async function uploadMapFile(file) {
-      if (!isDM || !file) return;
-      if (!db) return toast('Keine Verbindung zur Cloud.');
-      toast('Karte wird hochgeladen…');
-      try {
-        const image = await fileToMapImage(file);
-        const updatedAt = Date.now();
-        await mapRef().set({ image: image, updatedAt: updatedAt });
-        mapUpdatedAt = updatedAt;
-        document.getElementById('worldMap').src = image;
-        toast('Neue Karte ist für alle Laptops gespeichert.');
-      } catch (err) {
-        toast(err.message || 'Karte konnte nicht hochgeladen werden.');
-      }
     }
 
     function htmlToText(html) {
@@ -2533,15 +2480,6 @@
     document.getElementById('pinOverlay').addEventListener('click', ev => {
       if (ev.target === document.getElementById('pinOverlay')) closePinPicker();
     });
-    document.getElementById('uploadMapBtn').onclick = () => {
-      if (!isDM) return;
-      document.getElementById('mapFileInput').click();
-    };
-    document.getElementById('mapFileInput').onchange = ev => {
-      const file = ev.target.files[0];
-      ev.target.value = '';
-      uploadMapFile(file);
-    };
     ['title', 'type', 'visibility'].forEach(id => {
       document.getElementById(id).addEventListener('input', () => { dirty = true; });
       document.getElementById(id).addEventListener('change', () => { dirty = true; });
