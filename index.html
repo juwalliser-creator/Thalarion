@@ -133,6 +133,16 @@
       grid-template-columns: var(--sidebar) 1fr;
       min-height: 0;
     }
+    body.no-sidebar .shell { grid-template-columns: 1fr; }
+    body.no-sidebar aside { display: none; }
+    body.no-sidebar #menuBtn { display: none !important; }
+
+    .page-toolbar {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin: 0 0 1.2rem;
+    }
 
     aside {
       border-right: 1px solid var(--line);
@@ -405,13 +415,14 @@
       }
       aside.open { transform: none; }
       #menuBtn { display: inline-flex; }
+      body.no-sidebar #menuBtn { display: none !important; }
       .content { padding: 1rem; }
       .grid-2 { grid-template-columns: 1fr; }
       .brand strong { font-size: 1.1rem; }
     }
   </style>
 </head>
-<body>
+<body class="no-sidebar">
   <div class="app">
     <header>
       <button class="ghost icon-btn" id="menuBtn" type="button" aria-label="Menü">☰</button>
@@ -420,8 +431,8 @@
         <span>Das Blutsiegel</span>
       </button>
       <nav class="top-nav">
-        <button type="button" id="navEntstehung">Entstehung</button>
-        <button type="button" id="navCodex" class="active">Kompendium</button>
+        <button type="button" id="navEntstehung" class="active">Entstehung</button>
+        <button type="button" id="navCodex">Kompendium</button>
         <button type="button" id="navBestiarium">Bestiarium</button>
         <button type="button" id="navGlossar">Glossar</button>
         <button type="button" id="navMap">Karte</button>
@@ -434,12 +445,16 @@
     <div class="shell">
       <aside id="sidebar"></aside>
       <main class="content" id="main">
-        <section id="homeView" class="panel">
+        <section id="homeView" class="panel hidden">
           <div class="hero">
             <div class="seal" id="homeSeal">T</div>
             <h1 id="homeTitle">Das Kompendium von Thalarion</h1>
             <p id="homeBlurb">Wähle links einen Eintrag oder öffne eine Kategorie, um Reiche, Städte, Götter und Geheimnisse dieser Welt zu lesen.</p>
           </div>
+          <div class="page-toolbar hidden" id="homeToolbar">
+            <button class="primary" id="homeNewBtn" type="button">+ Neuer Eintrag</button>
+          </div>
+          <div id="homeCatNav" class="page-toolbar hidden"></div>
           <div class="cards" id="homeCards"></div>
         </section>
 
@@ -499,11 +514,14 @@
           </div>
         </section>
 
-        <section id="entstehungView" class="panel hidden">
+        <section id="entstehungView" class="panel">
           <div class="hero">
             <div class="seal">E</div>
             <h1>Die Entstehung Thalarions</h1>
             <p>Die Geschichte, wie diese Welt wurde, was sie ist.</p>
+          </div>
+          <div class="page-toolbar hidden" id="entstehungToolbar">
+            <button class="primary" id="entstehungNewBtn" type="button">+ Neuer Eintrag</button>
           </div>
           <div id="entstehungText"></div>
         </section>
@@ -572,12 +590,12 @@
       bestiarium: {
         seal: 'B',
         title: 'Das Bestiarium von Thalarion',
-        blurb: 'Wähle links eine Kategorie, um Bestien, Monster und andere Wesen dieser Welt nachzuschlagen.'
+        blurb: 'Öffne eine Kategorie, um Bestien, Monster und andere Wesen dieser Welt nachzuschlagen.'
       },
       glossar: {
         seal: 'G',
         title: 'Das Glossar von Thalarion',
-        blurb: 'Wähle links einen Begriff, um Namen, Magie, Titel und andere Fachworte dieser Welt nachzuschlagen.'
+        blurb: 'Öffne eine Kategorie, um Namen, Magie, Titel und andere Fachworte dieser Welt nachzuschlagen.'
       }
     };
     const categories = [STORY_CAT, ...KOMPENDIUM_CATS, ...BESTIARIUM_CATS, ...GLOSSAR_CATS];
@@ -597,7 +615,8 @@
     let currentTitle = null;
     let isDM = false;
     let expandedCategories = {};
-    let currentPage = 'codex';
+    let currentPage = 'entstehung';
+    let selectedHomeCat = null;
     let dirty = false;
 
     const els = {
@@ -670,6 +689,24 @@
 
     function isCatalogPage(page) {
       return page === 'codex' || page === 'bestiarium' || page === 'glossar';
+    }
+
+    function wantsSidebar(page) {
+      return page === 'codex' || page === 'map';
+    }
+
+    function updateSidebarVisibility(page) {
+      document.body.classList.toggle('no-sidebar', !wantsSidebar(page));
+      if (!wantsSidebar(page)) els.sidebar.classList.remove('open');
+    }
+
+    function updateExtraToolbars() {
+      const homeBar = document.getElementById('homeToolbar');
+      const origBar = document.getElementById('entstehungToolbar');
+      const showHomeBar = isDM && !wantsSidebar(currentPage) && isCatalogPage(currentPage) && !els.homeView.classList.contains('hidden');
+      const showOrigBar = isDM && currentPage === 'entstehung' && !els.entstehungView.classList.contains('hidden');
+      homeBar.classList.toggle('hidden', !showHomeBar);
+      origBar.classList.toggle('hidden', !showOrigBar);
     }
 
     function normalizeEntries(list) {
@@ -1047,12 +1084,14 @@
       els.navGlossar.classList.toggle('active', page === 'glossar');
       els.navMap.classList.toggle('active', page === 'map');
       els.mapView.classList.toggle('hidden', page !== 'map');
+      updateSidebarVisibility(page);
       if (page === 'map') {
         els.homeView.classList.add('hidden');
         els.viewer.classList.add('hidden');
         els.editorView.classList.add('hidden');
         els.entstehungView.classList.add('hidden');
       }
+      updateExtraToolbars();
     }
 
     function updateHomeHero(page) {
@@ -1068,6 +1107,7 @@
 
     function showCatalog(page) {
       if (!isCatalogPage(page)) page = 'codex';
+      selectedHomeCat = null;
       showPage(page);
       currentIndex = null;
       currentTitle = null;
@@ -1078,6 +1118,7 @@
       updateHomeHero(page);
       renderHome();
       renderSidebar();
+      updateExtraToolbars();
     }
 
     function showEntstehung() {
@@ -1092,6 +1133,7 @@
       els.entstehungView.classList.remove('hidden');
       renderEntstehung();
       renderSidebar();
+      updateExtraToolbars();
     }
 
     function renderEntstehung() {
@@ -1143,16 +1185,61 @@
     }
 
     function renderHome() {
+      const nav = document.getElementById('homeCatNav');
       els.homeCards.innerHTML = '';
-      catalogCats().forEach(cat => {
+      const cats = catalogCats();
+      if (!wantsSidebar(currentPage) && selectedHomeCat && cats.includes(selectedHomeCat)) {
+        nav.classList.remove('hidden');
+        nav.innerHTML = '';
+        const back = document.createElement('button');
+        back.className = 'ghost';
+        back.type = 'button';
+        back.textContent = '← Alle Kategorien';
+        back.onclick = () => {
+          selectedHomeCat = null;
+          renderHome();
+        };
+        nav.appendChild(back);
+        const matching = entries
+          .map((e, i) => ({ e, i }))
+          .filter(({ e }) =>
+            e.type === selectedHomeCat &&
+            (isDM || e.visibility === 'player')
+          );
+        if (!matching.length) {
+          const empty = document.createElement('p');
+          empty.style.gridColumn = '1 / -1';
+          empty.style.color = 'var(--muted)';
+          empty.style.textAlign = 'center';
+          empty.textContent = 'Noch keine Einträge in dieser Kategorie.';
+          els.homeCards.appendChild(empty);
+        } else {
+          matching.forEach(({ e, i }) => {
+            const btn = document.createElement('button');
+            btn.className = 'card';
+            btn.innerHTML = `<b>${e.title}</b><span>${e.visibility === 'dm' ? 'nur DM' : 'Öffnen'}</span>`;
+            btn.onclick = () => loadEntry(i);
+            els.homeCards.appendChild(btn);
+          });
+        }
+        return;
+      }
+      nav.classList.add('hidden');
+      nav.innerHTML = '';
+      cats.forEach(cat => {
         const count = visibleEntries().filter(e => e.type === cat).length;
         const btn = document.createElement('button');
         btn.className = 'card';
         btn.innerHTML = `<b>${cat}</b><span>${count} ${count === 1 ? 'Eintrag' : 'Einträge'}</span>`;
         btn.onclick = () => {
-          expandedCategories = { [cat]: true };
-          renderSidebar();
-          document.getElementById('sidebar').classList.add('open');
+          if (wantsSidebar(currentPage)) {
+            expandedCategories = { [cat]: true };
+            renderSidebar();
+            document.getElementById('sidebar').classList.add('open');
+          } else {
+            selectedHomeCat = cat;
+            renderHome();
+          }
         };
         els.homeCards.appendChild(btn);
       });
@@ -1262,6 +1349,7 @@
       els.playerToEdit.classList.toggle('hidden', !isDM);
       renderSidebar();
       document.getElementById('sidebar').classList.remove('open');
+      updateExtraToolbars();
     }
 
     function fillEditor(e) {
@@ -1281,6 +1369,7 @@
       els.entstehungView.classList.add('hidden');
       els.viewer.classList.add('hidden');
       els.editorView.classList.remove('hidden');
+      updateExtraToolbars();
     }
 
     function newEntry() {
@@ -1375,6 +1464,7 @@
         renderSidebar();
         if (!els.entstehungView.classList.contains('hidden')) renderEntstehung();
         els.playerToEdit.classList.toggle('hidden', !on || currentIndex === null || els.viewer.classList.contains('hidden'));
+        updateExtraToolbars();
       }
     }
 
@@ -1393,7 +1483,7 @@
     document.getElementById('homeBtn').onclick = () => {
       if (!confirmLeaveEditor()) return;
       dirty = false;
-      showHome();
+      showEntstehung();
     };
     document.getElementById('navCodex').onclick = () => {
       if (!confirmLeaveEditor()) return;
@@ -1417,7 +1507,10 @@
       if (!confirmLeaveEditor()) return;
       dirty = false;
       showPage('map');
+      renderSidebar();
     };
+    document.getElementById('homeNewBtn').onclick = newEntry;
+    document.getElementById('entstehungNewBtn').onclick = newEntry;
     document.getElementById('menuBtn').onclick = () => els.sidebar.classList.toggle('open');
     document.getElementById('dmButton').onclick = () => {
       if (isDM) setDM(false);
@@ -1522,7 +1615,7 @@
         }
       }
 
-      showHome();
+      showEntstehung();
       listenWorld();
       listenMap();
     })();
