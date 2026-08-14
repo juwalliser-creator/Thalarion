@@ -648,22 +648,37 @@
       navMap: document.getElementById('navMap')
     };
 
-    [
-      ['Kompendium', KOMPENDIUM_CATS],
-      ['Bestiarium', BESTIARIUM_CATS],
-      ['Glossar', GLOSSAR_CATS],
-      ['Entstehung', [STORY_CAT]]
-    ].forEach(([label, cats]) => {
-      const group = document.createElement('optgroup');
-      group.label = label;
-      cats.forEach(c => {
-        const o = document.createElement('option');
-        o.value = c;
-        o.textContent = c;
-        group.appendChild(o);
+    function fillTypeSelect(page) {
+      els.type.innerHTML = '';
+      const only = page === 'bestiarium' || page === 'glossar' ? PAGE_CATS[page] : null;
+      if (only) {
+        only.forEach(c => {
+          const o = document.createElement('option');
+          o.value = c;
+          o.textContent = c;
+          els.type.appendChild(o);
+        });
+        return;
+      }
+      [
+        ['Kompendium', KOMPENDIUM_CATS],
+        ['Bestiarium', BESTIARIUM_CATS],
+        ['Glossar', GLOSSAR_CATS],
+        ['Entstehung', [STORY_CAT]]
+      ].forEach(([label, cats]) => {
+        const group = document.createElement('optgroup');
+        group.label = label;
+        cats.forEach(c => {
+          const o = document.createElement('option');
+          o.value = c;
+          o.textContent = c;
+          group.appendChild(o);
+        });
+        els.type.appendChild(group);
       });
-      els.type.appendChild(group);
-    });
+    }
+
+    fillTypeSelect('codex');
 
     function normalizeType(type) {
       return typeAliases[type] || type;
@@ -1353,8 +1368,12 @@
     }
 
     function fillEditor(e) {
+      fillTypeSelect(currentPage);
       els.title.value = e?.title || '';
-      els.type.value = e?.type || defaultTypeForPage(currentPage);
+      const fallback = defaultTypeForPage(currentPage);
+      const allowed = [...els.type.options].map(o => o.value);
+      const nextType = e?.type && allowed.includes(e.type) ? e.type : fallback;
+      els.type.value = nextType;
       els.visibility.value = e?.visibility || 'player';
       els.content.innerHTML = e?.content || '';
       els.editorHeading.textContent = e?.title ? 'Eintrag bearbeiten' : 'Neuer Eintrag';
