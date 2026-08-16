@@ -395,7 +395,7 @@
       font-family: Cinzel, serif;
       margin-bottom: 0.25rem;
     }
-    .card span { color: var(--muted); font-size: 0.92rem; }
+    .card span { display: block; color: var(--muted); font-size: 0.92rem; }
 
     .article {
       background: var(--panel);
@@ -797,9 +797,7 @@
       <nav class="top-nav">
         <button type="button" id="navEntstehung">Entstehung</button>
         <button type="button" id="navSitzung">Sitzung</button>
-        <button type="button" id="navCodex">Kompendium</button>
-        <button type="button" id="navBestiarium">Bestiarium</button>
-        <button type="button" id="navGlossar">Glossar</button>
+        <button type="button" id="navWorld">Thalarion</button>
         <button type="button" id="navMap" class="active">Karte</button>
         <button type="button" id="navCharakter">Charakter</button>
       </nav>
@@ -1152,6 +1150,11 @@
       glossar: GLOSSAR_CATS
     };
     const PAGE_HERO = {
+      world: {
+        seal: 'T',
+        title: 'Thalarion',
+        blurb: 'Öffne das Kompendium, das Bestiarium oder das Glossar.'
+      },
       codex: {
         seal: 'T',
         title: 'Das Kompendium von Thalarion',
@@ -1252,11 +1255,9 @@
       content: document.getElementById('content'),
       editorHeading: document.getElementById('editorHeading'),
       playerToEdit: document.getElementById('playerToEdit'),
-      navCodex: document.getElementById('navCodex'),
+      navWorld: document.getElementById('navWorld'),
       navEntstehung: document.getElementById('navEntstehung'),
       navSitzung: document.getElementById('navSitzung'),
-      navBestiarium: document.getElementById('navBestiarium'),
-      navGlossar: document.getElementById('navGlossar'),
       navMap: document.getElementById('navMap'),
       navCharakter: document.getElementById('navCharakter'),
       charView: document.getElementById('charView'),
@@ -2692,11 +2693,9 @@
 
     function showPage(page) {
       currentPage = page;
-      els.navCodex.classList.toggle('active', page === 'codex');
+      els.navWorld.classList.toggle('active', page === 'world' || page === 'codex' || page === 'bestiarium' || page === 'glossar');
       els.navEntstehung.classList.toggle('active', page === 'entstehung');
       els.navSitzung.classList.toggle('active', page === 'sitzung');
-      els.navBestiarium.classList.toggle('active', page === 'bestiarium');
-      els.navGlossar.classList.toggle('active', page === 'glossar');
       els.navMap.classList.toggle('active', page === 'map');
       els.navCharakter.classList.toggle('active', page === 'char');
       els.mapView.classList.toggle('hidden', page !== 'map');
@@ -2720,7 +2719,25 @@
     }
 
     function showHome() {
-      showCatalog('codex');
+      showWorld();
+    }
+
+    function showWorld() {
+      if (!confirmLeaveEditor()) return;
+      dirty = false;
+      openedFromMap = false;
+      selectedHomeCat = null;
+      showPage('world');
+      currentIndex = null;
+      currentTitle = null;
+      els.homeView.classList.remove('hidden');
+      els.viewer.classList.add('hidden');
+      els.editorView.classList.add('hidden');
+      els.entstehungView.classList.add('hidden');
+      els.sitzungView.classList.add('hidden');
+      updateHomeHero('world');
+      renderHome();
+      updateExtraToolbars();
     }
 
     function showCatalog(page) {
@@ -2891,6 +2908,23 @@
     function renderHome() {
       const nav = document.getElementById('homeCatNav');
       els.homeCards.innerHTML = '';
+      if (currentPage === 'world') {
+        nav.classList.add('hidden');
+        nav.innerHTML = '';
+        [
+          { page: 'codex', title: 'Kompendium', blurb: 'Reiche, Städte, Götter und Geheimnisse.' },
+          { page: 'bestiarium', title: 'Bestiarium', blurb: 'Bestien, Monster und andere Wesen.' },
+          { page: 'glossar', title: 'Glossar', blurb: 'Namen, Heilpflanzen, Titel und Fachworte.' }
+        ].forEach(sec => {
+          const count = visibleEntries().filter(e => pageForType(e.type) === sec.page).length;
+          const btn = document.createElement('button');
+          btn.className = 'card';
+          btn.innerHTML = `<b>${sec.title}</b><span>${sec.blurb}</span><span>${count} ${count === 1 ? 'Eintrag' : 'Einträge'}</span>`;
+          btn.onclick = () => showCatalog(sec.page);
+          els.homeCards.appendChild(btn);
+        });
+        return;
+      }
       const cats = catalogCats();
       if (!wantsSidebar(currentPage) && selectedHomeCat && cats.includes(selectedHomeCat)) {
         nav.classList.remove('hidden');
@@ -2928,8 +2962,14 @@
         }
         return;
       }
-      nav.classList.add('hidden');
+      nav.classList.remove('hidden');
       nav.innerHTML = '';
+      const toWorld = document.createElement('button');
+      toWorld.className = 'primary';
+      toWorld.type = 'button';
+      toWorld.textContent = '← Zurück zu Thalarion';
+      toWorld.onclick = showWorld;
+      nav.appendChild(toWorld);
       cats.forEach(cat => {
         const count = visibleEntries().filter(e => e.type === cat).length;
         const btn = document.createElement('button');
@@ -3339,26 +3379,14 @@
     document.getElementById('homeBtn').onclick = () => {
       showMap();
     };
-    document.getElementById('navCodex').onclick = () => {
-      if (!confirmLeaveEditor()) return;
-      dirty = false;
-      showCatalog('codex');
+    document.getElementById('navWorld').onclick = () => {
+      showWorld();
     };
     document.getElementById('navEntstehung').onclick = () => {
       showEntstehung();
     };
     document.getElementById('navSitzung').onclick = () => {
       showSitzung();
-    };
-    document.getElementById('navBestiarium').onclick = () => {
-      if (!confirmLeaveEditor()) return;
-      dirty = false;
-      showCatalog('bestiarium');
-    };
-    document.getElementById('navGlossar').onclick = () => {
-      if (!confirmLeaveEditor()) return;
-      dirty = false;
-      showCatalog('glossar');
     };
     document.getElementById('navMap').onclick = () => {
       showMap();
