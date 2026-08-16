@@ -945,7 +945,7 @@
       codex: {
         seal: 'T',
         title: 'Das Kompendium von Thalarion',
-        blurb: 'Wähle links einen Eintrag oder öffne eine Kategorie, um Reiche, Städte, Götter und Geheimnisse dieser Welt zu lesen.'
+        blurb: 'Öffne eine Kategorie, um Reiche, Städte, Götter und Geheimnisse dieser Welt nachzuschlagen.'
       },
       bestiarium: {
         seal: 'B',
@@ -1032,7 +1032,7 @@
 
     function fillTypeSelect(page) {
       els.type.innerHTML = '';
-      const only = page === 'bestiarium' || page === 'glossar' ? PAGE_CATS[page] : null;
+      const only = page === 'bestiarium' || page === 'glossar' || page === 'codex' ? PAGE_CATS[page] : null;
       if (only) {
         only.forEach(c => {
           const o = document.createElement('option');
@@ -1146,7 +1146,7 @@
     }
 
     function wantsSidebar(page) {
-      return page === 'codex' || page === 'map';
+      return page === 'map';
     }
 
     function updateSidebarVisibility(page) {
@@ -2288,14 +2288,8 @@
         btn.className = 'card';
         btn.innerHTML = `<b>${cat}</b><span>${count} ${count === 1 ? 'Eintrag' : 'Einträge'}</span>`;
         btn.onclick = () => {
-          if (wantsSidebar(currentPage)) {
-            expandedCategories = { [cat]: true };
-            renderSidebar();
-            document.getElementById('sidebar').classList.add('open');
-          } else {
-            selectedHomeCat = cat;
-            renderHome();
-          }
+          selectedHomeCat = cat;
+          renderHome();
         };
         els.homeCards.appendChild(btn);
       });
