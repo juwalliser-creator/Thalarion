@@ -548,6 +548,7 @@
       overflow: hidden;
       cursor: grab;
       touch-action: none;
+      user-select: none;
     }
     .map-wrap.panning { cursor: grabbing; }
     .map-zoom {
@@ -567,6 +568,8 @@
       display: block;
       width: 100%;
       height: auto;
+      -webkit-user-drag: none;
+      user-select: none;
     }
     .map-overlay {
       position: absolute;
@@ -957,7 +960,7 @@
           <div class="map-legend hidden" id="mapLegend"></div>
           <div class="map-wrap" id="mapWrap">
             <div class="map-stage" id="mapStage">
-              <img id="worldMap" src="Thalarion%20Karte.png" alt="Karte von Thalarion" />
+              <img id="worldMap" src="Thalarion%20Karte.png" alt="Karte von Thalarion" draggable="false" />
               <svg class="map-overlay" id="mapOverlay" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
               <div class="map-pins" id="mapPins"></div>
               <div id="mapBorderTip" class="map-border-label"></div>
@@ -3775,6 +3778,7 @@
       const pinEl = ev.target.closest('.map-pin');
       const wrap = document.getElementById('mapWrap');
       if (pinEl && isDM) {
+        ev.preventDefault();
         mapDrag = { type: 'pin', id: pinEl.dataset.pinId, el: pinEl, x: ev.clientX, y: ev.clientY, moved: false };
         wrap.classList.add('panning');
         wrap.setPointerCapture(ev.pointerId);
@@ -3786,9 +3790,11 @@
         return;
       }
       if (mapScale <= 1) return;
+      ev.preventDefault();
       const hit = ev.target.closest('.map-border-hit');
       mapDrag = {
         type: 'pan',
+        id: ev.pointerId,
         x: ev.clientX,
         y: ev.clientY,
         panX: mapPanX,
@@ -3799,8 +3805,9 @@
       wrap.classList.add('panning');
       wrap.setPointerCapture(ev.pointerId);
     });
-    document.getElementById('mapWrap').addEventListener('pointermove', ev => {
+    document.addEventListener('pointermove', ev => {
       if (!mapDrag) return;
+      if (mapDrag.type === 'pan' || mapDrag.type === 'pin') ev.preventDefault();
       const dx = ev.clientX - mapDrag.x;
       const dy = ev.clientY - mapDrag.y;
       if (!mapDrag.moved && (dx * dx + dy * dy) > 36) mapDrag.moved = true;
@@ -3824,9 +3831,9 @@
         }
       }
     });
-    document.getElementById('mapWrap').addEventListener('pointerup', async ev => {
+    document.addEventListener('pointerup', async ev => {
       const wrap = document.getElementById('mapWrap');
-      wrap.classList.remove('panning');
+      if (wrap) wrap.classList.remove('panning');
       const drag = mapDrag;
       mapDrag = null;
       if (!drag) return;
@@ -3843,9 +3850,10 @@
         openBorderEditor(drag.borderId);
       }
     });
-    document.getElementById('mapWrap').addEventListener('pointercancel', () => {
+    document.addEventListener('pointercancel', () => {
       mapDrag = null;
-      document.getElementById('mapWrap').classList.remove('panning');
+      const wrap = document.getElementById('mapWrap');
+      if (wrap) wrap.classList.remove('panning');
     });
     document.getElementById('mapStage').addEventListener('click', ev => {
       if (!isDM) return;
