@@ -404,6 +404,23 @@
     .origin-article { margin-bottom: 1.4rem; }
     .origin-article + .origin-article { margin-top: 0.4rem; }
     .article-actions { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .entry-image-tools { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .entry-image-preview,
+    .entry-image-wrap {
+      margin-top: 0.5rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: auto;
+      background: #14110e;
+    }
+    .entry-image-preview { max-height: 320px; }
+    .entry-image-wrap { margin: 0.15rem 0 1.2rem; }
+    .entry-image-preview img,
+    .entry-image-wrap img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
 
     .editor-card {
       background: var(--panel);
@@ -703,6 +720,9 @@
             </div>
             <div class="kicker" id="viewType"></div>
             <h2 id="viewTitle"></h2>
+            <div id="viewImageWrap" class="entry-image-wrap hidden">
+              <img id="viewImage" alt="" />
+            </div>
             <div class="prose" id="viewContent"></div>
           </article>
         </section>
@@ -726,6 +746,16 @@
                 <option value="player">Für Spieler sichtbar</option>
                 <option value="dm">Nur für den DM</option>
               </select>
+            </div>
+            <div class="field">
+              <label>Bild</label>
+              <div class="entry-image-tools">
+                <button class="ghost" id="uploadEntryImageBtn" type="button">Bild hochladen</button>
+                <button class="ghost hidden" id="removeEntryImageBtn" type="button">Bild entfernen</button>
+              </div>
+              <div id="entryImagePreview" class="entry-image-preview hidden">
+                <img id="entryImagePreviewImg" alt="Vorschau" />
+              </div>
             </div>
             <div class="toolbar-label">Text</div>
             <div class="toolbar">
@@ -877,6 +907,7 @@
   <input id="uploadAllInput" class="hidden" type="file" accept=".txt,.md,text/plain" />
   <input id="uploadOneInput" class="hidden" type="file" accept=".txt,.md,text/plain" />
   <input id="mapFileInput" class="hidden" type="file" accept="image/*" />
+  <input id="entryImageInput" class="hidden" type="file" accept="image/*" />
   <div id="pinOverlay" class="overlay hidden">
     <div class="pin-card">
       <h2>Ort verknüpfen</h2>
@@ -955,6 +986,11 @@
     let currentPage = 'entstehung';
     let selectedHomeCat = null;
     let dirty = false;
+    let imageCache = {};
+    let pendingEntryImage = null;
+    let editorImageId = '';
+    let viewImageToken = 0;
+    let editorImageToken = 0;
     let sheetDirty = false;
     let playerAccounts = {};
     let playersUpdatedAt = 0;
@@ -1132,7 +1168,8 @@
         title: e.title || '',
         type: normalizeType(e.type || categories[0]),
         visibility: e.visibility === 'dm' ? 'dm' : 'player',
-        content: e.content || ''
+        content: e.content || '',
+        imageId: typeof e.imageId === 'string' ? e.imageId : ''
       }));
     }
 
@@ -1200,6 +1237,144 @@
 
     function playersRef() {
       return db.collection('world').doc(PLAYERS_DOC);
+    }
+
+    function imageRef(id) {
+      return db.collection('world').doc(id);
+    }
+
+    function newImageId() {
+      return 'img_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    }
+
+    function fileToEntryImage(file) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          let w = img.width;
+          let h = img.height;
+          const maxSide = 2000;
+          if (Math.max(w, h) > maxSide) {
+            const scale = maxSide / Math.max(w, h);
+            w = Math.round(w * scale);
+            h = Math.round(h * scale);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          let quality = 0.88;
+          let data = canvas.toDataURL('image/jpeg', quality);
+          while (data.length > 700000 && quality > 0.5) {
+            quality -= 0.08;
+            data = canvas.toDataURL('image/jpeg', quality);
+          }
+          if (data.length > 900000) reject(new Error('Das Bild ist zu groß. Bitte ein kleineres wählen.'));
+          else resolve(data);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error('Das Bild konnte nicht gelesen werden.'));
+        };
+        img.src = url;
+      });
+    }
+
+    async function loadEntryImage(imageId) {
+      if (!imageId) return null;
+      if (imageCache[imageId]) return imageCache[imageId];
+      if (!db) return null;
+      const snap = await imageRef(imageId).get();
+      if (!snap.exists) return null;
+      const data = snap.data().image;
+      if (data) imageCache[imageId] = data;
+      return data || null;
+    }
+
+    async function persistEntryImage(imageId, dataUrl) {
+      if (!db) throw new Error('Keine Verbindung zur Cloud.');
+      await imageRef(imageId).set({ image: dataUrl, updatedAt: Date.now() });
+      imageCache[imageId] = dataUrl;
+    }
+
+    async function deleteEntryImage(imageId) {
+      if (!imageId || !db) return;
+      await imageRef(imageId).delete();
+      delete imageCache[imageId];
+    }
+
+    function setEditorImagePreview(src) {
+      const wrap = document.getElementById('entryImagePreview');
+      const img = document.getElementById('entryImagePreviewImg');
+      const removeBtn = document.getElementById('removeEntryImageBtn');
+      if (!src) {
+        wrap.classList.add('hidden');
+        img.removeAttribute('src');
+        removeBtn.classList.add('hidden');
+        return;
+      }
+      img.src = src;
+      wrap.classList.remove('hidden');
+      removeBtn.classList.remove('hidden');
+    }
+
+    function showViewImage(imageId, title) {
+      const wrap = document.getElementById('viewImageWrap');
+      const img = document.getElementById('viewImage');
+      const token = ++viewImageToken;
+      if (!imageId) {
+        wrap.classList.add('hidden');
+        img.removeAttribute('src');
+        return;
+      }
+      wrap.classList.remove('hidden');
+      img.alt = title || '';
+      if (imageCache[imageId]) {
+        img.src = imageCache[imageId];
+        return;
+      }
+      img.removeAttribute('src');
+      loadEntryImage(imageId).then(data => {
+        if (token !== viewImageToken) return;
+        if (!data) {
+          wrap.classList.add('hidden');
+          return;
+        }
+        img.src = data;
+      }).catch(() => {
+        if (token !== viewImageToken) return;
+        wrap.classList.add('hidden');
+      });
+    }
+
+    function attachEntryImage(parent, imageId, alt) {
+      if (!imageId) return;
+      const wrap = document.createElement('div');
+      wrap.className = 'entry-image-wrap';
+      const img = document.createElement('img');
+      img.alt = alt || '';
+      wrap.appendChild(img);
+      parent.appendChild(wrap);
+      if (imageCache[imageId]) {
+        img.src = imageCache[imageId];
+        return;
+      }
+      loadEntryImage(imageId).then(data => {
+        if (!data) {
+          wrap.remove();
+          return;
+        }
+        img.src = data;
+      }).catch(() => wrap.remove());
+    }
+
+    function entryBodyHtml(e) {
+      const hasText = htmlToText(e.content || '').trim();
+      if (hasText) return e.content;
+      if (e.imageId) return '';
+      return '<p><em>Noch kein Text.</em></p>';
     }
 
     function playerIdFromName(name) {
@@ -1915,7 +2090,11 @@
       if (!parsed.length) return toast('In der Datei wurde kein Eintrag gefunden.');
       if (!confirm(parsed.length + ' Einträge aus der Datei übernehmen und die bisherigen ersetzen?')) return;
       const previous = entries.slice();
-      entries = parsed;
+      const keep = {};
+      previous.forEach(e => {
+        if (e.imageId && e.title) keep[e.title.toLowerCase()] = e.imageId;
+      });
+      entries = parsed.map(e => Object.assign({}, e, { imageId: keep[(e.title || '').toLowerCase()] || '' }));
       try {
         await persistWorld();
         toast('Alle Einträge übernommen.');
@@ -1938,7 +2117,7 @@
       const current = entries[currentIndex];
       const incoming = parsed.find(e => e.title.toLowerCase() === current.title.toLowerCase()) || parsed[0];
       const previous = Object.assign({}, current);
-      entries[currentIndex] = incoming;
+      entries[currentIndex] = Object.assign({}, incoming, { imageId: current.imageId || '' });
       try {
         await persistWorld();
         toast('Eintrag übernommen.');
@@ -2053,8 +2232,9 @@
         kicker.textContent = e.title;
         const prose = document.createElement('div');
         prose.className = 'prose';
-        prose.innerHTML = e.content || '<p><em>Noch kein Text.</em></p>';
+        prose.innerHTML = entryBodyHtml(e);
         article.appendChild(kicker);
+        attachEntryImage(article, e.imageId, e.title);
         article.appendChild(prose);
         box.appendChild(article);
       });
@@ -2309,7 +2489,8 @@
       els.viewer.classList.remove('hidden');
       document.getElementById('viewTitle').textContent = e.title;
       document.getElementById('viewType').textContent = e.type + (e.visibility === 'dm' ? ' · nur DM' : '');
-      document.getElementById('viewContent').innerHTML = e.content || '<p><em>Noch kein Text.</em></p>';
+      document.getElementById('viewContent').innerHTML = entryBodyHtml(e);
+      showViewImage(e.imageId, e.title);
       els.playerToEdit.classList.toggle('hidden', !isDM);
       if (!selectedHomeCat && !wantsSidebar(pageForType(e.type))) selectedHomeCat = e.type;
       renderViewerCrumb(e);
@@ -2329,6 +2510,19 @@
       els.content.innerHTML = e?.content || '';
       els.editorHeading.textContent = e?.title ? 'Eintrag bearbeiten' : 'Neuer Eintrag';
       document.getElementById('deleteBtn').disabled = currentIndex === null;
+      pendingEntryImage = null;
+      editorImageId = e?.imageId || '';
+      const imageToken = ++editorImageToken;
+      setEditorImagePreview(null);
+      if (editorImageId) {
+        if (imageCache[editorImageId]) setEditorImagePreview(imageCache[editorImageId]);
+        else {
+          loadEntryImage(editorImageId).then(data => {
+            if (imageToken !== editorImageToken || pendingEntryImage !== null) return;
+            if (data) setEditorImagePreview(data);
+          }).catch(() => {});
+        }
+      }
       dirty = false;
     }
 
@@ -2361,17 +2555,38 @@
 
     async function saveEntry() {
       if (!isDM) return;
-      const e = {
-        title: els.title.value.trim(),
-        type: els.type.value,
-        visibility: els.visibility.value,
-        content: els.content.innerHTML
-      };
-      if (!e.title) return toast('Bitte einen Namen vergeben.');
+      const title = els.title.value.trim();
+      if (!title) return toast('Bitte einen Namen vergeben.');
       const saveBtn = document.getElementById('saveBtn');
       saveBtn.disabled = true;
       saveBtn.textContent = 'Speichert…';
       const previous = currentIndex === null ? null : entries[currentIndex];
+      let imageId = previous?.imageId || editorImageId || '';
+      try {
+        if (pendingEntryImage === false) {
+          if (imageId) {
+            try { await deleteEntryImage(imageId); } catch (err) { console.warn(err); }
+          }
+          imageId = '';
+          editorImageId = '';
+        } else if (typeof pendingEntryImage === 'string') {
+          if (!imageId) imageId = newImageId();
+          editorImageId = imageId;
+          await persistEntryImage(imageId, pendingEntryImage);
+        }
+      } catch (err) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Speichern';
+        toast('Bild konnte nicht gespeichert werden: ' + err.message);
+        return;
+      }
+      const e = {
+        title: title,
+        type: els.type.value,
+        visibility: els.visibility.value,
+        content: els.content.innerHTML,
+        imageId: imageId
+      };
       if (currentIndex === null) {
         entries.push(e);
         currentIndex = entries.length - 1;
@@ -2381,6 +2596,7 @@
       try {
         await persistWorld();
         dirty = false;
+        pendingEntryImage = null;
         currentTitle = e.title;
         toast('Gespeichert.');
         if (e.type === STORY_CAT) showEntstehung();
@@ -2405,6 +2621,9 @@
       currentIndex = null;
       try {
         await persistWorld();
+        if (removed.imageId) {
+          try { await deleteEntryImage(removed.imageId); } catch (err) { console.warn(err); }
+        }
         dirty = false;
         toast('Eintrag gelöscht.');
         if (removed.type === STORY_CAT) showEntstehung();
@@ -2623,6 +2842,30 @@
       const file = ev.target.files[0];
       ev.target.value = '';
       uploadMapFile(file);
+    };
+    document.getElementById('uploadEntryImageBtn').onclick = () => {
+      if (!isDM) return;
+      document.getElementById('entryImageInput').click();
+    };
+    document.getElementById('removeEntryImageBtn').onclick = () => {
+      pendingEntryImage = false;
+      setEditorImagePreview(null);
+      dirty = true;
+    };
+    document.getElementById('entryImageInput').onchange = async ev => {
+      const file = ev.target.files[0];
+      ev.target.value = '';
+      if (!file || !isDM) return;
+      try {
+        toast('Bild wird vorbereitet…');
+        const data = await fileToEntryImage(file);
+        pendingEntryImage = data;
+        setEditorImagePreview(data);
+        dirty = true;
+        toast('Bild bereit. Jetzt Speichern, damit es für alle sichtbar ist.');
+      } catch (err) {
+        toast(err.message || 'Bild konnte nicht gelesen werden.');
+      }
     };
     ['title', 'type', 'visibility'].forEach(id => {
       document.getElementById(id).addEventListener('input', () => { dirty = true; });
