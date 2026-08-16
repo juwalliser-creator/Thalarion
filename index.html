@@ -678,6 +678,7 @@
       <aside id="sidebar"></aside>
       <main class="content" id="main">
         <section id="homeView" class="panel hidden">
+          <div id="homeCatNav" class="page-toolbar hidden"></div>
           <div class="hero">
             <div class="seal" id="homeSeal">T</div>
             <h1 id="homeTitle">Das Kompendium von Thalarion</h1>
@@ -686,11 +687,13 @@
           <div class="page-toolbar hidden" id="homeToolbar">
             <button class="primary" id="homeNewBtn" type="button">+ Neuer Eintrag</button>
           </div>
-          <div id="homeCatNav" class="page-toolbar hidden"></div>
           <div class="cards" id="homeCards"></div>
         </section>
 
         <section id="viewer" class="panel hidden">
+          <div class="page-toolbar hidden" id="viewerBackBar">
+            <button class="primary" id="backToCatalog" type="button">← Zurück</button>
+          </div>
           <article class="article">
             <div class="article-actions hidden" id="playerToEdit">
               <button class="ghost" id="editCurrent" type="button">Eintrag bearbeiten</button>
@@ -1031,6 +1034,37 @@
       if (BESTIARIUM_CATS.includes(type)) return 'bestiarium';
       if (GLOSSAR_CATS.includes(type)) return 'glossar';
       return 'codex';
+    }
+
+    function catalogLabel(page) {
+      if (page === 'bestiarium') return 'Bestiarium';
+      if (page === 'glossar') return 'Glossar';
+      return 'Kompendium';
+    }
+
+    function leaveCategory() {
+      selectedHomeCat = null;
+      updateHomeHero(currentPage);
+      renderHome();
+    }
+
+    function goBackCatalog() {
+      if (!confirmLeaveEditor()) return;
+      dirty = false;
+      if (isCatalogPage(currentPage) && !wantsSidebar(currentPage)) {
+        showPage(currentPage);
+        currentIndex = null;
+        currentTitle = null;
+        els.homeView.classList.remove('hidden');
+        els.viewer.classList.add('hidden');
+        els.editorView.classList.add('hidden');
+        els.entstehungView.classList.add('hidden');
+        renderHome();
+        updateExtraToolbars();
+        return;
+      }
+      if (isCatalogPage(currentPage)) showCatalog(currentPage);
+      else showHome();
     }
 
     function catalogCats() {
@@ -2007,14 +2041,14 @@
         nav.classList.remove('hidden');
         nav.innerHTML = '';
         const back = document.createElement('button');
-        back.className = 'ghost';
+        back.className = 'primary';
         back.type = 'button';
-        back.textContent = '← Alle Kategorien';
-        back.onclick = () => {
-          selectedHomeCat = null;
-          renderHome();
-        };
+        back.textContent = '← Zurück zum ' + catalogLabel(currentPage);
+        back.onclick = leaveCategory;
         nav.appendChild(back);
+        document.getElementById('homeTitle').textContent = selectedHomeCat;
+        document.getElementById('homeBlurb').textContent = 'Wähle einen Eintrag oder gehe zurück zu den Kategorien.';
+        document.getElementById('homeSeal').textContent = selectedHomeCat.charAt(0);
         const matching = entries
           .map((e, i) => ({ e, i }))
           .filter(({ e }) =>
@@ -2250,6 +2284,11 @@
       document.getElementById('viewType').textContent = e.type + (e.visibility === 'dm' ? ' · nur DM' : '');
       document.getElementById('viewContent').innerHTML = e.content || '<p><em>Noch kein Text.</em></p>';
       els.playerToEdit.classList.toggle('hidden', !isDM);
+      const showBack = isCatalogPage(currentPage) && !wantsSidebar(currentPage);
+      document.getElementById('viewerBackBar').classList.toggle('hidden', !showBack);
+      document.getElementById('backToCatalog').textContent = selectedHomeCat
+        ? '← Zurück zu ' + selectedHomeCat
+        : '← Zurück zum ' + catalogLabel(currentPage);
       renderSidebar();
       document.getElementById('sidebar').classList.remove('open');
       updateExtraToolbars();
@@ -2439,6 +2478,7 @@
     window.addEventListener('scroll', () => {
       if (!document.getElementById('searchResults').classList.contains('hidden')) placeSearchResults();
     }, true);
+    document.getElementById('backToCatalog').onclick = goBackCatalog;
     document.getElementById('homeNewBtn').onclick = newEntry;
     document.getElementById('entstehungNewBtn').onclick = newEntry;
     document.getElementById('menuBtn').onclick = () => els.sidebar.classList.toggle('open');
