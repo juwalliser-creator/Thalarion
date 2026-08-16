@@ -252,6 +252,7 @@
       justify-content: center;
       gap: 0.5rem;
       margin: 0 0 1.2rem;
+      flex-wrap: wrap;
     }
 
     aside {
@@ -1030,9 +1031,10 @@
     }
 
     function pageForType(type) {
-      if (type === STORY_CAT) return 'entstehung';
-      if (BESTIARIUM_CATS.includes(type)) return 'bestiarium';
-      if (GLOSSAR_CATS.includes(type)) return 'glossar';
+      const t = normalizeType(type);
+      if (t === STORY_CAT) return 'entstehung';
+      if (BESTIARIUM_CATS.includes(t)) return 'bestiarium';
+      if (GLOSSAR_CATS.includes(t)) return 'glossar';
       return 'codex';
     }
 
@@ -1048,23 +1050,48 @@
       renderHome();
     }
 
-    function goBackCatalog() {
+    function openCatalogCategory(page, cat) {
       if (!confirmLeaveEditor()) return;
       dirty = false;
-      if (isCatalogPage(currentPage) && !wantsSidebar(currentPage)) {
-        showPage(currentPage);
-        currentIndex = null;
-        currentTitle = null;
-        els.homeView.classList.remove('hidden');
-        els.viewer.classList.add('hidden');
-        els.editorView.classList.add('hidden');
-        els.entstehungView.classList.add('hidden');
+      selectedHomeCat = cat || null;
+      currentIndex = null;
+      currentTitle = null;
+      showPage(page);
+      els.homeView.classList.remove('hidden');
+      els.viewer.classList.add('hidden');
+      els.editorView.classList.add('hidden');
+      els.entstehungView.classList.add('hidden');
+      if (cat) renderHome();
+      else {
+        updateHomeHero(page);
         renderHome();
-        updateExtraToolbars();
+      }
+      updateExtraToolbars();
+    }
+
+    function renderViewerCrumb(e) {
+      const bar = document.getElementById('viewerBackBar');
+      const page = pageForType(e.type);
+      bar.innerHTML = '';
+      if (page === 'entstehung' || page === 'map' || page === 'char' || wantsSidebar(page)) {
+        bar.classList.add('hidden');
         return;
       }
-      if (isCatalogPage(currentPage)) showCatalog(currentPage);
-      else showHome();
+      bar.classList.remove('hidden');
+      const toRoot = document.createElement('button');
+      toRoot.className = 'primary';
+      toRoot.type = 'button';
+      toRoot.textContent = '← ' + catalogLabel(page);
+      toRoot.onclick = () => openCatalogCategory(page, null);
+      bar.appendChild(toRoot);
+      if (!wantsSidebar(page) && e.type) {
+        const toCat = document.createElement('button');
+        toCat.className = 'ghost';
+        toCat.type = 'button';
+        toCat.textContent = '← ' + e.type;
+        toCat.onclick = () => openCatalogCategory(page, e.type);
+        bar.appendChild(toCat);
+      }
     }
 
     function catalogCats() {
@@ -2284,11 +2311,8 @@
       document.getElementById('viewType').textContent = e.type + (e.visibility === 'dm' ? ' · nur DM' : '');
       document.getElementById('viewContent').innerHTML = e.content || '<p><em>Noch kein Text.</em></p>';
       els.playerToEdit.classList.toggle('hidden', !isDM);
-      const showBack = isCatalogPage(currentPage) && !wantsSidebar(currentPage);
-      document.getElementById('viewerBackBar').classList.toggle('hidden', !showBack);
-      document.getElementById('backToCatalog').textContent = selectedHomeCat
-        ? '← Zurück zu ' + selectedHomeCat
-        : '← Zurück zum ' + catalogLabel(currentPage);
+      if (!selectedHomeCat && !wantsSidebar(pageForType(e.type))) selectedHomeCat = e.type;
+      renderViewerCrumb(e);
       renderSidebar();
       document.getElementById('sidebar').classList.remove('open');
       updateExtraToolbars();
@@ -2478,7 +2502,6 @@
     window.addEventListener('scroll', () => {
       if (!document.getElementById('searchResults').classList.contains('hidden')) placeSearchResults();
     }, true);
-    document.getElementById('backToCatalog').onclick = goBackCatalog;
     document.getElementById('homeNewBtn').onclick = newEntry;
     document.getElementById('entstehungNewBtn').onclick = newEntry;
     document.getElementById('menuBtn').onclick = () => els.sidebar.classList.toggle('open');
