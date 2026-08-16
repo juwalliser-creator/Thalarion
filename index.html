@@ -539,9 +539,13 @@
       background: #0b0908;
       border: 1px solid var(--line);
       border-radius: 16px;
-      overflow: hidden;
+      overflow: auto;
       max-height: calc(100vh - 8rem);
       box-shadow: var(--shadow);
+      touch-action: pan-y;
+    }
+    .map-wrap.is-zoomed {
+      overflow: hidden;
       cursor: grab;
       touch-action: none;
     }
@@ -2266,6 +2270,14 @@
         hit.setAttribute('data-border-id', border.id);
         hit.addEventListener('mousemove', ev => showBorderTip(border.name, ev));
         hit.addEventListener('mouseleave', hideBorderTip);
+        if (isDM) {
+          hit.style.cursor = 'pointer';
+          hit.addEventListener('click', ev => {
+            if (placingPin || drawingBorder) return;
+            ev.stopPropagation();
+            openBorderEditor(border.id);
+          });
+        }
         svg.appendChild(hit);
         if (isDM) {
           const mid = borderCentroid(border.points);
@@ -2615,10 +2627,28 @@
 
     function applyMapTransform() {
       const stage = document.getElementById('mapStage');
+      const wrap = document.getElementById('mapWrap');
       const reset = document.getElementById('mapZoomReset');
-      if (!stage) return;
-      clampMapPan();
-      stage.style.transform = 'translate(' + mapPanX + 'px,' + mapPanY + 'px) scale(' + mapScale + ')';
+      if (!stage || !wrap) return;
+      if (mapScale <= 1.001) {
+        mapScale = 1;
+        wrap.classList.remove('is-zoomed');
+        stage.style.transform = 'none';
+        if (mapPanX || mapPanY) {
+          wrap.scrollLeft = Math.max(0, -mapPanX);
+          wrap.scrollTop = Math.max(0, -mapPanY);
+          mapPanX = 0;
+          mapPanY = 0;
+        }
+      } else {
+        if (!wrap.classList.contains('is-zoomed')) {
+          wrap.scrollLeft = 0;
+          wrap.scrollTop = 0;
+        }
+        wrap.classList.add('is-zoomed');
+        clampMapPan();
+        stage.style.transform = 'translate(' + mapPanX + 'px,' + mapPanY + 'px) scale(' + mapScale + ')';
+      }
       if (reset) reset.textContent = Math.round(mapScale * 100) + '%';
     }
 
@@ -2629,6 +2659,10 @@
       const rect = wrap.getBoundingClientRect();
       const mx = clientX - rect.left;
       const my = clientY - rect.top;
+      if (mapScale <= 1) {
+        mapPanX = -wrap.scrollLeft;
+        mapPanY = -wrap.scrollTop;
+      }
       const x = (mx - mapPanX) / mapScale;
       const y = (my - mapPanY) / mapScale;
       mapScale = nextScale;
@@ -2648,6 +2682,11 @@
       mapScale = 1;
       mapPanX = 0;
       mapPanY = 0;
+      const wrap = document.getElementById('mapWrap');
+      if (wrap) {
+        wrap.scrollTop = 0;
+        wrap.scrollLeft = 0;
+      }
       applyMapTransform();
     }
 
@@ -3724,6 +3763,7 @@
     document.getElementById('mapZoomOut').onclick = () => zoomMapBy(-0.35);
     document.getElementById('mapZoomReset').onclick = resetMapView;
     document.getElementById('mapWrap').addEventListener('wheel', ev => {
+      if (mapScale <= 1 && !ev.ctrlKey) return;
       ev.preventDefault();
       const step = ev.deltaY > 0 ? -0.18 : 0.18;
       zoomMapAt(ev.clientX, ev.clientY, mapScale + step);
@@ -3745,6 +3785,7 @@
         wrap.setPointerCapture(ev.pointerId);
         return;
       }
+      if (mapScale <= 1) return;
       const hit = ev.target.closest('.map-border-hit');
       mapDrag = {
         type: 'pan',
@@ -3753,7 +3794,7 @@
         panX: mapPanX,
         panY: mapPanY,
         moved: false,
-        borderId: hit ? (hit.dataset.borderId || hit.getAttribute('data-border-id')) : null
+        borderId: hit ? (hit.getAttribute('data-border-id') || '') : null
       };
       wrap.classList.add('panning');
       wrap.setPointerCapture(ev.pointerId);
