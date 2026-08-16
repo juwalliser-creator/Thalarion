@@ -878,6 +878,10 @@
                 <select id="type"></select>
               </div>
             </div>
+            <div class="field hidden" id="sessionDateWrap">
+              <label for="sessionDate">Datum der Sitzung</label>
+              <input id="sessionDate" type="date" />
+            </div>
             <div class="field">
               <label for="visibility">Sichtbarkeit</label>
               <select id="visibility">
@@ -1458,11 +1462,32 @@
         type: normalizeType(e.type || categories[0]),
         visibility: e.visibility === 'dm' ? 'dm' : 'player',
         content: e.content || '',
-        imageId: typeof e.imageId === 'string' ? e.imageId : ''
+        imageId: typeof e.imageId === 'string' ? e.imageId : '',
+        sessionDate: /^\d{4}-\d{2}-\d{2}$/.test(e.sessionDate || '') ? e.sessionDate : ''
       }));
     }
 
-    function visibleEntries() {
+    function formatSessionDate(iso) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || '')) return '';
+      const d = new Date(iso + 'T12:00:00');
+      if (Number.isNaN(d.getTime())) return '';
+      return d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    function todayIsoDate() {
+      const d = new Date();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return d.getFullYear() + '-' + m + '-' + day;
+    }
+
+    function syncSessionDateField() {
+      const wrap = document.getElementById('sessionDateWrap');
+      const input = document.getElementById('sessionDate');
+      const show = els.type.value === SESSION_CAT;
+      wrap.classList.toggle('hidden', !show);
+      if (show && !input.value) input.value = todayIsoDate();
+    }
       return entries.filter(e => isDM || e.visibility === 'player');
     }
 
@@ -2901,9 +2926,9 @@
       const previous = entries.slice();
       const keep = {};
       previous.forEach(e => {
-        if (e.imageId && e.title) keep[e.title.toLowerCase()] = e.imageId;
+        if (e.title) keep[e.title.toLowerCase()] = { imageId: e.imageId || '', sessionDate: e.sessionDate || '' };
       });
-      entries = parsed.map(e => Object.assign({}, e, { imageId: keep[(e.title || '').toLowerCase()] || '' }));
+      entries = parsed.map(e => Object.assign({}, e, keep[(e.title || '').toLowerCase()] || {}));
       try {
         await persistWorld();
         toast('Alle Einträge übernommen.');
@@ -2926,7 +2951,10 @@
       const current = entries[currentIndex];
       const incoming = parsed.find(e => e.title.toLowerCase() === current.title.toLowerCase()) || parsed[0];
       const previous = Object.assign({}, current);
-      entries[currentIndex] = Object.assign({}, incoming, { imageId: current.imageId || '' });
+      entries[currentIndex] = Object.assign({}, incoming, {
+        imageId: current.imageId || '',
+        sessionDate: current.sessionDate || incoming.sessionDate || ''
+      });
       try {
         await persistWorld();
         toast('Eintrag übernommen.');
@@ -3058,7 +3086,12 @@
       const sessions = visibleEntries()
         .map((e, i) => ({ e, i }))
         .filter(({ e }) => e.type === SESSION_CAT)
-        .sort((a, b) => b.i - a.i);
+        .sort((a, b) => {
+          const da = a.e.sessionDate || '';
+          const db = b.e.sessionDate || '';
+          if (da !== db) return db.localeCompare(da);
+          return b.i - a.i;
+        });
       if (!sessions.length) {
         const empty = document.createElement('p');
         empty.style.color = 'var(--muted)';
@@ -3091,11 +3124,17 @@
         }
         const kicker = document.createElement('div');
         kicker.className = 'kicker';
-        kicker.textContent = pos === 0 ? 'Letzte Sitzung · ' + e.title : e.title;
+        const when = formatSessionDate(e.sessionDate);
+        const label = pos === 0 ? 'Letzte Sitzung' : 'Sitzung';
+        kicker.textContent = when ? (label + ' · ' + when) : label;
+        const heading = document.createElement('h2');
+        heading.textContent = e.title;
+        heading.style.margin = '0.15rem 0 0.8rem';
         const prose = document.createElement('div');
         prose.className = 'prose';
         prose.innerHTML = entryBodyHtml(e);
         article.appendChild(kicker);
+        article.appendChild(heading);
         attachEntryImage(article, e.imageId, e.title);
         article.appendChild(prose);
         box.appendChild(article);
@@ -3447,6 +3486,10 @@
       const nextType = e?.type && allowed.includes(e.type) ? e.type : fallback;
       els.type.value = nextType;
       els.visibility.value = e?.visibility || 'player';
+      const dateInput = document.getElementById('sessionDate');
+      if (nextType === SESSION_CAT) dateInput.value = e?.sessionDate || todayIsoDate();
+      else dateInput.value = e?.sessionDate || '';
+      syncSessionDateField();
       els.content.innerHTML = e?.content || '';
       els.editorHeading.textContent = e?.title ? 'Eintrag bearbeiten' : 'Neuer Eintrag';
       document.getElementById('deleteBtn').disabled = currentIndex === null;
@@ -3483,6 +3526,8 @@
       currentIndex = null;
       fillEditor(null);
       els.type.value = defaultTypeForPage(currentPage);
+      if (els.type.value === SESSION_CAT) document.getElementById('sessionDate').value = todayIsoDate();
+      syncSessionDateField();
       openEditor();
       renderSidebar();
       els.title.focus();
@@ -3526,7 +3571,8 @@
         type: els.type.value,
         visibility: els.visibility.value,
         content: els.content.innerHTML,
-        imageId: imageId
+        imageId: imageId,
+        sessionDate: els.type.value === SESSION_CAT ? (document.getElementById('sessionDate').value || '') : ''
       };
       if (currentIndex === null) {
         entries.push(e);
@@ -3960,10 +4006,11 @@
         toast(err.message || 'Bild konnte nicht gelesen werden.');
       }
     };
-    ['title', 'type', 'visibility'].forEach(id => {
+    ['title', 'type', 'visibility', 'sessionDate'].forEach(id => {
       document.getElementById(id).addEventListener('input', () => { dirty = true; });
       document.getElementById(id).addEventListener('change', () => { dirty = true; });
     });
+    els.type.addEventListener('change', syncSessionDateField);
     els.content.addEventListener('input', () => { dirty = true; });
 
     if (sessionStorage.getItem(SESSION_KEY) === '1') setDM(true);
