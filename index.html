@@ -964,7 +964,7 @@
           <div class="map-legend hidden" id="mapLegend"></div>
           <div class="map-wrap" id="mapWrap">
             <div class="map-stage" id="mapStage">
-              <img id="worldMap" src="Thalarion%20Karte.png" alt="Karte von Thalarion" draggable="false" />
+              <img id="worldMap" src="Thalarion%20Karte.png.png" alt="Karte von Thalarion" draggable="false" />
               <svg class="map-overlay" id="mapOverlay" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
               <div class="map-pins" id="mapPins"></div>
               <div id="mapBorderTip" class="map-border-label"></div>
@@ -1488,6 +1488,8 @@
       wrap.classList.toggle('hidden', !show);
       if (show && !input.value) input.value = todayIsoDate();
     }
+
+    function visibleEntries() {
       return entries.filter(e => isDM || e.visibility === 'player');
     }
 
