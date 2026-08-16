@@ -977,6 +977,64 @@
       color: var(--muted);
       padding: 1.4rem 0.5rem;
     }
+    .kampf-bar-sub { margin-top: -0.55rem; }
+    .kampf-order {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.35rem;
+      margin: 0 0 1.15rem;
+    }
+    .kampf-order button {
+      max-width: 11rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .kampf-order button.is-player { border-left: 3px solid var(--gold); }
+    .kampf-order button.is-enemy { border-left: 3px solid var(--blood); }
+    .kampf-order button.active {
+      background: linear-gradient(180deg, #c9a35c, #9a7a38);
+      color: #1a140c;
+      border-color: #e0c27a;
+      font-weight: 600;
+    }
+    .kampf-card.is-player { border-left: 4px solid var(--gold); }
+    .kampf-card.is-enemy { border-left: 4px solid var(--blood); }
+    .kampf-name {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font-family: Cinzel, serif;
+      font-size: 1.15rem;
+      padding: 0;
+    }
+    .kampf-field {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .kampf-field > span {
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    .kampf-card-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-left: auto;
+    }
+    .kampf-suggest {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      width: 100%;
+    }
+    .kampf-suggest button {
+      font-size: 0.82rem;
+      padding: 0.22rem 0.55rem;
+    }
 
     .hidden { display: none !important; }
 
@@ -1263,9 +1321,16 @@
           </div>
           <div class="kampf-bar">
             <span class="kampf-round" id="kampfRound">Runde 1</span>
+            <button class="ghost" id="kampfPrevBtn" type="button">Zurück</button>
+            <button class="ghost" id="kampfSkipBtn" type="button">Überspringen</button>
             <button class="primary" id="kampfNextBtn" type="button">Nächster Zug</button>
             <button class="ghost" id="kampfEndBtn" type="button">Kampf beenden</button>
           </div>
+          <div class="kampf-bar kampf-bar-sub">
+            <button class="ghost" id="kampfTickTurn" type="button">Debuffs am Zugende</button>
+            <button class="ghost" id="kampfTickRound" type="button">Debuffs am Rundenende</button>
+          </div>
+          <div class="kampf-order" id="kampfOrder"></div>
           <div class="kampf-add">
             <div class="kampf-add-card">
               <h3>Spieler übernehmen</h3>
@@ -1276,9 +1341,19 @@
               <div class="kampf-add-row">
                 <input id="kampfEnemyName" placeholder="Name, z. B. Ork" />
                 <input id="kampfEnemyHp" class="kampf-num" type="number" min="0" placeholder="TP" />
+                <input id="kampfEnemyAc" class="kampf-num" placeholder="Rüstung" />
                 <input id="kampfEnemyInit" class="kampf-num" type="number" step="0.1" placeholder="Init" />
+                <input id="kampfEnemyCount" class="kampf-num" type="number" min="1" placeholder="Anzahl" title="Größer als 1 macht eine Gruppe" />
                 <button class="primary" id="kampfAddEnemyBtn" type="button">Hinzufügen</button>
               </div>
+            </div>
+            <div class="kampf-add-card">
+              <h3>Vorlagen</h3>
+              <div class="kampf-add-row">
+                <input id="kampfTplName" placeholder="z. B. Orks an der Brücke" />
+                <button class="ghost" id="kampfSaveTplBtn" type="button">Als Vorlage speichern</button>
+              </div>
+              <div class="kampf-players" id="kampfTplList"></div>
             </div>
           </div>
           <div class="kampf-list" id="kampfList"></div>
@@ -1448,6 +1523,8 @@
     const DM_PASS = 'bWVpbmV3ZWx0';
     const PLAYER_SESSION_KEY = 'thalarion_player';
     const COMBAT_KEY = 'thalarion_combat';
+    const COMBAT_TEMPLATES_KEY = 'thalarion_combat_templates';
+    const COMBAT_DEBUFF_SUGGEST = ['Liegend', 'Vergiftet', 'Verängstigt', 'Festgehalten'];
     const EMPTY_SHEET = {
       name: '',
       volk: '',
@@ -1501,7 +1578,7 @@
     let currentPlayerId = null;
     let currentSheetOwner = null;
     let playerFormMode = 'login';
-    let combat = { round: 1, started: false, activeId: null, combatants: [], log: [] };
+    let combat = { round: 1, started: false, activeId: null, debuffTick: 'turn', combatants: [], log: [] };
 
     const els = {
       sidebar: document.getElementById('sidebar'),
@@ -2218,7 +2295,7 @@
     }
 
     function emptyCombat() {
-      return { round: 1, started: false, activeId: null, combatants: [], log: [] };
+      return { round: 1, started: false, activeId: null, debuffTick: 'turn', combatants: [], log: [] };
     }
 
     function parseSheetHp(str) {
@@ -2247,10 +2324,41 @@
       return name + ' ' + n;
     }
 
+    function normalizeCombatDebuffs(list) {
+      return (Array.isArray(list) ? list : []).map(d => ({
+        id: d.id || combatNewId('d'),
+        text: d.text || '',
+        rounds: d.rounds == null || d.rounds === '' ? null : Number(d.rounds)
+      })).filter(d => d.text && (d.rounds == null || d.rounds > 0));
+    }
+
+    function normalizeCombatant(c) {
+      const countMax = Math.max(1, Number(c.countMax) || Number(c.count) || 1);
+      let count = Number(c.count);
+      if (!Number.isFinite(count)) count = countMax;
+      return {
+        id: c.id || combatNewId('c'),
+        name: c.name || '',
+        kind: c.kind === 'player' ? 'player' : 'enemy',
+        playerId: c.playerId || '',
+        init: parseCombatInit(c.init),
+        order: Number(c.order) || 0,
+        hp: Number(c.hp) || 0,
+        hpMax: Number(c.hpMax) || 0,
+        tempHp: Math.max(0, Number(c.tempHp) || 0),
+        ac: c.ac == null ? '' : String(c.ac),
+        count: Math.max(0, count),
+        countMax: countMax,
+        debuffs: normalizeCombatDebuffs(c.debuffs)
+      };
+    }
+
     function sortedCombatants() {
       return combat.combatants.slice().sort((a, b) => {
         const di = parseCombatInit(b.init) - parseCombatInit(a.init);
         if (di) return di;
+        const o = (Number(a.order) || 0) - (Number(b.order) || 0);
+        if (o) return o;
         return (a.name || '').localeCompare(b.name || '', 'de');
       });
     }
@@ -2272,21 +2380,8 @@
           round: Math.max(1, Number(raw.round) || 1),
           started: !!raw.started,
           activeId: raw.activeId || null,
-          combatants: (Array.isArray(raw.combatants) ? raw.combatants : []).map(c => ({
-            id: c.id || combatNewId('c'),
-            name: c.name || '',
-            kind: c.kind === 'player' ? 'player' : 'enemy',
-            playerId: c.playerId || '',
-            init: parseCombatInit(c.init),
-            hp: Number(c.hp) || 0,
-            hpMax: Number(c.hpMax) || 0,
-            ac: c.ac || '',
-            debuffs: (Array.isArray(c.debuffs) ? c.debuffs : []).map(d => ({
-              id: d.id || combatNewId('d'),
-              text: d.text || '',
-              rounds: d.rounds == null || d.rounds === '' ? null : Number(d.rounds)
-            })).filter(d => d.text && (d.rounds == null || d.rounds > 0))
-          })),
+          debuffTick: raw.debuffTick === 'round' ? 'round' : 'turn',
+          combatants: (Array.isArray(raw.combatants) ? raw.combatants : []).map(normalizeCombatant),
           log: Array.isArray(raw.log) ? raw.log.slice(0, 20) : []
         };
       } catch (err) {
@@ -2294,9 +2389,28 @@
       }
     }
 
+    function loadCombatTemplates() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(COMBAT_TEMPLATES_KEY) || '[]');
+        return Array.isArray(raw) ? raw : [];
+      } catch (err) {
+        return [];
+      }
+    }
+
+    function persistCombatTemplates(list) {
+      try {
+        localStorage.setItem(COMBAT_TEMPLATES_KEY, JSON.stringify((list || []).slice(0, 24)));
+      } catch (err) {}
+    }
+
     function combatLog(line) {
       combat.log.unshift('Runde ' + combat.round + ' · ' + line);
       combat.log = combat.log.slice(0, 20);
+    }
+
+    function combatantDown(row) {
+      return !row || row.hp <= 0 || row.count <= 0;
     }
 
     function ensureCombatTurn() {
@@ -2312,22 +2426,25 @@
       return combat.combatants.find(c => c.id === id) || null;
     }
 
-    function addCombatant(data) {
-      const row = {
-        id: combatNewId('c'),
+    function addCombatant(data, quiet) {
+      const row = normalizeCombatant({
         name: data.name,
         kind: data.kind || 'enemy',
         playerId: data.playerId || '',
-        init: parseCombatInit(data.init),
-        hp: Number(data.hp) || 0,
-        hpMax: Number(data.hpMax) || Number(data.hp) || 0,
-        ac: data.ac || '',
+        init: data.init,
+        order: data.order != null ? data.order : combat.combatants.length + 1,
+        hp: data.hp,
+        hpMax: data.hpMax != null ? data.hpMax : data.hp,
+        tempHp: data.tempHp,
+        ac: data.ac,
+        count: data.count,
+        countMax: data.countMax,
         debuffs: []
-      };
+      });
       combat.combatants.push(row);
       ensureCombatTurn();
       persistCombat();
-      renderKampf();
+      if (!quiet) renderKampf();
       return row;
     }
 
@@ -2347,44 +2464,100 @@
         hp: hp.hp,
         hpMax: hp.hpMax,
         ac: (acc.sheet && acc.sheet.armor) || ''
-      });
+      }, quiet);
       if (!quiet) toast(acc.name + ' übernommen. Initiative noch eintragen.');
     }
 
     function addEnemyToCombat() {
       const nameEl = document.getElementById('kampfEnemyName');
       const hpEl = document.getElementById('kampfEnemyHp');
+      const acEl = document.getElementById('kampfEnemyAc');
       const initEl = document.getElementById('kampfEnemyInit');
-      const name = uniqueCombatName(nameEl.value);
+      const countEl = document.getElementById('kampfEnemyCount');
+      const count = Math.max(1, Number(countEl.value) || 1);
       const hp = Math.max(0, Number(hpEl.value) || 0);
-      const init = parseCombatInit(initEl.value);
-      addCombatant({ name: name, kind: 'enemy', init: init, hp: hp, hpMax: hp });
+      addCombatant({
+        name: uniqueCombatName(nameEl.value),
+        kind: 'enemy',
+        init: parseCombatInit(initEl.value),
+        hp: hp,
+        hpMax: hp,
+        ac: (acEl.value || '').trim(),
+        count: count,
+        countMax: count
+      });
       nameEl.value = '';
       hpEl.value = '';
       initEl.value = '';
+      countEl.value = '';
       nameEl.focus();
     }
 
     function removeCombatant(id) {
-      const row = combatantById(id);
-      if (!row) return;
+      if (!combatantById(id)) return;
       combat.combatants = combat.combatants.filter(c => c.id !== id);
       ensureCombatTurn();
       persistCombat();
       renderKampf();
     }
 
+    function duplicateCombatant(id) {
+      const row = combatantById(id);
+      if (!row || row.kind === 'player') return;
+      const base = (row.name || 'Gegner').replace(/\s+\d+$/, '');
+      addCombatant({
+        name: uniqueCombatName(base),
+        kind: 'enemy',
+        init: parseCombatInit(row.init) + 1,
+        hp: row.hpMax,
+        hpMax: row.hpMax,
+        ac: row.ac,
+        count: row.countMax,
+        countMax: row.countMax
+      });
+    }
+
+    function nudgeCombatant(id, dir) {
+      const list = sortedCombatants();
+      const i = list.findIndex(c => c.id === id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= list.length) return;
+      const a = list[i];
+      const b = list[j];
+      if (parseCombatInit(a.init) !== parseCombatInit(b.init)) {
+        toast('Nur bei gleicher Initiative verschieben.');
+        return;
+      }
+      const oa = Number(a.order) || 0;
+      const ob = Number(b.order) || 0;
+      if (oa === ob) {
+        a.order = oa + dir;
+        b.order = oa;
+      } else {
+        a.order = ob;
+        b.order = oa;
+      }
+      persistCombat();
+      renderKampf();
+    }
+
     function applyCombatDamage(id, amount, heal) {
       const row = combatantById(id);
-      const n = Math.abs(Number(amount) || 0);
+      let n = Math.abs(Number(amount) || 0);
       if (!row || !n) return;
       if (heal) {
         row.hp = row.hp + n;
         if (row.hpMax > 0) row.hp = Math.min(row.hpMax, row.hp);
         combatLog(row.name + ' · +' + n + ' TP');
       } else {
-        row.hp = Math.max(0, row.hp - n);
-        combatLog(row.name + ' · ' + n + ' Schaden');
+        const temp = Number(row.tempHp) || 0;
+        if (temp > 0) {
+          const used = Math.min(temp, n);
+          row.tempHp = temp - used;
+          n -= used;
+        }
+        if (n > 0) row.hp = Math.max(0, row.hp - n);
+        combatLog(row.name + ' · ' + Math.abs(Number(amount) || 0) + ' Schaden');
       }
       persistCombat();
       renderKampf();
@@ -2394,6 +2567,7 @@
       const row = combatantById(id);
       const label = (text || '').trim();
       if (!row || !label) return;
+      if (row.debuffs.some(d => d.text.toLowerCase() === label.toLowerCase())) return;
       const roundsNum = String(roundsRaw == null ? '' : roundsRaw).trim();
       const rounds = roundsNum === '' ? null : Math.max(1, Number(roundsNum) || 1);
       row.debuffs.push({ id: combatNewId('d'), text: label, rounds: rounds });
@@ -2417,6 +2591,20 @@
       }).filter(d => d.rounds == null || d.rounds > 0);
     }
 
+    function setCombatDebuffTick(mode) {
+      combat.debuffTick = mode === 'round' ? 'round' : 'turn';
+      persistCombat();
+      renderKampf();
+    }
+
+    function setCombatActive(id) {
+      if (!combatantById(id)) return;
+      combat.started = true;
+      combat.activeId = id;
+      persistCombat();
+      renderKampf();
+    }
+
     function nextCombatTurn() {
       const list = sortedCombatants();
       if (!list.length) {
@@ -2427,36 +2615,162 @@
       combat.started = true;
       const i = list.findIndex(c => c.id === combat.activeId);
       const cur = list[i < 0 ? 0 : i];
-      tickCombatDebuffs(cur);
-      const next = (i < 0 ? 0 : i) + 1;
-      if (next >= list.length) {
+      const wrapping = (i < 0 ? 0 : i) + 1 >= list.length;
+      if (combat.debuffTick === 'turn') tickCombatDebuffs(cur);
+      if (wrapping) {
         combat.round += 1;
+        if (combat.debuffTick === 'round') list.forEach(tickCombatDebuffs);
         combat.activeId = list[0].id;
       } else {
-        combat.activeId = list[next].id;
+        combat.activeId = list[(i < 0 ? 0 : i) + 1].id;
       }
       persistCombat();
       renderKampf();
     }
 
+    function skipCombatTurn() {
+      const list = sortedCombatants();
+      if (!list.length) {
+        toast('Noch niemand im Kampf.');
+        return;
+      }
+      ensureCombatTurn();
+      combat.started = true;
+      const i = Math.max(0, list.findIndex(c => c.id === combat.activeId));
+      combat.activeId = list[(i + 1) % list.length].id;
+      persistCombat();
+      renderKampf();
+    }
+
+    function prevCombatTurn() {
+      const list = sortedCombatants();
+      if (!list.length) {
+        toast('Noch niemand im Kampf.');
+        return;
+      }
+      ensureCombatTurn();
+      combat.started = true;
+      const i = Math.max(0, list.findIndex(c => c.id === combat.activeId));
+      combat.activeId = list[(i - 1 + list.length) % list.length].id;
+      persistCombat();
+      renderKampf();
+    }
+
     function endCombat() {
+      const tick = combat.debuffTick;
       if (!combat.combatants.length) {
         combat = emptyCombat();
+        combat.debuffTick = tick;
         persistCombat();
         renderKampf();
         return;
       }
-      if (!confirm('Kampf beenden und die Tafel leeren? Die Charakterblätter bleiben unverändert.')) return;
+      if (!confirm('Kampf beenden und die Tafel leeren? Die Charakterblätter und Vorlagen bleiben unverändert.')) return;
       combat = emptyCombat();
+      combat.debuffTick = tick;
       persistCombat();
       renderKampf();
       toast('Kampf beendet.');
+    }
+
+    function saveCombatTemplate() {
+      const name = (document.getElementById('kampfTplName').value || '').trim();
+      if (!name) {
+        toast('Bitte einen Namen für die Vorlage, z. B. Orks an der Brücke.');
+        return;
+      }
+      if (!combat.combatants.length) {
+        toast('Die Tafel ist leer.');
+        return;
+      }
+      const list = loadCombatTemplates();
+      list.unshift({
+        id: combatNewId('tpl'),
+        name: name,
+        savedAt: Date.now(),
+        combatants: combat.combatants.map(c => ({
+          name: c.name,
+          kind: c.kind,
+          playerId: c.playerId || '',
+          init: c.init,
+          order: c.order || 0,
+          hpMax: c.hpMax,
+          ac: c.ac || '',
+          countMax: Math.max(1, Number(c.countMax) || Number(c.count) || 1)
+        }))
+      });
+      persistCombatTemplates(list);
+      document.getElementById('kampfTplName').value = '';
+      toast('Vorlage gespeichert.');
+      renderKampf();
+    }
+
+    function applyCombatTemplate(id) {
+      const tpl = loadCombatTemplates().find(t => t.id === id);
+      if (!tpl) return;
+      if (combat.combatants.length && !confirm('Tafel durch die Vorlage „' + tpl.name + '“ ersetzen?')) return;
+      const tick = combat.debuffTick;
+      combat = emptyCombat();
+      combat.debuffTick = tick;
+      (tpl.combatants || []).forEach(c => {
+        combat.combatants.push(normalizeCombatant({
+          name: c.name,
+          kind: c.kind,
+          playerId: c.playerId,
+          init: c.init,
+          order: c.order,
+          hp: c.hpMax,
+          hpMax: c.hpMax,
+          ac: c.ac,
+          count: c.countMax,
+          countMax: c.countMax,
+          tempHp: 0,
+          debuffs: []
+        }));
+      });
+      ensureCombatTurn();
+      persistCombat();
+      renderKampf();
+      toast('Vorlage geladen. Initiative prüfen.');
+    }
+
+    function deleteCombatTemplate(id) {
+      const list = loadCombatTemplates();
+      const tpl = list.find(t => t.id === id);
+      if (!tpl) return;
+      if (!confirm('Vorlage „' + tpl.name + '“ löschen?')) return;
+      persistCombatTemplates(list.filter(t => t.id !== id));
+      renderKampf();
+    }
+
+    function kampfLabeledInput(label, el) {
+      const wrap = document.createElement('label');
+      wrap.className = 'kampf-field';
+      const span = document.createElement('span');
+      span.textContent = label;
+      wrap.appendChild(span);
+      wrap.appendChild(el);
+      return wrap;
+    }
+
+    function kampfNumberInput(value, onChange, extra) {
+      const el = document.createElement('input');
+      el.type = extra && extra.type ? extra.type : 'number';
+      if (extra && extra.step) el.step = extra.step;
+      if (extra && extra.min != null) el.min = extra.min;
+      if (extra && extra.placeholder) el.placeholder = extra.placeholder;
+      if (extra && extra.title) el.title = extra.title;
+      el.value = value;
+      el.onchange = () => onChange(el);
+      return el;
     }
 
     function renderKampf() {
       if (!els.kampfView || els.kampfView.classList.contains('hidden')) return;
       ensureCombatTurn();
       document.getElementById('kampfRound').textContent = 'Runde ' + combat.round;
+      document.getElementById('kampfTickTurn').className = combat.debuffTick === 'turn' ? 'primary' : 'ghost';
+      document.getElementById('kampfTickRound').className = combat.debuffTick === 'round' ? 'primary' : 'ghost';
 
       const playersBox = document.getElementById('kampfPlayers');
       playersBox.innerHTML = '';
@@ -2484,6 +2798,8 @@
           all.textContent = 'Alle übernehmen';
           all.onclick = () => {
             free.forEach(id => addPlayerToCombat(id, true));
+            persistCombat();
+            renderKampf();
             toast('Spieler übernommen. Initiative noch eintragen.');
           };
           playersBox.appendChild(all);
@@ -2498,20 +2814,60 @@
         });
       }
 
+      const tplBox = document.getElementById('kampfTplList');
+      tplBox.innerHTML = '';
+      const tpls = loadCombatTemplates();
+      if (!tpls.length) {
+        const empty = document.createElement('p');
+        empty.className = 'kampf-empty';
+        empty.style.padding = '0.4rem 0 0';
+        empty.textContent = 'Noch keine Vorlagen.';
+        tplBox.appendChild(empty);
+      }
+      tpls.forEach(tpl => {
+        const loadBtn = document.createElement('button');
+        loadBtn.type = 'button';
+        loadBtn.className = 'ghost';
+        loadBtn.textContent = tpl.name;
+        loadBtn.onclick = () => applyCombatTemplate(tpl.id);
+        tplBox.appendChild(loadBtn);
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'danger';
+        delBtn.textContent = '×';
+        delBtn.title = 'Vorlage löschen';
+        delBtn.onclick = () => deleteCombatTemplate(tpl.id);
+        tplBox.appendChild(delBtn);
+      });
+
+      const orderBox = document.getElementById('kampfOrder');
+      orderBox.innerHTML = '';
+      const rows = sortedCombatants();
+      rows.forEach(row => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = row.kind === 'player' ? 'ghost is-player' : 'ghost is-enemy';
+        if (row.id === combat.activeId) btn.classList.add('active');
+        const label = row.countMax > 1 ? (row.name + ' (' + row.count + ')') : row.name;
+        btn.textContent = label;
+        btn.title = 'Diesen Zug setzen';
+        btn.onclick = () => setCombatActive(row.id);
+        orderBox.appendChild(btn);
+      });
+
       const list = document.getElementById('kampfList');
       list.innerHTML = '';
-      const rows = sortedCombatants();
       if (!rows.length) {
         const empty = document.createElement('p');
         empty.className = 'kampf-empty';
         empty.textContent = 'Noch niemand im Kampf. Übernimm die Spieler und füge Gegner hinzu.';
         list.appendChild(empty);
       }
-      rows.forEach(row => {
+      rows.forEach((row, index) => {
         const card = document.createElement('article');
-        card.className = 'kampf-card';
+        card.className = 'kampf-card ' + (row.kind === 'player' ? 'is-player' : 'is-enemy');
         if (row.id === combat.activeId) card.classList.add('is-active');
-        if (row.hp <= 0) card.classList.add('is-down');
+        if (combatantDown(row)) card.classList.add('is-down');
 
         const top = document.createElement('div');
         top.className = 'kampf-card-top';
@@ -2520,73 +2876,109 @@
         initBox.className = 'kampf-init';
         const initLabel = document.createElement('span');
         initLabel.textContent = 'Init';
-        const initInput = document.createElement('input');
-        initInput.type = 'number';
-        initInput.step = '0.1';
-        initInput.value = row.init;
-        initInput.title = 'Gewürfelte Initiative';
-        initInput.onchange = () => {
-          row.init = parseCombatInit(initInput.value);
+        const initInput = kampfNumberInput(row.init, el => {
+          row.init = parseCombatInit(el.value);
           persistCombat();
           renderKampf();
-        };
+        }, { step: '0.1', title: 'Gewürfelte Initiative' });
         initBox.appendChild(initLabel);
         initBox.appendChild(initInput);
 
         const who = document.createElement('div');
         who.className = 'kampf-who';
-        const title = document.createElement('strong');
-        title.textContent = row.name;
+        const nameInput = document.createElement('input');
+        nameInput.className = 'kampf-name';
+        nameInput.value = row.name;
+        nameInput.onchange = () => {
+          const next = (nameInput.value || '').trim();
+          if (!next) {
+            nameInput.value = row.name;
+            return;
+          }
+          row.name = next;
+          persistCombat();
+          renderKampf();
+        };
         const meta = document.createElement('em');
-        const bits = [];
-        bits.push(row.kind === 'player' ? 'Spieler' : 'Gegner');
-        if (row.ac) bits.push('Rüstung ' + row.ac);
-        if (row.hp <= 0) bits.push('0 TP');
+        const bits = [row.kind === 'player' ? 'Spieler' : 'Gegner'];
+        if (combatantDown(row)) bits.push('kampfunfähig');
         if (row.id === combat.activeId) bits.push('dran');
         meta.textContent = bits.join(' · ');
-        who.appendChild(title);
+        who.appendChild(nameInput);
         who.appendChild(meta);
 
+        const tools = document.createElement('div');
+        tools.className = 'kampf-card-tools';
+        const up = document.createElement('button');
+        up.type = 'button';
+        up.className = 'ghost';
+        up.textContent = '↑';
+        up.title = 'Bei gleicher Initiative einen Platz nach oben';
+        up.disabled = index === 0;
+        up.onclick = () => nudgeCombatant(row.id, -1);
+        const down = document.createElement('button');
+        down.type = 'button';
+        down.className = 'ghost';
+        down.textContent = '↓';
+        down.title = 'Bei gleicher Initiative einen Platz nach unten';
+        down.disabled = index === rows.length - 1;
+        down.onclick = () => nudgeCombatant(row.id, 1);
+        tools.appendChild(up);
+        tools.appendChild(down);
+        if (row.kind !== 'player') {
+          const dup = document.createElement('button');
+          dup.type = 'button';
+          dup.className = 'ghost';
+          dup.textContent = 'Duplizieren';
+          dup.onclick = () => duplicateCombatant(row.id);
+          tools.appendChild(dup);
+        }
         const del = document.createElement('button');
         del.type = 'button';
         del.className = 'danger';
         del.textContent = '×';
         del.title = 'Aus dem Kampf nehmen';
         del.onclick = () => removeCombatant(row.id);
+        tools.appendChild(del);
 
         top.appendChild(initBox);
         top.appendChild(who);
-        top.appendChild(del);
+        top.appendChild(tools);
 
         const hpBox = document.createElement('div');
         hpBox.className = 'kampf-hp';
         const hpRow = document.createElement('div');
         hpRow.className = 'kampf-hp-row';
-        const hpLabel = document.createElement('label');
-        hpLabel.textContent = 'TP';
-        const hpNow = document.createElement('input');
-        hpNow.type = 'number';
-        hpNow.value = row.hp;
-        hpNow.onchange = () => {
-          row.hp = Number(hpNow.value) || 0;
+        const hpNow = kampfNumberInput(row.hp, el => {
+          row.hp = Number(el.value) || 0;
           persistCombat();
           renderKampf();
-        };
-        const slash = document.createElement('span');
-        slash.textContent = '/';
-        slash.style.color = 'var(--muted)';
-        const hpMax = document.createElement('input');
-        hpMax.type = 'number';
-        hpMax.value = row.hpMax;
-        hpMax.onchange = () => {
-          row.hpMax = Math.max(0, Number(hpMax.value) || 0);
+        });
+        const hpMax = kampfNumberInput(row.hpMax, el => {
+          row.hpMax = Math.max(0, Number(el.value) || 0);
           persistCombat();
           renderKampf();
+        });
+        const acInput = document.createElement('input');
+        acInput.value = row.ac;
+        acInput.placeholder = '—';
+        acInput.onchange = () => {
+          row.ac = (acInput.value || '').trim();
+          persistCombat();
         };
-        const dmg = document.createElement('input');
-        dmg.type = 'number';
-        dmg.min = '0';
-        dmg.placeholder = 'Wert';
+        const tempInput = kampfNumberInput(row.tempHp, el => {
+          row.tempHp = Math.max(0, Number(el.value) || 0);
+          persistCombat();
+          renderKampf();
+        }, { min: '0' });
+        const dmg = kampfNumberInput('', () => {}, { min: '0', placeholder: '0' });
+        dmg.value = '';
+        dmg.onkeydown = ev => {
+          if (ev.key === 'Enter') {
+            ev.preventDefault();
+            applyCombatDamage(row.id, dmg.value, false);
+          }
+        };
         const hit = document.createElement('button');
         hit.type = 'button';
         hit.className = 'danger';
@@ -2597,13 +2989,43 @@
         heal.className = 'ghost';
         heal.textContent = 'Heilung';
         heal.onclick = () => applyCombatDamage(row.id, dmg.value, true);
-        hpRow.appendChild(hpLabel);
-        hpRow.appendChild(hpNow);
+        hpRow.appendChild(kampfLabeledInput('TP', hpNow));
+        const slash = document.createElement('span');
+        slash.textContent = '/';
+        slash.style.color = 'var(--muted)';
         hpRow.appendChild(slash);
         hpRow.appendChild(hpMax);
-        hpRow.appendChild(dmg);
+        hpRow.appendChild(kampfLabeledInput('Temp', tempInput));
+        hpRow.appendChild(kampfLabeledInput('Rüstung', acInput));
+        hpRow.appendChild(kampfLabeledInput('Schaden', dmg));
         hpRow.appendChild(hit);
         hpRow.appendChild(heal);
+        const countInput = kampfNumberInput(row.count, el => {
+          row.count = Math.max(0, Number(el.value) || 0);
+          persistCombat();
+          renderKampf();
+        }, { min: '0' });
+        const countMax = kampfNumberInput(row.countMax, el => {
+          row.countMax = Math.max(1, Number(el.value) || 1);
+          persistCombat();
+          renderKampf();
+        }, { min: '1' });
+        const minus = document.createElement('button');
+        minus.type = 'button';
+        minus.className = 'ghost';
+        minus.textContent = 'Einer tot';
+        minus.onclick = () => {
+          row.count = Math.max(0, (Number(row.count) || 0) - 1);
+          persistCombat();
+          renderKampf();
+        };
+        hpRow.appendChild(kampfLabeledInput('Anzahl', countInput));
+        const cSlash = document.createElement('span');
+        cSlash.textContent = '/';
+        cSlash.style.color = 'var(--muted)';
+        hpRow.appendChild(cSlash);
+        hpRow.appendChild(countMax);
+        hpRow.appendChild(minus);
 
         const bar = document.createElement('div');
         bar.className = 'kampf-hp-bar';
@@ -2612,7 +3034,6 @@
         const fill = document.createElement('span');
         fill.style.width = pct + '%';
         bar.appendChild(fill);
-
         hpBox.appendChild(hpRow);
         hpBox.appendChild(bar);
 
@@ -2630,8 +3051,18 @@
           chip.appendChild(x);
           deb.appendChild(chip);
         });
+        const suggest = document.createElement('div');
+        suggest.className = 'kampf-suggest';
+        COMBAT_DEBUFF_SUGGEST.forEach(label => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'ghost';
+          btn.textContent = label;
+          btn.onclick = () => addCombatDebuff(row.id, label, '');
+          suggest.appendChild(btn);
+        });
         const dText = document.createElement('input');
-        dText.placeholder = 'Debuff';
+        dText.placeholder = 'eigener Debuff';
         dText.style.flex = '1 1 8rem';
         dText.style.minWidth = '7rem';
         dText.style.border = '1px solid var(--line)';
@@ -2654,9 +3085,7 @@
         dAdd.type = 'button';
         dAdd.className = 'ghost';
         dAdd.textContent = 'Debuff';
-        const addIt = () => {
-          addCombatDebuff(row.id, dText.value, dRounds.value);
-        };
+        const addIt = () => addCombatDebuff(row.id, dText.value, dRounds.value);
         dAdd.onclick = addIt;
         dText.onkeydown = ev => {
           if (ev.key === 'Enter') {
@@ -2664,6 +3093,7 @@
             addIt();
           }
         };
+        deb.appendChild(suggest);
         deb.appendChild(dText);
         deb.appendChild(dRounds);
         deb.appendChild(dAdd);
@@ -4426,25 +4856,20 @@
       showKampf();
     };
     document.getElementById('kampfNextBtn').onclick = nextCombatTurn;
+    document.getElementById('kampfPrevBtn').onclick = prevCombatTurn;
+    document.getElementById('kampfSkipBtn').onclick = skipCombatTurn;
     document.getElementById('kampfEndBtn').onclick = endCombat;
+    document.getElementById('kampfTickTurn').onclick = () => setCombatDebuffTick('turn');
+    document.getElementById('kampfTickRound').onclick = () => setCombatDebuffTick('round');
     document.getElementById('kampfAddEnemyBtn').onclick = addEnemyToCombat;
-    document.getElementById('kampfEnemyName').addEventListener('keydown', ev => {
-      if (ev.key === 'Enter') {
+    document.getElementById('kampfSaveTplBtn').onclick = saveCombatTemplate;
+    ['kampfEnemyName', 'kampfEnemyHp', 'kampfEnemyAc', 'kampfEnemyInit', 'kampfEnemyCount', 'kampfTplName'].forEach(id => {
+      document.getElementById(id).addEventListener('keydown', ev => {
+        if (ev.key !== 'Enter') return;
         ev.preventDefault();
-        addEnemyToCombat();
-      }
-    });
-    document.getElementById('kampfEnemyHp').addEventListener('keydown', ev => {
-      if (ev.key === 'Enter') {
-        ev.preventDefault();
-        addEnemyToCombat();
-      }
-    });
-    document.getElementById('kampfEnemyInit').addEventListener('keydown', ev => {
-      if (ev.key === 'Enter') {
-        ev.preventDefault();
-        addEnemyToCombat();
-      }
+        if (id === 'kampfTplName') saveCombatTemplate();
+        else addEnemyToCombat();
+      });
     });
     document.getElementById('globalSearch').addEventListener('input', renderGlobalSearch);
     document.getElementById('globalSearch').addEventListener('focus', renderGlobalSearch);
