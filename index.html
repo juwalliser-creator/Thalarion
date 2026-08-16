@@ -566,7 +566,33 @@
       stroke-width: 0.45;
       stroke-linejoin: round;
       stroke-linecap: round;
+      pointer-events: none;
     }
+    .map-border-hit {
+      fill: none;
+      stroke: transparent;
+      stroke-width: 2.2;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+      pointer-events: stroke;
+      cursor: help;
+    }
+    .map-border-label {
+      position: absolute;
+      display: none;
+      transform: translate(-50%, calc(-100% - 10px));
+      white-space: nowrap;
+      background: var(--panel-2);
+      border: 1px solid var(--gold-dim);
+      color: var(--ink);
+      padding: 0.28rem 0.55rem;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      box-shadow: var(--shadow);
+      pointer-events: none;
+      z-index: 6;
+    }
+    .map-border-label.show { display: block; }
     .map-border.draft {
       fill: rgba(212, 179, 106, 0.04);
       stroke: var(--gold);
@@ -917,6 +943,7 @@
               <img id="worldMap" src="Thalarion%20Karte.png" alt="Karte von Thalarion" />
               <svg class="map-overlay" id="mapOverlay" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
               <div class="map-pins" id="mapPins"></div>
+              <div id="mapBorderTip" class="map-border-label"></div>
             </div>
           </div>
         </section>
@@ -2175,19 +2202,42 @@
       renderMapBorders();
     }
 
+    function showBorderTip(name, ev) {
+      const tip = document.getElementById('mapBorderTip');
+      const stage = document.getElementById('mapStage');
+      if (!tip || !stage || !name) return;
+      const rect = stage.getBoundingClientRect();
+      tip.textContent = name;
+      tip.style.left = (ev.clientX - rect.left) + 'px';
+      tip.style.top = (ev.clientY - rect.top) + 'px';
+      tip.classList.add('show');
+    }
+
+    function hideBorderTip() {
+      const tip = document.getElementById('mapBorderTip');
+      if (tip) tip.classList.remove('show');
+    }
+
     function renderMapBorders() {
       const svg = document.getElementById('mapOverlay');
       if (!svg) return;
       svg.innerHTML = '';
       document.querySelectorAll('.map-border-del').forEach(el => el.remove());
+      hideBorderTip();
       mapBorders.forEach(border => {
+        const pts = border.points.map(p => p.x + ',' + p.y).join(' ');
         const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
         poly.setAttribute('class', 'map-border');
-        poly.setAttribute('points', border.points.map(p => p.x + ',' + p.y).join(' '));
+        poly.setAttribute('points', pts);
         poly.setAttribute('stroke', border.color || '#d4b36a');
         poly.setAttribute('fill', hexToRgba(border.color || '#d4b36a', 0.08));
-        poly.setAttribute('title', border.name);
         svg.appendChild(poly);
+        const hit = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        hit.setAttribute('class', 'map-border-hit');
+        hit.setAttribute('points', pts);
+        hit.addEventListener('mousemove', ev => showBorderTip(border.name, ev));
+        hit.addEventListener('mouseleave', hideBorderTip);
+        svg.appendChild(hit);
         if (isDM) {
           const mid = borderCentroid(border.points);
           const del = document.createElement('button');
@@ -2203,6 +2253,7 @@
           del.style.zIndex = '3';
           del.onclick = ev => {
             ev.stopPropagation();
+            hideBorderTip();
             removeMapBorder(border.id);
           };
           document.getElementById('mapPins').appendChild(del);
