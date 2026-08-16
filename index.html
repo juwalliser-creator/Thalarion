@@ -195,6 +195,8 @@
       padding: 0.28rem 0.7rem;
     }
     body.is-player .player-chip { display: inline-flex; }
+    .dm-only-nav { display: none !important; }
+    body.is-dm .dm-only-nav { display: inline-flex !important; }
 
     .auth-tabs {
       display: flex;
@@ -776,6 +778,206 @@
       box-shadow: var(--shadow);
     }
 
+    .kampf-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 0.55rem;
+      margin: 0 0 1.2rem;
+    }
+    .kampf-round {
+      font-family: Cinzel, serif;
+      letter-spacing: 0.08em;
+      color: var(--gold);
+      min-width: 7rem;
+      text-align: center;
+    }
+    .kampf-add {
+      display: grid;
+      gap: 0.85rem;
+      margin: 0 0 1.3rem;
+    }
+    .kampf-add-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0.9rem 1rem;
+      box-shadow: var(--shadow);
+    }
+    .kampf-add-card h3 {
+      font-family: Cinzel, serif;
+      font-size: 0.95rem;
+      color: var(--gold);
+      margin: 0 0 0.65rem;
+    }
+    .kampf-add-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      align-items: center;
+    }
+    .kampf-add-row input {
+      flex: 1 1 8rem;
+      min-width: 0;
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      color: var(--ink);
+      border-radius: 8px;
+      padding: 0.5rem 0.7rem;
+    }
+    .kampf-add-row input.kampf-num {
+      flex: 0 0 5.5rem;
+    }
+    .kampf-players {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+    .kampf-list {
+      display: grid;
+      gap: 0.75rem;
+    }
+    .kampf-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 0.95rem 1.05rem;
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 0.7rem;
+    }
+    .kampf-card.is-active {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 1px var(--gold-dim), var(--shadow);
+    }
+    .kampf-card.is-down {
+      opacity: 0.62;
+    }
+    .kampf-card-top {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+    .kampf-init {
+      flex: 0 0 auto;
+      min-width: 3.4rem;
+      text-align: center;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0.35rem 0.4rem 0.45rem;
+    }
+    .kampf-init span {
+      display: block;
+      font-size: 0.68rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .kampf-init input {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: var(--gold);
+      font-family: Cinzel, serif;
+      font-size: 1.15rem;
+      text-align: center;
+      padding: 0.1rem 0 0;
+    }
+    .kampf-who {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .kampf-who strong {
+      display: block;
+      font-family: Cinzel, serif;
+      font-size: 1.15rem;
+      font-weight: 500;
+    }
+    .kampf-who em {
+      color: var(--muted);
+      font-style: normal;
+      font-size: 0.88rem;
+    }
+    .kampf-card-top .danger {
+      margin-left: auto;
+      flex: 0 0 auto;
+    }
+    .kampf-hp {
+      display: grid;
+      gap: 0.4rem;
+    }
+    .kampf-hp-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.45rem;
+    }
+    .kampf-hp-row label {
+      color: var(--muted);
+      min-width: 1.6rem;
+    }
+    .kampf-hp-row input {
+      width: 4.4rem;
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      color: var(--ink);
+      border-radius: 8px;
+      padding: 0.4rem 0.5rem;
+    }
+    .kampf-hp-bar {
+      height: 8px;
+      border-radius: 999px;
+      background: #2a241c;
+      overflow: hidden;
+    }
+    .kampf-hp-bar span {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, var(--blood), var(--ok));
+      width: 0;
+    }
+    .kampf-hp-bar.is-low span { background: var(--blood); }
+    .kampf-debuffs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      align-items: center;
+    }
+    .kampf-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      background: rgba(154, 51, 51, 0.22);
+      border: 1px solid #b14a4a;
+      color: #f0d0d0;
+      border-radius: 999px;
+      padding: 0.18rem 0.35rem 0.18rem 0.65rem;
+      font-size: 0.88rem;
+    }
+    .kampf-chip button {
+      border: 0;
+      background: transparent;
+      color: inherit;
+      padding: 0 0.35rem;
+      line-height: 1;
+    }
+    .kampf-log {
+      margin-top: 1.2rem;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .kampf-log div {
+      padding: 0.2rem 0;
+      border-bottom: 1px solid rgba(61, 52, 42, 0.55);
+    }
+    .kampf-empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 1.4rem 0.5rem;
+    }
+
     .hidden { display: none !important; }
 
     @media (max-width: 860px) {
@@ -794,6 +996,7 @@
       .content { padding: 1rem; }
       .grid-2,
       .sheet-grid { grid-template-columns: 1fr; }
+      .kampf-add-row input.kampf-num { flex: 1 1 5.5rem; }
       .brand strong { font-size: 1.1rem; }
       .header-search {
         flex: 1 1 100%;
@@ -817,6 +1020,7 @@
         <button type="button" id="navWorld">Thalarion</button>
         <button type="button" id="navMap" class="active">Karte</button>
         <button type="button" id="navCharakter">Charakter</button>
+        <button type="button" id="navKampf" class="dm-only-nav">Kampf</button>
       </nav>
       <div class="header-search">
         <div class="search-wrap">
@@ -1050,6 +1254,36 @@
             </div>
           </div>
         </section>
+
+        <section id="kampfView" class="panel hidden">
+          <div class="hero">
+            <div class="seal">K</div>
+            <h1>Kampf</h1>
+            <p>Reihenfolge, Treffer und Debuffs — nur für dich am Tisch. Die Charakterblätter bleiben unberührt.</p>
+          </div>
+          <div class="kampf-bar">
+            <span class="kampf-round" id="kampfRound">Runde 1</span>
+            <button class="primary" id="kampfNextBtn" type="button">Nächster Zug</button>
+            <button class="ghost" id="kampfEndBtn" type="button">Kampf beenden</button>
+          </div>
+          <div class="kampf-add">
+            <div class="kampf-add-card">
+              <h3>Spieler übernehmen</h3>
+              <div class="kampf-players" id="kampfPlayers"></div>
+            </div>
+            <div class="kampf-add-card">
+              <h3>Gegner oder NSC</h3>
+              <div class="kampf-add-row">
+                <input id="kampfEnemyName" placeholder="Name, z. B. Ork" />
+                <input id="kampfEnemyHp" class="kampf-num" type="number" min="0" placeholder="TP" />
+                <input id="kampfEnemyInit" class="kampf-num" type="number" step="0.1" placeholder="Init" />
+                <button class="primary" id="kampfAddEnemyBtn" type="button">Hinzufügen</button>
+              </div>
+            </div>
+          </div>
+          <div class="kampf-list" id="kampfList"></div>
+          <div class="kampf-log hidden" id="kampfLog"></div>
+        </section>
       </main>
     </div>
   </div>
@@ -1213,6 +1447,7 @@
     const DM_USER = 'dm';
     const DM_PASS = 'bWVpbmV3ZWx0';
     const PLAYER_SESSION_KEY = 'thalarion_player';
+    const COMBAT_KEY = 'thalarion_combat';
     const EMPTY_SHEET = {
       name: '',
       volk: '',
@@ -1266,6 +1501,7 @@
     let currentPlayerId = null;
     let currentSheetOwner = null;
     let playerFormMode = 'login';
+    let combat = { round: 1, started: false, activeId: null, combatants: [], log: [] };
 
     const els = {
       sidebar: document.getElementById('sidebar'),
@@ -1294,7 +1530,9 @@
       navSitzung: document.getElementById('navSitzung'),
       navMap: document.getElementById('navMap'),
       navCharakter: document.getElementById('navCharakter'),
+      navKampf: document.getElementById('navKampf'),
       charView: document.getElementById('charView'),
+      kampfView: document.getElementById('kampfView'),
       sitzungView: document.getElementById('sitzungView')
     };
 
@@ -1765,6 +2003,7 @@
       playerAccounts = normalizeAccounts(data.accounts);
       if (currentPlayerId && !playerAccounts[currentPlayerId]) setPlayer(null);
       if (currentPage === 'char') renderCharakter();
+      else if (currentPage === 'kampf') renderKampf();
       else updatePlayerChrome();
     }
 
@@ -1978,6 +2217,492 @@
       }
     }
 
+    function emptyCombat() {
+      return { round: 1, started: false, activeId: null, combatants: [], log: [] };
+    }
+
+    function parseSheetHp(str) {
+      const m = String(str || '').match(/(\d+)\s*(?:\/\s*(\d+))?/);
+      if (!m) return { hp: 0, hpMax: 0 };
+      const a = Number(m[1]);
+      const b = m[2] ? Number(m[2]) : a;
+      return { hp: a, hpMax: Math.max(a, b) };
+    }
+
+    function parseCombatInit(v) {
+      const n = Number(String(v == null ? '' : v).replace(',', '.'));
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function combatNewId(prefix) {
+      return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    }
+
+    function uniqueCombatName(base) {
+      const name = (base || '').trim() || 'Gegner';
+      const taken = combat.combatants.map(c => (c.name || '').toLowerCase());
+      if (!taken.includes(name.toLowerCase())) return name;
+      let n = 2;
+      while (taken.includes((name + ' ' + n).toLowerCase())) n += 1;
+      return name + ' ' + n;
+    }
+
+    function sortedCombatants() {
+      return combat.combatants.slice().sort((a, b) => {
+        const di = parseCombatInit(b.init) - parseCombatInit(a.init);
+        if (di) return di;
+        return (a.name || '').localeCompare(b.name || '', 'de');
+      });
+    }
+
+    function persistCombat() {
+      try {
+        localStorage.setItem(COMBAT_KEY, JSON.stringify(combat));
+      } catch (err) {}
+    }
+
+    function loadCombat() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(COMBAT_KEY) || 'null');
+        if (!raw || typeof raw !== 'object') {
+          combat = emptyCombat();
+          return;
+        }
+        combat = {
+          round: Math.max(1, Number(raw.round) || 1),
+          started: !!raw.started,
+          activeId: raw.activeId || null,
+          combatants: (Array.isArray(raw.combatants) ? raw.combatants : []).map(c => ({
+            id: c.id || combatNewId('c'),
+            name: c.name || '',
+            kind: c.kind === 'player' ? 'player' : 'enemy',
+            playerId: c.playerId || '',
+            init: parseCombatInit(c.init),
+            hp: Number(c.hp) || 0,
+            hpMax: Number(c.hpMax) || 0,
+            ac: c.ac || '',
+            debuffs: (Array.isArray(c.debuffs) ? c.debuffs : []).map(d => ({
+              id: d.id || combatNewId('d'),
+              text: d.text || '',
+              rounds: d.rounds == null || d.rounds === '' ? null : Number(d.rounds)
+            })).filter(d => d.text && (d.rounds == null || d.rounds > 0))
+          })),
+          log: Array.isArray(raw.log) ? raw.log.slice(0, 20) : []
+        };
+      } catch (err) {
+        combat = emptyCombat();
+      }
+    }
+
+    function combatLog(line) {
+      combat.log.unshift('Runde ' + combat.round + ' · ' + line);
+      combat.log = combat.log.slice(0, 20);
+    }
+
+    function ensureCombatTurn() {
+      const list = sortedCombatants();
+      if (!list.length) {
+        combat.activeId = null;
+        return;
+      }
+      if (!combat.started || !list.some(c => c.id === combat.activeId)) combat.activeId = list[0].id;
+    }
+
+    function combatantById(id) {
+      return combat.combatants.find(c => c.id === id) || null;
+    }
+
+    function addCombatant(data) {
+      const row = {
+        id: combatNewId('c'),
+        name: data.name,
+        kind: data.kind || 'enemy',
+        playerId: data.playerId || '',
+        init: parseCombatInit(data.init),
+        hp: Number(data.hp) || 0,
+        hpMax: Number(data.hpMax) || Number(data.hp) || 0,
+        ac: data.ac || '',
+        debuffs: []
+      };
+      combat.combatants.push(row);
+      ensureCombatTurn();
+      persistCombat();
+      renderKampf();
+      return row;
+    }
+
+    function addPlayerToCombat(playerId, quiet) {
+      const acc = playerAccounts[playerId];
+      if (!acc) return;
+      if (combat.combatants.some(c => c.playerId === playerId)) {
+        if (!quiet) toast(acc.name + ' ist schon im Kampf.');
+        return;
+      }
+      const hp = parseSheetHp(acc.sheet && acc.sheet.hp);
+      addCombatant({
+        name: (acc.sheet && acc.sheet.name) || acc.name,
+        kind: 'player',
+        playerId: playerId,
+        init: 0,
+        hp: hp.hp,
+        hpMax: hp.hpMax,
+        ac: (acc.sheet && acc.sheet.armor) || ''
+      });
+      if (!quiet) toast(acc.name + ' übernommen. Initiative noch eintragen.');
+    }
+
+    function addEnemyToCombat() {
+      const nameEl = document.getElementById('kampfEnemyName');
+      const hpEl = document.getElementById('kampfEnemyHp');
+      const initEl = document.getElementById('kampfEnemyInit');
+      const name = uniqueCombatName(nameEl.value);
+      const hp = Math.max(0, Number(hpEl.value) || 0);
+      const init = parseCombatInit(initEl.value);
+      addCombatant({ name: name, kind: 'enemy', init: init, hp: hp, hpMax: hp });
+      nameEl.value = '';
+      hpEl.value = '';
+      initEl.value = '';
+      nameEl.focus();
+    }
+
+    function removeCombatant(id) {
+      const row = combatantById(id);
+      if (!row) return;
+      combat.combatants = combat.combatants.filter(c => c.id !== id);
+      ensureCombatTurn();
+      persistCombat();
+      renderKampf();
+    }
+
+    function applyCombatDamage(id, amount, heal) {
+      const row = combatantById(id);
+      const n = Math.abs(Number(amount) || 0);
+      if (!row || !n) return;
+      if (heal) {
+        row.hp = row.hp + n;
+        if (row.hpMax > 0) row.hp = Math.min(row.hpMax, row.hp);
+        combatLog(row.name + ' · +' + n + ' TP');
+      } else {
+        row.hp = Math.max(0, row.hp - n);
+        combatLog(row.name + ' · ' + n + ' Schaden');
+      }
+      persistCombat();
+      renderKampf();
+    }
+
+    function addCombatDebuff(id, text, roundsRaw) {
+      const row = combatantById(id);
+      const label = (text || '').trim();
+      if (!row || !label) return;
+      const roundsNum = String(roundsRaw == null ? '' : roundsRaw).trim();
+      const rounds = roundsNum === '' ? null : Math.max(1, Number(roundsNum) || 1);
+      row.debuffs.push({ id: combatNewId('d'), text: label, rounds: rounds });
+      persistCombat();
+      renderKampf();
+    }
+
+    function removeCombatDebuff(cid, did) {
+      const row = combatantById(cid);
+      if (!row) return;
+      row.debuffs = row.debuffs.filter(d => d.id !== did);
+      persistCombat();
+      renderKampf();
+    }
+
+    function tickCombatDebuffs(row) {
+      if (!row || !row.debuffs.length) return;
+      row.debuffs = row.debuffs.map(d => {
+        if (d.rounds == null || !Number.isFinite(Number(d.rounds))) return d;
+        return { id: d.id, text: d.text, rounds: Number(d.rounds) - 1 };
+      }).filter(d => d.rounds == null || d.rounds > 0);
+    }
+
+    function nextCombatTurn() {
+      const list = sortedCombatants();
+      if (!list.length) {
+        toast('Noch niemand im Kampf.');
+        return;
+      }
+      ensureCombatTurn();
+      combat.started = true;
+      const i = list.findIndex(c => c.id === combat.activeId);
+      const cur = list[i < 0 ? 0 : i];
+      tickCombatDebuffs(cur);
+      const next = (i < 0 ? 0 : i) + 1;
+      if (next >= list.length) {
+        combat.round += 1;
+        combat.activeId = list[0].id;
+      } else {
+        combat.activeId = list[next].id;
+      }
+      persistCombat();
+      renderKampf();
+    }
+
+    function endCombat() {
+      if (!combat.combatants.length) {
+        combat = emptyCombat();
+        persistCombat();
+        renderKampf();
+        return;
+      }
+      if (!confirm('Kampf beenden und die Tafel leeren? Die Charakterblätter bleiben unverändert.')) return;
+      combat = emptyCombat();
+      persistCombat();
+      renderKampf();
+      toast('Kampf beendet.');
+    }
+
+    function renderKampf() {
+      if (!els.kampfView || els.kampfView.classList.contains('hidden')) return;
+      ensureCombatTurn();
+      document.getElementById('kampfRound').textContent = 'Runde ' + combat.round;
+
+      const playersBox = document.getElementById('kampfPlayers');
+      playersBox.innerHTML = '';
+      const ids = Object.keys(playerAccounts).sort((a, b) =>
+        playerAccounts[a].name.localeCompare(playerAccounts[b].name, 'de')
+      );
+      const free = ids.filter(id => !combat.combatants.some(c => c.playerId === id));
+      if (!ids.length) {
+        const empty = document.createElement('p');
+        empty.className = 'kampf-empty';
+        empty.style.padding = '0';
+        empty.textContent = 'Noch keine Spieler-Konten.';
+        playersBox.appendChild(empty);
+      } else if (!free.length) {
+        const empty = document.createElement('p');
+        empty.className = 'kampf-empty';
+        empty.style.padding = '0';
+        empty.textContent = 'Alle Spieler sind schon in der Liste.';
+        playersBox.appendChild(empty);
+      } else {
+        if (free.length > 1) {
+          const all = document.createElement('button');
+          all.type = 'button';
+          all.className = 'ghost';
+          all.textContent = 'Alle übernehmen';
+          all.onclick = () => {
+            free.forEach(id => addPlayerToCombat(id, true));
+            toast('Spieler übernommen. Initiative noch eintragen.');
+          };
+          playersBox.appendChild(all);
+        }
+        free.forEach(id => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'ghost';
+          btn.textContent = playerAccounts[id].name;
+          btn.onclick = () => addPlayerToCombat(id);
+          playersBox.appendChild(btn);
+        });
+      }
+
+      const list = document.getElementById('kampfList');
+      list.innerHTML = '';
+      const rows = sortedCombatants();
+      if (!rows.length) {
+        const empty = document.createElement('p');
+        empty.className = 'kampf-empty';
+        empty.textContent = 'Noch niemand im Kampf. Übernimm die Spieler und füge Gegner hinzu.';
+        list.appendChild(empty);
+      }
+      rows.forEach(row => {
+        const card = document.createElement('article');
+        card.className = 'kampf-card';
+        if (row.id === combat.activeId) card.classList.add('is-active');
+        if (row.hp <= 0) card.classList.add('is-down');
+
+        const top = document.createElement('div');
+        top.className = 'kampf-card-top';
+
+        const initBox = document.createElement('div');
+        initBox.className = 'kampf-init';
+        const initLabel = document.createElement('span');
+        initLabel.textContent = 'Init';
+        const initInput = document.createElement('input');
+        initInput.type = 'number';
+        initInput.step = '0.1';
+        initInput.value = row.init;
+        initInput.title = 'Gewürfelte Initiative';
+        initInput.onchange = () => {
+          row.init = parseCombatInit(initInput.value);
+          persistCombat();
+          renderKampf();
+        };
+        initBox.appendChild(initLabel);
+        initBox.appendChild(initInput);
+
+        const who = document.createElement('div');
+        who.className = 'kampf-who';
+        const title = document.createElement('strong');
+        title.textContent = row.name;
+        const meta = document.createElement('em');
+        const bits = [];
+        bits.push(row.kind === 'player' ? 'Spieler' : 'Gegner');
+        if (row.ac) bits.push('Rüstung ' + row.ac);
+        if (row.hp <= 0) bits.push('0 TP');
+        if (row.id === combat.activeId) bits.push('dran');
+        meta.textContent = bits.join(' · ');
+        who.appendChild(title);
+        who.appendChild(meta);
+
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'danger';
+        del.textContent = '×';
+        del.title = 'Aus dem Kampf nehmen';
+        del.onclick = () => removeCombatant(row.id);
+
+        top.appendChild(initBox);
+        top.appendChild(who);
+        top.appendChild(del);
+
+        const hpBox = document.createElement('div');
+        hpBox.className = 'kampf-hp';
+        const hpRow = document.createElement('div');
+        hpRow.className = 'kampf-hp-row';
+        const hpLabel = document.createElement('label');
+        hpLabel.textContent = 'TP';
+        const hpNow = document.createElement('input');
+        hpNow.type = 'number';
+        hpNow.value = row.hp;
+        hpNow.onchange = () => {
+          row.hp = Number(hpNow.value) || 0;
+          persistCombat();
+          renderKampf();
+        };
+        const slash = document.createElement('span');
+        slash.textContent = '/';
+        slash.style.color = 'var(--muted)';
+        const hpMax = document.createElement('input');
+        hpMax.type = 'number';
+        hpMax.value = row.hpMax;
+        hpMax.onchange = () => {
+          row.hpMax = Math.max(0, Number(hpMax.value) || 0);
+          persistCombat();
+          renderKampf();
+        };
+        const dmg = document.createElement('input');
+        dmg.type = 'number';
+        dmg.min = '0';
+        dmg.placeholder = 'Wert';
+        const hit = document.createElement('button');
+        hit.type = 'button';
+        hit.className = 'danger';
+        hit.textContent = 'Schaden';
+        hit.onclick = () => applyCombatDamage(row.id, dmg.value, false);
+        const heal = document.createElement('button');
+        heal.type = 'button';
+        heal.className = 'ghost';
+        heal.textContent = 'Heilung';
+        heal.onclick = () => applyCombatDamage(row.id, dmg.value, true);
+        hpRow.appendChild(hpLabel);
+        hpRow.appendChild(hpNow);
+        hpRow.appendChild(slash);
+        hpRow.appendChild(hpMax);
+        hpRow.appendChild(dmg);
+        hpRow.appendChild(hit);
+        hpRow.appendChild(heal);
+
+        const bar = document.createElement('div');
+        bar.className = 'kampf-hp-bar';
+        const pct = row.hpMax > 0 ? Math.max(0, Math.min(100, (row.hp / row.hpMax) * 100)) : 0;
+        if (pct <= 25) bar.classList.add('is-low');
+        const fill = document.createElement('span');
+        fill.style.width = pct + '%';
+        bar.appendChild(fill);
+
+        hpBox.appendChild(hpRow);
+        hpBox.appendChild(bar);
+
+        const deb = document.createElement('div');
+        deb.className = 'kampf-debuffs';
+        row.debuffs.forEach(d => {
+          const chip = document.createElement('span');
+          chip.className = 'kampf-chip';
+          chip.textContent = d.rounds == null ? d.text : (d.text + ' · ' + d.rounds);
+          const x = document.createElement('button');
+          x.type = 'button';
+          x.textContent = '×';
+          x.title = 'Debuff entfernen';
+          x.onclick = () => removeCombatDebuff(row.id, d.id);
+          chip.appendChild(x);
+          deb.appendChild(chip);
+        });
+        const dText = document.createElement('input');
+        dText.placeholder = 'Debuff';
+        dText.style.flex = '1 1 8rem';
+        dText.style.minWidth = '7rem';
+        dText.style.border = '1px solid var(--line)';
+        dText.style.background = 'var(--panel-2)';
+        dText.style.color = 'var(--ink)';
+        dText.style.borderRadius = '8px';
+        dText.style.padding = '0.4rem 0.6rem';
+        const dRounds = document.createElement('input');
+        dRounds.type = 'number';
+        dRounds.min = '1';
+        dRounds.placeholder = 'Runden';
+        dRounds.title = 'Leer lassen, wenn der Debuff nicht von allein endet';
+        dRounds.style.width = '5.2rem';
+        dRounds.style.border = '1px solid var(--line)';
+        dRounds.style.background = 'var(--panel-2)';
+        dRounds.style.color = 'var(--ink)';
+        dRounds.style.borderRadius = '8px';
+        dRounds.style.padding = '0.4rem 0.5rem';
+        const dAdd = document.createElement('button');
+        dAdd.type = 'button';
+        dAdd.className = 'ghost';
+        dAdd.textContent = 'Debuff';
+        const addIt = () => {
+          addCombatDebuff(row.id, dText.value, dRounds.value);
+        };
+        dAdd.onclick = addIt;
+        dText.onkeydown = ev => {
+          if (ev.key === 'Enter') {
+            ev.preventDefault();
+            addIt();
+          }
+        };
+        deb.appendChild(dText);
+        deb.appendChild(dRounds);
+        deb.appendChild(dAdd);
+
+        card.appendChild(top);
+        card.appendChild(hpBox);
+        card.appendChild(deb);
+        list.appendChild(card);
+      });
+
+      const logBox = document.getElementById('kampfLog');
+      logBox.innerHTML = '';
+      if (!combat.log.length) {
+        logBox.classList.add('hidden');
+      } else {
+        logBox.classList.remove('hidden');
+        combat.log.forEach(line => {
+          const div = document.createElement('div');
+          div.textContent = line;
+          logBox.appendChild(div);
+        });
+      }
+    }
+
+    function showKampf() {
+      if (!isDM) {
+        showMap();
+        return;
+      }
+      if (!confirmLeaveEditor()) return;
+      dirty = false;
+      sheetDirty = false;
+      openedFromMap = false;
+      showPage('kampf');
+      currentIndex = null;
+      currentTitle = null;
+      renderKampf();
+    }
+
     function indexByTitle(title) {
       if (!title) return null;
       const i = entries.findIndex(e => e.title === title);
@@ -1992,6 +2717,10 @@
       }
       if (currentPage === 'char') {
         renderCharakter();
+        return;
+      }
+      if (currentPage === 'kampf') {
+        renderKampf();
         return;
       }
       const i = indexByTitle(currentTitle);
@@ -2974,10 +3703,12 @@
       els.navSitzung.classList.toggle('active', page === 'sitzung');
       els.navMap.classList.toggle('active', page === 'map');
       els.navCharakter.classList.toggle('active', page === 'char');
+      els.navKampf.classList.toggle('active', page === 'kampf');
       els.mapView.classList.toggle('hidden', page !== 'map');
       els.charView.classList.toggle('hidden', page !== 'char');
+      els.kampfView.classList.toggle('hidden', page !== 'kampf');
       updateSidebarVisibility(page);
-      if (page === 'map' || page === 'char') {
+      if (page === 'map' || page === 'char' || page === 'kampf') {
         els.homeView.classList.add('hidden');
         els.viewer.classList.add('hidden');
         els.editorView.classList.add('hidden');
@@ -3646,7 +4377,7 @@
         else if (isCatalogPage(currentPage)) showCatalog(currentPage);
         else if (currentPage === 'entstehung') showEntstehung();
         else if (currentPage === 'sitzung') showSitzung();
-        else if (currentPage === 'map') showMap();
+        else if (currentPage === 'map' || currentPage === 'kampf') showMap();
         else showHome();
       } else {
         renderHome();
@@ -3654,9 +4385,11 @@
         if (!els.entstehungView.classList.contains('hidden')) renderEntstehung();
         if (!els.sitzungView.classList.contains('hidden')) renderSitzung();
         if (currentPage === 'char') renderCharakter();
+        if (currentPage === 'kampf') renderKampf();
         els.playerToEdit.classList.toggle('hidden', !on || currentIndex === null || els.viewer.classList.contains('hidden'));
         updateExtraToolbars();
       }
+      if (!on && currentPage === 'kampf') showMap();
     }
 
     function openLogin() {
@@ -3689,6 +4422,30 @@
     document.getElementById('navCharakter').onclick = () => {
       showCharakter();
     };
+    document.getElementById('navKampf').onclick = () => {
+      showKampf();
+    };
+    document.getElementById('kampfNextBtn').onclick = nextCombatTurn;
+    document.getElementById('kampfEndBtn').onclick = endCombat;
+    document.getElementById('kampfAddEnemyBtn').onclick = addEnemyToCombat;
+    document.getElementById('kampfEnemyName').addEventListener('keydown', ev => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        addEnemyToCombat();
+      }
+    });
+    document.getElementById('kampfEnemyHp').addEventListener('keydown', ev => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        addEnemyToCombat();
+      }
+    });
+    document.getElementById('kampfEnemyInit').addEventListener('keydown', ev => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        addEnemyToCombat();
+      }
+    });
     document.getElementById('globalSearch').addEventListener('input', renderGlobalSearch);
     document.getElementById('globalSearch').addEventListener('focus', renderGlobalSearch);
     document.getElementById('globalSearch').addEventListener('keydown', ev => {
@@ -4063,6 +4820,7 @@
       const savedPlayer = sessionStorage.getItem(PLAYER_SESSION_KEY);
       if (savedPlayer && playerAccounts[savedPlayer]) setPlayer(savedPlayer);
 
+      loadCombat();
       showMap();
       listenWorld();
       listenMap();
