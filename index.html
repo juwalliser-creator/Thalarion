@@ -673,11 +673,11 @@
         <span>Das Blutsiegel</span>
       </button>
       <nav class="top-nav">
-        <button type="button" id="navEntstehung" class="active">Entstehung</button>
+        <button type="button" id="navEntstehung">Entstehung</button>
         <button type="button" id="navCodex">Kompendium</button>
         <button type="button" id="navBestiarium">Bestiarium</button>
         <button type="button" id="navGlossar">Glossar</button>
-        <button type="button" id="navMap">Karte</button>
+        <button type="button" id="navMap" class="active">Karte</button>
         <button type="button" id="navCharakter">Charakter</button>
       </nav>
       <div class="header-search">
@@ -780,7 +780,7 @@
           </div>
         </section>
 
-        <section id="entstehungView" class="panel">
+        <section id="entstehungView" class="panel hidden">
           <div class="hero">
             <div class="seal">E</div>
             <h1>Die Entstehung Thalarions</h1>
@@ -792,7 +792,7 @@
           <div id="entstehungText"></div>
         </section>
 
-        <section id="mapView" class="hidden">
+        <section id="mapView">
           <div class="map-toolbar hidden" id="mapToolbar">
             <p class="map-hint hidden" id="mapHint">Klicke auf die Stelle auf der Karte, dann wähle den Eintrag.</p>
             <button class="ghost" id="placePinBtn" type="button">Ort setzen</button>
@@ -983,7 +983,7 @@
     let currentTitle = null;
     let isDM = false;
     let expandedCategories = {};
-    let currentPage = 'entstehung';
+    let currentPage = 'map';
     let selectedHomeCat = null;
     let dirty = false;
     let imageCache = {};
@@ -2175,6 +2175,17 @@
       updateExtraToolbars();
     }
 
+    function showMap() {
+      if (!confirmLeaveEditor()) return;
+      dirty = false;
+      sheetDirty = false;
+      showPage('map');
+      currentIndex = null;
+      currentTitle = null;
+      renderSidebar();
+      renderMapPins();
+    }
+
     function showEntstehung() {
       if (!confirmLeaveEditor()) return;
       dirty = false;
@@ -2667,9 +2678,7 @@
     }
 
     document.getElementById('homeBtn').onclick = () => {
-      if (!confirmLeaveEditor()) return;
-      dirty = false;
-      showEntstehung();
+      showMap();
     };
     document.getElementById('navCodex').onclick = () => {
       if (!confirmLeaveEditor()) return;
@@ -2690,12 +2699,7 @@
       showCatalog('glossar');
     };
     document.getElementById('navMap').onclick = () => {
-      if (!confirmLeaveEditor()) return;
-      dirty = false;
-      sheetDirty = false;
-      showPage('map');
-      renderSidebar();
-      renderMapPins();
+      showMap();
     };
     document.getElementById('navCharakter').onclick = () => {
       showCharakter();
@@ -2915,7 +2919,7 @@
       const savedPlayer = sessionStorage.getItem(PLAYER_SESSION_KEY);
       if (savedPlayer && playerAccounts[savedPlayer]) setPlayer(savedPlayer);
 
-      showEntstehung();
+      showMap();
       listenWorld();
       listenMap();
       listenPins();
