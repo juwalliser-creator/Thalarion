@@ -829,10 +829,39 @@
     .kampf-add-row input.kampf-num {
       flex: 0 0 5.5rem;
     }
-    .kampf-players {
-      display: flex;
-      flex-wrap: wrap;
+    .kampf-karten-hint {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin: -0.25rem 0 0.65rem;
+    }
+    .kampf-karten-list {
+      display: grid;
       gap: 0.4rem;
+      max-height: 16rem;
+      overflow: auto;
+      margin: 0.65rem 0 0.9rem;
+    }
+    .kampf-karte-row {
+      display: flex;
+      gap: 0.35rem;
+      align-items: stretch;
+    }
+    .kampf-karte-add {
+      flex: 1 1 auto;
+      text-align: left;
+      min-width: 0;
+    }
+    .kampf-karte-add b {
+      display: block;
+      font-weight: 600;
+    }
+    .kampf-karte-add span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .kampf-karten-edit-title {
+      margin-top: 0.35rem;
     }
     .kampf-list {
       display: grid;
@@ -1484,6 +1513,26 @@
               <div class="kampf-players" id="kampfPlayers"></div>
             </div>
             <div class="kampf-add-card">
+              <h3>Karten</h3>
+              <p class="kampf-karten-hint">Antippen setzt die Kreatur in den Kampf. Initiative würfelt ihr am Tisch.</p>
+              <div class="kampf-add-row">
+                <input id="kampfKartenSearch" type="search" placeholder="Suchen…" autocomplete="off" />
+                <input id="kampfKartenUseCount" class="kampf-num" type="number" min="1" placeholder="Anzahl" title="Leer = Standard der Karte" />
+              </div>
+              <div class="kampf-karten-list" id="kampfKartenList"></div>
+              <h3 class="kampf-karten-edit-title" id="kampfKartenEditTitle">Neue Karte</h3>
+              <div class="kampf-add-row">
+                <input id="kampfKarteName" placeholder="Name, z. B. Ork" />
+                <input id="kampfKarteHp" class="kampf-num" type="number" min="0" placeholder="TP" />
+                <input id="kampfKarteAc" class="kampf-num" placeholder="Rüstung" />
+                <input id="kampfKarteCount" class="kampf-num" type="number" min="1" placeholder="Anzahl" />
+                <input id="kampfKarteNote" placeholder="Notiz, z. B. Scimitar 6" />
+                <button class="primary" id="kampfKarteSaveBtn" type="button">Speichern</button>
+                <button class="ghost hidden" id="kampfKarteCancelBtn" type="button">Abbrechen</button>
+                <button class="danger hidden" id="kampfKarteDeleteBtn" type="button">Löschen</button>
+              </div>
+            </div>
+            <div class="kampf-add-card">
               <h3>Gegner oder NSC</h3>
               <div class="kampf-add-row">
                 <input id="kampfEnemyName" placeholder="Name, z. B. Ork" />
@@ -1666,6 +1715,8 @@
     const SESSION_KEY = 'thalarion_dm';
     const WORLD_DOC = 'codex';
     const PLAYERS_DOC = 'players';
+    const ROSTER_DOC = 'kampfKarten';
+    const ROSTER_LOCAL_KEY = 'thalarion_kampf_karten';
     const DM_USER = 'dm';
     const DM_PASS = 'bWVpbmV3ZWx0';
     const PLAYER_SESSION_KEY = 'thalarion_player';
@@ -1722,6 +1773,10 @@
     let playerAccounts = {};
     let playersUpdatedAt = 0;
     let writingPlayers = false;
+    let rosterCards = [];
+    let rosterUpdatedAt = 0;
+    let writingRoster = false;
+    let editingKarteId = null;
     let currentPlayerId = null;
     let currentSheetOwner = null;
     let playerFormMode = 'login';
@@ -2017,6 +2072,10 @@
       return db.collection('world').doc(PLAYERS_DOC);
     }
 
+    function rosterRef() {
+      return db.collection('world').doc(ROSTER_DOC);
+    }
+
     function imageRef(id) {
       return db.collection('world').doc(id);
     }
@@ -2252,6 +2311,230 @@
       } finally {
         writingPlayers = false;
       }
+    }
+
+    function normalizeKarte(c) {
+      return {
+        id: c.id || combatNewId('k'),
+        name: (c.name || '').trim(),
+        hp: Math.max(0, Number(c.hp) || 0),
+        ac: c.ac == null ? '' : String(c.ac).trim(),
+        count: Math.max(1, Number(c.count) || 1),
+        note: (c.note || '').trim()
+      };
+    }
+
+    function persistRosterLocal() {
+      try {
+        localStorage.setItem(ROSTER_LOCAL_KEY, JSON.stringify({
+          updatedAt: rosterUpdatedAt,
+          cards: rosterCards
+        }));
+      } catch (err) {}
+    }
+
+    function loadRosterLocal() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(ROSTER_LOCAL_KEY) || 'null');
+        if (!raw || typeof raw !== 'object') return;
+        rosterUpdatedAt = Number(raw.updatedAt) || 0;
+        rosterCards = (Array.isArray(raw.cards) ? raw.cards : []).map(normalizeKarte).filter(c => c.name);
+      } catch (err) {}
+    }
+
+    function applyRoster(data) {
+      if (!data) return;
+      const at = Number(data.updatedAt) || 0;
+      if (at && at <= rosterUpdatedAt) return;
+      rosterUpdatedAt = at;
+      rosterCards = (Array.isArray(data.cards) ? data.cards : []).map(normalizeKarte).filter(c => c.name);
+      persistRosterLocal();
+      if (currentPage === 'kampf') renderKampfKartenList();
+    }
+
+    function listenRoster() {
+      if (!db) return;
+      rosterRef().onSnapshot(snap => {
+        if (writingRoster || !snap.exists) return;
+        applyRoster(snap.data());
+      });
+    }
+
+    async function persistRoster() {
+      if (db) {
+        const nextAt = Date.now();
+        writingRoster = true;
+        try {
+          await rosterRef().set({
+            updatedAt: nextAt,
+            cards: rosterCards
+          });
+          rosterUpdatedAt = nextAt;
+        } finally {
+          writingRoster = false;
+        }
+      } else {
+        rosterUpdatedAt = Date.now();
+      }
+      persistRosterLocal();
+    }
+
+    function sortedRosterCards() {
+      return rosterCards.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
+    }
+
+    function karteById(id) {
+      return rosterCards.find(c => c.id === id) || null;
+    }
+
+    function clearKarteForm() {
+      editingKarteId = null;
+      document.getElementById('kampfKartenEditTitle').textContent = 'Neue Karte';
+      document.getElementById('kampfKarteName').value = '';
+      document.getElementById('kampfKarteHp').value = '';
+      document.getElementById('kampfKarteAc').value = '';
+      document.getElementById('kampfKarteCount').value = '';
+      document.getElementById('kampfKarteNote').value = '';
+      document.getElementById('kampfKarteCancelBtn').classList.add('hidden');
+      document.getElementById('kampfKarteDeleteBtn').classList.add('hidden');
+    }
+
+    function fillKarteForm(karte) {
+      editingKarteId = karte.id;
+      document.getElementById('kampfKartenEditTitle').textContent = 'Karte bearbeiten';
+      document.getElementById('kampfKarteName').value = karte.name;
+      document.getElementById('kampfKarteHp').value = karte.hp || '';
+      document.getElementById('kampfKarteAc').value = karte.ac || '';
+      document.getElementById('kampfKarteCount').value = karte.count > 1 ? karte.count : '';
+      document.getElementById('kampfKarteNote').value = karte.note || '';
+      document.getElementById('kampfKarteCancelBtn').classList.remove('hidden');
+      document.getElementById('kampfKarteDeleteBtn').classList.remove('hidden');
+      document.getElementById('kampfKarteName').focus();
+    }
+
+    async function saveKampfKarte() {
+      if (!isDM) return;
+      const name = (document.getElementById('kampfKarteName').value || '').trim();
+      if (!name) {
+        toast('Bitte einen Namen für die Karte.');
+        return;
+      }
+      const next = normalizeKarte({
+        id: editingKarteId || combatNewId('k'),
+        name: name,
+        hp: document.getElementById('kampfKarteHp').value,
+        ac: document.getElementById('kampfKarteAc').value,
+        count: document.getElementById('kampfKarteCount').value,
+        note: document.getElementById('kampfKarteNote').value
+      });
+      const previous = rosterCards;
+      if (editingKarteId) {
+        rosterCards = rosterCards.map(c => c.id === editingKarteId ? next : c);
+      } else {
+        rosterCards = rosterCards.concat([next]);
+      }
+      try {
+        await persistRoster();
+        clearKarteForm();
+        renderKampfKartenList();
+        toast('Karte gespeichert.');
+      } catch (err) {
+        rosterCards = previous;
+        toast('Speichern fehlgeschlagen: ' + err.message);
+      }
+    }
+
+    async function deleteKampfKarte() {
+      if (!isDM || !editingKarteId) return;
+      const karte = karteById(editingKarteId);
+      if (!karte) return;
+      if (!confirm('Karte „' + karte.name + '“ löschen?')) return;
+      const previous = rosterCards;
+      rosterCards = rosterCards.filter(c => c.id !== editingKarteId);
+      try {
+        await persistRoster();
+        clearKarteForm();
+        renderKampfKartenList();
+        toast('Karte entfernt.');
+      } catch (err) {
+        rosterCards = previous;
+        toast('Löschen fehlgeschlagen: ' + err.message);
+      }
+    }
+
+    function addKarteToCombat(id) {
+      const karte = karteById(id);
+      if (!karte) return;
+      const override = Number(document.getElementById('kampfKartenUseCount').value);
+      const count = Number.isFinite(override) && override >= 1 ? override : karte.count;
+      addCombatant({
+        name: uniqueCombatName(karte.name),
+        kind: 'enemy',
+        init: 0,
+        hp: karte.hp,
+        hpMax: karte.hp,
+        ac: karte.ac,
+        count: count,
+        countMax: count,
+        note: karte.note
+      });
+      toast(karte.name + ' in den Kampf. Initiative noch eintragen.');
+    }
+
+    function renderKampfKartenList() {
+      const box = document.getElementById('kampfKartenList');
+      if (!box) return;
+      box.innerHTML = '';
+      const query = (document.getElementById('kampfKartenSearch').value || '').trim().toLowerCase();
+      const list = sortedRosterCards().filter(c => {
+        if (!query) return true;
+        return (c.name || '').toLowerCase().includes(query) || (c.note || '').toLowerCase().includes(query);
+      });
+      if (!rosterCards.length) {
+        const empty = document.createElement('p');
+        empty.className = 'kampf-empty';
+        empty.style.padding = '0.2rem 0 0';
+        empty.textContent = 'Noch keine Karten. Unten eine anlegen, dann in der Sitzung nur noch antippen.';
+        box.appendChild(empty);
+        return;
+      }
+      if (!list.length) {
+        const empty = document.createElement('p');
+        empty.className = 'kampf-empty';
+        empty.style.padding = '0.2rem 0 0';
+        empty.textContent = 'Keine passende Karte.';
+        box.appendChild(empty);
+        return;
+      }
+      list.forEach(karte => {
+        const row = document.createElement('div');
+        row.className = 'kampf-karte-row';
+        const add = document.createElement('button');
+        add.type = 'button';
+        add.className = 'ghost kampf-karte-add';
+        const title = document.createElement('b');
+        title.textContent = karte.name;
+        const meta = document.createElement('span');
+        const bits = [];
+        bits.push((karte.hp || 0) + ' TP');
+        if (karte.ac) bits.push('Rüstung ' + karte.ac);
+        if (karte.count > 1) bits.push('×' + karte.count);
+        if (karte.note) bits.push(karte.note);
+        meta.textContent = bits.join(' · ');
+        add.appendChild(title);
+        add.appendChild(meta);
+        add.title = 'In den Kampf setzen';
+        add.onclick = () => addKarteToCombat(karte.id);
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = 'ghost';
+        edit.textContent = '✎';
+        edit.title = 'Karte bearbeiten';
+        edit.onclick = () => fillKarteForm(karte);
+        row.appendChild(add);
+        row.appendChild(edit);
+        box.appendChild(row);
+      });
     }
 
     function updatePlayerChrome() {
@@ -2494,6 +2777,7 @@
         hpMax: Number(c.hpMax) || 0,
         tempHp: Math.max(0, Number(c.tempHp) || 0),
         ac: c.ac == null ? '' : String(c.ac),
+        note: c.note || '',
         count: Math.max(0, count),
         countMax: countMax,
         debuffs: normalizeCombatDebuffs(c.debuffs)
@@ -2584,6 +2868,7 @@
         hpMax: data.hpMax != null ? data.hpMax : data.hp,
         tempHp: data.tempHp,
         ac: data.ac,
+        note: data.note || '',
         count: data.count,
         countMax: data.countMax,
         debuffs: []
@@ -2659,6 +2944,7 @@
         hp: row.hpMax,
         hpMax: row.hpMax,
         ac: row.ac,
+        note: row.note,
         count: row.countMax,
         countMax: row.countMax
       });
@@ -2838,6 +3124,7 @@
           order: c.order || 0,
           hpMax: c.hpMax,
           ac: c.ac || '',
+          note: c.note || '',
           countMax: Math.max(1, Number(c.countMax) || Number(c.count) || 1)
         }))
       });
@@ -2864,6 +3151,7 @@
           hp: c.hpMax,
           hpMax: c.hpMax,
           ac: c.ac,
+          note: c.note,
           count: c.countMax,
           countMax: c.countMax,
           tempHp: 0,
@@ -2911,6 +3199,7 @@
       if (!els.kampfView || els.kampfView.classList.contains('hidden')) return;
       ensureCombatTurn();
       document.getElementById('kampfRound').textContent = 'Runde ' + combat.round;
+      renderKampfKartenList();
 
       const playersBox = document.getElementById('kampfPlayers');
       playersBox.innerHTML = '';
@@ -3041,6 +3330,7 @@
         };
         const meta = document.createElement('em');
         const bits = [row.kind === 'player' ? 'Spieler' : 'Gegner'];
+        if (row.note) bits.push(row.note);
         if (combatantDown(row)) bits.push('kampfunfähig');
         if (row.id === combat.activeId) bits.push('dran');
         meta.textContent = bits.join(' · ');
@@ -4999,6 +5289,17 @@
     document.getElementById('kampfEndBtn').onclick = endCombat;
     document.getElementById('kampfAddEnemyBtn').onclick = addEnemyToCombat;
     document.getElementById('kampfSaveTplBtn').onclick = saveCombatTemplate;
+    document.getElementById('kampfKartenSearch').addEventListener('input', renderKampfKartenList);
+    document.getElementById('kampfKarteSaveBtn').onclick = saveKampfKarte;
+    document.getElementById('kampfKarteCancelBtn').onclick = clearKarteForm;
+    document.getElementById('kampfKarteDeleteBtn').onclick = deleteKampfKarte;
+    ['kampfKarteName', 'kampfKarteHp', 'kampfKarteAc', 'kampfKarteCount', 'kampfKarteNote'].forEach(id => {
+      document.getElementById(id).addEventListener('keydown', ev => {
+        if (ev.key !== 'Enter') return;
+        ev.preventDefault();
+        saveKampfKarte();
+      });
+    });
     ['kampfEnemyName', 'kampfEnemyHp', 'kampfEnemyAc', 'kampfEnemyInit', 'kampfEnemyCount', 'kampfTplName'].forEach(id => {
       document.getElementById(id).addEventListener('keydown', ev => {
         if (ev.key !== 'Enter') return;
@@ -5336,6 +5637,7 @@
     if (sessionStorage.getItem(SESSION_KEY) === '1') setDM(true);
 
     (async function boot() {
+      loadRosterLocal();
       if (!initFirebase()) toast('Keine Verbindung zur Cloud.');
       const localPack = readLocalPack();
       let remotePack = null;
@@ -5349,6 +5651,8 @@
           if (pinSnap.exists) applyPins(pinSnap.data());
           const playerSnap = await playersRef().get();
           if (playerSnap.exists) applyPlayers(playerSnap.data());
+          const rosterSnap = await rosterRef().get();
+          if (rosterSnap.exists) applyRoster(rosterSnap.data());
         } catch (err) {
           console.warn(err);
           toast('Keine Verbindung zur Cloud.');
@@ -5387,6 +5691,7 @@
       listenMap();
       listenPins();
       listenPlayers();
+      listenRoster();
     })();
   </script>
 </body>
