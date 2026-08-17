@@ -2599,7 +2599,7 @@
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
       Object.keys(raw).forEach(key => {
         const a = raw[key] || {};
-        const id = playerIdFromName(a.name || key);
+        const id = playerIdFromName(key);
         if (!id) return;
         out[id] = {
           name: (a.name || key).trim(),
