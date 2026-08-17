@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Thalarion – Das Blutsiegel</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -1039,6 +1039,8 @@
     .hidden { display: none !important; }
 
     @media (max-width: 860px) {
+      html { -webkit-text-size-adjust: 100%; }
+      body { overflow-x: hidden; }
       .shell { grid-template-columns: 1fr; }
       aside {
         position: fixed;
@@ -1051,15 +1053,135 @@
       aside.open { transform: none; }
       #menuBtn { display: inline-flex; }
       body.no-sidebar #menuBtn { display: none !important; }
-      .content { padding: 1rem; }
+      .content {
+        padding: 0.9rem 0.85rem max(1.4rem, env(safe-area-inset-bottom));
+      }
       .grid-2,
-      .sheet-grid { grid-template-columns: 1fr; }
+      .sheet-grid,
+      .char-layout { grid-template-columns: 1fr; }
       .kampf-add-row input.kampf-num { flex: 1 1 5.5rem; }
       .brand strong { font-size: 1.1rem; }
       .header-search {
         flex: 1 1 100%;
         max-width: none;
         order: 5;
+      }
+      header {
+        padding: 0.65rem 0.8rem;
+        padding-top: max(0.65rem, env(safe-area-inset-top));
+        gap: 0.55rem 0.65rem;
+      }
+      .top-nav {
+        width: 100%;
+        margin-left: 0;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        overscroll-behavior-x: contain;
+      }
+      .top-nav::-webkit-scrollbar { display: none; }
+      .top-nav button {
+        flex: 0 0 auto;
+        white-space: nowrap;
+        min-height: 2.5rem;
+        padding: 0.4rem 0.75rem;
+      }
+      .hero {
+        padding: 1.2rem 0.2rem 1rem;
+      }
+      .hero h1 {
+        font-size: 1.35rem;
+        letter-spacing: 0.08em;
+      }
+      .seal { width: 58px; height: 58px; }
+      .article,
+      .editor-card {
+        padding: 1rem 1rem 1.3rem;
+        border-radius: 12px;
+      }
+      .cards { grid-template-columns: 1fr 1fr; }
+      .card { padding: 0.85rem; }
+      .map-wrap {
+        max-height: calc(100dvh - 12.5rem);
+        min-height: 240px;
+        border-radius: 12px;
+      }
+      .map-toolbar { justify-content: flex-start; }
+      .map-legend { grid-template-columns: 1fr; }
+      .pin-kinds { grid-template-columns: 1fr 1fr; }
+      .overlay { padding: 0.6rem; padding-bottom: max(0.6rem, env(safe-area-inset-bottom)); }
+      .login-card,
+      .pin-card { width: min(100%, 420px); }
+      .toast {
+        left: 0.75rem;
+        right: 0.75rem;
+        bottom: max(0.75rem, env(safe-area-inset-bottom));
+      }
+      input, select, textarea, .editor-canvas, .sheet-notes {
+        font-size: 16px;
+      }
+      button, .card, .entry, .search-hit {
+        touch-action: manipulation;
+      }
+      .editor-canvas { min-height: 200px; }
+      .search-results {
+        width: min(100vw - 1rem, 400px);
+        max-height: min(60vh, 380px);
+      }
+    }
+
+    @media (max-width: 640px) {
+      header { gap: 0.4rem 0.5rem; }
+      .brand span { display: none; }
+      .header-spacer { display: none; }
+      .player-chip,
+      .dm-chip { display: none !important; }
+      #playerButton,
+      #dmButton {
+        margin-left: auto;
+        font-size: 0.82rem;
+        padding: 0.38rem 0.6rem;
+        min-height: 2.4rem;
+      }
+      .content:has(#mapView:not(.hidden)) {
+        padding: 0.55rem 0.55rem max(0.7rem, env(safe-area-inset-bottom));
+      }
+      .map-wrap {
+        max-height: calc(100dvh - 11rem);
+        min-height: 52dvh;
+        border-radius: 10px;
+      }
+      .map-pin,
+      .map-pin-icon {
+        width: 40px;
+        height: 40px;
+      }
+      .map-zoom button { min-width: 2.6rem; min-height: 2.5rem; }
+      .cards { grid-template-columns: 1fr; }
+      .kampf-card { padding: 0.8rem; }
+      .kampf-card-top { flex-wrap: wrap; }
+      .kampf-card-tools {
+        margin-left: 0;
+        width: 100%;
+      }
+      .kampf-hp-row { gap: 0.4rem 0.5rem; }
+      .kampf-hp-row input { width: 3.8rem; }
+      .kampf-field { flex: 1 1 calc(50% - 0.5rem); }
+      .kampf-add-row input,
+      .kampf-add-row input.kampf-num { flex: 1 1 100%; }
+      .kampf-order {
+        justify-content: flex-start;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 0.2rem;
+      }
+      .char-roster button { min-height: 2.5rem; }
+      .article-actions button,
+      .editor-actions button,
+      .page-toolbar button {
+        min-height: 2.5rem;
       }
     }
   </style>
