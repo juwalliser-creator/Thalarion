@@ -779,13 +779,14 @@
     }
 
     .kampf-bar {
-      display: flex;
+      display: none;
       flex-wrap: wrap;
       align-items: center;
       justify-content: center;
       gap: 0.55rem;
       margin: 0 0 1.2rem;
     }
+    body.is-dm .kampf-bar { display: flex; }
     .kampf-round {
       font-family: Cinzel, serif;
       letter-spacing: 0.08em;
@@ -870,6 +871,56 @@
       display: grid;
       gap: 0.75rem;
     }
+    .kampf-stage {
+      display: grid;
+      grid-template-columns: minmax(260px, 22rem) minmax(0, 1fr);
+      gap: 1rem;
+      align-items: stretch;
+      margin: 0 0 1.2rem;
+    }
+    .kampf-stage .kampf-list {
+      max-height: min(70vh, 820px);
+      overflow: auto;
+      padding-right: 0.15rem;
+    }
+    .kampf-stage .battle-card {
+      margin: 0;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .kampf-stage .battle-board {
+      flex: 1 1 auto;
+      min-height: min(58vh, 720px);
+    }
+    .kampf-stage .kampf-card-top { flex-wrap: wrap; }
+    .kampf-stage .kampf-card-tools { margin-left: 0; }
+    .kampf-side-item {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      width: 100%;
+      text-align: left;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0.45rem 0.6rem;
+    }
+    .kampf-side-item.is-player { border-left: 4px solid var(--gold); }
+    .kampf-side-item.is-enemy { border-left: 4px solid var(--blood); }
+    .kampf-side-item.is-mine { box-shadow: 0 0 0 1px var(--gold-dim); }
+    .kampf-side-item b {
+      display: block;
+      font-family: Cinzel, serif;
+      font-weight: 500;
+    }
+    .kampf-side-item span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    .dm-only-block { display: none !important; }
+    body.is-dm .dm-only-block { display: grid !important; }
     .kampf-card {
       background: var(--panel);
       border: 1px solid var(--line);
@@ -1172,8 +1223,8 @@
       overflow: hidden;
       min-height: 240px;
     }
-    #battleView .battle-board {
-      min-height: min(68vh, 720px);
+    .kampf-stage .battle-board {
+      min-height: min(58vh, 720px);
     }
     .battle-empty {
       margin: 0;
@@ -1285,6 +1336,7 @@
       .sheet-grid,
       .char-layout { grid-template-columns: 1fr; }
       .kampf-add-row input.kampf-num { flex: 1 1 5.5rem; }
+      .kampf-stage { grid-template-columns: 1fr; }
       .brand strong { font-size: 1.1rem; }
       .header-search {
         flex: 1 1 100%;
@@ -1395,16 +1447,11 @@
       .kampf-field { flex: 1 1 calc(50% - 0.5rem); }
       .kampf-add-row input,
       .kampf-add-row input.kampf-num { flex: 1 1 100%; }
-      .kampf-order {
-        justify-content: flex-start;
-        overflow-x: auto;
-        flex-wrap: nowrap;
-        -webkit-overflow-scrolling: touch;
-        padding-bottom: 0.2rem;
+      .kampf-stage {
+        grid-template-columns: 1fr;
       }
-      .battle-token { width: 56px; }
-      .battle-token-face { width: 52px; height: 52px; }
-      #battleView .battle-board { min-height: min(62dvh, 640px); }
+      .kampf-stage .kampf-list { max-height: none; }
+      .kampf-stage .battle-board { min-height: min(52dvh, 560px); }
       .char-roster button { min-height: 2.5rem; }
       .article-actions button,
       .editor-actions button,
@@ -1428,8 +1475,7 @@
         <button type="button" id="navWorld">Thalarion</button>
         <button type="button" id="navMap" class="active">Karte</button>
         <button type="button" id="navCharakter">Charakter</button>
-        <button type="button" id="navSchlacht">Schlachtfeld</button>
-        <button type="button" id="navKampf" class="dm-only-nav">Kampf</button>
+        <button type="button" id="navKampf">Kampf</button>
       </nav>
       <div class="header-search">
         <div class="search-wrap">
@@ -1678,40 +1724,44 @@
           <div class="hero">
             <div class="seal">K</div>
             <h1>Kampf</h1>
-            <p>Reihenfolge, Treffer und Debuffs — nur für dich am Tisch. Die Charakterblätter bleiben unberührt.</p>
+            <p>Initiative links, Schlachtfeld rechts. Spieler ziehen nur das eigene Portrait.</p>
           </div>
           <div class="kampf-bar">
             <span class="kampf-round" id="kampfRound">Runde 1</span>
-            <button class="ghost" id="kampfPrevBtn" type="button">Zurück</button>
-            <button class="ghost" id="kampfSkipBtn" type="button">Überspringen</button>
-            <button class="primary" id="kampfNextBtn" type="button">Nächster Zug</button>
-            <button class="ghost" id="kampfEndBtn" type="button">Kampf beenden</button>
-          </div>
-          <div class="kampf-order" id="kampfOrder"></div>
-          <div class="battle-card" id="kampfBattleCard">
-            <div class="battle-head">
-              <h3>Schlachtfeld</h3>
-              <div class="battle-tools dm-only-tools">
-                <button class="ghost" id="kampfBattleUploadBtn" type="button">Karte hochladen</button>
-                <button class="ghost" id="kampfBattleFireBtn" type="button">Feuer</button>
-                <button class="ghost" id="kampfBattleWaterBtn" type="button">Wasser</button>
-                <button class="ghost" id="kampfBattleOilBtn" type="button">Öl</button>
-                <button class="primary hidden" id="kampfBattleCloseBtn" type="button">Fläche schließen</button>
-                <button class="ghost hidden" id="kampfBattleCancelDrawBtn" type="button">Abbrechen</button>
-                <button class="danger" id="kampfBattleClearBtn" type="button">Karte entfernen</button>
-              </div>
-            </div>
-            <p class="battle-hint" id="kampfBattleHint"></p>
-            <div class="battle-board" id="kampfBattleBoard">
-              <p class="battle-empty" id="kampfBattleEmpty">Noch keine Kampfkarte. Oben ein Bild hochladen.</p>
-              <div class="battle-stage hidden" id="kampfBattleStage">
-                <img class="battle-map" id="kampfBattleImg" alt="Schlachtfeld" draggable="false" />
-                <svg class="battle-overlay" id="kampfBattleOverlay" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
-                <div class="battle-tokens" id="kampfBattleTokens"></div>
-              </div>
+            <div class="battle-tools dm-only-tools">
+              <button class="ghost" id="kampfPrevBtn" type="button">Zurück</button>
+              <button class="ghost" id="kampfSkipBtn" type="button">Überspringen</button>
+              <button class="primary" id="kampfNextBtn" type="button">Nächster Zug</button>
+              <button class="ghost" id="kampfEndBtn" type="button">Kampf beenden</button>
             </div>
           </div>
-          <div class="kampf-add">
+          <div class="kampf-stage">
+            <div class="kampf-list" id="kampfList"></div>
+            <div class="battle-card" id="kampfBattleCard">
+              <div class="battle-head">
+                <h3>Schlachtfeld</h3>
+                <div class="battle-tools dm-only-tools">
+                  <button class="ghost" id="kampfBattleUploadBtn" type="button">Karte hochladen</button>
+                  <button class="ghost" id="kampfBattleFireBtn" type="button">Feuer</button>
+                  <button class="ghost" id="kampfBattleWaterBtn" type="button">Wasser</button>
+                  <button class="ghost" id="kampfBattleOilBtn" type="button">Öl</button>
+                  <button class="primary hidden" id="kampfBattleCloseBtn" type="button">Fläche schließen</button>
+                  <button class="ghost hidden" id="kampfBattleCancelDrawBtn" type="button">Abbrechen</button>
+                  <button class="danger" id="kampfBattleClearBtn" type="button">Karte entfernen</button>
+                </div>
+              </div>
+              <p class="battle-hint" id="kampfBattleHint"></p>
+              <div class="battle-board" id="kampfBattleBoard">
+                <p class="battle-empty" id="kampfBattleEmpty">Noch keine Kampfkarte. Oben ein Bild hochladen.</p>
+                <div class="battle-stage hidden" id="kampfBattleStage">
+                  <img class="battle-map" id="kampfBattleImg" alt="Schlachtfeld" draggable="false" />
+                  <svg class="battle-overlay" id="kampfBattleOverlay" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+                  <div class="battle-tokens" id="kampfBattleTokens"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="kampf-add dm-only-block">
             <div class="kampf-add-card">
               <h3>Spieler übernehmen</h3>
               <div class="kampf-players" id="kampfPlayers"></div>
@@ -1760,39 +1810,7 @@
               <div class="kampf-players" id="kampfTplList"></div>
             </div>
           </div>
-          <div class="kampf-list" id="kampfList"></div>
           <div class="kampf-log hidden" id="kampfLog"></div>
-        </section>
-
-        <section id="battleView" class="panel hidden">
-          <div class="hero">
-            <div class="seal">S</div>
-            <h1>Schlachtfeld</h1>
-            <p>Das Feld der aktuellen Schlacht. Spieler ziehen nur das eigene Portrait, der DM alle Figuren und die Flächen.</p>
-          </div>
-          <div class="battle-card">
-            <div class="battle-head">
-              <h3>Feld</h3>
-              <div class="battle-tools dm-only-tools">
-                <button class="ghost" id="liveBattleUploadBtn" type="button">Karte hochladen</button>
-                <button class="ghost" id="liveBattleFireBtn" type="button">Feuer</button>
-                <button class="ghost" id="liveBattleWaterBtn" type="button">Wasser</button>
-                <button class="ghost" id="liveBattleOilBtn" type="button">Öl</button>
-                <button class="primary hidden" id="liveBattleCloseBtn" type="button">Fläche schließen</button>
-                <button class="ghost hidden" id="liveBattleCancelDrawBtn" type="button">Abbrechen</button>
-                <button class="danger" id="liveBattleClearBtn" type="button">Karte entfernen</button>
-              </div>
-            </div>
-            <p class="battle-hint" id="liveBattleHint"></p>
-            <div class="battle-board" id="liveBattleBoard">
-              <p class="battle-empty" id="liveBattleEmpty">Noch kein Schlachtfeld. Der DM lädt eine Kampfkarte hoch.</p>
-              <div class="battle-stage hidden" id="liveBattleStage">
-                <img class="battle-map" id="liveBattleImg" alt="Schlachtfeld" draggable="false" />
-                <svg class="battle-overlay" id="liveBattleOverlay" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
-                <div class="battle-tokens" id="liveBattleTokens"></div>
-              </div>
-            </div>
-          </div>
         </section>
       </main>
     </div>
@@ -2071,11 +2089,9 @@
       navSitzung: document.getElementById('navSitzung'),
       navMap: document.getElementById('navMap'),
       navCharakter: document.getElementById('navCharakter'),
-      navSchlacht: document.getElementById('navSchlacht'),
       navKampf: document.getElementById('navKampf'),
       charView: document.getElementById('charView'),
       kampfView: document.getElementById('kampfView'),
-      battleView: document.getElementById('battleView'),
       sitzungView: document.getElementById('sitzungView')
     };
 
@@ -2621,7 +2637,6 @@
       if (currentPlayerId && !playerAccounts[currentPlayerId]) setPlayer(null);
       if (currentPage === 'char') renderCharakter();
       else if (currentPage === 'kampf') renderKampf();
-      else if (currentPage === 'schlacht') renderBattleBoards();
       else updatePlayerChrome();
     }
 
@@ -2743,6 +2758,7 @@
         kind: t.kind === 'player' ? 'player' : 'enemy',
         playerId: t.playerId || '',
         portraitId: t.portraitId || '',
+        init: Number(t.init) || 0,
         x: Math.max(0, Math.min(100, Number(t.x) || 50)),
         y: Math.max(0, Math.min(100, Number(t.y) || 50))
       };
@@ -2786,6 +2802,7 @@
       battle.hazards = (Array.isArray(data.hazards) ? data.hazards : []).map(normalizeBattleHazard);
       persistBattleLocal();
       renderBattleBoards();
+      if (currentPage === 'kampf' && !isDM) renderPlayerKampfList();
     }
 
     function applyBattleMap(data) {
@@ -2853,6 +2870,7 @@
         old.kind = row.kind === 'player' ? 'player' : 'enemy';
         old.playerId = row.playerId || '';
         old.portraitId = row.portraitId || '';
+        old.init = parseCombatInit(row.init);
       } else {
         battle.tokens.push(normalizeBattleToken({
           id: row.id,
@@ -2860,6 +2878,7 @@
           kind: row.kind,
           playerId: row.playerId,
           portraitId: row.portraitId,
+          init: row.init,
           x: 12 + (battle.tokens.length % 6) * 14,
           y: 82
         }));
@@ -2885,6 +2904,7 @@
           kind: c.kind,
           playerId: c.playerId,
           portraitId: c.portraitId,
+          init: c.init,
           x: old ? old.x : 12 + (i % 6) * 14,
           y: old ? old.y : 82
         });
@@ -2919,8 +2939,7 @@
 
     function battleBoardIds() {
       return [
-        { empty: 'kampfBattleEmpty', stage: 'kampfBattleStage', img: 'kampfBattleImg', overlay: 'kampfBattleOverlay', tokens: 'kampfBattleTokens', hint: 'kampfBattleHint', fire: 'kampfBattleFireBtn', water: 'kampfBattleWaterBtn', oil: 'kampfBattleOilBtn', close: 'kampfBattleCloseBtn', cancel: 'kampfBattleCancelDrawBtn' },
-        { empty: 'liveBattleEmpty', stage: 'liveBattleStage', img: 'liveBattleImg', overlay: 'liveBattleOverlay', tokens: 'liveBattleTokens', hint: 'liveBattleHint', fire: 'liveBattleFireBtn', water: 'liveBattleWaterBtn', oil: 'liveBattleOilBtn', close: 'liveBattleCloseBtn', cancel: 'liveBattleCancelDrawBtn' }
+        { empty: 'kampfBattleEmpty', stage: 'kampfBattleStage', img: 'kampfBattleImg', overlay: 'kampfBattleOverlay', tokens: 'kampfBattleTokens', hint: 'kampfBattleHint', fire: 'kampfBattleFireBtn', water: 'kampfBattleWaterBtn', oil: 'kampfBattleOilBtn', close: 'kampfBattleCloseBtn', cancel: 'kampfBattleCancelDrawBtn' }
       ];
     }
 
@@ -3149,17 +3168,6 @@
       }
     }
 
-    function showSchlachtfeld() {
-      if (!confirmLeaveEditor()) return;
-      dirty = false;
-      sheetDirty = false;
-      openedFromMap = false;
-      showPage('schlacht');
-      currentIndex = null;
-      currentTitle = null;
-      renderBattleBoards();
-    }
-
     function sortedRosterCards() {
       return rosterCards.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
     }
@@ -3365,7 +3373,7 @@
       if (id) currentSheetOwner = id;
       else if (!isDM) currentSheetOwner = null;
       updatePlayerChrome();
-      if (currentPage === 'schlacht' || currentPage === 'kampf') renderBattleBoards();
+      if (currentPage === 'kampf') renderBattleBoards();
     }
 
     function setPlayerFormMode(mode) {
@@ -4033,10 +4041,55 @@
       return el;
     }
 
+    function sortedBattleTokens() {
+      return battle.tokens.slice().sort((a, b) => {
+        const di = (Number(b.init) || 0) - (Number(a.init) || 0);
+        if (di) return di;
+        return (a.name || '').localeCompare(b.name || '', 'de');
+      });
+    }
+
+    function renderPlayerKampfList() {
+      const list = document.getElementById('kampfList');
+      if (!list) return;
+      list.innerHTML = '';
+      const rows = sortedBattleTokens();
+      if (!rows.length) {
+        const empty = document.createElement('p');
+        empty.className = 'kampf-empty';
+        empty.textContent = 'Noch niemand auf dem Feld. Der DM setzt die Figuren in den Kampf.';
+        list.appendChild(empty);
+        return;
+      }
+      rows.forEach(token => {
+        const btn = document.createElement('div');
+        btn.className = 'kampf-side-item ' + (token.kind === 'player' ? 'is-player' : 'is-enemy');
+        if (currentPlayerId && token.playerId === currentPlayerId) btn.classList.add('is-mine');
+        const face = document.createElement('div');
+        face.className = 'kampf-face';
+        paintPortraitEl(face, token.portraitId, token.name);
+        const who = document.createElement('div');
+        who.style.minWidth = '0';
+        const name = document.createElement('b');
+        name.textContent = token.name || '—';
+        const meta = document.createElement('span');
+        meta.textContent = 'Init ' + (Number(token.init) || 0);
+        who.appendChild(name);
+        who.appendChild(meta);
+        btn.appendChild(face);
+        btn.appendChild(who);
+        list.appendChild(btn);
+      });
+    }
+
     function renderKampf() {
       if (!els.kampfView || els.kampfView.classList.contains('hidden')) return;
-      ensureCombatTurn();
       document.getElementById('kampfRound').textContent = 'Runde ' + combat.round;
+      if (!isDM) {
+        renderPlayerKampfList();
+        return;
+      }
+      ensureCombatTurn();
       renderKampfKartenList();
 
       const playersBox = document.getElementById('kampfPlayers');
@@ -4107,20 +4160,7 @@
         tplBox.appendChild(delBtn);
       });
 
-      const orderBox = document.getElementById('kampfOrder');
-      orderBox.innerHTML = '';
       const rows = sortedCombatants();
-      rows.forEach(row => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = row.kind === 'player' ? 'ghost is-player' : 'ghost is-enemy';
-        if (row.id === combat.activeId) btn.classList.add('active');
-        const label = row.countMax > 1 ? (row.name + ' (' + row.count + ')') : row.name;
-        btn.textContent = label;
-        btn.title = 'Diesen Zug setzen';
-        btn.onclick = () => setCombatActive(row.id);
-        orderBox.appendChild(btn);
-      });
 
       const list = document.getElementById('kampfList');
       list.innerHTML = '';
@@ -4146,6 +4186,7 @@
         const initInput = kampfNumberInput(row.init, el => {
           row.init = parseCombatInit(el.value);
           persistCombat();
+          upsertBattleToken(row);
           renderKampf();
         }, { step: '0.1', title: 'Gewürfelte Initiative' });
         initBox.appendChild(initLabel);
@@ -4391,10 +4432,6 @@
     }
 
     function showKampf() {
-      if (!isDM) {
-        showMap();
-        return;
-      }
       if (!confirmLeaveEditor()) return;
       dirty = false;
       sheetDirty = false;
@@ -4424,10 +4461,6 @@
       }
       if (currentPage === 'kampf') {
         renderKampf();
-        return;
-      }
-      if (currentPage === 'schlacht') {
-        renderBattleBoards();
         return;
       }
       const i = indexByTitle(currentTitle);
@@ -5410,14 +5443,12 @@
       els.navSitzung.classList.toggle('active', page === 'sitzung');
       els.navMap.classList.toggle('active', page === 'map');
       els.navCharakter.classList.toggle('active', page === 'char');
-      els.navSchlacht.classList.toggle('active', page === 'schlacht');
       els.navKampf.classList.toggle('active', page === 'kampf');
       els.mapView.classList.toggle('hidden', page !== 'map');
       els.charView.classList.toggle('hidden', page !== 'char');
       els.kampfView.classList.toggle('hidden', page !== 'kampf');
-      els.battleView.classList.toggle('hidden', page !== 'schlacht');
       updateSidebarVisibility(page);
-      if (page === 'map' || page === 'char' || page === 'kampf' || page === 'schlacht') {
+      if (page === 'map' || page === 'char' || page === 'kampf') {
         els.homeView.classList.add('hidden');
         els.viewer.classList.add('hidden');
         els.editorView.classList.add('hidden');
@@ -6095,13 +6126,12 @@
         if (!els.sitzungView.classList.contains('hidden')) renderSitzung();
         if (currentPage === 'char') renderCharakter();
         if (currentPage === 'kampf') renderKampf();
-        if (currentPage === 'schlacht' || currentPage === 'kampf') renderBattleBoards();
+        if (currentPage === 'kampf') renderBattleBoards();
         els.playerToEdit.classList.toggle('hidden', !on || currentIndex === null || els.viewer.classList.contains('hidden'));
         updateExtraToolbars();
       }
       if (!on) {
         cancelBattleDraw();
-        if (currentPage === 'kampf') showMap();
       }
     }
 
@@ -6134,9 +6164,6 @@
     };
     document.getElementById('navCharakter').onclick = () => {
       showCharakter();
-    };
-    document.getElementById('navSchlacht').onclick = () => {
-      showSchlachtfeld();
     };
     document.getElementById('navKampf').onclick = () => {
       showKampf();
@@ -6205,7 +6232,6 @@
       if (overlay && stage) overlay.addEventListener('click', ev => onBattleStageClick(ev, stage));
     }
     bindBattleTools('kampf');
-    bindBattleTools('live');
     document.getElementById('battleMapInput').onchange = ev => {
       const file = ev.target.files[0];
       ev.target.value = '';
