@@ -1035,6 +1035,35 @@
       font-size: 0.82rem;
       padding: 0.22rem 0.55rem;
     }
+    .kampf-debuff-add {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
+      width: 100%;
+    }
+    .kampf-debuff-add input {
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      color: var(--ink);
+      border-radius: 8px;
+      padding: 0.4rem 0.55rem;
+    }
+    .kampf-debuff-add .kampf-field:first-child {
+      flex: 1 1 10rem;
+    }
+    .kampf-debuff-add .kampf-field:first-child input {
+      flex: 1 1 auto;
+      min-width: 0;
+      width: 8rem;
+    }
+    .kampf-debuff-add .kampf-field input[type="number"] {
+      width: 4.2rem;
+    }
+    .kampf-debuff-add > button {
+      min-width: 2.3rem;
+      padding: 0.4rem 0.7rem;
+    }
 
     .hidden { display: none !important; }
 
@@ -1447,10 +1476,6 @@
             <button class="ghost" id="kampfSkipBtn" type="button">Überspringen</button>
             <button class="primary" id="kampfNextBtn" type="button">Nächster Zug</button>
             <button class="ghost" id="kampfEndBtn" type="button">Kampf beenden</button>
-          </div>
-          <div class="kampf-bar kampf-bar-sub">
-            <button class="ghost" id="kampfTickTurn" type="button">Debuffs am Zugende</button>
-            <button class="ghost" id="kampfTickRound" type="button">Debuffs am Rundenende</button>
           </div>
           <div class="kampf-order" id="kampfOrder"></div>
           <div class="kampf-add">
@@ -2689,10 +2714,11 @@
       const row = combatantById(id);
       const label = (text || '').trim();
       if (!row || !label) return;
-      if (row.debuffs.some(d => d.text.toLowerCase() === label.toLowerCase())) return;
       const roundsNum = String(roundsRaw == null ? '' : roundsRaw).trim();
       const rounds = roundsNum === '' ? null : Math.max(1, Number(roundsNum) || 1);
-      row.debuffs.push({ id: combatNewId('d'), text: label, rounds: rounds });
+      const existing = row.debuffs.find(d => d.text.toLowerCase() === label.toLowerCase());
+      if (existing) existing.rounds = rounds;
+      else row.debuffs.push({ id: combatNewId('d'), text: label, rounds: rounds });
       persistCombat();
       renderKampf();
     }
@@ -2711,12 +2737,6 @@
         if (d.rounds == null || !Number.isFinite(Number(d.rounds))) return d;
         return { id: d.id, text: d.text, rounds: Number(d.rounds) - 1 };
       }).filter(d => d.rounds == null || d.rounds > 0);
-    }
-
-    function setCombatDebuffTick(mode) {
-      combat.debuffTick = mode === 'round' ? 'round' : 'turn';
-      persistCombat();
-      renderKampf();
     }
 
     function setCombatActive(id) {
@@ -2891,8 +2911,6 @@
       if (!els.kampfView || els.kampfView.classList.contains('hidden')) return;
       ensureCombatTurn();
       document.getElementById('kampfRound').textContent = 'Runde ' + combat.round;
-      document.getElementById('kampfTickTurn').className = combat.debuffTick === 'turn' ? 'primary' : 'ghost';
-      document.getElementById('kampfTickRound').className = combat.debuffTick === 'round' ? 'primary' : 'ghost';
 
       const playersBox = document.getElementById('kampfPlayers');
       playersBox.innerHTML = '';
@@ -3164,7 +3182,7 @@
         row.debuffs.forEach(d => {
           const chip = document.createElement('span');
           chip.className = 'kampf-chip';
-          chip.textContent = d.rounds == null ? d.text : (d.text + ' · ' + d.rounds);
+          chip.textContent = d.rounds == null ? d.text : (d.text + ' · ' + d.rounds + ' Rd.');
           const x = document.createElement('button');
           x.type = 'button';
           x.textContent = '×';
@@ -3173,6 +3191,34 @@
           chip.appendChild(x);
           deb.appendChild(chip);
         });
+        const addRow = document.createElement('div');
+        addRow.className = 'kampf-debuff-add';
+        const dText = document.createElement('input');
+        dText.type = 'text';
+        dText.placeholder = 'z. B. Vergiftet';
+        const dRounds = document.createElement('input');
+        dRounds.type = 'number';
+        dRounds.min = '1';
+        dRounds.placeholder = 'Rd.';
+        dRounds.title = 'Dauer in Runden. Leer lassen, wenn der Debuff bleibt.';
+        const dAdd = document.createElement('button');
+        dAdd.type = 'button';
+        dAdd.className = 'primary';
+        dAdd.textContent = '+';
+        dAdd.title = 'Debuff setzen';
+        const addIt = () => addCombatDebuff(row.id, dText.value, dRounds.value);
+        dAdd.onclick = addIt;
+        const onEnter = ev => {
+          if (ev.key === 'Enter') {
+            ev.preventDefault();
+            addIt();
+          }
+        };
+        dText.onkeydown = onEnter;
+        dRounds.onkeydown = onEnter;
+        addRow.appendChild(kampfLabeledInput('Debuff', dText));
+        addRow.appendChild(kampfLabeledInput('Dauer', dRounds));
+        addRow.appendChild(dAdd);
         const suggest = document.createElement('div');
         suggest.className = 'kampf-suggest';
         COMBAT_DEBUFF_SUGGEST.forEach(label => {
@@ -3180,45 +3226,15 @@
           btn.type = 'button';
           btn.className = 'ghost';
           btn.textContent = label;
-          btn.onclick = () => addCombatDebuff(row.id, label, '');
+          btn.onclick = () => {
+            if (String(dRounds.value || '').trim()) addCombatDebuff(row.id, label, dRounds.value);
+            else dText.value = label;
+            dText.focus();
+          };
           suggest.appendChild(btn);
         });
-        const dText = document.createElement('input');
-        dText.placeholder = 'eigener Debuff';
-        dText.style.flex = '1 1 8rem';
-        dText.style.minWidth = '7rem';
-        dText.style.border = '1px solid var(--line)';
-        dText.style.background = 'var(--panel-2)';
-        dText.style.color = 'var(--ink)';
-        dText.style.borderRadius = '8px';
-        dText.style.padding = '0.4rem 0.6rem';
-        const dRounds = document.createElement('input');
-        dRounds.type = 'number';
-        dRounds.min = '1';
-        dRounds.placeholder = 'Runden';
-        dRounds.title = 'Leer lassen, wenn der Debuff nicht von allein endet';
-        dRounds.style.width = '5.2rem';
-        dRounds.style.border = '1px solid var(--line)';
-        dRounds.style.background = 'var(--panel-2)';
-        dRounds.style.color = 'var(--ink)';
-        dRounds.style.borderRadius = '8px';
-        dRounds.style.padding = '0.4rem 0.5rem';
-        const dAdd = document.createElement('button');
-        dAdd.type = 'button';
-        dAdd.className = 'ghost';
-        dAdd.textContent = 'Debuff';
-        const addIt = () => addCombatDebuff(row.id, dText.value, dRounds.value);
-        dAdd.onclick = addIt;
-        dText.onkeydown = ev => {
-          if (ev.key === 'Enter') {
-            ev.preventDefault();
-            addIt();
-          }
-        };
+        deb.appendChild(addRow);
         deb.appendChild(suggest);
-        deb.appendChild(dText);
-        deb.appendChild(dRounds);
-        deb.appendChild(dAdd);
 
         card.appendChild(top);
         card.appendChild(hpBox);
@@ -4981,8 +4997,6 @@
     document.getElementById('kampfPrevBtn').onclick = prevCombatTurn;
     document.getElementById('kampfSkipBtn').onclick = skipCombatTurn;
     document.getElementById('kampfEndBtn').onclick = endCombat;
-    document.getElementById('kampfTickTurn').onclick = () => setCombatDebuffTick('turn');
-    document.getElementById('kampfTickRound').onclick = () => setCombatDebuffTick('round');
     document.getElementById('kampfAddEnemyBtn').onclick = addEnemyToCombat;
     document.getElementById('kampfSaveTplBtn').onclick = saveCombatTemplate;
     ['kampfEnemyName', 'kampfEnemyHp', 'kampfEnemyAc', 'kampfEnemyInit', 'kampfEnemyCount', 'kampfTplName'].forEach(id => {
