@@ -1170,7 +1170,7 @@
       height: 42px;
       border-radius: 50%;
       border: 1px solid var(--gold-dim);
-      background: #2a241c center/cover no-repeat;
+      background: #2a241c center top / cover no-repeat;
       color: var(--gold);
       font-family: Cinzel, serif;
       font-size: 0.72rem;
@@ -1284,7 +1284,7 @@
       margin: 0 auto;
       border-radius: 50%;
       border: 2px solid var(--gold-dim);
-      background: #2a241c center/cover no-repeat;
+      background: #2a241c center top / cover no-repeat;
       box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
       color: var(--gold);
       font-family: Cinzel, serif;
@@ -2413,18 +2413,18 @@
         const url = URL.createObjectURL(file);
         img.onload = () => {
           URL.revokeObjectURL(url);
-          let w = img.width;
-          let h = img.height;
-          const maxSide = 280;
-          if (Math.max(w, h) > maxSide) {
-            const scale = maxSide / Math.max(w, h);
-            w = Math.round(w * scale);
-            h = Math.round(h * scale);
+          const side = Math.min(img.width, img.height);
+          if (!side) {
+            reject(new Error('Das Bild konnte nicht gelesen werden.'));
+            return;
           }
+          const sx = Math.round((img.width - side) / 2);
+          const sy = img.height >= img.width ? 0 : Math.round((img.height - side) / 2);
+          const out = 280;
           const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          canvas.width = out;
+          canvas.height = out;
+          canvas.getContext('2d').drawImage(img, sx, sy, side, side, 0, 0, out, out);
           let quality = 0.82;
           let data = canvas.toDataURL('image/jpeg', quality);
           while (data.length > 70000 && quality > 0.4) {
