@@ -873,28 +873,19 @@
     }
     .kampf-stage {
       display: grid;
-      grid-template-columns: minmax(260px, 22rem) minmax(0, 1fr);
+      grid-template-columns: 1fr;
       gap: 1rem;
-      align-items: stretch;
       margin: 0 0 1.2rem;
     }
     .kampf-stage .kampf-list {
-      max-height: min(70vh, 820px);
-      overflow: auto;
-      padding-right: 0.15rem;
+      margin: 0;
     }
     .kampf-stage .battle-card {
       margin: 0;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
     }
     .kampf-stage .battle-board {
-      flex: 1 1 auto;
-      min-height: min(58vh, 720px);
+      min-height: min(62vh, 780px);
     }
-    .kampf-stage .kampf-card-top { flex-wrap: wrap; }
-    .kampf-stage .kampf-card-tools { margin-left: 0; }
     .kampf-side-item {
       display: flex;
       align-items: center;
@@ -1223,9 +1214,6 @@
       overflow: hidden;
       min-height: 240px;
     }
-    .kampf-stage .battle-board {
-      min-height: min(58vh, 720px);
-    }
     .battle-empty {
       margin: 0;
       padding: 2.4rem 1rem;
@@ -1336,7 +1324,6 @@
       .sheet-grid,
       .char-layout { grid-template-columns: 1fr; }
       .kampf-add-row input.kampf-num { flex: 1 1 5.5rem; }
-      .kampf-stage { grid-template-columns: 1fr; }
       .brand strong { font-size: 1.1rem; }
       .header-search {
         flex: 1 1 100%;
@@ -1447,10 +1434,6 @@
       .kampf-field { flex: 1 1 calc(50% - 0.5rem); }
       .kampf-add-row input,
       .kampf-add-row input.kampf-num { flex: 1 1 100%; }
-      .kampf-stage {
-        grid-template-columns: 1fr;
-      }
-      .kampf-stage .kampf-list { max-height: none; }
       .kampf-stage .battle-board { min-height: min(52dvh, 560px); }
       .char-roster button { min-height: 2.5rem; }
       .article-actions button,
@@ -1724,7 +1707,7 @@
           <div class="hero">
             <div class="seal">K</div>
             <h1>Kampf</h1>
-            <p>Initiative links, Schlachtfeld rechts. Spieler ziehen nur das eigene Portrait.</p>
+            <p>Schlachtfeld oben, Kämpfer darunter nach Initiative. Spieler ziehen nur das eigene Portrait.</p>
           </div>
           <div class="kampf-bar">
             <span class="kampf-round" id="kampfRound">Runde 1</span>
@@ -1736,7 +1719,6 @@
             </div>
           </div>
           <div class="kampf-stage">
-            <div class="kampf-list" id="kampfList"></div>
             <div class="battle-card" id="kampfBattleCard">
               <div class="battle-head">
                 <h3>Schlachtfeld</h3>
@@ -1760,6 +1742,7 @@
                 </div>
               </div>
             </div>
+            <div class="kampf-list" id="kampfList"></div>
           </div>
           <div class="kampf-add dm-only-block">
             <div class="kampf-add-card">
