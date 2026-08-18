@@ -779,14 +779,42 @@
     }
 
     .kampf-bar {
-      display: none;
+      display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: center;
       gap: 0.55rem;
-      margin: 0 0 1.2rem;
+      margin: 0 0 0.7rem;
     }
-    body.is-dm .kampf-bar { display: flex; }
+    .kampf-act {
+      display: none;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      margin: 0 0 1.1rem;
+    }
+    body.is-dm .kampf-act { display: flex; }
+    .kampf-act-name {
+      font-family: Cinzel, serif;
+      color: var(--gold);
+      min-width: 7rem;
+      text-align: center;
+    }
+    .kampf-act input {
+      width: 4.6rem;
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      color: var(--ink);
+      border-radius: 8px;
+      padding: 0.4rem 0.5rem;
+    }
+    .kampf-act-hit,
+    .kampf-act-heal {
+      min-width: 2.6rem;
+      font-size: 1.15rem;
+      line-height: 1;
+    }
     .kampf-round {
       font-family: Cinzel, serif;
       letter-spacing: 0.08em;
@@ -897,6 +925,7 @@
       border-radius: 12px;
       padding: 0.45rem 0.6rem;
       cursor: pointer;
+      flex-wrap: wrap;
     }
     .kampf-side-item.is-player { border-left: 4px solid var(--gold); }
     .kampf-side-item.is-enemy { border-left: 4px solid var(--blood); }
@@ -904,6 +933,22 @@
     .kampf-side-item.is-linked {
       border-color: var(--gold);
       box-shadow: 0 0 0 2px rgba(201, 162, 39, .55), 0 0 16px rgba(201, 162, 39, .28);
+    }
+    .kampf-side-item.is-active {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 1px var(--gold-dim);
+    }
+    .kampf-side-item.is-down { opacity: 0.62; }
+    .kampf-side-item .kampf-hp-bar {
+      flex: 1 1 5rem;
+      min-width: 4.5rem;
+      height: 6px;
+      margin-left: auto;
+    }
+    .kampf-side-hp {
+      color: var(--muted);
+      font-size: 0.82rem;
+      white-space: nowrap;
     }
     .kampf-side-item b {
       display: block;
@@ -917,6 +962,7 @@
     }
     .dm-only-block { display: none !important; }
     body.is-dm .dm-only-block { display: grid !important; }
+    body.is-dm #kampfAdd.hidden { display: none !important; }
     .kampf-card {
       background: var(--panel);
       border: 1px solid var(--line);
@@ -1321,6 +1367,16 @@
     }
     .battle-token.is-linked .battle-token-face {
       box-shadow: 0 0 0 3px #f3e6c0, 0 0 16px rgba(201, 162, 39, .85);
+    }
+    .battle-token.is-turn {
+      z-index: 5;
+    }
+    .battle-token.is-turn .battle-token-face {
+      border-color: #f3e6c0;
+      box-shadow: 0 0 0 3px var(--gold), 0 0 16px rgba(201, 162, 39, .9);
+    }
+    .battle-token.is-turn.is-linked .battle-token-face {
+      box-shadow: 0 0 0 3px #f3e6c0, 0 0 0 6px var(--gold), 0 0 16px rgba(201, 162, 39, .9);
     }
     .battle-token span {
       display: block;
@@ -1743,16 +1799,24 @@
           <div class="hero">
             <div class="seal">K</div>
             <h1>Kampf</h1>
-            <p>Schlachtfeld oben, Kämpfer darunter nach Initiative. Spieler ziehen nur das eigene Portrait.</p>
+            <p>Schlachtfeld oben, Reihenfolge darunter. Im Kampf nur die aktuelle Figur groß — Schaden über − / +.</p>
           </div>
           <div class="kampf-bar">
-            <span class="kampf-round" id="kampfRound">Runde 1</span>
+            <span class="kampf-round" id="kampfRound">Aufbau</span>
             <div class="battle-tools dm-only-tools">
               <button class="ghost" id="kampfPrevBtn" type="button">Zurück</button>
               <button class="ghost" id="kampfSkipBtn" type="button">Überspringen</button>
               <button class="primary" id="kampfNextBtn" type="button">Nächster Zug</button>
+              <button class="ghost" id="kampfSetupBtn" type="button">Figuren</button>
               <button class="ghost" id="kampfEndBtn" type="button">Kampf beenden</button>
             </div>
+          </div>
+          <div class="kampf-act" id="kampfActBar">
+            <span class="kampf-act-name" id="kampfActName">Figur wählen</span>
+            <input id="kampfDmgAmt" type="number" min="0" placeholder="TP" title="Leer = 1. Gilt für − / +" />
+            <button class="danger kampf-act-hit" id="kampfDmgMinus" type="button" title="Schaden">−</button>
+            <button class="ghost kampf-act-heal" id="kampfDmgPlus" type="button" title="Heilung">+</button>
+            <button class="ghost" id="kampfCountMinus" type="button">Einer tot</button>
           </div>
           <div class="kampf-stage">
             <div class="battle-card" id="kampfBattleCard">
@@ -1783,7 +1847,7 @@
             </div>
             <div class="kampf-list" id="kampfList"></div>
           </div>
-          <div class="kampf-add dm-only-block">
+          <div class="kampf-add dm-only-block" id="kampfAdd">
             <div class="kampf-add-card">
               <h3>Spieler übernehmen</h3>
               <div class="kampf-players" id="kampfPlayers"></div>
@@ -2001,6 +2065,7 @@
     const ROSTER_LOCAL_KEY = 'thalarion_kampf_karten';
     const BATTLE_DOC = 'kampfFeld';
     const BATTLE_MAP_DOC = 'kampfFeldMap';
+    const COMBAT_DOC = 'kampfStand';
     const BATTLE_LOCAL_KEY = 'thalarion_kampf_feld';
     const BATTLE_HAZARDS = {
       fire: { label: 'Feuer', fill: 'rgba(180, 48, 22, 0.42)', stroke: '#e07040' },
@@ -2071,7 +2136,10 @@
     let currentPlayerId = null;
     let currentSheetOwner = null;
     let playerFormMode = 'login';
-    let combat = { round: 1, started: false, activeId: null, debuffTick: 'turn', combatants: [], log: [] };
+    let combat = { round: 1, started: false, activeId: null, debuffTick: 'turn', combatants: [], log: [], updatedAt: 0 };
+    let writingCombat = false;
+    let combatPersistTimer = null;
+    let kampfSetupOpen = false;
     let sheetPortraitId = '';
     let pendingSheetPortrait = null;
     let kartePortraitId = '';
@@ -2387,6 +2455,10 @@
 
     function battleMapRef() {
       return db.collection('world').doc(BATTLE_MAP_DOC);
+    }
+
+    function combatRef() {
+      return db.collection('world').doc(COMBAT_DOC);
     }
 
     function imageRef(id) {
@@ -2844,6 +2916,12 @@
       });
     }
 
+    function applyBattleTurnHighlight() {
+      document.querySelectorAll('.battle-token').forEach(el => {
+        el.classList.toggle('is-turn', !!(combat.activeId && el.dataset.id === combat.activeId));
+      });
+    }
+
     function setBattleLink(id, pinned) {
       if (pinned) {
         battleLinkPinnedId = battleLinkPinnedId === id ? '' : id;
@@ -2869,6 +2947,7 @@
       el.addEventListener('click', ev => {
         if (ev.target.closest('input, button, select, textarea, label')) return;
         setBattleLink(id, true);
+        if (isDM && combat.started && currentPage === 'kampf') renderKampf();
         const token = document.querySelector('.battle-token[data-id="' + CSS.escape(id) + '"]');
         if (token) token.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       });
@@ -2906,6 +2985,69 @@
         if (writingBattleMap || !snap.exists) return;
         applyBattleMap(snap.data());
       });
+    }
+
+    function combatPayload() {
+      return {
+        updatedAt: combat.updatedAt || Date.now(),
+        round: combat.round,
+        started: !!combat.started,
+        activeId: combat.activeId || null,
+        debuffTick: combat.debuffTick === 'round' ? 'round' : 'turn',
+        combatants: (combat.combatants || []).map(normalizeCombatant),
+        log: Array.isArray(combat.log) ? combat.log.slice(0, 20) : []
+      };
+    }
+
+    function persistCombatLocal() {
+      try {
+        localStorage.setItem(COMBAT_KEY, JSON.stringify(combatPayload()));
+      } catch (err) {}
+    }
+
+    function applyCombat(data, force) {
+      if (!data) return;
+      const at = Number(data.updatedAt) || 0;
+      if (!force && at && at <= (Number(combat.updatedAt) || 0)) return;
+      combat = {
+        updatedAt: at,
+        round: Math.max(1, Number(data.round) || 1),
+        started: !!data.started,
+        activeId: data.activeId || null,
+        debuffTick: data.debuffTick === 'round' ? 'round' : 'turn',
+        combatants: (Array.isArray(data.combatants) ? data.combatants : []).map(normalizeCombatant),
+        log: Array.isArray(data.log) ? data.log.slice(0, 20) : []
+      };
+      persistCombatLocal();
+      applyBattleTurnHighlight();
+      if (currentPage === 'kampf') renderKampf();
+    }
+
+    function listenCombat() {
+      if (!db) return;
+      combatRef().onSnapshot(snap => {
+        if (writingCombat || !snap.exists) return;
+        applyCombat(snap.data());
+      });
+    }
+
+    async function persistCombatRemote() {
+      if (!db) return;
+      const nextAt = combat.updatedAt || Date.now();
+      writingCombat = true;
+      try {
+        await combatRef().set(combatPayload());
+        combat.updatedAt = nextAt;
+      } catch (err) {
+        toast('Kampfstand konnte nicht gespeichert werden: ' + err.message);
+      } finally {
+        writingCombat = false;
+      }
+    }
+
+    function persistCombatSoon() {
+      clearTimeout(combatPersistTimer);
+      combatPersistTimer = setTimeout(() => { persistCombatRemote(); }, 180);
     }
 
     async function persistBattle() {
@@ -3119,6 +3261,7 @@
         el.type = 'button';
         el.className = 'battle-token ' + (token.kind === 'player' ? 'is-player' : 'is-enemy');
         if (currentPlayerId && token.playerId === currentPlayerId) el.classList.add('is-mine');
+        if (combat.activeId && token.id === combat.activeId) el.classList.add('is-turn');
         const movable = canMoveBattleToken(token);
         if (!movable) el.classList.add('is-locked');
         el.style.left = token.x + '%';
@@ -3141,6 +3284,7 @@
           if (battleTokenDragMoved) return;
           setBattleLink(token.id, true);
           scrollToKampfCard(token.id);
+          if (isDM && combat.started && currentPage === 'kampf') renderKampf();
         });
         if (movable && !battleHazardMode) {
           el.addEventListener('pointerdown', ev => startBattleTokenDrag(ev, token, stage, el));
@@ -3148,6 +3292,7 @@
         box.appendChild(el);
       });
       applyBattleLinkHighlight();
+      applyBattleTurnHighlight();
     }
 
     function battlePctFromEvent(stage, ev) {
@@ -3191,6 +3336,7 @@
         if (!battleTokenDragMoved) {
           setBattleLink(token.id, true);
           scrollToKampfCard(token.id);
+          if (isDM && combat.started && currentPage === 'kampf') renderKampf();
           battleTokenDragMoved = true;
         }
       };
@@ -3665,7 +3811,7 @@
     }
 
     function emptyCombat() {
-      return { round: 1, started: false, activeId: null, debuffTick: 'turn', combatants: [], log: [] };
+      return { round: 1, started: false, activeId: null, debuffTick: 'turn', combatants: [], log: [], updatedAt: 0 };
     }
 
     function parseSheetHp(str) {
@@ -3736,9 +3882,9 @@
     }
 
     function persistCombat() {
-      try {
-        localStorage.setItem(COMBAT_KEY, JSON.stringify(combat));
-      } catch (err) {}
+      combat.updatedAt = Date.now();
+      persistCombatLocal();
+      persistCombatSoon();
     }
 
     function loadCombat() {
@@ -3749,6 +3895,7 @@
           return;
         }
         combat = {
+          updatedAt: Number(raw.updatedAt) || 0,
           round: Math.max(1, Number(raw.round) || 1),
           started: !!raw.started,
           activeId: raw.activeId || null,
@@ -3942,6 +4089,119 @@
       renderKampf();
     }
 
+    function combatFocusId() {
+      if (battleLinkPinnedId && combatantById(battleLinkPinnedId)) return battleLinkPinnedId;
+      if (combat.activeId && combatantById(combat.activeId)) return combat.activeId;
+      return '';
+    }
+
+    function combatDamageAmount(fromEl) {
+      const typed = fromEl && String(fromEl.value || '').trim();
+      if (typed) {
+        const n = Math.abs(Number(typed));
+        if (n) return n;
+      }
+      const bar = document.getElementById('kampfDmgAmt');
+      const n = Math.abs(Number(bar && bar.value));
+      return Number.isFinite(n) && n > 0 ? n : 1;
+    }
+
+    function applyFocusedCombatDamage(heal) {
+      const id = combatFocusId();
+      if (!id) {
+        toast('Erst eine Figur wählen oder den Zug starten.');
+        return;
+      }
+      applyCombatDamage(id, combatDamageAmount(), heal);
+    }
+
+    function applyFocusedCountMinus() {
+      const row = combatantById(combatFocusId());
+      if (!row) {
+        toast('Erst eine Figur wählen oder den Zug starten.');
+        return;
+      }
+      row.count = Math.max(0, (Number(row.count) || 0) - 1);
+      persistCombat();
+      renderKampf();
+    }
+
+    function combatHpBarEl(row) {
+      const bar = document.createElement('div');
+      bar.className = 'kampf-hp-bar';
+      const pct = row.hpMax > 0 ? Math.max(0, Math.min(100, (row.hp / row.hpMax) * 100)) : 0;
+      if (pct <= 25) bar.classList.add('is-low');
+      const fill = document.createElement('span');
+      fill.style.width = pct + '%';
+      bar.appendChild(fill);
+      return bar;
+    }
+
+    function kampfCompactItem(row) {
+      const el = document.createElement('div');
+      el.className = 'kampf-side-item ' + (row.kind === 'player' ? 'is-player' : 'is-enemy');
+      if (currentPlayerId && row.playerId === currentPlayerId) el.classList.add('is-mine');
+      if (row.id === combat.activeId) el.classList.add('is-active');
+      if (combatantDown(row)) el.classList.add('is-down');
+      bindKampfListLink(el, row.id);
+      const face = document.createElement('div');
+      face.className = 'kampf-face';
+      paintPortraitEl(face, row.portraitId, row.name);
+      const who = document.createElement('div');
+      who.style.minWidth = '0';
+      const name = document.createElement('b');
+      name.textContent = row.name || '—';
+      const meta = document.createElement('span');
+      const bits = ['Init ' + (Number(row.init) || 0)];
+      if (row.ac) bits.push('RK ' + row.ac);
+      if (row.id === combat.activeId) bits.push('dran');
+      if (row.debuffs && row.debuffs.length) bits.push(row.debuffs.map(d => d.text).join(', '));
+      meta.textContent = bits.join(' · ');
+      who.appendChild(name);
+      who.appendChild(meta);
+      const hp = document.createElement('span');
+      hp.className = 'kampf-side-hp';
+      hp.textContent = (Number(row.hp) || 0) + '/' + (Number(row.hpMax) || 0);
+      if (row.tempHp) hp.textContent += ' +' + row.tempHp;
+      if (row.countMax > 1) hp.textContent += ' · ×' + row.count;
+      el.appendChild(face);
+      el.appendChild(who);
+      el.appendChild(hp);
+      el.appendChild(combatHpBarEl(row));
+      return el;
+    }
+
+    function syncKampfChrome() {
+      const round = document.getElementById('kampfRound');
+      const active = combatantById(combat.activeId);
+      if (round) {
+        if (!combat.started) round.textContent = 'Aufbau';
+        else round.textContent = 'Runde ' + combat.round + (active ? ' · ' + (active.name || '') : '');
+      }
+      const actName = document.getElementById('kampfActName');
+      const focus = combatantById(combatFocusId());
+      if (actName) actName.textContent = focus ? focus.name : 'Figur wählen';
+      const add = document.getElementById('kampfAdd');
+      const setupBtn = document.getElementById('kampfSetupBtn');
+      const hideSetup = isDM && combat.started && !kampfSetupOpen;
+      if (add) add.classList.toggle('hidden', hideSetup);
+      if (setupBtn) {
+        setupBtn.classList.toggle('hidden', !isDM || !combat.started);
+        setupBtn.textContent = kampfSetupOpen ? 'Figuren ausblenden' : 'Figuren';
+      }
+      applyBattleTurnHighlight();
+    }
+
+    function toggleKampfSetup() {
+      kampfSetupOpen = !kampfSetupOpen;
+      renderKampf();
+    }
+
+    function clearCombatFocus() {
+      battleLinkPinnedId = '';
+      battleLinkHoverId = '';
+    }
+
     function addCombatDebuff(id, text, roundsRaw) {
       const row = combatantById(id);
       const label = (text || '').trim();
@@ -3975,6 +4235,8 @@
       if (!combatantById(id)) return;
       combat.started = true;
       combat.activeId = id;
+      kampfSetupOpen = false;
+      clearCombatFocus();
       persistCombat();
       renderKampf();
     }
@@ -3986,7 +4248,17 @@
         return;
       }
       ensureCombatTurn();
-      combat.started = true;
+      if (!combat.started) {
+        combat.started = true;
+        kampfSetupOpen = false;
+        clearCombatFocus();
+        persistCombat();
+        renderKampf();
+        toast('Kampf beginnt. ' + ((combatantById(combat.activeId) || {}).name || '') + ' ist dran.');
+        return;
+      }
+      kampfSetupOpen = false;
+      clearCombatFocus();
       const i = list.findIndex(c => c.id === combat.activeId);
       const cur = list[i < 0 ? 0 : i];
       const wrapping = (i < 0 ? 0 : i) + 1 >= list.length;
@@ -4010,6 +4282,8 @@
       }
       ensureCombatTurn();
       combat.started = true;
+      kampfSetupOpen = false;
+      clearCombatFocus();
       const i = Math.max(0, list.findIndex(c => c.id === combat.activeId));
       combat.activeId = list[(i + 1) % list.length].id;
       persistCombat();
@@ -4024,6 +4298,8 @@
       }
       ensureCombatTurn();
       combat.started = true;
+      kampfSetupOpen = false;
+      clearCombatFocus();
       const i = Math.max(0, list.findIndex(c => c.id === combat.activeId));
       combat.activeId = list[(i - 1 + list.length) % list.length].id;
       persistCombat();
@@ -4035,6 +4311,8 @@
       if (!combat.combatants.length) {
         combat = emptyCombat();
         combat.debuffTick = tick;
+        kampfSetupOpen = false;
+        clearCombatFocus();
         persistCombat();
         clearBattleTokensAndHazards();
         renderKampf();
@@ -4043,6 +4321,8 @@
       if (!confirm('Kampf beenden und die Tafel leeren? Die Charakterblätter und Vorlagen bleiben unverändert.')) return;
       combat = emptyCombat();
       combat.debuffTick = tick;
+      kampfSetupOpen = false;
+      clearCombatFocus();
       persistCombat();
       clearBattleTokensAndHazards();
       renderKampf();
@@ -4158,40 +4438,22 @@
       const list = document.getElementById('kampfList');
       if (!list) return;
       list.innerHTML = '';
-      const rows = sortedBattleTokens();
+      const rows = combat.combatants.length ? sortedCombatants() : [];
       if (!rows.length) {
         const empty = document.createElement('p');
         empty.className = 'kampf-empty';
-        empty.textContent = 'Noch niemand auf dem Feld. Der DM setzt die Figuren in den Kampf.';
+        empty.textContent = 'Noch niemand im Kampf. Der DM setzt die Figuren in die Reihenfolge.';
         list.appendChild(empty);
+        applyBattleLinkHighlight();
         return;
       }
-      rows.forEach(token => {
-        const btn = document.createElement('div');
-        btn.className = 'kampf-side-item ' + (token.kind === 'player' ? 'is-player' : 'is-enemy');
-        if (currentPlayerId && token.playerId === currentPlayerId) btn.classList.add('is-mine');
-        bindKampfListLink(btn, token.id);
-        const face = document.createElement('div');
-        face.className = 'kampf-face';
-        paintPortraitEl(face, token.portraitId, token.name);
-        const who = document.createElement('div');
-        who.style.minWidth = '0';
-        const name = document.createElement('b');
-        name.textContent = token.name || '—';
-        const meta = document.createElement('span');
-        meta.textContent = 'Init ' + (Number(token.init) || 0);
-        who.appendChild(name);
-        who.appendChild(meta);
-        btn.appendChild(face);
-        btn.appendChild(who);
-        list.appendChild(btn);
-      });
+      rows.forEach(row => list.appendChild(kampfCompactItem(row)));
       applyBattleLinkHighlight();
     }
 
     function renderKampf() {
       if (!els.kampfView || els.kampfView.classList.contains('hidden')) return;
-      document.getElementById('kampfRound').textContent = 'Runde ' + combat.round;
+      syncKampfChrome();
       if (!isDM) {
         renderPlayerKampfList();
         return;
@@ -4278,6 +4540,11 @@
         list.appendChild(empty);
       }
       rows.forEach((row, index) => {
+        const expanded = !combat.started || row.id === combatFocusId();
+        if (!expanded) {
+          list.appendChild(kampfCompactItem(row));
+          return;
+        }
         const card = document.createElement('article');
         card.className = 'kampf-card ' + (row.kind === 'player' ? 'is-player' : 'is-enemy');
         if (row.id === combat.activeId) card.classList.add('is-active');
@@ -4399,19 +4666,21 @@
         dmg.onkeydown = ev => {
           if (ev.key === 'Enter') {
             ev.preventDefault();
-            applyCombatDamage(row.id, dmg.value, false);
+            applyCombatDamage(row.id, combatDamageAmount(dmg), false);
           }
         };
         const hit = document.createElement('button');
         hit.type = 'button';
-        hit.className = 'danger';
-        hit.textContent = 'Schaden';
-        hit.onclick = () => applyCombatDamage(row.id, dmg.value, false);
+        hit.className = 'danger kampf-act-hit';
+        hit.textContent = '−';
+        hit.title = 'Schaden';
+        hit.onclick = () => applyCombatDamage(row.id, combatDamageAmount(dmg), false);
         const heal = document.createElement('button');
         heal.type = 'button';
         heal.className = 'ghost';
-        heal.textContent = 'Heilung';
-        heal.onclick = () => applyCombatDamage(row.id, dmg.value, true);
+        heal.textContent = '+';
+        heal.title = 'Heilung';
+        heal.onclick = () => applyCombatDamage(row.id, combatDamageAmount(dmg), true);
         hpRow.appendChild(kampfLabeledInput('TP', hpNow));
         const slash = document.createElement('span');
         slash.textContent = '/';
@@ -4450,15 +4719,8 @@
         hpRow.appendChild(countMax);
         hpRow.appendChild(minus);
 
-        const bar = document.createElement('div');
-        bar.className = 'kampf-hp-bar';
-        const pct = row.hpMax > 0 ? Math.max(0, Math.min(100, (row.hp / row.hpMax) * 100)) : 0;
-        if (pct <= 25) bar.classList.add('is-low');
-        const fill = document.createElement('span');
-        fill.style.width = pct + '%';
-        bar.appendChild(fill);
         hpBox.appendChild(hpRow);
-        hpBox.appendChild(bar);
+        hpBox.appendChild(combatHpBarEl(row));
 
         const deb = document.createElement('div');
         deb.className = 'kampf-debuffs';
@@ -4525,6 +4787,7 @@
         list.appendChild(card);
       });
       applyBattleLinkHighlight();
+      syncKampfChrome();
 
       const logBox = document.getElementById('kampfLog');
       logBox.innerHTML = '';
@@ -6280,7 +6543,16 @@
     document.getElementById('kampfNextBtn').onclick = nextCombatTurn;
     document.getElementById('kampfPrevBtn').onclick = prevCombatTurn;
     document.getElementById('kampfSkipBtn').onclick = skipCombatTurn;
+    document.getElementById('kampfSetupBtn').onclick = toggleKampfSetup;
     document.getElementById('kampfEndBtn').onclick = endCombat;
+    document.getElementById('kampfDmgMinus').onclick = () => applyFocusedCombatDamage(false);
+    document.getElementById('kampfDmgPlus').onclick = () => applyFocusedCombatDamage(true);
+    document.getElementById('kampfCountMinus').onclick = applyFocusedCountMinus;
+    document.getElementById('kampfDmgAmt').addEventListener('keydown', ev => {
+      if (ev.key !== 'Enter') return;
+      ev.preventDefault();
+      applyFocusedCombatDamage(false);
+    });
     document.getElementById('kampfAddEnemyBtn').onclick = addEnemyToCombat;
     document.getElementById('kampfSaveTplBtn').onclick = saveCombatTemplate;
     document.getElementById('kampfKartenSearch').addEventListener('input', renderKampfKartenList);
@@ -6707,6 +6979,7 @@
     (async function boot() {
       loadRosterLocal();
       loadBattleLocal();
+      loadCombat();
       if (!initFirebase()) toast('Keine Verbindung zur Cloud.');
       const localPack = readLocalPack();
       let remotePack = null;
@@ -6726,6 +6999,9 @@
           if (battleSnap.exists) applyBattle(battleSnap.data());
           const battleMapSnap = await battleMapRef().get();
           if (battleMapSnap.exists) applyBattleMap(battleMapSnap.data());
+          const combatSnap = await combatRef().get();
+          if (combatSnap.exists) applyCombat(combatSnap.data(), true);
+          else if (combat.combatants.length) persistCombat();
         } catch (err) {
           console.warn(err);
           toast('Keine Verbindung zur Cloud.');
@@ -6758,7 +7034,6 @@
       const savedPlayer = sessionStorage.getItem(PLAYER_SESSION_KEY);
       if (savedPlayer && playerAccounts[savedPlayer]) setPlayer(savedPlayer);
 
-      loadCombat();
       showMap();
       listenWorld();
       listenMap();
@@ -6766,6 +7041,7 @@
       listenPlayers();
       listenRoster();
       listenBattle();
+      listenCombat();
     })();
   </script>
 </body>
