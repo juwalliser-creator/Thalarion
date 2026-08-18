@@ -1201,6 +1201,18 @@
       align-items: center;
       gap: 0.4rem;
     }
+    .battle-size {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--muted);
+      font-size: 0.88rem;
+      white-space: nowrap;
+    }
+    .battle-size input[type="range"] {
+      width: 7.5rem;
+      accent-color: var(--gold);
+    }
     .battle-hint {
       color: var(--muted);
       font-size: 0.9rem;
@@ -1257,7 +1269,7 @@
     .battle-token {
       position: absolute;
       transform: translate(-50%, -50%);
-      width: 52px;
+      width: var(--battle-token-size, 52px);
       padding: 0;
       border: 0;
       background: transparent;
@@ -1272,8 +1284,8 @@
     .battle-token.is-locked { cursor: default; }
     .battle-token.is-dragging { cursor: grabbing; z-index: 5; }
     .battle-token-face {
-      width: 48px;
-      height: 48px;
+      width: var(--battle-token-face, 48px);
+      height: var(--battle-token-face, 48px);
       margin: 0 auto;
       border-radius: 50%;
       border: 2px solid var(--gold-dim);
@@ -1295,11 +1307,11 @@
       display: block;
       margin-top: 0.2rem;
       text-align: center;
-      font-size: 0.72rem;
+      font-size: calc(var(--battle-token-face, 48px) * 0.24);
       line-height: 1.15;
       color: var(--ink);
       text-shadow: 0 1px 2px #000;
-      max-width: 5.6rem;
+      max-width: calc(var(--battle-token-size, 52px) + 16px);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -1734,6 +1746,9 @@
                   <button class="ghost" id="kampfBattleOilBtn" type="button">Öl</button>
                   <button class="primary hidden" id="kampfBattleCloseBtn" type="button">Fläche schließen</button>
                   <button class="ghost hidden" id="kampfBattleCancelDrawBtn" type="button">Abbrechen</button>
+                  <label class="battle-size" for="kampfBattleSize">Größe
+                    <input id="kampfBattleSize" type="range" min="28" max="96" step="2" value="48" title="Portraitgröße" />
+                  </label>
                   <button class="danger" id="kampfBattleClearBtn" type="button">Karte entfernen</button>
                 </div>
               </div>
@@ -2042,7 +2057,7 @@
     let pendingSheetPortrait = null;
     let kartePortraitId = '';
     let pendingKartePortrait = null;
-    let battle = { image: '', tokens: [], hazards: [], updatedAt: 0, mapUpdatedAt: 0 };
+    let battle = { image: '', tokens: [], hazards: [], tokenSize: 48, updatedAt: 0, mapUpdatedAt: 0 };
     let writingBattle = false;
     let writingBattleMap = false;
     let battlePersistTimer = null;
@@ -2766,7 +2781,8 @@
         localStorage.setItem(BATTLE_LOCAL_KEY, JSON.stringify({
           updatedAt: battle.updatedAt,
           tokens: battle.tokens,
-          hazards: battle.hazards
+          hazards: battle.hazards,
+          tokenSize: clampBattleTokenSize(battle.tokenSize)
         }));
       } catch (err) {}
     }
@@ -2778,7 +2794,25 @@
         battle.updatedAt = Number(raw.updatedAt) || 0;
         battle.tokens = (Array.isArray(raw.tokens) ? raw.tokens : []).map(normalizeBattleToken);
         battle.hazards = (Array.isArray(raw.hazards) ? raw.hazards : []).map(normalizeBattleHazard);
+        battle.tokenSize = clampBattleTokenSize(raw.tokenSize);
       } catch (err) {}
+    }
+
+    function clampBattleTokenSize(n) {
+      const v = Number(n);
+      if (!Number.isFinite(v)) return 48;
+      return Math.max(28, Math.min(96, Math.round(v)));
+    }
+
+    function applyBattleTokenSize() {
+      const size = clampBattleTokenSize(battle.tokenSize);
+      battle.tokenSize = size;
+      document.querySelectorAll('.battle-stage').forEach(stage => {
+        stage.style.setProperty('--battle-token-face', size + 'px');
+        stage.style.setProperty('--battle-token-size', (size + 4) + 'px');
+      });
+      const slider = document.getElementById('kampfBattleSize');
+      if (slider && document.activeElement !== slider) slider.value = String(size);
     }
 
     function applyBattle(data) {
@@ -2788,6 +2822,7 @@
       battle.updatedAt = at;
       battle.tokens = (Array.isArray(data.tokens) ? data.tokens : []).map(normalizeBattleToken);
       battle.hazards = (Array.isArray(data.hazards) ? data.hazards : []).map(normalizeBattleHazard);
+      battle.tokenSize = clampBattleTokenSize(data.tokenSize);
       persistBattleLocal();
       renderBattleBoards();
       if (currentPage === 'kampf' && !isDM) renderPlayerKampfList();
@@ -2824,7 +2859,8 @@
         await battleRef().set({
           updatedAt: nextAt,
           tokens: battle.tokens,
-          hazards: battle.hazards
+          hazards: battle.hazards,
+          tokenSize: clampBattleTokenSize(battle.tokenSize)
         });
       } catch (err) {
         toast('Schlachtfeld konnte nicht gespeichert werden: ' + err.message);
@@ -2933,6 +2969,7 @@
 
     function renderBattleBoards() {
       if (battleTokenDrag) return;
+      applyBattleTokenSize();
       const hasMap = !!battle.image;
       battleBoardIds().forEach(ids => {
         const empty = document.getElementById(ids.empty);
@@ -6215,6 +6252,21 @@
       document.getElementById(prefix + 'BattleCloseBtn').onclick = closeBattleDraft;
       document.getElementById(prefix + 'BattleCancelDrawBtn').onclick = cancelBattleDraw;
       document.getElementById(prefix + 'BattleClearBtn').onclick = clearBattleMap;
+      const sizeEl = document.getElementById(prefix + 'BattleSize');
+      if (sizeEl) {
+        sizeEl.addEventListener('input', () => {
+          if (!isDM) return;
+          battle.tokenSize = clampBattleTokenSize(sizeEl.value);
+          applyBattleTokenSize();
+          persistBattleSoon();
+        });
+        sizeEl.addEventListener('change', () => {
+          if (!isDM) return;
+          battle.tokenSize = clampBattleTokenSize(sizeEl.value);
+          applyBattleTokenSize();
+          persistBattleSoon();
+        });
+      }
       const stage = document.getElementById(prefix + 'BattleStage');
       const overlay = document.getElementById(prefix + 'BattleOverlay');
       if (overlay && stage) overlay.addEventListener('click', ev => onBattleStageClick(ev, stage));
