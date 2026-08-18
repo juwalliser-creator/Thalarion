@@ -3453,9 +3453,6 @@
       board.addEventListener('pointerup', endPan);
       board.addEventListener('pointercancel', endPan);
     }
-      clearTimeout(battlePersistTimer);
-      battlePersistTimer = setTimeout(() => { persistBattle(); }, 180);
-    }
 
     async function persistBattleMap() {
       if (!db) throw new Error('Keine Verbindung zur Cloud.');
