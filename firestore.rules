@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /world/{document=**} {
+      allow read: if true;
+      // GitHub Pages hat kein Firebase-Login. Schreiben bleibt offen,
+      // solange der DM-Schalter nur im Browser sitzt.
+      allow write: if true;
+    }
+  }
+}

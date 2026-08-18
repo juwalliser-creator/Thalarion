@@ -2234,10 +2234,11 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <script src="js/firebase-config.js"></script>
   <script>
-    function fmt(cmd) { document.execCommand(cmd, false, null); }
-    function fmtValue(cmd, value) { if (value) document.execCommand(cmd, false, value); }
+    function fmt(cmd) { try { document.execCommand(cmd, false, null); } catch (err) {} }
+    function fmtValue(cmd, value) { if (!value) return; try { document.execCommand(cmd, false, value); } catch (err) {} }
 
     const STORY_CAT = 'Entstehung';
     const SESSION_CAT = 'Updates';
@@ -2285,6 +2286,7 @@
     const WORLD_DOC = 'codex';
     const PLAYERS_DOC = 'players';
     const ROSTER_DOC = 'kampfKarten';
+    const TEMPLATES_DOC = 'kampfVorlagen';
     const ROSTER_LOCAL_KEY = 'thalarion_kampf_karten';
     const BATTLE_DOC = 'kampfFeld';
     const BATTLE_MAP_DOC = 'kampfFeldMap';
@@ -2336,6 +2338,7 @@
     let mapDrag = null;
     let openedFromMap = false;
     let writingRemote = false;
+    let writingMap = false;
     let entries = [];
     let currentIndex = null;
     let currentTitle = null;
@@ -2356,6 +2359,10 @@
     let rosterCards = [];
     let rosterUpdatedAt = 0;
     let writingRoster = false;
+    let combatTemplates = [];
+    let templatesUpdatedAt = 0;
+    let writingTemplates = false;
+    let templatesPersistTimer = null;
     let editingKarteId = null;
     let currentPlayerId = null;
     let currentSheetOwner = null;
@@ -2382,6 +2389,7 @@
     let battlePanX = 0;
     let battlePanY = 0;
     let battlePan = null;
+    let battleGridMetricsCache = null;
     let battleLinkPinnedId = '';
     let battleLinkHoverId = '';
 
@@ -2620,11 +2628,58 @@
       toast._t = setTimeout(() => els.toast.classList.add('hidden'), 2600);
     }
 
+    function writeLocal(key, value) {
+      try {
+        localStorage.setItem(key, value);
+        return true;
+      } catch (err) {
+        toast('Lokaler Speicher ist voll. Die Cloud gilt weiter, dieser Browser nicht.');
+        return false;
+      }
+    }
+
     function persistLocal() {
-      localStorage.setItem(LOCAL_KEY, JSON.stringify({
+      writeLocal(LOCAL_KEY, JSON.stringify({
         updatedAt: worldUpdatedAt,
         entries: entries
       }));
+    }
+
+    function sanitizeHtml(html) {
+      if (!html) return '';
+      const doc = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html');
+      const root = doc.body && doc.body.firstElementChild;
+      if (!root) return '';
+      const blocked = { script: 1, iframe: 1, object: 1, embed: 1, link: 1, meta: 1, form: 1, input: 1, button: 1, textarea: 1, base: 1 };
+      const walk = node => {
+        [...node.children].forEach(child => {
+          const tag = child.tagName.toLowerCase();
+          if (blocked[tag]) {
+            child.remove();
+            return;
+          }
+          [...child.attributes].forEach(attr => {
+            const name = attr.name.toLowerCase();
+            const val = attr.value || '';
+            if (name.startsWith('on') || name === 'srcdoc' || /javascript:/i.test(val) || /data:text\/html/i.test(val)) {
+              child.removeAttribute(attr.name);
+            }
+          });
+          walk(child);
+        });
+      };
+      walk(root);
+      return root.innerHTML;
+    }
+
+    function onClick(id, handler) {
+      const node = document.getElementById(id);
+      if (node) node.onclick = handler;
+    }
+
+    function onEv(id, type, handler) {
+      const node = document.getElementById(id);
+      if (node) node.addEventListener(type, handler);
     }
 
     function parseWorldPayload(data) {
@@ -2657,6 +2712,31 @@
       if (!firebase.apps.length) firebase.initializeApp(window.FIREBASE_CONFIG);
       db = firebase.firestore();
       return true;
+    }
+
+    function templatesRef() {
+      return db.collection('world').doc(TEMPLATES_DOC);
+    }
+
+    async function storeCloudImage(id, dataUrl) {
+      if (!dataUrl) return '';
+      if (/^https?:\/\//i.test(dataUrl)) return dataUrl;
+      try {
+        if (window.firebase && firebase.storage) {
+          const mime = (dataUrl.match(/^data:([^;,]+)/) || [])[1] || 'image/jpeg';
+          const ref = firebase.storage().ref().child('images/' + id);
+          await ref.putString(dataUrl, 'data_url', { contentType: mime });
+          return await ref.getDownloadURL();
+        }
+      } catch (err) {}
+      return dataUrl;
+    }
+
+    async function deleteCloudImage(id) {
+      if (!id) return;
+      try {
+        if (window.firebase && firebase.storage) await firebase.storage().ref().child('images/' + id).delete();
+      } catch (err) {}
     }
 
     function worldRef() {
@@ -2782,12 +2862,14 @@
 
     async function persistEntryImage(imageId, dataUrl) {
       if (!db) throw new Error('Keine Verbindung zur Cloud.');
-      await imageRef(imageId).set({ image: dataUrl, updatedAt: Date.now() });
-      imageCache[imageId] = dataUrl;
+      const stored = await storeCloudImage(imageId, dataUrl);
+      await imageRef(imageId).set({ image: stored, updatedAt: Date.now() });
+      imageCache[imageId] = stored;
     }
 
     async function deleteEntryImage(imageId) {
       if (!imageId || !db) return;
+      await deleteCloudImage(imageId);
       await imageRef(imageId).delete();
       delete imageCache[imageId];
     }
@@ -2859,7 +2941,7 @@
 
     function entryBodyHtml(e) {
       const hasText = htmlToText(e.content || '').trim();
-      if (hasText) return e.content;
+      if (hasText) return sanitizeHtml(e.content);
       if (e.imageId) return '';
       return '<p><em>Noch kein Text.</em></p>';
     }
@@ -2885,7 +2967,7 @@
       document.getElementById('sheetArmor').value = s.armor || '';
       document.getElementById('sheetStats').value = s.stats || EMPTY_SHEET.stats;
       document.getElementById('sheetNotes').value = s.notes || '';
-      document.getElementById('sheetContent').innerHTML = s.extra || '';
+      document.getElementById('sheetContent').innerHTML = sanitizeHtml(s.extra || '');
       sheetPortraitId = s.portraitId || '';
       pendingSheetPortrait = null;
       const previewId = s.portraitId || '';
@@ -2958,9 +3040,12 @@
       if (!data) return;
       const at = Number(data.updatedAt) || 0;
       if (at && at <= playersUpdatedAt) return;
-      if (sheetDirty) return;
+      const incoming = normalizeAccounts(data.accounts);
+      if (sheetDirty && currentPlayerId && playerAccounts[currentPlayerId]) {
+        incoming[currentPlayerId] = playerAccounts[currentPlayerId];
+      }
       playersUpdatedAt = at;
-      playerAccounts = normalizeAccounts(data.accounts);
+      playerAccounts = incoming;
       if (currentPlayerId && !playerAccounts[currentPlayerId]) setPlayer(null);
       if (currentPage === 'char') renderCharakter();
       else if (currentPage === 'kampf') renderKampf();
@@ -3003,12 +3088,10 @@
     }
 
     function persistRosterLocal() {
-      try {
-        localStorage.setItem(ROSTER_LOCAL_KEY, JSON.stringify({
-          updatedAt: rosterUpdatedAt,
-          cards: rosterCards
-        }));
-      } catch (err) {}
+      writeLocal(ROSTER_LOCAL_KEY, JSON.stringify({
+        updatedAt: rosterUpdatedAt,
+        cards: rosterCards
+      }));
     }
 
     function loadRosterLocal() {
@@ -3071,7 +3154,7 @@
       if (!portraitId) return;
       const apply = data => {
         if (!data) return;
-        el.style.backgroundImage = 'url("' + data + '")';
+        el.style.backgroundImage = 'url(' + JSON.stringify(data) + ')';
         el.textContent = '';
       };
       if (imageCache[portraitId]) apply(imageCache[portraitId]);
@@ -3101,15 +3184,13 @@
     }
 
     function persistBattleLocal() {
-      try {
-        localStorage.setItem(BATTLE_LOCAL_KEY, JSON.stringify({
-          updatedAt: battle.updatedAt,
-          tokens: battle.tokens,
-          hazards: battle.hazards,
-          tokenSize: clampBattleTokenSize(battle.tokenSize),
-          gridSize: clampBattleGridSize(battle.gridSize)
-        }));
-      } catch (err) {}
+      writeLocal(BATTLE_LOCAL_KEY, JSON.stringify({
+        updatedAt: battle.updatedAt,
+        tokens: battle.tokens,
+        hazards: battle.hazards,
+        tokenSize: clampBattleTokenSize(battle.tokenSize),
+        gridSize: clampBattleGridSize(battle.gridSize)
+      }));
     }
 
     function loadBattleLocal() {
@@ -3139,6 +3220,7 @@
     function applyBattleGridSize() {
       const size = clampBattleGridSize(battle.gridSize);
       battle.gridSize = size;
+      battleGridMetricsCache = null;
       document.querySelectorAll('.battle-stage').forEach(stage => {
         stage.style.setProperty('--battle-grid-size', size + 'cm');
         const m = battleGridMetrics(stage);
@@ -3269,9 +3351,7 @@
     }
 
     function persistCombatLocal() {
-      try {
-        localStorage.setItem(COMBAT_KEY, JSON.stringify(combatPayload()));
-      } catch (err) {}
+      writeLocal(COMBAT_KEY, JSON.stringify(combatPayload()));
     }
 
     function applyCombat(data, force) {
@@ -3459,7 +3539,9 @@
       const nextAt = Date.now();
       writingBattleMap = true;
       try {
-        await battleMapRef().set({ image: battle.image || '', updatedAt: nextAt });
+        const stored = await storeCloudImage('kampf-map', battle.image || '');
+        if (stored) battle.image = stored;
+        await battleMapRef().set({ image: stored, updatedAt: nextAt });
         battle.mapUpdatedAt = nextAt;
       } finally {
         writingBattleMap = false;
@@ -3696,13 +3778,20 @@
       const width = stage.offsetWidth;
       const height = stage.offsetHeight;
       const cm = clampBattleGridSize(battle.gridSize);
+      if (
+        battleGridMetricsCache &&
+        battleGridMetricsCache.gridSize === cm &&
+        battleGridMetricsCache.width === width &&
+        battleGridMetricsCache.height === height
+      ) return battleGridMetricsCache;
       const probe = document.createElement('div');
       probe.style.cssText = 'position:absolute;left:0;top:0;width:' + cm + 'cm;height:' + cm + 'cm;visibility:hidden;pointer-events:none';
       stage.appendChild(probe);
       const cellW = probe.offsetWidth || (cm * 96 / 2.54);
       const cellH = probe.offsetHeight || (cm * 96 / 2.54);
       probe.remove();
-      return { width: width, height: height, cellW: cellW, cellH: cellH };
+      battleGridMetricsCache = { width: width, height: height, cellW: cellW, cellH: cellH, gridSize: cm };
+      return battleGridMetricsCache;
     }
 
     function battleCellFromPct(m, pct) {
@@ -4439,18 +4528,74 @@
     }
 
     function loadCombatTemplates() {
+      return combatTemplates.slice();
+    }
+
+    function persistCombatTemplatesLocal() {
+      writeLocal(COMBAT_TEMPLATES_KEY, JSON.stringify({
+        updatedAt: templatesUpdatedAt,
+        templates: combatTemplates.slice(0, 24)
+      }));
+    }
+
+    function loadCombatTemplatesLocal() {
       try {
-        const raw = JSON.parse(localStorage.getItem(COMBAT_TEMPLATES_KEY) || '[]');
-        return Array.isArray(raw) ? raw : [];
+        const raw = JSON.parse(localStorage.getItem(COMBAT_TEMPLATES_KEY) || 'null');
+        if (Array.isArray(raw)) {
+          combatTemplates = raw;
+          templatesUpdatedAt = 0;
+          return;
+        }
+        if (!raw || typeof raw !== 'object') return;
+        templatesUpdatedAt = Number(raw.updatedAt) || 0;
+        combatTemplates = Array.isArray(raw.templates) ? raw.templates : [];
       } catch (err) {
-        return [];
+        combatTemplates = [];
+      }
+    }
+
+    function applyCombatTemplates(data) {
+      if (!data) return;
+      const at = Number(data.updatedAt) || 0;
+      if (at && at <= templatesUpdatedAt) return;
+      templatesUpdatedAt = at;
+      combatTemplates = Array.isArray(data.templates) ? data.templates : [];
+      persistCombatTemplatesLocal();
+      if (currentPage === 'kampf') renderKampf();
+    }
+
+    function listenCombatTemplates() {
+      if (!db) return;
+      templatesRef().onSnapshot(snap => {
+        if (writingTemplates || !snap.exists) return;
+        applyCombatTemplates(snap.data());
+      });
+    }
+
+    async function persistCombatTemplatesRemote() {
+      if (!db) return;
+      const nextAt = Date.now();
+      writingTemplates = true;
+      try {
+        await templatesRef().set({
+          updatedAt: nextAt,
+          templates: combatTemplates.slice(0, 24)
+        });
+        templatesUpdatedAt = nextAt;
+        persistCombatTemplatesLocal();
+      } catch (err) {
+        toast('Vorlagen konnten nicht gespeichert werden: ' + err.message);
+      } finally {
+        writingTemplates = false;
       }
     }
 
     function persistCombatTemplates(list) {
-      try {
-        localStorage.setItem(COMBAT_TEMPLATES_KEY, JSON.stringify((list || []).slice(0, 24)));
-      } catch (err) {}
+      combatTemplates = (list || []).slice(0, 24);
+      templatesUpdatedAt = Date.now();
+      persistCombatTemplatesLocal();
+      clearTimeout(templatesPersistTimer);
+      templatesPersistTimer = setTimeout(() => { persistCombatTemplatesRemote(); }, 180);
     }
 
     function combatLog(line) {
@@ -5110,6 +5255,29 @@
       return wrap;
     }
 
+    function refreshCombatantVisual(row) {
+      persistCombat();
+      if (!row) return;
+      const down = combatantDown(row);
+      document.querySelectorAll('.kampf-card[data-id="' + CSS.escape(row.id) + '"], .kampf-side-item[data-id="' + CSS.escape(row.id) + '"]').forEach(el => {
+        el.classList.toggle('is-down', down);
+        const bar = el.querySelector('.kampf-hp-bar');
+        if (bar) {
+          const pct = row.hpMax > 0 ? Math.max(0, Math.min(100, (row.hp / row.hpMax) * 100)) : 0;
+          bar.classList.toggle('is-low', pct <= 25);
+          const fill = bar.querySelector('span');
+          if (fill) fill.style.width = pct + '%';
+        }
+        const hp = el.querySelector('.kampf-side-hp');
+        if (hp) {
+          hp.textContent = (Number(row.hp) || 0) + '/' + (Number(row.hpMax) || 0);
+          if (row.tempHp) hp.textContent += ' +' + row.tempHp;
+          if (row.countMax > 1) hp.textContent += ' · ×' + row.count;
+        }
+      });
+      applyBattleTurnHighlight();
+    }
+
     function kampfNumberInput(value, onChange, extra) {
       const el = document.createElement('input');
       el.type = extra && extra.type ? extra.type : 'number';
@@ -5336,13 +5504,11 @@
         hpRow.className = 'kampf-hp-row';
         const hpNow = kampfNumberInput(row.hp, el => {
           row.hp = Number(el.value) || 0;
-          persistCombat();
-          renderKampf();
+          refreshCombatantVisual(row);
         });
         const hpMax = kampfNumberInput(row.hpMax, el => {
           row.hpMax = Math.max(0, Number(el.value) || 0);
-          persistCombat();
-          renderKampf();
+          refreshCombatantVisual(row);
         });
         const acInput = document.createElement('input');
         acInput.value = row.ac;
@@ -5353,8 +5519,7 @@
         };
         const tempInput = kampfNumberInput(row.tempHp, el => {
           row.tempHp = Math.max(0, Number(el.value) || 0);
-          persistCombat();
-          renderKampf();
+          refreshCombatantVisual(row);
         }, { min: '0' });
         hpRow.appendChild(kampfLabeledInput('TP', hpNow));
         const slash = document.createElement('span');
@@ -5391,13 +5556,11 @@
         }
         const countInput = kampfNumberInput(row.count, el => {
           row.count = Math.max(0, Number(el.value) || 0);
-          persistCombat();
-          renderKampf();
+          refreshCombatantVisual(row);
         }, { min: '0' });
         const countMax = kampfNumberInput(row.countMax, el => {
           row.countMax = Math.max(1, Number(el.value) || 1);
-          persistCombat();
-          renderKampf();
+          refreshCombatantVisual(row);
         }, { min: '1' });
         const minus = document.createElement('button');
         minus.type = 'button';
@@ -5405,8 +5568,8 @@
         minus.textContent = 'Einer tot';
         minus.onclick = () => {
           row.count = Math.max(0, (Number(row.count) || 0) - 1);
-          persistCombat();
-          renderKampf();
+          countInput.value = row.count;
+          refreshCombatantVisual(row);
         };
         hpRow.appendChild(kampfLabeledInput('Anzahl', countInput));
         const cSlash = document.createElement('span');
@@ -5548,7 +5711,7 @@
 
     function applyRemote(data) {
       const pack = parseWorldPayload(data);
-      if (!pack || !pack.entries.length) return;
+      if (!pack) return;
       const at = pack.updatedAt;
       if (at <= worldUpdatedAt) return;
       if (dirty) {
@@ -5556,7 +5719,7 @@
         return;
       }
       worldUpdatedAt = at;
-      entries = pack.entries;
+      entries = pack.entries || [];
       persistLocal();
       refreshOpenView();
     }
@@ -5598,7 +5761,8 @@
     function listenMap() {
       if (!db) return;
       mapRef().onSnapshot(snap => {
-        if (snap.exists) applyMap(snap.data());
+        if (writingMap || !snap.exists) return;
+        applyMap(snap.data());
       });
     }
 
@@ -6315,14 +6479,17 @@
       if (!db) return toast('Keine Verbindung zur Cloud.');
       toast('Karte wird hochgeladen…');
       try {
-        const image = await fileToMapImage(file);
+        const image = await storeCloudImage('world-map', await fileToMapImage(file));
         const updatedAt = Date.now();
+        writingMap = true;
         await mapRef().set({ image: image, updatedAt: updatedAt });
         mapUpdatedAt = updatedAt;
         document.getElementById('worldMap').src = image;
         toast('Neue Karte ist für alle Laptops gespeichert.');
       } catch (err) {
         toast(err.message || 'Karte konnte nicht hochgeladen werden.');
+      } finally {
+        writingMap = false;
       }
     }
 
@@ -6785,7 +6952,7 @@
           matching.forEach(({ e, i }) => {
             const btn = document.createElement('button');
             btn.className = 'card';
-            btn.innerHTML = `<b>${e.title}</b><span>${e.visibility === 'dm' ? 'nur DM' : 'Öffnen'}</span>`;
+            btn.innerHTML = `<b>${escapeHtml(e.title)}</b><span>${e.visibility === 'dm' ? 'nur DM' : 'Öffnen'}</span>`;
             btn.onclick = () => loadEntry(i);
             els.homeCards.appendChild(btn);
           });
@@ -6875,7 +7042,13 @@
             const b = document.createElement('button');
             b.type = 'button';
             b.className = 'entry' + (currentIndex === i ? ' active' : '');
-            b.innerHTML = e.title + (isDM && e.visibility === 'dm' ? '<span class="lock">nur DM</span>' : '');
+            b.textContent = e.title;
+            if (isDM && e.visibility === 'dm') {
+              const lock = document.createElement('span');
+              lock.className = 'lock';
+              lock.textContent = 'nur DM';
+              b.appendChild(lock);
+            }
             b.onclick = () => loadEntry(i);
             box.appendChild(b);
           });
@@ -6944,7 +7117,7 @@
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'search-hit';
-          btn.innerHTML = '<b>' + e.title + (isDM && e.visibility === 'dm' ? ' <span class="lock">nur DM</span>' : '') + '</b><span>' + e.type + '</span>';
+          btn.innerHTML = '<b>' + escapeHtml(e.title) + (isDM && e.visibility === 'dm' ? ' <span class="lock">nur DM</span>' : '') + '</b><span>' + escapeHtml(e.type) + '</span>';
           btn.onclick = () => openSearchHit(i);
           wrap.appendChild(btn);
         });
@@ -7218,6 +7391,7 @@
       els.loginOverlay.classList.add('hidden');
     }
 
+    try {
     document.getElementById('homeBtn').onclick = () => {
       showMap();
     };
@@ -7716,11 +7890,16 @@
     });
     els.type.addEventListener('change', syncSessionDateField);
     els.content.addEventListener('input', () => { dirty = true; });
+    } catch (err) {
+      console.warn(err);
+      toast('Ein Teil der Seite konnte nicht starten. Bitte neu laden.');
+    }
 
     if (sessionStorage.getItem(SESSION_KEY) === '1') setDM(true);
 
     (async function boot() {
       loadRosterLocal();
+      loadCombatTemplatesLocal();
       loadBattleLocal();
       loadCombat();
       if (!initFirebase()) toast('Keine Verbindung zur Cloud.');
@@ -7738,6 +7917,9 @@
           if (playerSnap.exists) applyPlayers(playerSnap.data());
           const rosterSnap = await rosterRef().get();
           if (rosterSnap.exists) applyRoster(rosterSnap.data());
+          const tplSnap = await templatesRef().get();
+          if (tplSnap.exists) applyCombatTemplates(tplSnap.data());
+          else if (combatTemplates.length) persistCombatTemplatesRemote();
           const battleSnap = await battleRef().get();
           if (battleSnap.exists) applyBattle(battleSnap.data());
           const battleMapSnap = await battleMapRef().get();
@@ -7751,22 +7933,38 @@
         }
       }
 
-      let chosen = null;
+      const remoteAt = remotePack ? Number(remotePack.updatedAt) || 0 : 0;
+      const localAt = localPack ? Number(localPack.updatedAt) || 0 : 0;
+      const localHas = !!(localPack && localPack.entries && localPack.entries.length);
+      let chosen = { entries: [], updatedAt: 0 };
       let upload = false;
 
-      if (remotePack) {
+      if (remotePack && localPack && localAt > remoteAt) {
+        chosen = localPack;
+        upload = true;
+        toast('Lokaler Codex war neuer und wird in die Cloud übernommen.');
+      } else if (remotePack) {
         chosen = remotePack;
-      } else if (localPack) {
+      } else if (localHas) {
         chosen = localPack;
         upload = true;
       } else {
-        chosen = { entries: [], updatedAt: 0 };
+        try {
+          const r = await fetch('world.json');
+          if (r.ok) {
+            const seedPack = parseWorldPayload(await r.json());
+            if (seedPack && seedPack.entries && seedPack.entries.length) {
+              chosen = { entries: seedPack.entries, updatedAt: Date.now() };
+              upload = true;
+            }
+          }
+        } catch (err) {}
       }
 
       entries = chosen.entries || [];
       worldUpdatedAt = chosen.updatedAt || 0;
       persistLocal();
-      if (db && upload && entries.length) {
+      if (db && upload) {
         try {
           await persistWorld();
         } catch (err) {
@@ -7783,9 +7981,13 @@
       listenPins();
       listenPlayers();
       listenRoster();
+      listenCombatTemplates();
       listenBattle();
       listenCombat();
-    })();
+    })().catch(err => {
+      console.warn(err);
+      toast('Die Seite konnte nicht vollständig starten. Bitte neu laden.');
+    });
   </script>
 </body>
 </html>
