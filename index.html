@@ -1345,10 +1345,15 @@
     .battle-stage.is-drawing .battle-overlay {
       pointer-events: auto;
     }
-    .battle-tokens {
+    .battle-grid {
       position: absolute;
       inset: 0;
       pointer-events: none;
+      z-index: 1;
+      background-image:
+        linear-gradient(to right, rgba(243, 234, 216, 0.32) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(243, 234, 216, 0.32) 1px, transparent 1px);
+      background-size: var(--battle-grid-size, 1cm) var(--battle-grid-size, 1cm);
     }
     .battle-token {
       position: absolute;
@@ -1893,6 +1898,10 @@
                   <label class="battle-size" for="kampfBattleSize">Größe
                     <input id="kampfBattleSize" type="range" min="28" max="96" step="2" value="48" title="Portraitgröße" />
                   </label>
+                  <label class="battle-size" for="kampfBattleGrid">Netz
+                    <input id="kampfBattleGrid" type="range" min="5" max="40" step="1" value="10" title="Maschenweite" />
+                    <span id="kampfBattleGridVal">1 cm</span>
+                  </label>
                   <button class="danger" id="kampfBattleClearBtn" type="button">Karte entfernen</button>
                 </div>
               </div>
@@ -1902,6 +1911,7 @@
                 <div class="battle-stage hidden" id="kampfBattleStage">
                   <img class="battle-map" id="kampfBattleImg" alt="Schlachtfeld" draggable="false" />
                   <svg class="battle-overlay" id="kampfBattleOverlay" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+                  <div class="battle-grid" id="kampfBattleGridOverlay" aria-hidden="true"></div>
                   <div class="battle-tokens" id="kampfBattleTokens"></div>
                 </div>
               </div>
@@ -2208,7 +2218,7 @@
     let pendingSheetPortrait = null;
     let kartePortraitId = '';
     let pendingKartePortrait = null;
-    let battle = { image: '', tokens: [], hazards: [], tokenSize: 48, updatedAt: 0, mapUpdatedAt: 0 };
+    let battle = { image: '', tokens: [], hazards: [], tokenSize: 48, gridSize: 1, updatedAt: 0, mapUpdatedAt: 0 };
     let writingBattle = false;
     let writingBattleMap = false;
     let battlePersistTimer = null;
@@ -2940,7 +2950,9 @@
           updatedAt: battle.updatedAt,
           tokens: battle.tokens,
           hazards: battle.hazards,
-          tokenSize: clampBattleTokenSize(battle.tokenSize)
+          tokenSize: clampBattleTokenSize(battle.tokenSize),
+          gridSize: clampBattleGridSize(battle.gridSize)
+        }));
         }));
       } catch (err) {}
     }
@@ -2953,6 +2965,7 @@
         battle.tokens = (Array.isArray(raw.tokens) ? raw.tokens : []).map(normalizeBattleToken);
         battle.hazards = (Array.isArray(raw.hazards) ? raw.hazards : []).map(normalizeBattleHazard);
         battle.tokenSize = clampBattleTokenSize(raw.tokenSize);
+        battle.gridSize = clampBattleGridSize(raw.gridSize);
       } catch (err) {}
     }
 
@@ -2960,6 +2973,24 @@
       const v = Number(n);
       if (!Number.isFinite(v)) return 48;
       return Math.max(28, Math.min(96, Math.round(v)));
+    }
+
+    function clampBattleGridSize(n) {
+      const v = Number(n);
+      if (!Number.isFinite(v)) return 1;
+      return Math.max(0.5, Math.min(4, Math.round(v * 10) / 10));
+    }
+
+    function applyBattleGridSize() {
+      const size = clampBattleGridSize(battle.gridSize);
+      battle.gridSize = size;
+      document.querySelectorAll('.battle-stage').forEach(stage => {
+        stage.style.setProperty('--battle-grid-size', size + 'cm');
+      });
+      const slider = document.getElementById('kampfBattleGrid');
+      const val = document.getElementById('kampfBattleGridVal');
+      if (slider && document.activeElement !== slider) slider.value = String(Math.round(size * 10));
+      if (val) val.textContent = (Math.round(size * 10) % 10 ? size.toFixed(1).replace('.', ',') : String(size)) + ' cm';
     }
 
     function applyBattleTokenSize() {
@@ -3033,6 +3064,7 @@
       battle.tokens = (Array.isArray(data.tokens) ? data.tokens : []).map(normalizeBattleToken);
       battle.hazards = (Array.isArray(data.hazards) ? data.hazards : []).map(normalizeBattleHazard);
       battle.tokenSize = clampBattleTokenSize(data.tokenSize);
+      battle.gridSize = clampBattleGridSize(data.gridSize);
       persistBattleLocal();
       renderBattleBoards();
       if (currentPage === 'kampf' && !isDM) renderPlayerKampfList();
@@ -3133,7 +3165,8 @@
           updatedAt: nextAt,
           tokens: battle.tokens,
           hazards: battle.hazards,
-          tokenSize: clampBattleTokenSize(battle.tokenSize)
+          tokenSize: clampBattleTokenSize(battle.tokenSize),
+          gridSize: clampBattleGridSize(battle.gridSize)
         });
       } catch (err) {
         toast('Schlachtfeld konnte nicht gespeichert werden: ' + err.message);
@@ -3244,6 +3277,7 @@
     function renderBattleBoards() {
       if (battleTokenDrag) return;
       applyBattleTokenSize();
+      applyBattleGridSize();
       const hasMap = !!battle.image;
       battleBoardIds().forEach(ids => {
         const empty = document.getElementById(ids.empty);
@@ -6829,6 +6863,17 @@
           applyBattleTokenSize();
           persistBattleSoon();
         });
+      }
+      const gridEl = document.getElementById(prefix + 'BattleGrid');
+      if (gridEl) {
+        const setGrid = () => {
+          if (!isDM) return;
+          battle.gridSize = clampBattleGridSize(Number(gridEl.value) / 10);
+          applyBattleGridSize();
+          persistBattleSoon();
+        };
+        gridEl.addEventListener('input', setGrid);
+        gridEl.addEventListener('change', setGrid);
       }
       const stage = document.getElementById(prefix + 'BattleStage');
       const overlay = document.getElementById(prefix + 'BattleOverlay');
