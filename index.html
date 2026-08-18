@@ -896,10 +896,15 @@
       border: 1px solid var(--line);
       border-radius: 12px;
       padding: 0.45rem 0.6rem;
+      cursor: pointer;
     }
     .kampf-side-item.is-player { border-left: 4px solid var(--gold); }
     .kampf-side-item.is-enemy { border-left: 4px solid var(--blood); }
     .kampf-side-item.is-mine { box-shadow: 0 0 0 1px var(--gold-dim); }
+    .kampf-side-item.is-linked {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 2px rgba(201, 162, 39, .55), 0 0 16px rgba(201, 162, 39, .28);
+    }
     .kampf-side-item b {
       display: block;
       font-family: Cinzel, serif;
@@ -920,10 +925,18 @@
       box-shadow: var(--shadow);
       display: grid;
       gap: 0.7rem;
+      cursor: pointer;
     }
     .kampf-card.is-active {
       border-color: var(--gold);
       box-shadow: 0 0 0 1px var(--gold-dim), var(--shadow);
+    }
+    .kampf-card.is-linked {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 2px rgba(201, 162, 39, .55), 0 0 18px rgba(201, 162, 39, .28);
+    }
+    .kampf-card.is-active.is-linked {
+      box-shadow: 0 0 0 2px rgba(201, 162, 39, .7), var(--shadow);
     }
     .kampf-card.is-down {
       opacity: 0.62;
@@ -1302,6 +1315,12 @@
     .battle-token.is-enemy .battle-token-face { border-color: #b14a4a; }
     .battle-token.is-mine .battle-token-face {
       box-shadow: 0 0 0 2px rgba(212, 179, 106, 0.55), 0 6px 16px rgba(0, 0, 0, 0.45);
+    }
+    .battle-token.is-linked {
+      z-index: 6;
+    }
+    .battle-token.is-linked .battle-token-face {
+      box-shadow: 0 0 0 3px #f3e6c0, 0 0 16px rgba(201, 162, 39, .85);
     }
     .battle-token span {
       display: block;
@@ -2064,6 +2083,9 @@
     let battleHazardMode = null;
     let battleDraft = [];
     let battleTokenDrag = null;
+    let battleTokenDragMoved = false;
+    let battleLinkPinnedId = '';
+    let battleLinkHoverId = '';
 
     const els = {
       sidebar: document.getElementById('sidebar'),
@@ -2815,6 +2837,37 @@
       if (slider && document.activeElement !== slider) slider.value = String(size);
     }
 
+    function applyBattleLinkHighlight() {
+      const id = battleLinkHoverId || battleLinkPinnedId;
+      document.querySelectorAll('.battle-token, .kampf-card, .kampf-side-item').forEach(el => {
+        el.classList.toggle('is-linked', !!(id && el.dataset.id === id));
+      });
+    }
+
+    function setBattleLink(id, pinned) {
+      if (pinned) {
+        battleLinkPinnedId = battleLinkPinnedId === id ? '' : id;
+      } else {
+        battleLinkHoverId = id || '';
+      }
+      applyBattleLinkHighlight();
+    }
+
+    function bindKampfListLink(el, id) {
+      if (!el || !id) return;
+      el.dataset.id = id;
+      el.addEventListener('pointerenter', () => setBattleLink(id, false));
+      el.addEventListener('pointerleave', () => {
+        if (battleLinkHoverId === id) setBattleLink('', false);
+      });
+      el.addEventListener('click', ev => {
+        if (ev.target.closest('input, button, select, textarea, label')) return;
+        setBattleLink(id, true);
+        const token = document.querySelector('.battle-token[data-id="' + CSS.escape(id) + '"]');
+        if (token) token.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    }
+
     function applyBattle(data) {
       if (!data || battleTokenDrag) return;
       const at = Number(data.updatedAt) || 0;
@@ -3072,11 +3125,26 @@
         el.appendChild(face);
         el.appendChild(label);
         el.title = token.name || '';
+        el.dataset.id = token.id;
+        el.addEventListener('pointerenter', () => {
+          setBattleLink(token.id, false);
+          const card = document.querySelector('.kampf-card[data-id="' + CSS.escape(token.id) + '"], .kampf-side-item[data-id="' + CSS.escape(token.id) + '"]');
+          if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        });
+        el.addEventListener('pointerleave', () => {
+          if (battleLinkHoverId === token.id) setBattleLink('', false);
+        });
+        el.addEventListener('click', ev => {
+          ev.stopPropagation();
+          if (battleTokenDragMoved) return;
+          setBattleLink(token.id, true);
+        });
         if (movable && !battleHazardMode) {
           el.addEventListener('pointerdown', ev => startBattleTokenDrag(ev, token, stage, el));
         }
         box.appendChild(el);
       });
+      applyBattleLinkHighlight();
     }
 
     function battlePctFromEvent(stage, ev) {
@@ -3093,10 +3161,14 @@
       ev.preventDefault();
       ev.stopPropagation();
       try { el.setPointerCapture(ev.pointerId); } catch (err) {}
+      battleTokenDragMoved = false;
+      const originX = ev.clientX;
+      const originY = ev.clientY;
       battleTokenDrag = { id: token.id, pointerId: ev.pointerId, el: el, stage: stage };
       el.classList.add('is-dragging');
       const move = e => {
         if (!battleTokenDrag || e.pointerId !== battleTokenDrag.pointerId) return;
+        if (Math.abs(e.clientX - originX) + Math.abs(e.clientY - originY) > 4) battleTokenDragMoved = true;
         const pct = battlePctFromEvent(stage, e);
         const t = battle.tokens.find(x => x.id === token.id);
         if (!t) return;
@@ -4090,6 +4162,7 @@
         const btn = document.createElement('div');
         btn.className = 'kampf-side-item ' + (token.kind === 'player' ? 'is-player' : 'is-enemy');
         if (currentPlayerId && token.playerId === currentPlayerId) btn.classList.add('is-mine');
+        bindKampfListLink(btn, token.id);
         const face = document.createElement('div');
         face.className = 'kampf-face';
         paintPortraitEl(face, token.portraitId, token.name);
@@ -4105,6 +4178,7 @@
         btn.appendChild(who);
         list.appendChild(btn);
       });
+      applyBattleLinkHighlight();
     }
 
     function renderKampf() {
@@ -4200,6 +4274,7 @@
         card.className = 'kampf-card ' + (row.kind === 'player' ? 'is-player' : 'is-enemy');
         if (row.id === combat.activeId) card.classList.add('is-active');
         if (combatantDown(row)) card.classList.add('is-down');
+        bindKampfListLink(card, row.id);
 
         const top = document.createElement('div');
         top.className = 'kampf-card-top';
@@ -4441,6 +4516,7 @@
         card.appendChild(deb);
         list.appendChild(card);
       });
+      applyBattleLinkHighlight();
 
       const logBox = document.getElementById('kampfLog');
       logBox.innerHTML = '';
