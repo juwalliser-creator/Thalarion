@@ -352,6 +352,18 @@
       max-width: 860px;
       margin: 0 auto;
     }
+    #kampfView.is-live {
+      max-width: none;
+    }
+    .content:has(#kampfView.is-live:not(.hidden)) {
+      padding-left: 1.1rem;
+      padding-right: 1.1rem;
+    }
+    #kampfView.is-live > .hero { display: none; }
+    #kampfView.is-live .kampf-bar,
+    #kampfView.is-live .kampf-act {
+      justify-content: flex-start;
+    }
 
     .hero {
       text-align: center;
@@ -914,18 +926,38 @@
     .kampf-stage .battle-board {
       min-height: min(62vh, 780px);
     }
+    .kampf-stage.is-live {
+      grid-template-columns: minmax(0, 1.4fr) minmax(16.5rem, 23rem);
+      gap: 0.75rem;
+      align-items: start;
+    }
+    .kampf-stage.is-live .battle-card {
+      position: sticky;
+      top: 0.4rem;
+      padding: 0.7rem 0.75rem 0.85rem;
+    }
+    .kampf-stage.is-live .battle-board {
+      min-height: min(68vh, 820px);
+    }
+    .kampf-stage.is-live .kampf-list {
+      gap: 0.5rem;
+      max-height: calc(100dvh - 8.5rem);
+      overflow: auto;
+      padding-right: 0.15rem;
+      align-content: start;
+    }
     .kampf-side-item {
       display: flex;
-      align-items: center;
-      gap: 0.55rem;
+      align-items: flex-start;
+      gap: 0.6rem;
       width: 100%;
       text-align: left;
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 0.45rem 0.6rem;
+      border-radius: 14px;
+      padding: 0.62rem 0.7rem;
       cursor: pointer;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
     }
     .kampf-side-item.is-player { border-left: 4px solid var(--gold); }
     .kampf-side-item.is-enemy { border-left: 4px solid var(--blood); }
@@ -936,33 +968,108 @@
     }
     .kampf-side-item.is-active {
       border-color: var(--gold);
-      box-shadow: 0 0 0 1px var(--gold-dim);
+      background: #221c16;
+      box-shadow: 0 0 0 1px var(--gold-dim), var(--shadow);
+    }
+    .kampf-side-item.is-active .kampf-face {
+      width: 54px;
+      height: 54px;
+      border-width: 2px;
+      border-color: var(--gold);
     }
     .kampf-side-item.is-down .kampf-face {
       filter: grayscale(1) brightness(0.65);
       opacity: 0.78;
       border-color: #6a645c;
     }
+    .kampf-side-item .kampf-face {
+      width: 48px;
+      height: 48px;
+      margin-top: 0.15rem;
+    }
+    .kampf-side-init {
+      flex: 0 0 2.55rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      align-self: stretch;
+      gap: 0.05rem;
+      padding: 0.1rem 0.45rem 0.1rem 0;
+      margin-right: 0.05rem;
+      border-right: 1px solid var(--line);
+    }
+    .kampf-side-init span {
+      display: block;
+      font-size: 0.62rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .kampf-side-init strong {
+      font-family: Cinzel, serif;
+      font-weight: 500;
+      font-size: 1.2rem;
+      color: var(--gold);
+      line-height: 1.1;
+    }
+    .kampf-side-body {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: grid;
+      gap: 0.28rem;
+    }
+    .kampf-side-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.45rem;
+    }
+    .kampf-side-head b {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .kampf-side-item .kampf-hp-bar {
-      flex: 1 1 5rem;
-      min-width: 4.5rem;
-      height: 6px;
-      margin-left: auto;
+      width: 100%;
+      min-width: 0;
+      height: 7px;
+      margin: 0;
     }
     .kampf-side-hp {
       color: var(--muted);
       font-size: 0.82rem;
       white-space: nowrap;
+      flex: 0 0 auto;
+    }
+    .kampf-side-meta {
+      display: block;
+      color: var(--muted);
+      font-size: 0.8rem;
     }
     .kampf-side-item b {
       display: block;
       font-family: Cinzel, serif;
       font-weight: 500;
     }
-    .kampf-side-item span {
-      display: block;
-      color: var(--muted);
-      font-size: 0.82rem;
+    .kampf-side-item .kampf-chip {
+      font-size: 0.76rem;
+      padding: 0.1rem 0.28rem 0.1rem 0.48rem;
+    }
+    .kampf-side-del {
+      flex: 0 0 auto;
+      align-self: flex-start;
+      min-width: 2rem;
+      padding: 0.18rem 0.45rem;
+    }
+    .kampf-chip button {
+      border: 0;
+      background: transparent;
+      color: inherit;
+      padding: 0 0.15rem;
+      line-height: 1;
+      font-size: 0.95rem;
     }
     .dm-only-block { display: none !important; }
     body.is-dm .dm-only-block { display: grid !important; }
@@ -1308,6 +1415,8 @@
       font-size: 0.9rem;
       margin: 0 0 0.7rem;
     }
+    .battle-hint:empty { display: none; }
+    .kampf-stage.is-live .battle-hint { margin: 0 0 0.45rem; }
     .battle-board {
       position: relative;
       background: #0b0908;
@@ -1473,6 +1582,14 @@
       .grid-2,
       .sheet-grid,
       .char-layout { grid-template-columns: 1fr; }
+      .kampf-stage.is-live {
+        grid-template-columns: 1fr;
+      }
+      .kampf-stage.is-live .battle-card { position: static; }
+      .kampf-stage.is-live .kampf-list {
+        max-height: none;
+        overflow: visible;
+      }
       .kampf-add-row input.kampf-num { flex: 1 1 5.5rem; }
       .brand strong { font-size: 1.1rem; }
       .header-search {
@@ -3426,6 +3543,38 @@
       };
     }
 
+    function battleGridCellPx(stage) {
+      if (!stage) return 0;
+      const raw = (getComputedStyle(stage).getPropertyValue('--battle-grid-size') || '1cm').trim() || '1cm';
+      const probe = document.createElement('div');
+      probe.style.cssText = 'position:absolute;left:0;top:0;width:' + raw + ';height:0;visibility:hidden;pointer-events:none';
+      stage.appendChild(probe);
+      const px = probe.getBoundingClientRect().width;
+      probe.remove();
+      return px;
+    }
+
+    function snapBattlePct(stage, pct, cellPx) {
+      const rect = stage.getBoundingClientRect();
+      const cell = Number(cellPx);
+      if (!rect.width || !rect.height || !Number.isFinite(cell) || cell < 4) {
+        return {
+          x: Math.max(0, Math.min(100, Number(pct.x) || 0)),
+          y: Math.max(0, Math.min(100, Number(pct.y) || 0))
+        };
+      }
+      const cols = Math.max(1, Math.floor(rect.width / cell));
+      const rows = Math.max(1, Math.floor(rect.height / cell));
+      const px = (Number(pct.x) / 100) * rect.width;
+      const py = (Number(pct.y) / 100) * rect.height;
+      const c = Math.max(0, Math.min(cols - 1, Math.floor(px / cell)));
+      const r = Math.max(0, Math.min(rows - 1, Math.floor(py / cell)));
+      return {
+        x: ((c + 0.5) * cell / rect.width) * 100,
+        y: ((r + 0.5) * cell / rect.height) * 100
+      };
+    }
+
     function startBattleTokenDrag(ev, token, stage, el) {
       if (ev.button != null && ev.button !== 0) return;
       ev.preventDefault();
@@ -3434,12 +3583,13 @@
       battleTokenDragMoved = false;
       const originX = ev.clientX;
       const originY = ev.clientY;
+      const cellPx = battleGridCellPx(stage);
       battleTokenDrag = { id: token.id, pointerId: ev.pointerId, el: el, stage: stage };
       el.classList.add('is-dragging');
       const move = e => {
         if (!battleTokenDrag || e.pointerId !== battleTokenDrag.pointerId) return;
         if (Math.abs(e.clientX - originX) + Math.abs(e.clientY - originY) > 4) battleTokenDragMoved = true;
-        const pct = battlePctFromEvent(stage, e);
+        const pct = snapBattlePct(stage, battlePctFromEvent(stage, e), cellPx);
         const t = battle.tokens.find(x => x.id === token.id);
         if (!t) return;
         t.x = pct.x;
@@ -4376,30 +4526,84 @@
       if (row.id === combat.activeId) el.classList.add('is-active');
       if (combatantDown(row)) el.classList.add('is-down');
       bindKampfListLink(el, row.id);
+
+      const init = document.createElement('div');
+      init.className = 'kampf-side-init';
+      const initLabel = document.createElement('span');
+      initLabel.textContent = 'Init';
+      const initVal = document.createElement('strong');
+      initVal.textContent = String(Number(row.init) || 0);
+      init.appendChild(initLabel);
+      init.appendChild(initVal);
+
       const face = document.createElement('div');
       face.className = 'kampf-face';
       paintPortraitEl(face, row.portraitId, row.name);
-      const who = document.createElement('div');
-      who.style.minWidth = '0';
+
+      const body = document.createElement('div');
+      body.className = 'kampf-side-body';
+      const head = document.createElement('div');
+      head.className = 'kampf-side-head';
       const name = document.createElement('b');
       name.textContent = row.name || '—';
-      const meta = document.createElement('span');
-      const bits = ['Init ' + (Number(row.init) || 0)];
-      if (row.ac) bits.push('RK ' + row.ac);
-      if (row.id === combat.activeId) bits.push('dran');
-      if (row.debuffs && row.debuffs.length) bits.push(row.debuffs.map(d => d.text).join(', '));
-      meta.textContent = bits.join(' · ');
-      who.appendChild(name);
-      who.appendChild(meta);
       const hp = document.createElement('span');
       hp.className = 'kampf-side-hp';
       hp.textContent = (Number(row.hp) || 0) + '/' + (Number(row.hpMax) || 0);
       if (row.tempHp) hp.textContent += ' +' + row.tempHp;
       if (row.countMax > 1) hp.textContent += ' · ×' + row.count;
+      head.appendChild(name);
+      head.appendChild(hp);
+      body.appendChild(head);
+      body.appendChild(combatHpBarEl(row));
+
+      const bits = [];
+      if (row.ac) bits.push('RK ' + row.ac);
+      if (row.id === combat.activeId) bits.push('dran');
+      if (combatantDown(row)) bits.push('kampfunfähig');
+      if (bits.length) {
+        const meta = document.createElement('span');
+        meta.className = 'kampf-side-meta';
+        meta.textContent = bits.join(' · ');
+        body.appendChild(meta);
+      }
+      if (row.debuffs && row.debuffs.length) {
+        const chips = document.createElement('div');
+        chips.className = 'kampf-debuffs';
+        row.debuffs.forEach(d => {
+          const chip = document.createElement('span');
+          chip.className = 'kampf-chip' + (d.kind === 'buff' ? ' is-buff' : '');
+          chip.textContent = d.rounds == null ? d.text : (d.text + ' · ' + d.rounds);
+          if (isDM) {
+            const x = document.createElement('button');
+            x.type = 'button';
+            x.textContent = '×';
+            x.title = d.kind === 'buff' ? 'Buff entfernen' : 'Debuff entfernen';
+            x.onclick = ev => {
+              ev.stopPropagation();
+              removeCombatDebuff(row.id, d.id);
+            };
+            chip.appendChild(x);
+          }
+          chips.appendChild(chip);
+        });
+        body.appendChild(chips);
+      }
+
+      el.appendChild(init);
       el.appendChild(face);
-      el.appendChild(who);
-      el.appendChild(hp);
-      el.appendChild(combatHpBarEl(row));
+      el.appendChild(body);
+      if (isDM && combat.started) {
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'danger kampf-side-del';
+        del.textContent = '×';
+        del.title = 'Fallen / entfernen';
+        del.onclick = ev => {
+          ev.stopPropagation();
+          removeCombatant(row.id);
+        };
+        el.appendChild(del);
+      }
       return el;
     }
 
@@ -4420,6 +4624,9 @@
       });
       syncKampfAimUi();
       applyBattleTurnHighlight();
+      if (els.kampfView) els.kampfView.classList.toggle('is-live', !!combat.started);
+      const stage = document.querySelector('#kampfView .kampf-stage');
+      if (stage) stage.classList.toggle('is-live', !!combat.started);
     }
 
     function addCombatDebuff(id, text, roundsRaw, kind, fromId) {
@@ -4777,8 +4984,7 @@
         list.appendChild(empty);
       }
       rows.forEach((row, index) => {
-        const expanded = !combat.started || row.id === combat.activeId;
-        if (!expanded) {
+        if (combat.started) {
           list.appendChild(kampfCompactItem(row));
           return;
         }
