@@ -597,6 +597,7 @@
       stroke-width: 0.45;
       stroke-linejoin: round;
       stroke-linecap: round;
+      fill-rule: nonzero;
       pointer-events: none;
     }
     .map-border-hit {
@@ -1474,6 +1475,8 @@
     .battle-overlay .battle-hazard {
       pointer-events: auto;
       cursor: pointer;
+      stroke-linejoin: round;
+      stroke-linecap: round;
     }
     .battle-stage.is-drawing .battle-overlay {
       pointer-events: auto;
@@ -3671,6 +3674,46 @@
       });
     }
 
+    function roundedPolyPath(points, closed) {
+      const n = points.length;
+      if (!n) return '';
+      const fmt = p => (Math.round(p.x * 100) / 100) + ' ' + (Math.round(p.y * 100) / 100);
+      if (n === 1) return 'M ' + fmt(points[0]);
+      if (n === 2) return 'M ' + fmt(points[0]) + ' L ' + fmt(points[1]);
+      const radius = 2.4;
+      const len = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
+      const toward = (from, to, dist) => {
+        const d = len(from, to);
+        if (d < 1e-6) return { x: from.x, y: from.y };
+        const t = Math.min(1, dist / d);
+        return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t };
+      };
+      if (!closed) {
+        let d = 'M ' + fmt(points[0]);
+        for (let i = 1; i < n - 1; i++) {
+          const prev = points[i - 1];
+          const curr = points[i];
+          const next = points[i + 1];
+          const r = Math.min(radius, len(prev, curr) / 2, len(curr, next) / 2);
+          const p1 = toward(curr, prev, r);
+          const p2 = toward(curr, next, r);
+          d += ' L ' + fmt(p1) + ' Q ' + fmt(curr) + ' ' + fmt(p2);
+        }
+        return d + ' L ' + fmt(points[n - 1]);
+      }
+      let d = '';
+      for (let i = 0; i < n; i++) {
+        const prev = points[(i - 1 + n) % n];
+        const curr = points[i];
+        const next = points[(i + 1) % n];
+        const r = Math.min(radius, len(prev, curr) / 2, len(curr, next) / 2);
+        const p1 = toward(curr, prev, r);
+        const p2 = toward(curr, next, r);
+        d += (i ? ' L ' : 'M ') + fmt(p1) + ' Q ' + fmt(curr) + ' ' + fmt(p2);
+      }
+      return d + ' Z';
+    }
+
     function renderBattleOverlay(overlayId) {
       const svg = document.getElementById(overlayId);
       if (!svg) return;
@@ -3679,12 +3722,13 @@
       const drawPoly = (points, type, id) => {
         if (points.length < 2) return;
         const spec = BATTLE_HAZARDS[type] || BATTLE_HAZARDS.fire;
-        const poly = document.createElementNS(ns, 'polygon');
-        poly.setAttribute('points', points.map(p => p.x + ',' + p.y).join(' '));
-        poly.setAttribute('fill', spec.fill);
+        const poly = document.createElementNS(ns, 'path');
+        poly.setAttribute('d', roundedPolyPath(points, points.length > 2));
+        poly.setAttribute('fill', points.length > 2 ? spec.fill : 'none');
         poly.setAttribute('stroke', spec.stroke);
         poly.setAttribute('stroke-width', '0.7');
         poly.setAttribute('stroke-linejoin', 'round');
+        poly.setAttribute('stroke-linecap', 'round');
         if (id) {
           poly.classList.add('battle-hazard');
           poly.setAttribute('data-id', id);
@@ -5991,16 +6035,16 @@
       document.querySelectorAll('.map-border-del').forEach(el => el.remove());
       hideBorderTip();
       mapBorders.forEach(border => {
-        const pts = border.points.map(p => p.x + ',' + p.y).join(' ');
-        const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        const d = roundedPolyPath(border.points, true);
+        const poly = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         poly.setAttribute('class', 'map-border');
-        poly.setAttribute('points', pts);
+        poly.setAttribute('d', d);
         poly.setAttribute('stroke', border.color || '#d4b36a');
         poly.setAttribute('fill', hexToRgba(border.color || '#d4b36a', 0.08));
         svg.appendChild(poly);
-        const hit = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        const hit = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         hit.setAttribute('class', 'map-border-hit');
-        hit.setAttribute('points', pts);
+        hit.setAttribute('d', d);
         hit.setAttribute('data-border-id', border.id);
         hit.addEventListener('mousemove', ev => showBorderTip(border.name, ev));
         hit.addEventListener('mouseleave', hideBorderTip);
@@ -6035,9 +6079,10 @@
         }
       });
       if (drawingBorder && borderDraft.length) {
-        const poly = document.createElementNS('http://www.w3.org/2000/svg', borderDraft.length > 2 ? 'polygon' : 'polyline');
+        const poly = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         poly.setAttribute('class', 'map-border draft');
-        poly.setAttribute('points', borderDraft.map(p => p.x + ',' + p.y).join(' '));
+        poly.setAttribute('d', roundedPolyPath(borderDraft, borderDraft.length > 2));
+        if (borderDraft.length < 3) poly.setAttribute('fill', 'none');
         svg.appendChild(poly);
       }
     }
