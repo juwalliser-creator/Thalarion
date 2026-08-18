@@ -938,7 +938,11 @@
       border-color: var(--gold);
       box-shadow: 0 0 0 1px var(--gold-dim);
     }
-    .kampf-side-item.is-down { opacity: 0.62; }
+    .kampf-side-item.is-down .kampf-face {
+      filter: grayscale(1) brightness(0.65);
+      opacity: 0.78;
+      border-color: #6a645c;
+    }
     .kampf-side-item .kampf-hp-bar {
       flex: 1 1 5rem;
       min-width: 4.5rem;
@@ -984,8 +988,10 @@
     .kampf-card.is-active.is-linked {
       box-shadow: 0 0 0 2px rgba(201, 162, 39, .7), var(--shadow);
     }
-    .kampf-card.is-down {
-      opacity: 0.62;
+    .kampf-card.is-down .kampf-face {
+      filter: grayscale(1) brightness(0.65);
+      opacity: 0.78;
+      border-color: #6a645c;
     }
     .kampf-card-top {
       display: flex;
@@ -1370,7 +1376,11 @@
       touch-action: none;
       user-select: none;
     }
-    .battle-token.is-locked { cursor: default; }
+    .battle-token.is-down .battle-token-face {
+      filter: grayscale(1) brightness(0.65);
+      opacity: 0.78;
+      border-color: #6a645c;
+    }
     .battle-token.is-dragging { cursor: grabbing; z-index: 5; }
     .battle-token-face {
       width: var(--battle-token-face, 48px);
@@ -3013,6 +3023,8 @@
     function applyBattleTurnHighlight() {
       document.querySelectorAll('.battle-token').forEach(el => {
         el.classList.toggle('is-turn', !!(combat.activeId && el.dataset.id === combat.activeId));
+        const row = combatantById(el.dataset.id);
+        el.classList.toggle('is-down', !!(row && combatantDown(row)));
       });
       applyKampfAimHighlight();
     }
@@ -3371,6 +3383,8 @@
         if (combat.activeId && token.id === combat.activeId) el.classList.add('is-turn');
         if (kampfAimFrom && token.id === kampfAimFrom) el.classList.add('is-aim-from');
         if (kampfAimTo && token.id === kampfAimTo) el.classList.add('is-aim-to');
+        const row = combatantById(token.id);
+        if (row && combatantDown(row)) el.classList.add('is-down');
         const movable = canMoveBattleToken(token);
         if (!movable) el.classList.add('is-locked');
         el.style.left = token.x + '%';
