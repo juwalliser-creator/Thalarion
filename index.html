@@ -3407,7 +3407,6 @@
           if (battleTokenDragMoved) return;
           if (pickKampfAim(token.id)) return;
           setBattleLink(token.id, true);
-          scrollToKampfCard(token.id);
         });
         if (movable && !battleHazardMode) {
           el.addEventListener('pointerdown', ev => startBattleTokenDrag(ev, token, stage, el));
@@ -3457,10 +3456,7 @@
         battleTokenDrag = null;
         persistBattleSoon();
         if (!battleTokenDragMoved) {
-          if (!pickKampfAim(token.id)) {
-            setBattleLink(token.id, true);
-            scrollToKampfCard(token.id);
-          }
+          if (!pickKampfAim(token.id)) setBattleLink(token.id, true);
           battleTokenDragMoved = true;
         }
       };
