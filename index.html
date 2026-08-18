@@ -3578,29 +3578,89 @@
       };
     }
 
-    function snapBattlePct(stage, pct, metrics) {
-      const m = metrics || battleGridMetrics(stage);
-      const x = Math.max(0, Math.min(100, Number(pct.x) || 0));
-      const y = Math.max(0, Math.min(100, Number(pct.y) || 0));
-      if (!m.width || !m.height || m.cellW < 1 || m.cellH < 1) return { x: x, y: y };
-      const px = (x / 100) * m.width;
-      const py = (y / 100) * m.height;
-      const c = Math.max(0, Math.floor((px + 1e-6) / m.cellW));
-      const r = Math.max(0, Math.floor((py + 1e-6) / m.cellH));
+    function battleCellFromPct(m, pct) {
+      const cols = Math.max(1, Math.floor(m.width / m.cellW));
+      const rows = Math.max(1, Math.floor(m.height / m.cellH));
+      const px = (Number(pct.x) / 100) * m.width;
+      const py = (Number(pct.y) / 100) * m.height;
+      return {
+        c: Math.max(0, Math.min(cols - 1, Math.floor((px + 1e-6) / m.cellW))),
+        r: Math.max(0, Math.min(rows - 1, Math.floor((py + 1e-6) / m.cellH))),
+        cols: cols,
+        rows: rows
+      };
+    }
+
+    function battlePctFromCell(m, c, r) {
       return {
         x: Math.max(0, Math.min(100, (((c + 0.5) * m.cellW) / m.width) * 100)),
         y: Math.max(0, Math.min(100, (((r + 0.5) * m.cellH) / m.height) * 100))
       };
     }
 
+    function nearestEmptyBattleCell(col, row, cols, rows, occupied) {
+      const key = (c, r) => c + ',' + r;
+      const clampC = Math.max(0, Math.min(cols - 1, col));
+      const clampR = Math.max(0, Math.min(rows - 1, row));
+      if (!occupied.has(key(clampC, clampR))) return { c: clampC, r: clampR };
+      const maxD = cols + rows;
+      for (let d = 1; d <= maxD; d++) {
+        for (let dr = -d; dr <= d; dr++) {
+          for (let dc = -d; dc <= d; dc++) {
+            if (Math.max(Math.abs(dc), Math.abs(dr)) !== d) continue;
+            const c = clampC + dc;
+            const r = clampR + dr;
+            if (c < 0 || r < 0 || c >= cols || r >= rows) continue;
+            if (!occupied.has(key(c, r))) return { c: c, r: r };
+          }
+        }
+      }
+      return { c: clampC, r: clampR };
+    }
+
+    function occupiedBattleCells(metrics, exceptId) {
+      const set = new Set();
+      battle.tokens.forEach(t => {
+        if (!t || t.id === exceptId) return;
+        const cell = battleCellFromPct(metrics, t);
+        set.add(cell.c + ',' + cell.r);
+      });
+      return set;
+    }
+
+    function snapBattlePct(stage, pct, metrics, exceptId) {
+      const m = metrics || battleGridMetrics(stage);
+      const x = Math.max(0, Math.min(100, Number(pct.x) || 0));
+      const y = Math.max(0, Math.min(100, Number(pct.y) || 0));
+      if (!m.width || !m.height || m.cellW < 1 || m.cellH < 1) return { x: x, y: y };
+      const preferred = battleCellFromPct(m, { x: x, y: y });
+      const claimed = occupiedBattleCells(m, exceptId);
+      const cell = nearestEmptyBattleCell(preferred.c, preferred.r, preferred.cols, preferred.rows, claimed);
+      return battlePctFromCell(m, cell.c, cell.r);
+    }
+
     function snapBattleTokensToGrid() {
       const stage = document.getElementById('kampfBattleStage');
       if (!stage || stage.classList.contains('hidden')) return false;
       const metrics = battleGridMetrics(stage);
-      if (!metrics.width || !metrics.height) return false;
+      if (!metrics.width || !metrics.height || metrics.cellW < 1 || metrics.cellH < 1) return false;
+      const claimed = new Set();
+      const ranked = battle.tokens.slice().sort((a, b) => {
+        const ca = battleCellFromPct(metrics, a);
+        const cb = battleCellFromPct(metrics, b);
+        const pa = battlePctFromCell(metrics, ca.c, ca.r);
+        const pb = battlePctFromCell(metrics, cb.c, cb.r);
+        const da = Math.hypot((a.x || 0) - pa.x, (a.y || 0) - pa.y);
+        const db = Math.hypot((b.x || 0) - pb.x, (b.y || 0) - pb.y);
+        if (da !== db) return da - db;
+        return String(a.id || '').localeCompare(String(b.id || ''));
+      });
       let changed = false;
-      battle.tokens.forEach(t => {
-        const next = snapBattlePct(stage, { x: t.x, y: t.y }, metrics);
+      ranked.forEach(t => {
+        const preferred = battleCellFromPct(metrics, t);
+        const cell = nearestEmptyBattleCell(preferred.c, preferred.r, preferred.cols, preferred.rows, claimed);
+        claimed.add(cell.c + ',' + cell.r);
+        const next = battlePctFromCell(metrics, cell.c, cell.r);
         if (Math.abs(next.x - t.x) > 0.0001 || Math.abs(next.y - t.y) > 0.0001) {
           t.x = next.x;
           t.y = next.y;
@@ -3619,7 +3679,7 @@
     function snapBattleTokenPos(t) {
       const stage = document.getElementById('kampfBattleStage');
       if (!t || !stage || stage.classList.contains('hidden')) return t;
-      const next = snapBattlePct(stage, { x: t.x, y: t.y });
+      const next = snapBattlePct(stage, { x: t.x, y: t.y }, null, t.id);
       t.x = next.x;
       t.y = next.y;
       return t;
@@ -3638,7 +3698,7 @@
       const move = e => {
         if (!battleTokenDrag || e.pointerId !== battleTokenDrag.pointerId) return;
         if (Math.abs(e.clientX - originX) + Math.abs(e.clientY - originY) > 4) battleTokenDragMoved = true;
-        const pct = snapBattlePct(stage, battlePctFromEvent(stage, e));
+        const pct = snapBattlePct(stage, battlePctFromEvent(stage, e), null, token.id);
         const t = battle.tokens.find(x => x.id === token.id);
         if (!t) return;
         t.x = pct.x;
@@ -3656,7 +3716,7 @@
         if (battleTokenDragMoved) {
           const t = battle.tokens.find(x => x.id === token.id);
           if (t) {
-            const pct = snapBattlePct(stage, { x: t.x, y: t.y });
+            const pct = snapBattlePct(stage, { x: t.x, y: t.y }, null, token.id);
             t.x = pct.x;
             t.y = pct.y;
             el.style.left = t.x + '%';
