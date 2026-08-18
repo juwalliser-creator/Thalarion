@@ -1394,6 +1394,7 @@
       color: var(--gold);
     }
     .battle-tools {
+      display: flex;
       flex-wrap: wrap;
       align-items: center;
       gap: 0.4rem;
@@ -1425,6 +1426,16 @@
       overflow: hidden;
       min-height: 240px;
     }
+    .battle-board.is-zoomed {
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+    }
+    .battle-board.is-zoomed .battle-stage { cursor: grab; }
+    .battle-board.is-zoomed.panning,
+    .battle-board.is-zoomed.panning .battle-stage { cursor: grabbing; }
+    .battle-board.is-zoomed .battle-stage.is-drawing { cursor: crosshair; }
+    .battle-board.is-zoomed.panning { cursor: grabbing; }
     .battle-empty {
       margin: 0;
       padding: 2.4rem 1rem;
@@ -1434,6 +1445,7 @@
     .battle-stage {
       position: relative;
       width: 100%;
+      transform-origin: 0 0;
     }
     .battle-stage.is-drawing { cursor: crosshair; }
     .battle-tokens {
@@ -2021,7 +2033,13 @@
             <div class="battle-card" id="kampfBattleCard">
               <div class="battle-head">
                 <h3>Schlachtfeld</h3>
-                <div class="battle-tools dm-only-tools">
+                <div class="battle-tools">
+                  <span class="map-zoom">
+                    <button class="ghost" id="kampfBattleZoomOut" type="button" title="Verkleinern">−</button>
+                    <button class="ghost" id="kampfBattleZoomReset" type="button" title="Zurücksetzen">100%</button>
+                    <button class="ghost" id="kampfBattleZoomIn" type="button" title="Vergrößern">+</button>
+                  </span>
+                  <span class="dm-only-tools">
                   <button class="ghost" id="kampfBattleUploadBtn" type="button">Karte hochladen</button>
                   <button class="ghost" id="kampfBattleFireBtn" type="button">Feuer</button>
                   <button class="ghost" id="kampfBattleWaterBtn" type="button">Wasser</button>
@@ -2036,6 +2054,7 @@
                     <span id="kampfBattleGridVal">1 cm</span>
                   </label>
                   <button class="danger" id="kampfBattleClearBtn" type="button">Karte entfernen</button>
+                  </span>
                 </div>
               </div>
               <p class="battle-hint" id="kampfBattleHint"></p>
@@ -2359,6 +2378,10 @@
     let battleDraft = [];
     let battleTokenDrag = null;
     let battleTokenDragMoved = false;
+    let battleScale = 1;
+    let battlePanX = 0;
+    let battlePanY = 0;
+    let battlePan = null;
     let battleLinkPinnedId = '';
     let battleLinkHoverId = '';
 
@@ -3296,6 +3319,11 @@
       combatPersistTimer = setTimeout(() => { persistCombatRemote(); }, 180);
     }
 
+    function persistBattleSoon() {
+      clearTimeout(battlePersistTimer);
+      battlePersistTimer = setTimeout(() => { persistBattle(); }, 180);
+    }
+
     async function persistBattle() {
       const nextAt = Date.now();
       battle.updatedAt = nextAt;
@@ -3317,7 +3345,114 @@
       }
     }
 
-    function persistBattleSoon() {
+    function clampBattlePan() {
+      const board = document.getElementById('kampfBattleBoard');
+      const stage = document.getElementById('kampfBattleStage');
+      if (!board || !stage) return;
+      const ww = board.clientWidth;
+      const wh = board.clientHeight;
+      const sw = stage.offsetWidth * battleScale;
+      const sh = stage.offsetHeight * battleScale;
+      if (sw <= ww) battlePanX = (ww - sw) / 2;
+      else battlePanX = Math.min(0, Math.max(ww - sw, battlePanX));
+      if (sh <= wh) battlePanY = (wh - sh) / 2;
+      else battlePanY = Math.min(0, Math.max(wh - sh, battlePanY));
+    }
+
+    function applyBattleTransform() {
+      const stage = document.getElementById('kampfBattleStage');
+      const board = document.getElementById('kampfBattleBoard');
+      const reset = document.getElementById('kampfBattleZoomReset');
+      if (!stage || !board) return;
+      if (battleScale <= 1.001) {
+        battleScale = 1;
+        battlePanX = 0;
+        battlePanY = 0;
+        board.classList.remove('is-zoomed', 'panning');
+        stage.style.transform = 'none';
+      } else {
+        board.classList.add('is-zoomed');
+        clampBattlePan();
+        stage.style.transform = 'translate(' + battlePanX + 'px,' + battlePanY + 'px) scale(' + battleScale + ')';
+      }
+      if (reset) reset.textContent = Math.round(battleScale * 100) + '%';
+    }
+
+    function zoomBattleAt(clientX, clientY, nextScale) {
+      nextScale = Math.max(1, Math.min(4, nextScale));
+      const board = document.getElementById('kampfBattleBoard');
+      const stage = document.getElementById('kampfBattleStage');
+      if (!board || !stage || stage.classList.contains('hidden')) return;
+      const rect = board.getBoundingClientRect();
+      const mx = clientX - rect.left;
+      const my = clientY - rect.top;
+      const x = (mx - battlePanX) / battleScale;
+      const y = (my - battlePanY) / battleScale;
+      battleScale = nextScale;
+      battlePanX = mx - x * battleScale;
+      battlePanY = my - y * battleScale;
+      applyBattleTransform();
+    }
+
+    function zoomBattleBy(delta) {
+      const board = document.getElementById('kampfBattleBoard');
+      if (!board) return;
+      const rect = board.getBoundingClientRect();
+      zoomBattleAt(rect.left + rect.width / 2, rect.top + rect.height / 2, battleScale + delta);
+    }
+
+    function resetBattleView() {
+      battleScale = 1;
+      battlePanX = 0;
+      battlePanY = 0;
+      applyBattleTransform();
+    }
+
+    function bindBattleZoom(board, stage) {
+      if (!board || !stage || board.dataset.zoomBound) return;
+      board.dataset.zoomBound = '1';
+      board.addEventListener('wheel', ev => {
+        if (stage.classList.contains('hidden')) return;
+        ev.preventDefault();
+        const step = ev.deltaY > 0 ? -0.18 : 0.18;
+        zoomBattleAt(ev.clientX, ev.clientY, battleScale + step);
+      }, { passive: false });
+      board.addEventListener('pointerdown', ev => {
+        if (ev.button && ev.button !== 0) return;
+        if (battleTokenDrag || battleHazardMode) return;
+        if (ev.target.closest('.battle-token')) return;
+        if (battleScale <= 1) return;
+        ev.preventDefault();
+        battlePan = {
+          pointerId: ev.pointerId,
+          x: ev.clientX,
+          y: ev.clientY,
+          panX: battlePanX,
+          panY: battlePanY,
+          moved: false
+        };
+        board.classList.add('panning');
+        try { board.setPointerCapture(ev.pointerId); } catch (err) {}
+      });
+      board.addEventListener('pointermove', ev => {
+        if (!battlePan || ev.pointerId !== battlePan.pointerId) return;
+        const dx = ev.clientX - battlePan.x;
+        const dy = ev.clientY - battlePan.y;
+        if (Math.abs(dx) + Math.abs(dy) > 4) battlePan.moved = true;
+        battlePanX = battlePan.panX + dx;
+        battlePanY = battlePan.panY + dy;
+        applyBattleTransform();
+      });
+      const endPan = ev => {
+        if (!battlePan || (ev && ev.pointerId !== battlePan.pointerId)) return;
+        const moved = battlePan.moved;
+        battlePan = null;
+        board.classList.remove('panning');
+        if (moved) board.dataset.battlePanned = '1';
+      };
+      board.addEventListener('pointerup', endPan);
+      board.addEventListener('pointercancel', endPan);
+    }
       clearTimeout(battlePersistTimer);
       battlePersistTimer = setTimeout(() => { persistBattle(); }, 180);
     }
@@ -3561,21 +3696,16 @@
     function battleGridMetrics(stage) {
       const empty = { width: 0, height: 0, cellW: 0, cellH: 0 };
       if (!stage) return empty;
-      const rect = stage.getBoundingClientRect();
+      const width = stage.offsetWidth;
+      const height = stage.offsetHeight;
       const cm = clampBattleGridSize(battle.gridSize);
-      const host = rect.width ? stage : document.body;
       const probe = document.createElement('div');
       probe.style.cssText = 'position:absolute;left:0;top:0;width:' + cm + 'cm;height:' + cm + 'cm;visibility:hidden;pointer-events:none';
-      host.appendChild(probe);
-      const box = probe.getBoundingClientRect();
+      stage.appendChild(probe);
+      const cellW = probe.offsetWidth || (cm * 96 / 2.54);
+      const cellH = probe.offsetHeight || (cm * 96 / 2.54);
       probe.remove();
-      const fallback = cm * (96 / 2.54);
-      return {
-        width: rect.width,
-        height: rect.height,
-        cellW: box.width || fallback,
-        cellH: box.height || fallback
-      };
+      return { width: width, height: height, cellW: cellW, cellH: cellH };
     }
 
     function battleCellFromPct(m, pct) {
@@ -3765,6 +3895,11 @@
     }
 
     function onBattleStageClick(ev, stage) {
+      const board = document.getElementById('kampfBattleBoard');
+      if (board && board.dataset.battlePanned === '1') {
+        board.dataset.battlePanned = '';
+        return;
+      }
       if (isDM && battleHazardMode && battle.image) {
         const pct = battlePctFromEvent(stage, ev);
         if (battleDraft.length >= 3) {
@@ -3809,6 +3944,7 @@
       } catch (err) {
         toast(err.message || 'Karte konnte nicht entfernt werden.');
       }
+      resetBattleView();
     }
 
     function sortedRosterCards() {
@@ -7213,19 +7349,29 @@
       const stage = document.getElementById(prefix + 'BattleStage');
       const overlay = document.getElementById(prefix + 'BattleOverlay');
       const img = document.getElementById(prefix + 'BattleImg');
+      const board = document.getElementById(prefix + 'BattleBoard');
       if (overlay && stage) overlay.addEventListener('click', ev => onBattleStageClick(ev, stage));
       if (img) {
         img.addEventListener('load', () => {
           applyBattleGridSize();
+          applyBattleTransform();
         });
       }
       if (stage && typeof ResizeObserver !== 'undefined') {
         const ro = new ResizeObserver(() => {
           if (battleTokenDrag) return;
           applyBattleGridSize();
+          applyBattleTransform();
         });
         ro.observe(stage);
       }
+      bindBattleZoom(board, stage);
+      const zoomIn = document.getElementById(prefix + 'BattleZoomIn');
+      const zoomOut = document.getElementById(prefix + 'BattleZoomOut');
+      const zoomReset = document.getElementById(prefix + 'BattleZoomReset');
+      if (zoomIn) zoomIn.onclick = () => zoomBattleBy(0.35);
+      if (zoomOut) zoomOut.onclick = () => zoomBattleBy(-0.35);
+      if (zoomReset) zoomReset.onclick = resetBattleView;
     }
     bindBattleTools('kampf');
     document.getElementById('battleMapInput').onchange = ev => {
