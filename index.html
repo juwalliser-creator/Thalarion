@@ -1519,23 +1519,6 @@
     .battle-stage.is-drawing .battle-overlay {
       pointer-events: auto;
     }
-    .battle-stage.is-freeplace .battle-grid { display: none; }
-    .battle-token-resize {
-      display: none;
-      position: absolute;
-      right: -3px;
-      bottom: 1.05rem;
-      width: 12px;
-      height: 12px;
-      border-radius: 2px;
-      background: var(--gold);
-      border: 1px solid #1a140c;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
-      cursor: nwse-resize;
-      pointer-events: auto;
-      z-index: 3;
-    }
-    body.is-dm .battle-stage.is-freeplace .battle-token-resize { display: block; }
     .battle-grid {
       position: absolute;
       inset: 0;
@@ -2114,10 +2097,9 @@
                   <button class="primary hidden" id="kampfBattleCloseBtn" type="button">Fläche schließen</button>
                   <button class="ghost hidden" id="kampfBattleCancelDrawBtn" type="button">Abbrechen</button>
                   <label class="battle-size" for="kampfBattleSize">Größe
-                    <input id="kampfBattleSize" type="range" min="28" max="180" step="2" value="48" title="Portraitgröße" />
+                    <input id="kampfBattleSize" type="range" min="28" max="96" step="2" value="48" title="Portraitgröße" />
                   </label>
-                  <button class="ghost" id="kampfBattleGridToggle" type="button">Gitter aus</button>
-                  <label class="battle-size" id="kampfBattleGridWrap" for="kampfBattleGrid">Netz
+                  <label class="battle-size" for="kampfBattleGrid">Netz
                     <input id="kampfBattleGrid" type="range" min="5" max="40" step="1" value="10" title="Maschenweite" />
                     <span id="kampfBattleGridVal">1 cm</span>
                   </label>
@@ -2449,7 +2431,7 @@
     let pendingSheetPortrait = null;
     let kartePortraitId = '';
     let pendingKartePortrait = null;
-    let battle = { image: '', tokens: [], hazards: [], tokenSize: 48, gridSize: 1, gridOn: true, updatedAt: 0, mapUpdatedAt: 0 };
+    let battle = { image: '', tokens: [], hazards: [], tokenSize: 48, gridSize: 1, updatedAt: 0, mapUpdatedAt: 0 };
     let writingBattle = false;
     let writingBattleMap = false;
     let battlePersistTimer = null;
@@ -3309,7 +3291,6 @@
     }
 
     function normalizeBattleToken(t) {
-      const size = Number(t.size);
       return {
         id: t.id || combatNewId('t'),
         name: t.name || '',
@@ -3318,8 +3299,7 @@
         portraitId: t.portraitId || '',
         init: Number(t.init) || 0,
         x: Math.max(0, Math.min(100, Number(t.x) || 50)),
-        y: Math.max(0, Math.min(100, Number(t.y) || 50)),
-        size: Number.isFinite(size) && size > 0 ? clampBattleTokenSize(size) : 0
+        y: Math.max(0, Math.min(100, Number(t.y) || 50))
       };
     }
 
@@ -3338,8 +3318,7 @@
         tokens: battle.tokens,
         hazards: battle.hazards,
         tokenSize: clampBattleTokenSize(battle.tokenSize),
-        gridSize: clampBattleGridSize(battle.gridSize),
-        gridOn: battle.gridOn !== false
+        gridSize: clampBattleGridSize(battle.gridSize)
       }));
     }
 
@@ -3352,45 +3331,19 @@
         battle.hazards = (Array.isArray(raw.hazards) ? raw.hazards : []).map(normalizeBattleHazard);
         battle.tokenSize = clampBattleTokenSize(raw.tokenSize);
         battle.gridSize = clampBattleGridSize(raw.gridSize);
-        battle.gridOn = raw.gridOn !== false;
       } catch (err) {}
     }
 
     function clampBattleTokenSize(n) {
       const v = Number(n);
       if (!Number.isFinite(v)) return 48;
-      return Math.max(28, Math.min(180, Math.round(v)));
+      return Math.max(28, Math.min(96, Math.round(v)));
     }
 
     function clampBattleGridSize(n) {
       const v = Number(n);
       if (!Number.isFinite(v)) return 1;
       return Math.max(0.5, Math.min(4, Math.round(v * 10) / 10));
-    }
-
-    function battleGridEnabled() {
-      return battle.gridOn !== false;
-    }
-
-    function battleTokenFaceSize(token) {
-      return token && token.size ? clampBattleTokenSize(token.size) : clampBattleTokenSize(battle.tokenSize);
-    }
-
-    function applyBattleTokenElSize(el, token) {
-      if (!el) return;
-      const size = battleTokenFaceSize(token);
-      el.style.setProperty('--battle-token-face', size + 'px');
-      el.style.setProperty('--battle-token-size', (size + 4) + 'px');
-    }
-
-    function syncBattleSizeSlider() {
-      const slider = document.getElementById('kampfBattleSize');
-      if (!slider || document.activeElement === slider) return;
-      const t = !battleGridEnabled() && battleLinkPinnedId
-        ? battle.tokens.find(x => x.id === battleLinkPinnedId)
-        : null;
-      slider.value = String(battleTokenFaceSize(t));
-      slider.title = t ? 'Portraitgröße dieser Figur' : 'Portraitgröße';
     }
 
     function applyBattleGridSize() {
@@ -3412,14 +3365,6 @@
       const val = document.getElementById('kampfBattleGridVal');
       if (slider && document.activeElement !== slider) slider.value = String(Math.round(size * 10));
       if (val) val.textContent = (Math.round(size * 10) % 10 ? size.toFixed(1).replace('.', ',') : String(size)) + ' cm';
-      const toggle = document.getElementById('kampfBattleGridToggle');
-      if (toggle) toggle.textContent = battleGridEnabled() ? 'Gitter aus' : 'Gitter ein';
-      const wrap = document.getElementById('kampfBattleGridWrap');
-      if (wrap) wrap.classList.toggle('hidden', !battleGridEnabled());
-      document.querySelectorAll('.battle-grid').forEach(el => el.classList.toggle('hidden', !battleGridEnabled()));
-      document.querySelectorAll('.battle-stage').forEach(stage => {
-        stage.classList.toggle('is-freeplace', !battleGridEnabled());
-      });
     }
 
     function applyBattleTokenSize() {
@@ -3431,11 +3376,6 @@
       });
       const slider = document.getElementById('kampfBattleSize');
       if (slider && document.activeElement !== slider) slider.value = String(size);
-      syncBattleSizeSlider();
-      document.querySelectorAll('.battle-token').forEach(el => {
-        const t = battle.tokens.find(x => x.id === el.dataset.id);
-        if (t) applyBattleTokenElSize(el, t);
-      });
     }
 
     function applyBattleLinkHighlight() {
@@ -3468,7 +3408,6 @@
         battleLinkHoverId = id || '';
       }
       applyBattleLinkHighlight();
-      syncBattleSizeSlider();
     }
 
     function scrollToKampfCard(id) {
@@ -3502,7 +3441,6 @@
       battle.hazards = (Array.isArray(data.hazards) ? data.hazards : []).map(normalizeBattleHazard);
       battle.tokenSize = clampBattleTokenSize(data.tokenSize);
       battle.gridSize = clampBattleGridSize(data.gridSize);
-      battle.gridOn = data.gridOn !== false;
       persistBattleLocal();
       renderBattleBoards();
       if (currentPage === 'kampf' && !isDM) renderPlayerKampfList();
@@ -3607,8 +3545,7 @@
           tokens: battle.tokens,
           hazards: battle.hazards,
           tokenSize: clampBattleTokenSize(battle.tokenSize),
-          gridSize: clampBattleGridSize(battle.gridSize),
-          gridOn: battle.gridOn !== false
+          gridSize: clampBattleGridSize(battle.gridSize)
         });
       } catch (err) {
         toast('Schlachtfeld konnte nicht gespeichert werden: ' + err.message);
@@ -3785,8 +3722,7 @@
           portraitId: c.portraitId,
           init: c.init,
           x: old ? old.x : 12 + (i % 6) * 14,
-          y: old ? old.y : 82,
-          size: old ? old.size : 0
+          y: old ? old.y : 82
         });
       });
       persistBattleSoon();
@@ -3812,7 +3748,6 @@
         const label = BATTLE_HAZARDS[battleHazardMode].label;
         return label + ' zeichnen: auf die Karte tippen. Ersten Punkt nochmal antippen oder „Fläche schließen“.';
       }
-      if (isDM && !battleGridEnabled()) return 'Gitter aus: Figuren frei platzieren. Größe am Regler oder an der goldenen Ecke ziehen.';
       if (isDM && combat.started && !battleHazardMode) return 'Kurz antippen: erst wer handelt, dann das Ziel. Ziehen setzt die Figur um.';
       if (isDM) return 'Figuren ziehen. Feuer, Wasser oder Öl wählen, dann die Fläche auf die Karte legen. Eine Fläche antippen löscht sie.';
       if (currentPlayerId) return 'Zieh dein Portrait. Die anderen Figuren und Flächen setzt der DM.';
@@ -3970,7 +3905,6 @@
         if (!movable) el.classList.add('is-locked');
         el.style.left = token.x + '%';
         el.style.top = token.y + '%';
-        applyBattleTokenElSize(el, token);
         const face = document.createElement('div');
         face.className = 'battle-token-face';
         paintPortraitEl(face, token.portraitId, token.name);
@@ -3978,13 +3912,6 @@
         label.textContent = token.name || '—';
         el.appendChild(face);
         el.appendChild(label);
-        if (isDM && !battleGridEnabled()) {
-          const handle = document.createElement('span');
-          handle.className = 'battle-token-resize';
-          handle.title = 'Größe';
-          handle.addEventListener('pointerdown', ev => startBattleTokenResize(ev, token, el));
-          el.appendChild(handle);
-        }
         el.title = token.name || '';
         el.dataset.id = token.id;
         el.addEventListener('pointerenter', () => setBattleLink(token.id, false));
@@ -4091,7 +4018,6 @@
       const m = metrics || battleGridMetrics(stage);
       const x = Math.max(0, Math.min(100, Number(pct.x) || 0));
       const y = Math.max(0, Math.min(100, Number(pct.y) || 0));
-      if (!battleGridEnabled()) return { x: x, y: y };
       if (!m.width || !m.height || m.cellW < 1 || m.cellH < 1) return { x: x, y: y };
       const preferred = battleCellFromPct(m, { x: x, y: y });
       const claimed = occupiedBattleCells(m, exceptId);
@@ -4100,7 +4026,6 @@
     }
 
     function snapBattleTokensToGrid() {
-      if (!battleGridEnabled()) return false;
       const stage = document.getElementById('kampfBattleStage');
       if (!stage || stage.classList.contains('hidden')) return false;
       const metrics = battleGridMetrics(stage);
@@ -4189,37 +4114,6 @@
           if (!pickKampfAim(token.id)) setBattleLink(token.id, true);
           battleTokenDragMoved = true;
         }
-      };
-      document.addEventListener('pointermove', move);
-      document.addEventListener('pointerup', up);
-      document.addEventListener('pointercancel', up);
-    }
-
-    function startBattleTokenResize(ev, token, el) {
-      if (!isDM || ev.button != null && ev.button !== 0) return;
-      ev.preventDefault();
-      ev.stopPropagation();
-      try { el.setPointerCapture(ev.pointerId); } catch (err) {}
-      battleTokenDragMoved = true;
-      const startSize = battleTokenFaceSize(token);
-      const start = (ev.clientX + ev.clientY) / 2;
-      const pointerId = ev.pointerId;
-      const move = e => {
-        if (e.pointerId !== pointerId) return;
-        const scale = battleScale || 1;
-        const next = clampBattleTokenSize(startSize + (((e.clientX + e.clientY) / 2) - start) / scale);
-        const t = battle.tokens.find(x => x.id === token.id);
-        if (!t) return;
-        t.size = next;
-        applyBattleTokenElSize(el, t);
-        syncBattleSizeSlider();
-      };
-      const up = e => {
-        if (e.pointerId !== pointerId) return;
-        document.removeEventListener('pointermove', move);
-        document.removeEventListener('pointerup', up);
-        document.removeEventListener('pointercancel', up);
-        persistBattleSoon();
       };
       document.addEventListener('pointermove', move);
       document.addEventListener('pointerup', up);
@@ -8067,30 +7961,18 @@
       document.getElementById(prefix + 'BattleClearBtn').onclick = clearBattleMap;
       const sizeEl = document.getElementById(prefix + 'BattleSize');
       if (sizeEl) {
-        const setSize = () => {
+        sizeEl.addEventListener('input', () => {
           if (!isDM) return;
-          const size = clampBattleTokenSize(sizeEl.value);
-          const selected = !battleGridEnabled()
-            ? battle.tokens.find(t => t.id === battleLinkPinnedId)
-            : null;
-          if (selected) selected.size = size;
-          else battle.tokenSize = size;
+          battle.tokenSize = clampBattleTokenSize(sizeEl.value);
           applyBattleTokenSize();
           persistBattleSoon();
-        };
-        sizeEl.addEventListener('input', setSize);
-        sizeEl.addEventListener('change', setSize);
-      }
-      const gridToggle = document.getElementById(prefix + 'BattleGridToggle');
-      if (gridToggle) {
-        gridToggle.onclick = () => {
+        });
+        sizeEl.addEventListener('change', () => {
           if (!isDM) return;
-          battle.gridOn = !battleGridEnabled();
-          applyBattleGridSize();
-          if (battleGridEnabled()) snapBattleTokensToGrid();
+          battle.tokenSize = clampBattleTokenSize(sizeEl.value);
+          applyBattleTokenSize();
           persistBattleSoon();
-          renderBattleBoards();
-        };
+        });
       }
       const gridEl = document.getElementById(prefix + 'BattleGrid');
       if (gridEl) {
