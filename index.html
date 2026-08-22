@@ -2343,6 +2343,8 @@
     let openedFromMap = false;
     let writingRemote = false;
     let writingMap = false;
+    let storageAvailable = true;
+    const cloudDiagLog = [];
     let entries = [];
     let currentIndex = null;
     let currentTitle = null;
@@ -2724,18 +2726,12 @@
       return db.collection('world').doc(TEMPLATES_DOC);
     }
 
-    async function storeCloudImage(id, dataUrl) {
-      if (!dataUrl) return '';
-      if (/^https?:\/\//i.test(dataUrl)) return dataUrl;
-      try {
-        if (window.firebase && firebase.storage) {
-          const mime = (dataUrl.match(/^data:([^;,]+)/) || [])[1] || 'image/jpeg';
-          const ref = firebase.storage().ref().child('images/' + id);
-          await ref.putString(dataUrl, 'data_url', { contentType: mime });
-          return await ref.getDownloadURL();
-        }
-      } catch (err) {}
-      return dataUrl;
+    function cloudDiag(step, detail) {
+      const line = { t: Date.now(), step: step, detail: detail || '' };
+      cloudDiagLog.push(line);
+      if (cloudDiagLog.length > 40) cloudDiagLog.shift();
+      console.warn('[Thalarion]', step, detail || '');
+      window.thalarionDiag = cloudDiagLog.slice();
     }
 
     function withTimeout(promise, ms) {
@@ -2745,15 +2741,44 @@
       ]);
     }
 
+    async function cloudWait(label, promise, ms) {
+      const t0 = Date.now();
+      try {
+        const val = await withTimeout(promise, ms);
+        cloudDiag(label + ' ok', (Date.now() - t0) + 'ms');
+        return val;
+      } catch (err) {
+        cloudDiag(label + ' fail', (err && err.message ? err.message : err) + ' nach ' + (Date.now() - t0) + 'ms');
+        throw err;
+      }
+    }
+
+    async function storeCloudImage(id, dataUrl) {
+      if (!dataUrl) return '';
+      if (/^https?:\/\//i.test(dataUrl)) return dataUrl;
+      if (!storageAvailable || !window.firebase || !firebase.storage) return dataUrl;
+      try {
+        const mime = (dataUrl.match(/^data:([^;,]+)/) || [])[1] || 'image/jpeg';
+        const ref = firebase.storage().ref().child('images/' + id);
+        await cloudWait('storage.put ' + id, ref.putString(dataUrl, 'data_url', { contentType: mime }), 5000);
+        return await cloudWait('storage.url ' + id, ref.getDownloadURL(), 4000);
+      } catch (err) {
+        storageAvailable = false;
+        cloudDiag('storage off', 'Bilder bleiben in Firestore');
+        return dataUrl;
+      }
+    }
+
     async function deleteCloudImage(id) {
       if (!id) return;
       const cached = imageCache[id];
       if (cached && /^data:/i.test(cached)) return;
+      if (!storageAvailable || !window.firebase || !firebase.storage) return;
       try {
-        if (window.firebase && firebase.storage) {
-          await withTimeout(firebase.storage().ref().child('images/' + id).delete(), 4000);
-        }
-      } catch (err) {}
+        await cloudWait('storage.del ' + id, firebase.storage().ref().child('images/' + id).delete(), 4000);
+      } catch (err) {
+        storageAvailable = false;
+      }
     }
 
     function worldRef() {
@@ -2880,7 +2905,7 @@
     async function persistEntryImage(imageId, dataUrl) {
       if (!db) throw new Error('Keine Verbindung zur Cloud.');
       const stored = await storeCloudImage(imageId, dataUrl);
-      await imageRef(imageId).set({ image: stored, updatedAt: Date.now() });
+      await cloudWait('image.set ' + imageId, imageRef(imageId).set({ image: stored, updatedAt: Date.now() }), 12000);
       imageCache[imageId] = stored;
     }
 
@@ -5790,10 +5815,10 @@
       const nextAt = Date.now();
       writingRemote = true;
       try {
-        await worldRef().set({
+        await cloudWait('world.set', worldRef().set({
           updatedAt: nextAt,
           entries: entries
-        });
+        }), 15000);
         worldUpdatedAt = nextAt;
         persistLocal();
       } finally {
@@ -7769,12 +7794,14 @@
         } else if (typeof pendingEntryImage === 'string') {
           if (!imageId) imageId = newImageId();
           editorImageId = imageId;
+          saveBtn.textContent = 'Speichert Bild…';
           await persistEntryImage(imageId, pendingEntryImage);
         }
+        saveBtn.textContent = 'Speichert Codex…';
       } catch (err) {
         saveBtn.disabled = false;
         saveBtn.textContent = 'Speichern';
-        toast('Bild konnte nicht gespeichert werden: ' + err.message);
+        toast('Bild konnte nicht gespeichert werden: ' + (err.message === 'timeout' ? 'Die Cloud hat nicht geantwortet.' : err.message));
         return;
       }
       const e = {
@@ -7804,7 +7831,7 @@
         if (previous === null) entries.pop();
         else entries[currentIndex] = previous;
         if (previous === null) currentIndex = null;
-        toast('Speichern fehlgeschlagen: ' + err.message);
+        toast('Speichern fehlgeschlagen: ' + (err.message === 'timeout' ? 'Die Cloud hat nicht geantwortet.' : err.message));
       } finally {
         saveBtn.disabled = false;
         saveBtn.textContent = 'Speichern';
