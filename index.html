@@ -2739,10 +2739,21 @@
       return dataUrl;
     }
 
+    function withTimeout(promise, ms) {
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+      ]);
+    }
+
     async function deleteCloudImage(id) {
       if (!id) return;
+      const cached = imageCache[id];
+      if (cached && /^data:/i.test(cached)) return;
       try {
-        if (window.firebase && firebase.storage) await firebase.storage().ref().child('images/' + id).delete();
+        if (window.firebase && firebase.storage) {
+          await withTimeout(firebase.storage().ref().child('images/' + id).delete(), 4000);
+        }
       } catch (err) {}
     }
 
@@ -2876,8 +2887,8 @@
 
     async function deleteEntryImage(imageId) {
       if (!imageId || !db) return;
-      await deleteCloudImage(imageId);
-      await imageRef(imageId).delete();
+      try { await deleteCloudImage(imageId); } catch (err) {}
+      try { await withTimeout(imageRef(imageId).delete(), 8000); } catch (err) {}
       delete imageCache[imageId];
     }
 
@@ -7818,11 +7829,10 @@
       let imageId = previous?.imageId || editorImageId || '';
       try {
         if (pendingEntryImage === false) {
-          if (imageId) {
-            try { await deleteEntryImage(imageId); } catch (err) { console.warn(err); }
-          }
+          const removedId = imageId;
           imageId = '';
           editorImageId = '';
+          if (removedId) deleteEntryImage(removedId).catch(err => console.warn(err));
         } else if (typeof pendingEntryImage === 'string') {
           if (!imageId) imageId = newImageId();
           editorImageId = imageId;
