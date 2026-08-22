@@ -1824,6 +1824,7 @@
               <div class="entry-image-tools">
                 <button class="ghost" id="uploadEntryImageBtn" type="button">Bild hochladen</button>
                 <button class="ghost hidden" id="ocrEntryImageBtn" type="button">Text aus Stat-Sheet lesen</button>
+                <button class="ghost hidden" id="ocrDropEntryImageBtn" type="button">Text übernehmen und Bild löschen</button>
                 <button class="ghost hidden" id="removeEntryImageBtn" type="button">Bild entfernen</button>
               </div>
               <div id="entryImagePreview" class="entry-image-preview hidden">
@@ -2885,17 +2886,20 @@
       const img = document.getElementById('entryImagePreviewImg');
       const removeBtn = document.getElementById('removeEntryImageBtn');
       const ocrBtn = document.getElementById('ocrEntryImageBtn');
+      const ocrDropBtn = document.getElementById('ocrDropEntryImageBtn');
       if (!src) {
         wrap.classList.add('hidden');
         img.removeAttribute('src');
         removeBtn.classList.add('hidden');
         if (ocrBtn) ocrBtn.classList.add('hidden');
+        if (ocrDropBtn) ocrDropBtn.classList.add('hidden');
         return;
       }
       img.src = src;
       wrap.classList.remove('hidden');
       removeBtn.classList.remove('hidden');
       if (ocrBtn) ocrBtn.classList.remove('hidden');
+      if (ocrDropBtn) ocrDropBtn.classList.remove('hidden');
     }
 
     function showViewImage(imageId, title) {
@@ -7031,14 +7035,18 @@
       return (img && img.getAttribute('src')) || '';
     }
 
-    async function readStatSheetFromEditorImage() {
+    async function readStatSheetFromEditorImage(opts) {
       if (!isDM || ocrBusy) return;
+      const dropImage = !!(opts && opts.dropImage);
       const src = currentEditorImageSrc();
       if (!src) return toast('Zuerst ein Stat-Sheet-Bild hochladen oder den Eintrag mit Bild öffnen.');
       const existing = htmlToText(els.content.innerHTML || '').trim();
-      if (existing && !confirm('Der Text wird durch den erkannten Stat-Sheet-Text ersetzt. Fortfahren?')) return;
+      const ask = dropImage
+        ? 'Der Text wird übernommen und das Bild nach dem Speichern gelöscht. Fortfahren?'
+        : 'Der Text wird durch den erkannten Stat-Sheet-Text ersetzt. Fortfahren?';
+      if ((existing || dropImage) && !confirm(ask)) return;
       ocrBusy = true;
-        toast('Stat-Sheet wird gelesen und übersetzt… das kann einen Moment dauern.');
+      toast('Stat-Sheet wird gelesen und übersetzt… das kann einen Moment dauern.');
       try {
         const worker = await getOcrWorker();
         const canvas = await prepareStatSheetForOcr(src);
@@ -7048,8 +7056,14 @@
         const html = statSheetToHtml(parsed);
         if (!htmlToText(html).trim()) throw new Error('Im Bild wurde kein Text erkannt.');
         els.content.innerHTML = html;
+        if (dropImage) {
+          pendingEntryImage = false;
+          setEditorImagePreview(null);
+        }
         dirty = true;
-        toast('Text erkannt und übersetzt. Bitte kurz prüfen und dann speichern.');
+        toast(dropImage
+          ? 'Text übernommen, Bild entfernt. Bitte prüfen und speichern.'
+          : 'Text erkannt und übersetzt. Bitte kurz prüfen und dann speichern.');
       } catch (err) {
         toast(err.message || 'Das Stat-Sheet konnte nicht gelesen werden.');
       } finally {
@@ -8403,6 +8417,9 @@
     };
     document.getElementById('ocrEntryImageBtn').onclick = () => {
       readStatSheetFromEditorImage();
+    };
+    document.getElementById('ocrDropEntryImageBtn').onclick = () => {
+      readStatSheetFromEditorImage({ dropImage: true });
     };
     document.getElementById('removeEntryImageBtn').onclick = () => {
       pendingEntryImage = false;
