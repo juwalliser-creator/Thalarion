@@ -300,6 +300,14 @@
     }
 
     .aside-actions { display: grid; gap: 0.5rem; margin-bottom: 1rem; }
+    .aside-group-label {
+      margin: 0.9rem 0 0.3rem;
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .aside-group-label:first-child { margin-top: 0.15rem; }
     .cat {
       border-top: 1px solid var(--line);
     }
@@ -2566,7 +2574,23 @@
       if (currentPage === 'bestiarium' || currentPage === 'glossar' || currentPage === 'codex') {
         return PAGE_CATS[currentPage];
       }
+      if (currentPage === 'entstehung') return [STORY_CAT];
+      if (currentPage === 'world') return [STORY_CAT, ...KOMPENDIUM_CATS, ...BESTIARIUM_CATS, ...GLOSSAR_CATS];
       return KOMPENDIUM_CATS;
+    }
+
+    function sidebarGroups() {
+      if (currentPage === 'entstehung') return [{ label: 'Entstehung', cats: [STORY_CAT] }];
+      if (currentPage === 'codex') return [{ label: 'Kompendium', cats: KOMPENDIUM_CATS }];
+      if (currentPage === 'bestiarium') return [{ label: 'Bestiarium', cats: BESTIARIUM_CATS }];
+      if (currentPage === 'glossar') return [{ label: 'Glossar', cats: GLOSSAR_CATS }];
+      if (currentPage === 'world') return [
+        { label: 'Entstehung', cats: [STORY_CAT] },
+        { label: 'Kompendium', cats: KOMPENDIUM_CATS },
+        { label: 'Bestiarium', cats: BESTIARIUM_CATS },
+        { label: 'Glossar', cats: GLOSSAR_CATS }
+      ];
+      return [{ label: '', cats: catalogCats() }];
     }
 
     function defaultTypeForPage(page) {
@@ -2578,7 +2602,7 @@
     }
 
     function wantsSidebar(page) {
-      return false;
+      return isDM && (page === 'world' || isCatalogPage(page) || page === 'entstehung');
     }
 
     function updateSidebarVisibility(page) {
@@ -2590,7 +2614,7 @@
       const homeBar = document.getElementById('homeToolbar');
       const origBar = document.getElementById('entstehungToolbar');
       const showHomeBar = isDM && !wantsSidebar(currentPage) && isCatalogPage(currentPage) && !els.homeView.classList.contains('hidden');
-      const showOrigBar = isDM && currentPage === 'entstehung' && !els.entstehungView.classList.contains('hidden');
+      const showOrigBar = isDM && currentPage === 'entstehung' && !wantsSidebar('entstehung') && !els.entstehungView.classList.contains('hidden');
       const sitBar = document.getElementById('sitzungToolbar');
       const showSitBar = isDM && currentPage === 'sitzung' && !els.sitzungView.classList.contains('hidden');
       homeBar.classList.toggle('hidden', !showHomeBar);
@@ -6899,9 +6923,9 @@
         'Thalarion – Das Blutsiegel',
         'Gesamtdokument',
         '',
-        'Dieses Dokument enthält ALLE Codex-Einträge der Welt Thalarion.',
+        'Dieses Dokument enthält Entstehung, Kompendium, Bestiarium und Glossar.',
         'Jeder Eintrag hat eine eigene Überschrift (### Name).',
-        'Bilder, Karten-Pins, Kampf und Charakterblätter sind nicht enthalten.',
+        'Sitzung, Bilder, Karten-Pins, Kampf und Charakterblätter sind nicht enthalten.',
         '',
         'Anzahl Einträge: ' + items.length,
         'Stand: ' + new Date().toISOString().slice(0, 10),
@@ -6958,11 +6982,24 @@
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     }
 
+    function isMyDocumentEntry(e) {
+      const type = normalizeType(e.type);
+      return type === STORY_CAT ||
+        KOMPENDIUM_CATS.includes(type) ||
+        BESTIARIUM_CATS.includes(type) ||
+        GLOSSAR_CATS.includes(type);
+    }
+
+    function myDocumentEntries() {
+      return entries.filter(isMyDocumentEntry);
+    }
+
     function downloadMyDocument() {
       if (!isDM) return;
-      if (!entries.length) return toast('Es gibt noch keine Einträge.');
-      downloadText('Thalarion-Gesamtdokument.txt', formatGeminiDocument(entries));
-      toast(entries.length + ' Einträge in einem Dokument.');
+      const list = myDocumentEntries();
+      if (!list.length) return toast('Es gibt noch keine Einträge.');
+      downloadText('Thalarion-Gesamtdokument.txt', formatGeminiDocument(list));
+      toast(list.length + ' Einträge in einem Dokument.');
     }
 
     function downloadOneEntry() {
@@ -7081,6 +7118,7 @@
       els.sitzungView.classList.add('hidden');
       updateHomeHero('world');
       renderHome();
+      renderSidebar();
       updateExtraToolbars();
     }
 
@@ -7375,44 +7413,53 @@
       }
 
       list.innerHTML = '';
-      catalogCats().forEach(cat => {
-        const matching = entries
-          .map((e, i) => ({ e, i }))
-          .filter(({ e }) =>
-            e.type === cat &&
-            (isDM || e.visibility === 'player')
-          );
-
-        const box = document.createElement('div');
-        box.className = 'cat';
-        const head = document.createElement('button');
-        head.type = 'button';
-        head.className = 'cat-head';
-        const open = !!expandedCategories[cat];
-        head.innerHTML = `<span class="chev">${open ? '▼' : '▶'}</span><span>${cat}</span><span class="count">${matching.length}</span>`;
-        head.onclick = () => {
-          expandedCategories[cat] = !expandedCategories[cat];
-          renderSidebar();
-        };
-        box.appendChild(head);
-
-        if (open) {
-          matching.forEach(({ e, i }) => {
-            const b = document.createElement('button');
-            b.type = 'button';
-            b.className = 'entry' + (currentIndex === i ? ' active' : '');
-            b.textContent = e.title;
-            if (isDM && e.visibility === 'dm') {
-              const lock = document.createElement('span');
-              lock.className = 'lock';
-              lock.textContent = 'nur DM';
-              b.appendChild(lock);
-            }
-            b.onclick = () => loadEntry(i);
-            box.appendChild(b);
-          });
+      const groups = sidebarGroups();
+      groups.forEach(group => {
+        if (group.label && groups.length > 1) {
+          const label = document.createElement('div');
+          label.className = 'aside-group-label';
+          label.textContent = group.label;
+          list.appendChild(label);
         }
-        list.appendChild(box);
+        group.cats.forEach(cat => {
+          const matching = entries
+            .map((e, i) => ({ e, i }))
+            .filter(({ e }) =>
+              e.type === cat &&
+              (isDM || e.visibility === 'player')
+            );
+
+          const box = document.createElement('div');
+          box.className = 'cat';
+          const head = document.createElement('button');
+          head.type = 'button';
+          head.className = 'cat-head';
+          const open = !!expandedCategories[cat];
+          head.innerHTML = `<span class="chev">${open ? '▼' : '▶'}</span><span>${cat}</span><span class="count">${matching.length}</span>`;
+          head.onclick = () => {
+            expandedCategories[cat] = !expandedCategories[cat];
+            renderSidebar();
+          };
+          box.appendChild(head);
+
+          if (open) {
+            matching.forEach(({ e, i }) => {
+              const b = document.createElement('button');
+              b.type = 'button';
+              b.className = 'entry' + (currentIndex === i ? ' active' : '');
+              b.textContent = e.title;
+              if (isDM && e.visibility === 'dm') {
+                const lock = document.createElement('span');
+                lock.className = 'lock';
+                lock.textContent = 'nur DM';
+                b.appendChild(lock);
+              }
+              b.onclick = () => loadEntry(i);
+              box.appendChild(b);
+            });
+          }
+          list.appendChild(box);
+        });
       });
     }
 
@@ -7708,6 +7755,7 @@
       if (on) sessionStorage.setItem(SESSION_KEY, '1');
       else sessionStorage.removeItem(SESSION_KEY);
       document.getElementById('mapToolbar').classList.toggle('hidden', !on);
+      updateSidebarVisibility(currentPage);
       if (!on) {
         setPlacingPin(false);
         setDrawingBorder(false);
