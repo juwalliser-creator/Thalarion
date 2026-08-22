@@ -2546,7 +2546,8 @@
     function visibleEntriesInCat(cat) {
       return entries
         .map((e, i) => ({ e, i }))
-        .filter(({ e }) => e.type === cat && (isDM || e.visibility === 'player'));
+        .filter(({ e }) => e.type === cat && (isDM || e.visibility === 'player'))
+        .sort((a, b) => String(a.e.title || '').localeCompare(String(b.e.title || ''), 'de', { sensitivity: 'base' }));
     }
 
     function openHomeCategory(cat) {
@@ -7401,12 +7402,7 @@
         document.getElementById('homeTitle').textContent = selectedHomeCat;
         document.getElementById('homeBlurb').textContent = 'Wähle einen Eintrag oder gehe zurück zu den Kategorien.';
         document.getElementById('homeSeal').textContent = selectedHomeCat.charAt(0);
-        const matching = entries
-          .map((e, i) => ({ e, i }))
-          .filter(({ e }) =>
-            e.type === selectedHomeCat &&
-            (isDM || e.visibility === 'player')
-          );
+        const matching = visibleEntriesInCat(selectedHomeCat);
         if (!matching.length) {
           const empty = document.createElement('p');
           empty.style.gridColumn = '1 / -1';
@@ -7483,12 +7479,7 @@
           list.appendChild(label);
         }
         group.cats.forEach(cat => {
-          const matching = entries
-            .map((e, i) => ({ e, i }))
-            .filter(({ e }) =>
-              e.type === cat &&
-              (isDM || e.visibility === 'player')
-            );
+          const matching = visibleEntriesInCat(cat);
 
           const box = document.createElement('div');
           box.className = 'cat';
