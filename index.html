@@ -170,8 +170,15 @@
       color: var(--muted);
     }
 
-    .dm-chip {
+    .dm-menu {
       display: none;
+      position: relative;
+    }
+    body.is-dm .dm-menu { display: inline-flex; align-items: center; }
+    .dm-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
       font-size: 0.75rem;
       letter-spacing: 0.12em;
       text-transform: uppercase;
@@ -181,7 +188,30 @@
       border-radius: 999px;
       padding: 0.28rem 0.7rem;
     }
-    body.is-dm .dm-chip { display: inline-flex; }
+    .dm-chip:hover { background: rgba(154, 51, 51, 0.42); }
+    .dm-menu-list {
+      position: absolute;
+      top: calc(100% + 0.4rem);
+      right: 0;
+      min-width: 11rem;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      z-index: 40;
+      padding: 0.3rem 0;
+    }
+    .dm-menu-list button {
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: 0;
+      color: var(--ink);
+      padding: 0.5rem 0.85rem;
+    }
+    .dm-menu-list button:hover {
+      background: rgba(212, 179, 106, 0.12);
+    }
     body.is-dm header { box-shadow: inset 0 -2px 0 var(--blood); }
     .player-chip {
       display: none;
@@ -1695,8 +1725,8 @@
       header { gap: 0.4rem 0.5rem; }
       .brand span { display: none; }
       .header-spacer { display: none; }
-      .player-chip,
-      .dm-chip { display: none !important; }
+      .player-chip { display: none !important; }
+      body.is-dm .dm-menu { display: inline-flex; }
       #playerButton,
       #dmButton {
         margin-left: auto;
@@ -1764,7 +1794,12 @@
       <div class="header-spacer"></div>
       <span class="player-chip" id="playerChip">Spieler</span>
       <button class="ghost" id="playerButton" type="button">Spieler Login</button>
-      <span class="dm-chip">DM-Modus</span>
+      <div class="dm-menu" id="dmMenuWrap">
+        <button class="dm-chip" id="dmMenuBtn" type="button" aria-expanded="false" aria-haspopup="true">DM-Modus</button>
+        <div class="dm-menu-list hidden" id="dmMenuList" role="menu">
+          <button type="button" role="menuitem" id="dmMenuMyDoc">Für mich</button>
+        </div>
+      </div>
       <button class="ghost" id="dmButton" type="button">DM Login</button>
     </header>
 
@@ -1780,7 +1815,6 @@
           </div>
           <div class="page-toolbar hidden" id="homeToolbar">
             <button class="primary" id="homeNewBtn" type="button">+ Neuer Eintrag</button>
-            <button class="ghost" id="homeMyDocBtn" type="button">Für mich</button>
             <button class="ghost" id="homeUploadAllBtn" type="button">Alles hochladen</button>
           </div>
           <div class="cards" id="homeCards"></div>
@@ -1871,7 +1905,6 @@
           </div>
           <div class="page-toolbar hidden" id="entstehungToolbar">
             <button class="primary" id="entstehungNewBtn" type="button">+ Neuer Eintrag</button>
-            <button class="ghost" id="entstehungMyDocBtn" type="button">Für mich</button>
             <button class="ghost" id="entstehungUploadAllBtn" type="button">Alles hochladen</button>
           </div>
           <div id="entstehungText"></div>
@@ -1885,7 +1918,6 @@
           </div>
           <div class="page-toolbar hidden" id="sitzungToolbar">
             <button class="primary" id="sitzungNewBtn" type="button">+ Neue Sitzung</button>
-            <button class="ghost" id="sitzungMyDocBtn" type="button">Für mich</button>
             <button class="ghost" id="sitzungUploadAllBtn" type="button">Alles hochladen</button>
           </div>
           <div id="sitzungText"></div>
@@ -7002,6 +7034,22 @@
       toast(list.length + ' Einträge in einem Dokument.');
     }
 
+    function closeDmMenu() {
+      const list = document.getElementById('dmMenuList');
+      const btn = document.getElementById('dmMenuBtn');
+      if (list) list.classList.add('hidden');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleDmMenu() {
+      if (!isDM) return;
+      const list = document.getElementById('dmMenuList');
+      const btn = document.getElementById('dmMenuBtn');
+      const open = list.classList.contains('hidden');
+      list.classList.toggle('hidden', !open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
     function downloadOneEntry() {
       if (!isDM || currentIndex === null) return;
       const e = entries[currentIndex];
@@ -7399,16 +7447,11 @@
         add.className = 'primary';
         add.textContent = '+ Neuer Eintrag';
         add.onclick = newEntry;
-        const myDoc = document.createElement('button');
-        myDoc.className = 'ghost';
-        myDoc.textContent = 'Für mich';
-        myDoc.onclick = downloadMyDocument;
         const ulAll = document.createElement('button');
         ulAll.className = 'ghost';
         ulAll.textContent = 'Alles hochladen';
         ulAll.onclick = () => document.getElementById('uploadAllInput').click();
         actions.appendChild(add);
-        actions.appendChild(myDoc);
         actions.appendChild(ulAll);
       }
 
@@ -7761,6 +7804,7 @@
       document.getElementById('mapToolbar').classList.toggle('hidden', !on);
       updateSidebarVisibility(currentPage);
       if (!on) {
+        closeDmMenu();
         setPlacingPin(false);
         setDrawingBorder(false);
       }
@@ -7982,11 +8026,13 @@
     document.getElementById('globalSearch').addEventListener('keydown', ev => {
       if (ev.key === 'Escape') {
         closeSearchResults();
+        closeDmMenu();
         ev.target.blur();
       }
     });
     document.addEventListener('click', ev => {
       if (!ev.target.closest('.header-search') && !ev.target.closest('#searchResults')) closeSearchResults();
+      if (!ev.target.closest('#dmMenuWrap')) closeDmMenu();
     });
     window.addEventListener('resize', closeSearchResults);
     window.addEventListener('scroll', () => {
@@ -7995,13 +8041,14 @@
     document.getElementById('homeNewBtn').onclick = newEntry;
     document.getElementById('entstehungNewBtn').onclick = newEntry;
     document.getElementById('sitzungNewBtn').onclick = newEntry;
-    [
-      'homeMyDocBtn',
-      'entstehungMyDocBtn',
-      'sitzungMyDocBtn'
-    ].forEach(id => {
-      document.getElementById(id).onclick = downloadMyDocument;
-    });
+    document.getElementById('dmMenuBtn').onclick = ev => {
+      ev.stopPropagation();
+      toggleDmMenu();
+    };
+    document.getElementById('dmMenuMyDoc').onclick = () => {
+      closeDmMenu();
+      downloadMyDocument();
+    };
     [
       'homeUploadAllBtn',
       'entstehungUploadAllBtn',
