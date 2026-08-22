@@ -2539,6 +2539,27 @@
       renderHome();
     }
 
+    function isSingleEntryCategory(cat) {
+      return cat === 'Hochfänge' || cat === 'Niederfänge';
+    }
+
+    function visibleEntriesInCat(cat) {
+      return entries
+        .map((e, i) => ({ e, i }))
+        .filter(({ e }) => e.type === cat && (isDM || e.visibility === 'player'));
+    }
+
+    function openHomeCategory(cat) {
+      const matching = visibleEntriesInCat(cat);
+      if (isSingleEntryCategory(cat) && matching.length === 1) {
+        selectedHomeCat = cat;
+        loadEntry(matching[0].i);
+        return;
+      }
+      selectedHomeCat = cat;
+      renderHome();
+    }
+
     function openCatalogCategory(page, cat) {
       if (!confirmLeaveEditor()) return;
       dirty = false;
@@ -2592,7 +2613,7 @@
       toRoot.textContent = '← ' + catalogLabel(page);
       toRoot.onclick = () => openCatalogCategory(page, null);
       bar.appendChild(toRoot);
-      if (e.type) {
+      if (e.type && !isSingleEntryCategory(e.type)) {
         const toCat = document.createElement('button');
         toCat.className = 'ghost';
         toCat.type = 'button';
@@ -7417,10 +7438,7 @@
         const btn = document.createElement('button');
         btn.className = 'card';
         btn.innerHTML = `<b>${cat}</b><span>${count} ${count === 1 ? 'Eintrag' : 'Einträge'}</span>`;
-        btn.onclick = () => {
-          selectedHomeCat = cat;
-          renderHome();
-        };
+        btn.onclick = () => openHomeCategory(cat);
         els.homeCards.appendChild(btn);
       });
     }
@@ -7480,6 +7498,10 @@
           const open = !!expandedCategories[cat];
           head.innerHTML = `<span class="chev">${open ? '▼' : '▶'}</span><span>${cat}</span><span class="count">${matching.length}</span>`;
           head.onclick = () => {
+            if (isSingleEntryCategory(cat) && matching.length === 1) {
+              openHomeCategory(cat);
+              return;
+            }
             expandedCategories[cat] = !expandedCategories[cat];
             if (isCatalogPage(currentPage) && !els.homeView.classList.contains('hidden')) {
               selectedHomeCat = expandedCategories[cat] ? cat : null;
