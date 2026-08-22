@@ -427,6 +427,14 @@
     }
     .hero p { color: var(--muted); margin: 0 auto; max-width: 38rem; line-height: 1.6; }
 
+    .filter-row {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin: 0 0 1rem;
+    }
+
     .cards {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -1817,6 +1825,7 @@
             <button class="primary" id="homeNewBtn" type="button">+ Neuer Eintrag</button>
             <button class="ghost" id="homeUploadAllBtn" type="button">Alles hochladen</button>
           </div>
+          <div id="titleKingdomBar" class="filter-row hidden"></div>
           <div class="cards" id="homeCards"></div>
         </section>
 
@@ -1855,6 +1864,10 @@
             <div class="field hidden" id="sessionDateWrap">
               <label for="sessionDate">Datum der Sitzung</label>
               <input id="sessionDate" type="date" />
+            </div>
+            <div class="field hidden" id="titleKingdomWrap">
+              <label for="titleKingdom">Königreich</label>
+              <select id="titleKingdom"></select>
             </div>
             <div class="field">
               <label for="visibility">Sichtbarkeit</label>
@@ -2295,6 +2308,8 @@
     const KOMPENDIUM_CATS = ['Königreiche','Städte','Landschaften','NPCs','Götter','Religionen','Gilden','Magische Orte'];
     const BESTIARIUM_CATS = ['Hochfänge','Niederfänge','Dunkelwesen','Dunkelpflanzen','Bestien','Monster','Drachen','Humanoiden','Magische Wesen','Geister'];
     const GLOSSAR_CATS = ['Begriffe','Heilpflanzen','Titel & Ämter','Gegenstände','Sprachen','Feste & Rituale'];
+    const TITLE_OFFICE_CAT = 'Titel & Ämter';
+    const KINGDOM_CAT = 'Königreiche';
     const PAGE_CATS = {
       entstehung: [STORY_CAT],
       sitzung: [SESSION_CAT],
@@ -2398,6 +2413,7 @@
     let expandedCategories = {};
     let currentPage = 'map';
     let selectedHomeCat = null;
+    let titleKingdomFilter = '';
     let dirty = false;
     let imageCache = {};
     let pendingEntryImage = null;
@@ -2535,6 +2551,7 @@
 
     function leaveCategory() {
       selectedHomeCat = null;
+      titleKingdomFilter = '';
       updateHomeHero(currentPage);
       renderHome();
     }
@@ -2551,6 +2568,7 @@
     }
 
     function openHomeCategory(cat) {
+      titleKingdomFilter = '';
       const matching = visibleEntriesInCat(cat);
       if (isSingleEntryCategory(cat) && matching.length === 1) {
         selectedHomeCat = cat;
@@ -2683,7 +2701,8 @@
         visibility: e.visibility === 'dm' ? 'dm' : 'player',
         content: e.content || '',
         imageId: typeof e.imageId === 'string' ? e.imageId : '',
-        sessionDate: /^\d{4}-\d{2}-\d{2}$/.test(e.sessionDate || '') ? e.sessionDate : ''
+        sessionDate: /^\d{4}-\d{2}-\d{2}$/.test(e.sessionDate || '') ? e.sessionDate : '',
+        kingdom: String(e.kingdom || '').trim()
       }));
     }
 
@@ -2707,6 +2726,77 @@
       const show = els.type.value === SESSION_CAT;
       wrap.classList.toggle('hidden', !show);
       if (show && !input.value) input.value = todayIsoDate();
+    }
+
+    function kingdomNames() {
+      return visibleEntries()
+        .filter(e => e.type === KINGDOM_CAT && e.title)
+        .map(e => e.title)
+        .sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }));
+    }
+
+    function syncTitleKingdomField(selected) {
+      const wrap = document.getElementById('titleKingdomWrap');
+      const sel = document.getElementById('titleKingdom');
+      if (!wrap || !sel) return;
+      const show = els.type.value === TITLE_OFFICE_CAT;
+      wrap.classList.toggle('hidden', !show);
+      if (!show) return;
+      const current = selected != null ? String(selected) : sel.value;
+      sel.innerHTML = '';
+      const empty = document.createElement('option');
+      empty.value = '';
+      empty.textContent = 'Kein Königreich';
+      sel.appendChild(empty);
+      const names = kingdomNames();
+      if (current && !names.includes(current)) names.unshift(current);
+      names.forEach(name => {
+        const o = document.createElement('option');
+        o.value = name;
+        o.textContent = name;
+        sel.appendChild(o);
+      });
+      sel.value = names.includes(current) || current === '' ? current : '';
+    }
+
+    function applyTitleKingdomFilter(list, cat) {
+      if ((cat || selectedHomeCat) !== TITLE_OFFICE_CAT || !titleKingdomFilter) return list;
+      if (titleKingdomFilter === '__none__') return list.filter(({ e }) => !e.kingdom);
+      return list.filter(({ e }) => e.kingdom === titleKingdomFilter);
+    }
+
+    function renderTitleKingdomBar() {
+      const bar = document.getElementById('titleKingdomBar');
+      if (!bar) return;
+      const show = selectedHomeCat === TITLE_OFFICE_CAT && !els.homeView.classList.contains('hidden');
+      bar.innerHTML = '';
+      if (!show) {
+        bar.classList.add('hidden');
+        return;
+      }
+      const kingdoms = kingdomNames();
+      const titles = visibleEntriesInCat(TITLE_OFFICE_CAT);
+      const hasNone = titles.some(({ e }) => !e.kingdom);
+      if (!kingdoms.length && !hasNone) {
+        bar.classList.add('hidden');
+        return;
+      }
+      bar.classList.remove('hidden');
+      const add = (value, label) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = titleKingdomFilter === value ? 'primary' : 'ghost';
+        b.textContent = label;
+        b.onclick = () => {
+          titleKingdomFilter = value;
+          renderHome();
+          renderSidebar();
+        };
+        bar.appendChild(b);
+      };
+      add('', 'Alle');
+      kingdoms.forEach(name => add(name, name));
+      if (hasNone) add('__none__', 'Ohne Königreich');
     }
 
     function visibleEntries() {
@@ -6965,6 +7055,7 @@
           body.push('');
           body.push('### ' + (e.title || 'Ohne Titel'));
           body.push('Kategorie: ' + (e.type || type));
+          if (e.kingdom) body.push('Königreich: ' + e.kingdom);
           body.push('Sichtbarkeit: ' + visibilityLabel(e.visibility));
           if (e.sessionDate) body.push('Datum: ' + formatSessionDate(e.sessionDate));
           body.push('');
@@ -7101,7 +7192,7 @@
       const previous = entries.slice();
       const keep = {};
       previous.forEach(e => {
-        if (e.title) keep[e.title.toLowerCase()] = { imageId: e.imageId || '', sessionDate: e.sessionDate || '' };
+        if (e.title) keep[e.title.toLowerCase()] = { imageId: e.imageId || '', sessionDate: e.sessionDate || '', kingdom: e.kingdom || '' };
       });
       entries = parsed.map(e => Object.assign({}, e, keep[(e.title || '').toLowerCase()] || {}));
       try {
@@ -7186,6 +7277,7 @@
       els.editorView.classList.add('hidden');
       els.entstehungView.classList.add('hidden');
       els.sitzungView.classList.add('hidden');
+      titleKingdomFilter = '';
       updateHomeHero('world');
       renderHome();
       renderSidebar();
@@ -7204,6 +7296,7 @@
       els.editorView.classList.add('hidden');
       els.entstehungView.classList.add('hidden');
       els.sitzungView.classList.add('hidden');
+      titleKingdomFilter = '';
       updateHomeHero(page);
       renderHome();
       renderSidebar();
@@ -7372,6 +7465,7 @@
     function renderHome() {
       const nav = document.getElementById('homeCatNav');
       els.homeCards.innerHTML = '';
+      renderTitleKingdomBar();
       if (currentPage === 'world') {
         nav.classList.add('hidden');
         nav.innerHTML = '';
@@ -7402,19 +7496,23 @@
         document.getElementById('homeTitle').textContent = selectedHomeCat;
         document.getElementById('homeBlurb').textContent = 'Wähle einen Eintrag oder gehe zurück zu den Kategorien.';
         document.getElementById('homeSeal').textContent = selectedHomeCat.charAt(0);
-        const matching = visibleEntriesInCat(selectedHomeCat);
+        renderTitleKingdomBar();
+        const matching = applyTitleKingdomFilter(visibleEntriesInCat(selectedHomeCat), selectedHomeCat);
         if (!matching.length) {
           const empty = document.createElement('p');
           empty.style.gridColumn = '1 / -1';
           empty.style.color = 'var(--muted)';
           empty.style.textAlign = 'center';
-          empty.textContent = 'Noch keine Einträge in dieser Kategorie.';
+          empty.textContent = selectedHomeCat === TITLE_OFFICE_CAT && titleKingdomFilter
+            ? 'Keine Titel in diesem Königreich.'
+            : 'Noch keine Einträge in dieser Kategorie.';
           els.homeCards.appendChild(empty);
         } else {
           matching.forEach(({ e, i }) => {
             const btn = document.createElement('button');
             btn.className = 'card';
-            btn.innerHTML = `<b>${escapeHtml(e.title)}</b><span>${e.visibility === 'dm' ? 'nur DM' : 'Öffnen'}</span>`;
+            const sub = e.kingdom || (e.visibility === 'dm' ? 'nur DM' : 'Öffnen');
+            btn.innerHTML = `<b>${escapeHtml(e.title)}</b><span>${escapeHtml(sub)}</span>`;
             btn.onclick = () => loadEntry(i);
             els.homeCards.appendChild(btn);
           });
@@ -7479,7 +7577,7 @@
           list.appendChild(label);
         }
         group.cats.forEach(cat => {
-          const matching = visibleEntriesInCat(cat);
+          const matching = applyTitleKingdomFilter(visibleEntriesInCat(cat), cat);
 
           const box = document.createElement('div');
           box.className = 'cat';
@@ -7650,7 +7748,9 @@
       els.editorView.classList.add('hidden');
       els.viewer.classList.remove('hidden');
       document.getElementById('viewTitle').textContent = e.title;
-      document.getElementById('viewType').textContent = e.type + (e.visibility === 'dm' ? ' · nur DM' : '');
+      document.getElementById('viewType').textContent = e.type
+        + (e.kingdom ? ' · ' + e.kingdom : '')
+        + (e.visibility === 'dm' ? ' · nur DM' : '');
       document.getElementById('viewContent').innerHTML = entryBodyHtml(e);
       showViewImage(e.imageId, e.title);
       els.playerToEdit.classList.toggle('hidden', !isDM);
@@ -7673,6 +7773,7 @@
       if (nextType === SESSION_CAT) dateInput.value = e?.sessionDate || todayIsoDate();
       else dateInput.value = e?.sessionDate || '';
       syncSessionDateField();
+      syncTitleKingdomField(e?.kingdom || '');
       els.content.innerHTML = e?.content || '';
       els.editorHeading.textContent = e?.title ? 'Eintrag bearbeiten' : 'Neuer Eintrag';
       document.getElementById('deleteBtn').disabled = currentIndex === null;
@@ -7711,6 +7812,7 @@
       els.type.value = defaultTypeForPage(currentPage);
       if (els.type.value === SESSION_CAT) document.getElementById('sessionDate').value = todayIsoDate();
       syncSessionDateField();
+      syncTitleKingdomField('');
       openEditor();
       renderSidebar();
       els.title.focus();
@@ -7756,7 +7858,8 @@
         visibility: els.visibility.value,
         content: els.content.innerHTML,
         imageId: imageId,
-        sessionDate: els.type.value === SESSION_CAT ? (document.getElementById('sessionDate').value || '') : ''
+        sessionDate: els.type.value === SESSION_CAT ? (document.getElementById('sessionDate').value || '') : '',
+        kingdom: els.type.value === TITLE_OFFICE_CAT ? (document.getElementById('titleKingdom').value || '').trim() : ''
       };
       if (currentIndex === null) {
         entries.push(e);
@@ -8377,7 +8480,11 @@
       document.getElementById(id).addEventListener('input', () => { dirty = true; });
       document.getElementById(id).addEventListener('change', () => { dirty = true; });
     });
-    els.type.addEventListener('change', syncSessionDateField);
+    els.type.addEventListener('change', () => {
+      syncSessionDateField();
+      syncTitleKingdomField();
+    });
+    document.getElementById('titleKingdom').addEventListener('change', () => { dirty = true; });
     els.content.addEventListener('input', () => { dirty = true; });
     } catch (err) {
       console.warn(err);
