@@ -7320,7 +7320,7 @@
         return;
       }
       const cats = catalogCats();
-      if (!wantsSidebar(currentPage) && selectedHomeCat && cats.includes(selectedHomeCat)) {
+      if (selectedHomeCat && cats.includes(selectedHomeCat)) {
         nav.classList.remove('hidden');
         nav.innerHTML = '';
         const back = document.createElement('button');
@@ -7438,6 +7438,10 @@
           head.innerHTML = `<span class="chev">${open ? '▼' : '▶'}</span><span>${cat}</span><span class="count">${matching.length}</span>`;
           head.onclick = () => {
             expandedCategories[cat] = !expandedCategories[cat];
+            if (isCatalogPage(currentPage) && !els.homeView.classList.contains('hidden')) {
+              selectedHomeCat = expandedCategories[cat] ? cat : null;
+              renderHome();
+            }
             renderSidebar();
           };
           box.appendChild(head);
