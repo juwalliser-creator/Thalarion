@@ -6687,6 +6687,300 @@
       return { name: name, kind: kind, stats: stats, abilities: abilities, sections: sections, raw: text };
     }
 
+    const STAT_DE_PHRASES = [
+      ['Melee Weapon Attack', 'Nahkampfwaffenangriff'],
+      ['Ranged Weapon Attack', 'Fernkampfwaffenangriff'],
+      ['Melee Spell Attack', 'Nahkampfzauberangriff'],
+      ['Ranged Spell Attack', 'Fernkampfzauberangriff'],
+      ['Proficiency Bonus (PB)', 'Übungsbonus'],
+      ['Proficiency Bonus', 'Übungsbonus'],
+      ['passive Perception', 'passive Wahrnehmung'],
+      ['natural armor', 'natürliche Rüstung'],
+      ['Armor Class', 'Rüstungsklasse'],
+      ['Hit Points', 'Trefferpunkte'],
+      ['saving throw', 'Rettungswurf'],
+      ['saving throws', 'Rettungswürfe'],
+      ['Legendary Actions', 'Legendäre Aktionen'],
+      ['Mythic Actions', 'Mythische Aktionen'],
+      ['Bonus Actions', 'Bonusaktionen'],
+      ['Challenge Rating', 'Herausforderungsgrad'],
+      ['Saber-Toothed Tiger', 'Säbelzahntiger'],
+      ['Constrictor Snake', 'Würgeschlange'],
+      ['Giant Constrictor Snake', 'Riesenwürgeschlange'],
+      ['Giant Wasp', 'Riesenwespe'],
+      ['Giant Boar', 'Rieseneber'],
+      ['Giant Rat', 'Riesenratte'],
+      ['Giant Poisonous Snake', 'Riesengiftschlange'],
+      ['Poisonous Snake', 'Giftschlange'],
+      ['Great Cats', 'Großkatzen'],
+      ['Keen Hearing and Smell', 'Feines Gehör und Geruch'],
+      ['Keen Hearing and Sight', 'Feines Gehör und Sicht'],
+      ['Keen Smell', 'Feiner Geruchssinn'],
+      ['Pack Tactics', 'Rudeltaktik'],
+      ['has advantage on', 'hat Vorteil bei'],
+      ['has disadvantage on', 'hat Nachteil bei'],
+      ['advantage on', 'Vorteil bei'],
+      ['disadvantage on', 'Nachteil bei'],
+      ['Wisdom (Perception) checks', 'Weisheitswürfen (Wahrnehmung)'],
+      ['Wisdom (Perception) check', 'Weisheitswurf (Wahrnehmung)'],
+      ['Strength (Athletics)', 'Stärke (Athletik)'],
+      ['Dexterity (Stealth)', 'Geschicklichkeit (Heimlichkeit)'],
+      ['Dexterity (Acrobatics)', 'Geschicklichkeit (Akrobatik)'],
+      ['Intelligence (Investigation)', 'Intelligenz (Nachforschungen)'],
+      ['must succeed on a DC', 'muss einen Rettungswurf gegen SG bestehen von'],
+      ['or be knocked prone', 'oder wird umgeworfen'],
+      ['knocked prone', 'umgeworfen'],
+      ['Until this grapple ends', 'Bis dieser Halt endet'],
+      ['the target is grappled', 'das Ziel ist gepackt'],
+      ['escape DC', 'Entkommen SG'],
+      ['one target', 'ein Ziel'],
+      ['one creature', 'eine Kreatur'],
+      ['to hit', 'zum Treffen'],
+      ['piercing damage', 'Stichschaden'],
+      ['slashing damage', 'Hiebschaden'],
+      ['bludgeoning damage', 'Wuchtschaden'],
+      ['fire damage', 'Feuerschaden'],
+      ['cold damage', 'Kälteschaden'],
+      ['lightning damage', 'Blitzschaden'],
+      ['thunder damage', 'Donnerschaden'],
+      ['poison damage', 'Giftschaden'],
+      ['acid damage', 'Säureschaden'],
+      ['necrotic damage', 'nekrotischer Schaden'],
+      ['radiant damage', 'strahlender Schaden'],
+      ['psychic damage', 'psychischer Schaden'],
+      ['force damage', 'Kraftschaden'],
+      ['Damage Resistances', 'Schadensresistenz'],
+      ['Damage Immunities', 'Schadensimmunität'],
+      ['Condition Immunities', 'Zustandsimmunität'],
+      ['Damage Vulnerabilities', 'Schadensanfälligkeit'],
+      ['If the target is a creature', 'Wenn das Ziel eine Kreatur ist'],
+      ['If the target', 'Wenn das Ziel'],
+      ['that rely on hearing or smell', 'die auf Gehör oder Geruch beruhen'],
+      ['that rely on hearing', 'die auf Gehör beruhen'],
+      ['that rely on smell', 'die auf Geruch beruhen'],
+      ['at least one of', 'mindestens einer der'],
+      ['within 5 feet of', 'innerhalb von 1,50 m von'],
+      ['within 5 feet', 'innerhalb von 1,50 m'],
+      ['the ally isn\'t incapacitated', 'der Verbündete nicht kampfunfähig ist'],
+      ['isn\'t incapacitated', 'nicht kampfunfähig ist'],
+      ['an attack roll against a creature', 'einem Angriffswurf gegen eine Kreatur'],
+      ['an attack roll', 'einem Angriffswurf'],
+      ['the creature is restrained', 'die Kreatur ist festgesetzt'],
+      ['can\'t constrict another target', 'kann kein weiteres Ziel würgen'],
+      ['if at least one of the wolf\'s allies is', 'wenn mindestens ein Verbündeter des Wolfes'],
+      ['Medium Beast', 'Mittelgroße Bestie'],
+      ['Large Beast', 'Große Bestie'],
+      ['Small Beast', 'Kleine Bestie'],
+      ['Tiny Beast', 'Winzige Bestie'],
+      ['Huge Beast', 'Riesige Bestie'],
+      ['Gargantuan Beast', 'Gewaltige Bestie'],
+      ['Black Bear', 'Schwarzbär'],
+      ['Brown Bear', 'Braunbär'],
+      ['Giant Elk', 'Riesenelch'],
+      ['Giant Snake', 'Riesenschlange'],
+      ['Giant Spider', 'Riesenspinne'],
+      ['Giant Eagle', 'Riesenadler'],
+      ['Giant Owl', 'Rieseneule'],
+      ['Giant Frog', 'Riesenfrosch'],
+      ['Giant Goat', 'Riesenziege'],
+      ['Giant Crab', 'Riesenkrabbe'],
+      ['Giant Wolf Spider', 'Riesenwolfspinne'],
+      ['Poisonous Snake', 'Giftschlange'],
+      ['Constrictor Snake', 'Würgeschlange'],
+      ['Riding Horse', 'Reitpferd'],
+      ['Draft Horse', 'Zugpferd'],
+      ['Warhorse', 'Schlachtross'],
+      ['Giant Weasel', 'Riesenwiesel'],
+      ['Giant Badger', 'Riesendachs'],
+      ['Giant Lizard', 'Rieseneidechse'],
+      ['Giant Toad', 'Riesenkröte'],
+      ['Giant Vulture', 'Riesengeier'],
+      ['Blood Hawk', 'Blutfalke'],
+      ['Death Dog', 'Todeshund'],
+      ['Dire Wolf', 'Terrorwolf'],
+      ['Winter Wolf', 'Winterwolf'],
+      ['Phase Spider', 'Phasenspinne'],
+      ['Armor Class', 'Rüstungsklasse'],
+      ['Hit Point', 'Trefferpunkt'],
+      ['Challenge', 'Herausforderungsgrad'],
+      ['Features', 'Merkmale'],
+      ['Actions', 'Aktionen'],
+      ['Reactions', 'Reaktionen'],
+      ['Skills', 'Fertigkeiten'],
+      ['Senses', 'Sinne'],
+      ['Languages', 'Sprachen'],
+      ['Habitat', 'Lebensraum'],
+      ['Speed', 'Tempo'],
+      ['Unaligned', 'ohne Gesinnung'],
+      ['lawful good', 'rechtschaffen gut'],
+      ['neutral good', 'neutral gut'],
+      ['chaotic good', 'chaotisch gut'],
+      ['lawful neutral', 'rechtschaffen neutral'],
+      ['chaotic neutral', 'chaotisch neutral'],
+      ['lawful evil', 'rechtschaffen böse'],
+      ['neutral evil', 'neutral böse'],
+      ['chaotic evil', 'chaotisch böse'],
+      ['any alignment', 'jede Gesinnung'],
+      ['unaligned', 'ohne Gesinnung'],
+      ['blindsight', 'Blindsicht'],
+      ['darkvision', 'Dunkelsicht'],
+      ['tremorsense', 'Erschütterungssinn'],
+      ['truesight', 'Wahrer Blick'],
+      ['Perception', 'Wahrnehmung'],
+      ['Stealth', 'Heimlichkeit'],
+      ['Athletics', 'Athletik'],
+      ['Acrobatics', 'Akrobatik'],
+      ['Survival', 'Überlebenskunst'],
+      ['Intimidation', 'Einschüchtern'],
+      ['Insight', 'Motiv erkennen'],
+      ['Investigation', 'Nachforschungen'],
+      ['Nature', 'Naturkunde'],
+      ['Religion', 'Religion'],
+      ['Deception', 'Täuschen'],
+      ['Persuasion', 'Überzeugen'],
+      ['Performance', 'Auftreten'],
+      ['Arcana', 'Arkane Kunde'],
+      ['History', 'Geschichte'],
+      ['Medicine', 'Heilkunde'],
+      ['Animal Handling', 'Mit Tieren umgehen'],
+      ['Sleight of Hand', 'Fingerfertigkeit'],
+      ['Strength', 'Stärke'],
+      ['Dexterity', 'Geschicklichkeit'],
+      ['Constitution', 'Konstitution'],
+      ['Intelligence', 'Intelligenz'],
+      ['Wisdom', 'Weisheit'],
+      ['Charisma', 'Charisma'],
+      ['Forest', 'Wald'],
+      ['Grassland', 'Grasland'],
+      ['Hill', 'Hügel'],
+      ['Mountain', 'Gebirge'],
+      ['Arctic', 'Arktis'],
+      ['Coastal', 'Küste'],
+      ['Desert', 'Wüste'],
+      ['Swamp', 'Sumpf'],
+      ['Underwater', 'Unterwasser'],
+      ['Underdark', 'Unterreich'],
+      ['Urban', 'Stadt'],
+      ['Wolves', 'Wölfe'],
+      ['Snakes', 'Schlangen'],
+      ['Tigers', 'Tiger'],
+      ['Bears', 'Bären'],
+      ['Cats', 'Katzen'],
+      ['Beast', 'Bestie'],
+      ['Monstrosity', 'Monstrosität'],
+      ['Humanoid', 'Humanoid'],
+      ['Undead', 'Untoter'],
+      ['Fiend', 'Unhold'],
+      ['Celestial', 'Himmlischer'],
+      ['Fey', 'Fee'],
+      ['Dragon', 'Drache'],
+      ['Elemental', 'Elementar'],
+      ['Construct', 'Konstrukt'],
+      ['Ooze', 'Schlick'],
+      ['Plant', 'Pflanze'],
+      ['Giant', 'Riese'],
+      ['Aberration', 'Entartung'],
+      ['swim', 'schwimmen'],
+      ['climb', 'klettern'],
+      ['fly', 'fliegen'],
+      ['burrow', 'graben'],
+      ['hover', 'schweben'],
+      ['reach', 'Reichweite'],
+      ['Hit:', 'Treffer:'],
+      ['prone', 'liegend'],
+      ['grappled', 'gepackt'],
+      ['restrained', 'festgesetzt'],
+      ['incapacitated', 'kampfunfähig'],
+      ['frightened', 'verängstigt'],
+      ['poisoned', 'vergiftet'],
+      ['blinded', 'geblendet'],
+      ['deafened', 'taub'],
+      ['charmed', 'bezaubert'],
+      ['stunned', 'betäubt'],
+      ['paralyzed', 'gelähmt'],
+      ['petrified', 'versteinert'],
+      ['unconscious', 'bewusstlos'],
+      ['exhaustion', 'Erschöpfung'],
+      ['Pounce', 'Ansprung'],
+      ['Constrict', 'Würgen'],
+      ['Bite', 'Biss'],
+      ['Claw', 'Klaue'],
+      ['Claws', 'Klauen'],
+      ['Multiattack', 'Mehrfachangriff'],
+      ['Wolf', 'Wolf'],
+      ['Mastiff', 'Mastiff'],
+      ['Jackal', 'Schakal'],
+      ['Ape', 'Affe'],
+      ['Parrot', 'Papagei'],
+      ['Rat', 'Ratte'],
+      ['Fox', 'Fuchs'],
+      ['Elk', 'Elch'],
+      ['ft.', 'Fuß'],
+      ['ft', 'Fuß'],
+      ['xp', 'EP']
+    ].sort((a, b) => b[0].length - a[0].length);
+
+    function protectStatAbbrs(text) {
+      return String(text || '').replace(/\b(STR|DEX|CON|INT|WIS|CHA)\b/g, '\uE000$1\uE001');
+    }
+
+    function restoreStatAbbrs(text) {
+      return String(text || '').replace(/\uE000(STR|DEX|CON|INT|WIS|CHA)\uE001/gi, (_, k) => k.toUpperCase());
+    }
+
+    function applyStatGlossary(text) {
+      let out = protectStatAbbrs(text);
+      STAT_DE_PHRASES.forEach(([en, de]) => {
+        out = out.replace(new RegExp(en.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), de);
+      });
+      return restoreStatAbbrs(out).replace(/\s+/g, ' ').trim();
+    }
+
+    function stillLooksEnglish(text) {
+      return /\b(the|and|or|on|with|from|into|that|this|has|have|must|succeed|attack|damage|against|creature|target|if|until|another|allies|checks|rely|smell|hearing)\b/i.test(text || '');
+    }
+
+    async function translateEnChunk(text) {
+      const q = encodeURIComponent(text.slice(0, 450));
+      const r = await fetch('https://api.mymemory.translated.net/get?q=' + q + '&langpair=en|de');
+      if (!r.ok) return text;
+      const data = await r.json();
+      const out = data && data.responseData && data.responseData.translatedText;
+      return out && !/^MYMEMORY/i.test(out) ? out : text;
+    }
+
+    async function translateStatEnToDe(text) {
+      if (!text) return '';
+      let out = applyStatGlossary(text);
+      if (!stillLooksEnglish(out)) return out;
+      try {
+        const guarded = protectStatAbbrs(out);
+        const parts = guarded.match(/.{1,420}(?:[.!?]|$)/g) || [guarded];
+        const done = [];
+        for (const part of parts) done.push(await translateEnChunk(part));
+        out = restoreStatAbbrs(done.join(' ').replace(/\s+/g, ' ').trim());
+        out = applyStatGlossary(out);
+      } catch (err) {}
+      return restoreStatAbbrs(out);
+    }
+
+    async function translateParsedStatSheet(parsed) {
+      const t = async s => (s ? translateStatEnToDe(s) : '');
+      parsed.name = await t(parsed.name);
+      parsed.kind = await t(parsed.kind);
+      parsed.raw = await t(parsed.raw);
+      const stats = parsed.stats || {};
+      for (const key of Object.keys(stats)) stats[key] = await t(stats[key]);
+      for (const sec of parsed.sections || []) {
+        sec.title = await t(sec.title);
+        for (const item of sec.items || []) {
+          item.name = await t(item.name);
+          item.text = await t(item.text);
+        }
+      }
+      return parsed;
+    }
+
     function statSheetToHtml(parsed) {
       const s = parsed.stats || {};
       const rows = [];
@@ -6744,17 +7038,18 @@
       const existing = htmlToText(els.content.innerHTML || '').trim();
       if (existing && !confirm('Der Text wird durch den erkannten Stat-Sheet-Text ersetzt. Fortfahren?')) return;
       ocrBusy = true;
-      toast('Stat-Sheet wird gelesen… das kann einen Moment dauern.');
+        toast('Stat-Sheet wird gelesen und übersetzt… das kann einen Moment dauern.');
       try {
         const worker = await getOcrWorker();
         const canvas = await prepareStatSheetForOcr(src);
         const result = await worker.recognize(canvas);
         const parsed = parseStatSheetText(result && result.data ? result.data.text : '');
+        await translateParsedStatSheet(parsed);
         const html = statSheetToHtml(parsed);
         if (!htmlToText(html).trim()) throw new Error('Im Bild wurde kein Text erkannt.');
         els.content.innerHTML = html;
         dirty = true;
-        toast('Text erkannt. Bitte kurz prüfen und dann speichern.');
+        toast('Text erkannt und übersetzt. Bitte kurz prüfen und dann speichern.');
       } catch (err) {
         toast(err.message || 'Das Stat-Sheet konnte nicht gelesen werden.');
       } finally {
