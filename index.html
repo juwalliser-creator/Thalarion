@@ -6724,215 +6724,40 @@
       return { name: name, kind: kind, stats: stats, abilities: abilities, sections: sections, raw: text };
     }
 
-    const STAT_KEEP_EN = [
-      'Sleight of Hand', 'Animal Handling', 'Melee Weapon Attack', 'Ranged Weapon Attack',
-      'Melee Spell Attack', 'Ranged Spell Attack', 'passive Perception',
-      'Strength saving throw', 'Dexterity saving throw', 'Constitution saving throw',
-      'contested Dexterity check', 'contested check', 'bonus action', 'attack rolls',
-      'attack roll', 'saving throws', 'saving throw',
-      'Acrobatics', 'Perception', 'Stealth', 'Athletics', 'Survival', 'Intimidation',
-      'Insight', 'Investigation', 'Nature', 'Religion', 'Deception', 'Persuasion',
-      'Performance', 'Arcana', 'History', 'Medicine',
-      'Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma',
-      'advantage', 'disadvantage', 'Disengage', 'Dash', 'Dodge',
-      'blindsight', 'darkvision', 'tremorsense', 'truesight',
-      'bludgeoning', 'piercing', 'slashing', 'lightning', 'thunder',
-      'necrotic', 'radiant', 'psychic', 'poison', 'acid', 'cold', 'fire', 'force',
-      'grappled', 'restrained', 'incapacitated', 'frightened', 'poisoned',
-      'blinded', 'deafened', 'charmed', 'stunned', 'paralyzed', 'petrified',
-      'unconscious', 'exhaustion', 'invisible', 'prone',
-      'reaction', 'Forest', 'Grassland', 'Hill', 'Mountain', 'Arctic',
-      'Coastal', 'Desert', 'Swamp', 'Underwater', 'Underdark', 'Urban',
-      'climb', 'swim', 'fly', 'burrow', 'hover', 'Grab'
-    ].sort((a, b) => b.length - a.length);
-
-    const STAT_DE_PHRASES = [
-      ['Proficiency Bonus (PB)', 'Übungsbonus'],
-      ['Proficiency Bonus', 'Übungsbonus'],
-      ['natural armor', 'natürliche Rüstung'],
-      ['Armor Class', 'Rüstungsklasse'],
-      ['Hit Points', 'Trefferpunkte'],
-      ['Saving Throws', 'Rettungswürfe'],
-      ['Legendary Actions', 'Legendäre Aktionen'],
-      ['Mythic Actions', 'Mythische Aktionen'],
-      ['Bonus Actions', 'Bonusaktionen'],
-      ['Challenge Rating', 'Herausforderungsgrad'],
-      ['Saber-Toothed Tiger', 'Säbelzahntiger'],
-      ['Black Bear', 'Schwarzbär'],
-      ['Constrictor Snake', 'Würgeschlange'],
-      ['Giant Constrictor Snake', 'Riesenwürgeschlange'],
-      ['Giant Wasp', 'Riesenwespe'],
-      ['Giant Boar', 'Rieseneber'],
-      ['Poisonous Snake', 'Giftschlange'],
-      ['Giant Elk', 'Riesenelch'],
-      ['must succeed on a', 'muss bestehen:'],
-      ['or be knocked', 'oder wird'],
-      ['If the target is a creature', 'Wenn das Ziel eine Kreatur ist'],
-      ['If the target', 'Wenn das Ziel'],
-      ['that rely on hearing or smell', 'die auf Gehör oder Geruch beruhen'],
-      ['that rely on hearing', 'die auf Gehör beruhen'],
-      ['that rely on smell', 'die auf Geruch beruhen'],
-      ['at least one of', 'mindestens einer der'],
-      ['within', 'innerhalb von'],
-      ['one target', 'ein Ziel'],
-      ['one creature', 'eine Kreatur'],
-      ['to hit', 'zum Treffen'],
-      ['The wolf has', 'Der Wolf hat'],
-      ['The bear has', 'Der Bär hat'],
-      ['The ape has', 'Der Affe hat'],
-      ['The monkey has', 'Der Affe hat'],
-      ['The monkey uses', 'Der Affe nutzt'],
-      ['The monkey can use', 'Der Affe kann nutzen'],
-      ['it must', 'es muss'],
-      ['It must', 'Es muss'],
-      ['Medium Beast', 'Mittelgroße Bestie'],
-      ['Large Beast', 'Große Bestie'],
-      ['Small Beast', 'Kleine Bestie'],
-      ['Tiny Beast', 'Winzige Bestie'],
-      ['Huge Beast', 'Riesige Bestie'],
-      ['Gargantuan Beast', 'Gewaltige Bestie'],
-      ['Unaligned', 'ohne Gesinnung'],
-      ['Armor Class', 'Rüstungsklasse'],
-      ['Hit Point', 'Trefferpunkt'],
-      ['Challenge', 'Herausforderungsgrad'],
-      ['Features', 'Merkmale'],
-      ['Actions', 'Aktionen'],
-      ['Reactions', 'Reaktionen'],
-      ['Skills', 'Fertigkeiten'],
-      ['Senses', 'Sinne'],
-      ['Languages', 'Sprachen'],
-      ['Habitat', 'Lebensraum'],
-      ['Speed', 'Tempo'],
-      ['Beast', 'Bestie'],
-      ['reach', 'Reichweite'],
-      ['Hit:', 'Treffer:'],
-      ['damage', 'Schaden'],
-      ['Jackal', 'Schakal'],
-      ['Monkey', 'Affe'],
-      ['Ape', 'Affe'],
-      ['Wolf', 'Wolf']
-    ].sort((a, b) => b[0].length - a[0].length);
-
-    function protectStatTokens(text) {
-      const held = [];
-      let out = String(text || '');
-      out = out.replace(/(\d+(?:\/\d+)?)\s*ft\.?/gi, m => {
-        held.push(m.replace(/\s+/g, ' ').trim());
-        return '\uE010' + (held.length - 1) + '\uE011';
-      });
-      out = out.replace(/\bxp\b/gi, () => {
-        held.push('xp');
-        return '\uE010' + (held.length - 1) + '\uE011';
-      });
-      out = out.replace(/\b(STR|DEX|CON|INT|WIS|CHA)\b/g, m => {
-        held.push(m);
-        return '\uE010' + (held.length - 1) + '\uE011';
-      });
-      STAT_KEEP_EN.forEach(term => {
-        const re = new RegExp('\\b' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi');
-        out = out.replace(re, m => {
-          held.push(m);
-          return '\uE010' + (held.length - 1) + '\uE011';
-        });
-      });
-      return { text: out, held: held };
-    }
-
-    function restoreStatTokens(text, held) {
-      return String(text || '').replace(/\uE010(\d+)\uE011/g, (_, i) => held[Number(i)] || '');
-    }
-
-    function applyStatGlossary(text) {
-      let out = String(text || '');
-      STAT_DE_PHRASES.forEach(([en, de]) => {
-        out = out.replace(new RegExp(en.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), de);
-      });
-      return out.replace(/\s+/g, ' ').trim();
-    }
-
-    function stillLooksEnglish(text) {
-      return /\b(the|and|or|on|with|from|into|that|this|has|have|must|succeed|against|creature|target|if|until|another|allies|checks|rely|smell|hearing|makes|its)\b/i.test(text || '');
-    }
-
-    async function translateEnChunk(text) {
-      const q = encodeURIComponent(text.slice(0, 450));
-      const r = await fetch('https://api.mymemory.translated.net/get?q=' + q + '&langpair=en|de');
-      if (!r.ok) return text;
-      const data = await r.json();
-      const out = data && data.responseData && data.responseData.translatedText;
-      return out && !/^MYMEMORY/i.test(out) ? out : text;
-    }
-
-    async function translateStatEnToDe(text) {
-      if (!text) return '';
-      const keep = protectStatTokens(text);
-      let out = applyStatGlossary(keep.text);
-      if (stillLooksEnglish(restoreStatTokens(out, keep.held))) {
-        try {
-          const parts = out.match(/.{1,420}(?:[.!?]|$)/g) || [out];
-          const done = [];
-          for (const part of parts) done.push(await translateEnChunk(part));
-          out = applyStatGlossary(done.join(' ').replace(/\s+/g, ' ').trim());
-        } catch (err) {}
-      }
-      return restoreStatTokens(out, keep.held);
-    }
-
-    async function translateParsedStatSheet(parsed) {
-      const t = async s => (s ? translateStatEnToDe(s) : '');
-      parsed.name = await t(parsed.name);
-      parsed.kind = await t(parsed.kind);
-      parsed.raw = await t(parsed.raw);
-      const stats = parsed.stats || {};
-      for (const key of Object.keys(stats)) stats[key] = await t(stats[key]);
-      for (const sec of parsed.sections || []) {
-        sec.title = await t(sec.title);
-        for (const item of sec.items || []) {
-          item.text = await t(item.text);
-        }
-      }
-      return parsed;
+    function cleanStatText(text) {
+      return String(text || '').replace(/\s+/g, ' ').trim();
     }
 
     function statSheetToHtml(parsed) {
       const s = parsed.stats || {};
       const rows = [];
-      if (parsed.name) rows.push('<b>' + escapeHtml(parsed.name) + '</b>' + (parsed.kind ? '<br><i>' + escapeHtml(parsed.kind) + '</i>' : ''));
-      else if (parsed.kind) rows.push('<i>' + escapeHtml(parsed.kind) + '</i>');
+      if (parsed.name) rows.push('<b>' + escapeHtml(cleanStatText(parsed.name)) + '</b>' + (parsed.kind ? '<br><i>' + escapeHtml(cleanStatText(parsed.kind)) + '</i>' : ''));
+      else if (parsed.kind) rows.push('<i>' + escapeHtml(cleanStatText(parsed.kind)) + '</i>');
       const core = [];
-      if (s.ac) core.push('<b>Rüstungsklasse:</b> ' + escapeHtml(s.ac));
-      if (s.hp) core.push('<b>Trefferpunkte:</b> ' + escapeHtml(s.hp));
-      if (s.speed) core.push('<b>Tempo:</b> ' + escapeHtml(s.speed));
+      if (s.ac) core.push('<b>Armor Class:</b> ' + escapeHtml(cleanStatText(s.ac)));
+      if (s.hp) core.push('<b>Hit Points:</b> ' + escapeHtml(cleanStatText(s.hp)));
+      if (s.speed) core.push('<b>Speed:</b> ' + escapeHtml(cleanStatText(s.speed)));
       if (core.length) rows.push(core.join('<br>'));
       const keys = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
       if (keys.some(k => parsed.abilities[k])) {
         rows.push(keys.map(k => '<b>' + k + '</b> ' + escapeHtml(parsed.abilities[k] || '—')).join(' · '));
       }
       const extra = [
-        ['saves', 'Rettungswürfe'],
-        ['skills', 'Fertigkeiten'],
-        ['senses', 'Sinne'],
-        ['languages', 'Sprachen'],
-        ['habitat', 'Lebensraum'],
-        ['challenge', 'Herausforderungsgrad'],
-        ['pb', 'Übungsbonus']
+        ['saves', 'Saving Throws'],
+        ['skills', 'Skills'],
+        ['senses', 'Senses'],
+        ['languages', 'Languages'],
+        ['habitat', 'Habitat'],
+        ['challenge', 'Challenge'],
+        ['pb', 'Proficiency Bonus']
       ];
-      const extraLines = extra.filter(([key]) => s[key]).map(([key, label]) => '<b>' + label + ':</b> ' + escapeHtml(s[key]));
+      const extraLines = extra.filter(([key]) => s[key]).map(([key, label]) => '<b>' + label + ':</b> ' + escapeHtml(cleanStatText(s[key])));
       if (extraLines.length) rows.push(extraLines.join('<br>'));
-      const secLabel = {
-        features: 'Merkmale',
-        actions: 'Aktionen',
-        'bonus actions': 'Bonusaktionen',
-        reactions: 'Reaktionen',
-        'legendary actions': 'Legendäre Aktionen',
-        'mythic actions': 'Mythische Aktionen'
-      };
       parsed.sections.forEach(sec => {
-        const title = secLabel[sec.title.toLowerCase()] || sec.title;
-        rows.push('<b>' + escapeHtml(title) + '</b>');
+        rows.push('<b>' + escapeHtml(cleanStatText(sec.title)) + '</b>');
         sec.items.forEach(item => {
-          if (item.name) rows.push('<i><b>' + escapeHtml(item.name) + '.</b></i> ' + escapeHtml(item.text));
-          else if (item.text) rows.push(escapeHtml(item.text));
+          if (item.name) rows.push('<i><b>' + escapeHtml(cleanStatText(item.name)) + '.</b></i> ' + escapeHtml(cleanStatText(item.text)));
+          else if (item.text) rows.push(escapeHtml(cleanStatText(item.text)));
         });
       });
       if (rows.length < 2) return textToHtml(parsed.raw);
@@ -6952,13 +6777,12 @@
       const existing = htmlToText(els.content.innerHTML || '').trim();
       if (existing && !confirm('Der Text wird durch den erkannten Stat-Sheet-Text ersetzt. Fortfahren?')) return;
       ocrBusy = true;
-      toast('Stat-Sheet wird gelesen und übersetzt… das kann einen Moment dauern.');
+      toast('Stat-Sheet wird gelesen… das kann einen Moment dauern.');
       try {
         const worker = await getOcrWorker();
         const canvas = await prepareStatSheetForOcr(src);
         const result = await worker.recognize(canvas);
         const parsed = parseStatSheetText(result && result.data ? result.data.text : '');
-        await translateParsedStatSheet(parsed);
         const html = statSheetToHtml(parsed);
         if (!htmlToText(html).trim()) throw new Error('Im Bild wurde kein Text erkannt.');
         els.content.innerHTML = html;
