@@ -1824,7 +1824,6 @@
               <div class="entry-image-tools">
                 <button class="ghost" id="uploadEntryImageBtn" type="button">Bild hochladen</button>
                 <button class="ghost hidden" id="ocrEntryImageBtn" type="button">Text aus Stat-Sheet lesen</button>
-                <button class="ghost hidden" id="ocrDropEntryImageBtn" type="button">Text übernehmen und Bild löschen</button>
                 <button class="ghost hidden" id="removeEntryImageBtn" type="button">Bild entfernen</button>
               </div>
               <div id="entryImagePreview" class="entry-image-preview hidden">
@@ -2897,20 +2896,17 @@
       const img = document.getElementById('entryImagePreviewImg');
       const removeBtn = document.getElementById('removeEntryImageBtn');
       const ocrBtn = document.getElementById('ocrEntryImageBtn');
-      const ocrDropBtn = document.getElementById('ocrDropEntryImageBtn');
       if (!src) {
         wrap.classList.add('hidden');
         img.removeAttribute('src');
         removeBtn.classList.add('hidden');
         if (ocrBtn) ocrBtn.classList.add('hidden');
-        if (ocrDropBtn) ocrDropBtn.classList.add('hidden');
         return;
       }
       img.src = src;
       wrap.classList.remove('hidden');
       removeBtn.classList.remove('hidden');
       if (ocrBtn) ocrBtn.classList.remove('hidden');
-      if (ocrDropBtn) ocrDropBtn.classList.remove('hidden');
     }
 
     function showViewImage(imageId, title) {
@@ -6709,12 +6705,9 @@
       ['Ranged Spell Attack', 'Fernkampfzauberangriff'],
       ['Proficiency Bonus (PB)', 'Übungsbonus'],
       ['Proficiency Bonus', 'Übungsbonus'],
-      ['passive Perception', 'passive Wahrnehmung'],
       ['natural armor', 'natürliche Rüstung'],
       ['Armor Class', 'Rüstungsklasse'],
       ['Hit Points', 'Trefferpunkte'],
-      ['saving throw', 'Rettungswurf'],
-      ['saving throws', 'Rettungswürfe'],
       ['Legendary Actions', 'Legendäre Aktionen'],
       ['Mythic Actions', 'Mythische Aktionen'],
       ['Bonus Actions', 'Bonusaktionen'],
@@ -6728,42 +6721,12 @@
       ['Giant Poisonous Snake', 'Riesengiftschlange'],
       ['Poisonous Snake', 'Giftschlange'],
       ['Great Cats', 'Großkatzen'],
-      ['Keen Hearing and Smell', 'Feines Gehör und Geruch'],
-      ['Keen Hearing and Sight', 'Feines Gehör und Sicht'],
-      ['Keen Smell', 'Feiner Geruchssinn'],
-      ['Pack Tactics', 'Rudeltaktik'],
-      ['has advantage on', 'hat Vorteil bei'],
-      ['has disadvantage on', 'hat Nachteil bei'],
-      ['advantage on', 'Vorteil bei'],
-      ['disadvantage on', 'Nachteil bei'],
-      ['Wisdom (Perception) checks', 'Weisheitswürfen (Wahrnehmung)'],
-      ['Wisdom (Perception) check', 'Weisheitswurf (Wahrnehmung)'],
-      ['Strength (Athletics)', 'Stärke (Athletik)'],
-      ['Dexterity (Stealth)', 'Geschicklichkeit (Heimlichkeit)'],
-      ['Dexterity (Acrobatics)', 'Geschicklichkeit (Akrobatik)'],
-      ['Intelligence (Investigation)', 'Intelligenz (Nachforschungen)'],
       ['must succeed on a DC', 'muss einen Rettungswurf gegen SG bestehen von'],
-      ['or be knocked prone', 'oder wird umgeworfen'],
-      ['knocked prone', 'umgeworfen'],
       ['Until this grapple ends', 'Bis dieser Halt endet'],
-      ['the target is grappled', 'das Ziel ist gepackt'],
       ['escape DC', 'Entkommen SG'],
       ['one target', 'ein Ziel'],
       ['one creature', 'eine Kreatur'],
       ['to hit', 'zum Treffen'],
-      ['piercing damage', 'Stichschaden'],
-      ['slashing damage', 'Hiebschaden'],
-      ['bludgeoning damage', 'Wuchtschaden'],
-      ['fire damage', 'Feuerschaden'],
-      ['cold damage', 'Kälteschaden'],
-      ['lightning damage', 'Blitzschaden'],
-      ['thunder damage', 'Donnerschaden'],
-      ['poison damage', 'Giftschaden'],
-      ['acid damage', 'Säureschaden'],
-      ['necrotic damage', 'nekrotischer Schaden'],
-      ['radiant damage', 'strahlender Schaden'],
-      ['psychic damage', 'psychischer Schaden'],
-      ['force damage', 'Kraftschaden'],
       ['Damage Resistances', 'Schadensresistenz'],
       ['Damage Immunities', 'Schadensimmunität'],
       ['Condition Immunities', 'Zustandsimmunität'],
@@ -6776,11 +6739,6 @@
       ['at least one of', 'mindestens einer der'],
       ['within 5 feet of', 'innerhalb von 1,50 m von'],
       ['within 5 feet', 'innerhalb von 1,50 m'],
-      ['the ally isn\'t incapacitated', 'der Verbündete nicht kampfunfähig ist'],
-      ['isn\'t incapacitated', 'nicht kampfunfähig ist'],
-      ['an attack roll against a creature', 'einem Angriffswurf gegen eine Kreatur'],
-      ['an attack roll', 'einem Angriffswurf'],
-      ['the creature is restrained', 'die Kreatur ist festgesetzt'],
       ['can\'t constrict another target', 'kann kein weiteres Ziel würgen'],
       ['if at least one of the wolf\'s allies is', 'wenn mindestens ein Verbündeter des Wolfes'],
       ['Medium Beast', 'Mittelgroße Bestie'],
@@ -6837,34 +6795,6 @@
       ['chaotic evil', 'chaotisch böse'],
       ['any alignment', 'jede Gesinnung'],
       ['unaligned', 'ohne Gesinnung'],
-      ['blindsight', 'Blindsicht'],
-      ['darkvision', 'Dunkelsicht'],
-      ['tremorsense', 'Erschütterungssinn'],
-      ['truesight', 'Wahrer Blick'],
-      ['Perception', 'Wahrnehmung'],
-      ['Stealth', 'Heimlichkeit'],
-      ['Athletics', 'Athletik'],
-      ['Acrobatics', 'Akrobatik'],
-      ['Survival', 'Überlebenskunst'],
-      ['Intimidation', 'Einschüchtern'],
-      ['Insight', 'Motiv erkennen'],
-      ['Investigation', 'Nachforschungen'],
-      ['Nature', 'Naturkunde'],
-      ['Religion', 'Religion'],
-      ['Deception', 'Täuschen'],
-      ['Persuasion', 'Überzeugen'],
-      ['Performance', 'Auftreten'],
-      ['Arcana', 'Arkane Kunde'],
-      ['History', 'Geschichte'],
-      ['Medicine', 'Heilkunde'],
-      ['Animal Handling', 'Mit Tieren umgehen'],
-      ['Sleight of Hand', 'Fingerfertigkeit'],
-      ['Strength', 'Stärke'],
-      ['Dexterity', 'Geschicklichkeit'],
-      ['Constitution', 'Konstitution'],
-      ['Intelligence', 'Intelligenz'],
-      ['Wisdom', 'Weisheit'],
-      ['Charisma', 'Charisma'],
       ['Forest', 'Wald'],
       ['Grassland', 'Grasland'],
       ['Hill', 'Hügel'],
@@ -6902,26 +6832,6 @@
       ['hover', 'schweben'],
       ['reach', 'Reichweite'],
       ['Hit:', 'Treffer:'],
-      ['prone', 'liegend'],
-      ['grappled', 'gepackt'],
-      ['restrained', 'festgesetzt'],
-      ['incapacitated', 'kampfunfähig'],
-      ['frightened', 'verängstigt'],
-      ['poisoned', 'vergiftet'],
-      ['blinded', 'geblendet'],
-      ['deafened', 'taub'],
-      ['charmed', 'bezaubert'],
-      ['stunned', 'betäubt'],
-      ['paralyzed', 'gelähmt'],
-      ['petrified', 'versteinert'],
-      ['unconscious', 'bewusstlos'],
-      ['exhaustion', 'Erschöpfung'],
-      ['Pounce', 'Ansprung'],
-      ['Constrict', 'Würgen'],
-      ['Bite', 'Biss'],
-      ['Claw', 'Klaue'],
-      ['Claws', 'Klauen'],
-      ['Multiattack', 'Mehrfachangriff'],
       ['Wolf', 'Wolf'],
       ['Mastiff', 'Mastiff'],
       ['Jackal', 'Schakal'],
@@ -6935,6 +6845,23 @@
       ['xp', 'EP']
     ].sort((a, b) => b[0].length - a[0].length);
 
+    const STAT_KEEP_EN = [
+      'Sleight of Hand', 'Animal Handling', 'passive Perception',
+      'saving throws', 'saving throw', 'attack rolls', 'attack roll',
+      'Advantage', 'Disadvantage', 'advantage', 'disadvantage',
+      'Perception', 'Stealth', 'Athletics', 'Acrobatics', 'Survival',
+      'Intimidation', 'Insight', 'Investigation', 'Nature', 'Religion',
+      'Deception', 'Persuasion', 'Performance', 'Arcana', 'History',
+      'Medicine',
+      'Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma',
+      'blindsight', 'darkvision', 'tremorsense', 'truesight',
+      'bludgeoning', 'piercing', 'slashing', 'lightning', 'thunder',
+      'necrotic', 'radiant', 'psychic', 'poison', 'acid', 'cold', 'fire', 'force',
+      'grappled', 'grapple', 'restrained', 'incapacitated', 'frightened',
+      'poisoned', 'blinded', 'deafened', 'charmed', 'stunned', 'paralyzed',
+      'petrified', 'unconscious', 'exhaustion', 'invisible', 'prone'
+    ].sort((a, b) => b.length - a.length);
+
     function protectStatAbbrs(text) {
       return String(text || '').replace(/\b(STR|DEX|CON|INT|WIS|CHA)\b/g, '\uE000$1\uE001');
     }
@@ -6943,12 +6870,29 @@
       return String(text || '').replace(/\uE000(STR|DEX|CON|INT|WIS|CHA)\uE001/gi, (_, k) => k.toUpperCase());
     }
 
+    function protectKeepEn(text) {
+      const held = [];
+      let out = String(text || '');
+      STAT_KEEP_EN.forEach(term => {
+        const re = new RegExp('\\b' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi');
+        out = out.replace(re, m => {
+          held.push(m);
+          return '\uE010' + (held.length - 1) + '\uE011';
+        });
+      });
+      return { text: out, held: held };
+    }
+
+    function restoreKeepEn(text, held) {
+      return String(text || '').replace(/\uE010(\d+)\uE011/g, (_, i) => held[Number(i)] || '');
+    }
+
     function applyStatGlossary(text) {
-      let out = protectStatAbbrs(text);
+      let out = String(text || '');
       STAT_DE_PHRASES.forEach(([en, de]) => {
         out = out.replace(new RegExp(en.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), de);
       });
-      return restoreStatAbbrs(out).replace(/\s+/g, ' ').trim();
+      return out.replace(/\s+/g, ' ').trim();
     }
 
     function stillLooksEnglish(text) {
@@ -6966,17 +6910,17 @@
 
     async function translateStatEnToDe(text) {
       if (!text) return '';
-      let out = applyStatGlossary(text);
-      if (!stillLooksEnglish(out)) return out;
-      try {
-        const guarded = protectStatAbbrs(out);
-        const parts = guarded.match(/.{1,420}(?:[.!?]|$)/g) || [guarded];
-        const done = [];
-        for (const part of parts) done.push(await translateEnChunk(part));
-        out = restoreStatAbbrs(done.join(' ').replace(/\s+/g, ' ').trim());
-        out = applyStatGlossary(out);
-      } catch (err) {}
-      return restoreStatAbbrs(out);
+      const keep = protectKeepEn(protectStatAbbrs(text));
+      let out = applyStatGlossary(keep.text);
+      if (stillLooksEnglish(restoreKeepEn(out, keep.held))) {
+        try {
+          const parts = out.match(/.{1,420}(?:[.!?]|$)/g) || [out];
+          const done = [];
+          for (const part of parts) done.push(await translateEnChunk(part));
+          out = applyStatGlossary(done.join(' ').replace(/\s+/g, ' ').trim());
+        } catch (err) {}
+      }
+      return restoreKeepEn(restoreStatAbbrs(out), keep.held);
     }
 
     async function translateParsedStatSheet(parsed) {
@@ -6989,7 +6933,6 @@
       for (const sec of parsed.sections || []) {
         sec.title = await t(sec.title);
         for (const item of sec.items || []) {
-          item.name = await t(item.name);
           item.text = await t(item.text);
         }
       }
@@ -7046,16 +6989,12 @@
       return (img && img.getAttribute('src')) || '';
     }
 
-    async function readStatSheetFromEditorImage(opts) {
+    async function readStatSheetFromEditorImage() {
       if (!isDM || ocrBusy) return;
-      const dropImage = !!(opts && opts.dropImage);
       const src = currentEditorImageSrc();
       if (!src) return toast('Zuerst ein Stat-Sheet-Bild hochladen oder den Eintrag mit Bild öffnen.');
       const existing = htmlToText(els.content.innerHTML || '').trim();
-      const ask = dropImage
-        ? 'Der Text wird übernommen und das Bild nach dem Speichern gelöscht. Fortfahren?'
-        : 'Der Text wird durch den erkannten Stat-Sheet-Text ersetzt. Fortfahren?';
-      if ((existing || dropImage) && !confirm(ask)) return;
+      if (existing && !confirm('Der Text wird durch den erkannten Stat-Sheet-Text ersetzt. Fortfahren?')) return;
       ocrBusy = true;
       toast('Stat-Sheet wird gelesen und übersetzt… das kann einen Moment dauern.');
       try {
@@ -7067,14 +7006,8 @@
         const html = statSheetToHtml(parsed);
         if (!htmlToText(html).trim()) throw new Error('Im Bild wurde kein Text erkannt.');
         els.content.innerHTML = html;
-        if (dropImage) {
-          pendingEntryImage = false;
-          setEditorImagePreview(null);
-        }
         dirty = true;
-        toast(dropImage
-          ? 'Text übernommen, Bild entfernt. Bitte prüfen und speichern.'
-          : 'Text erkannt und übersetzt. Bitte kurz prüfen und dann speichern.');
+        toast('Text erkannt und übersetzt. Bitte kurz prüfen und dann speichern.');
       } catch (err) {
         toast(err.message || 'Das Stat-Sheet konnte nicht gelesen werden.');
       } finally {
@@ -8427,9 +8360,6 @@
     };
     document.getElementById('ocrEntryImageBtn').onclick = () => {
       readStatSheetFromEditorImage();
-    };
-    document.getElementById('ocrDropEntryImageBtn').onclick = () => {
-      readStatSheetFromEditorImage({ dropImage: true });
     };
     document.getElementById('removeEntryImageBtn').onclick = () => {
       pendingEntryImage = false;
