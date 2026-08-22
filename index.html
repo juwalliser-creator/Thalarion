@@ -6682,110 +6682,11 @@
 
     function getOcrWorker() {
       if (ocrWorkerPromise) return ocrWorkerPromise;
-      ocrWorkerPromise = loadTesseract().then(T => T.createWorker('eng', 1)).catch(err => {
+      ocrWorkerPromise = loadTesseract().then(T => T.createWorker('eng')).catch(err => {
         ocrWorkerPromise = null;
         throw err;
       });
       return ocrWorkerPromise;
-    }
-
-    function cropStatCanvas(src, sx, sy, sw, sh, pad) {
-      pad = pad || 18;
-      const c = document.createElement('canvas');
-      c.width = Math.max(1, sw) + pad * 2;
-      c.height = Math.max(1, sh) + pad * 2;
-      const ctx = c.getContext('2d');
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, c.width, c.height);
-      ctx.drawImage(src, sx, sy, sw, sh, pad, pad, sw, sh);
-      return c;
-    }
-
-    function removeStatSheetRules(data, w, h) {
-      const rowInk = new Float32Array(h);
-      for (let y = 0; y < h; y++) {
-        let ink = 0;
-        for (let x = 0; x < w; x++) if (data[(y * w + x) * 4] < 80) ink++;
-        rowInk[y] = ink / w;
-      }
-      for (let y = 0; y < h; y++) {
-        if (rowInk[y] < 0.38) continue;
-        const prev = y > 2 ? (rowInk[y - 2] + rowInk[y - 1]) / 2 : 0;
-        const next = y < h - 3 ? (rowInk[y + 1] + rowInk[y + 2]) / 2 : 0;
-        if (rowInk[y] > prev * 1.8 && rowInk[y] > next * 1.8) {
-          for (let x = 0; x < w; x++) {
-            const i = (y * w + x) * 4;
-            data[i] = data[i + 1] = data[i + 2] = 255;
-          }
-        }
-      }
-    }
-
-    function adaptiveThreshold(data, w, h, win, cut) {
-      win = win || 31;
-      cut = cut || 9;
-      const integ = new Float32Array((w + 1) * (h + 1));
-      for (let y = 1; y <= h; y++) {
-        let row = 0;
-        for (let x = 1; x <= w; x++) {
-          row += data[((y - 1) * w + (x - 1)) * 4];
-          integ[y * (w + 1) + x] = integ[(y - 1) * (w + 1) + x] + row;
-        }
-      }
-      const half = (win - 1) >> 1;
-      for (let y = 0; y < h; y++) {
-        const y1 = Math.max(0, y - half);
-        const y2 = Math.min(h - 1, y + half);
-        for (let x = 0; x < w; x++) {
-          const x1 = Math.max(0, x - half);
-          const x2 = Math.min(w - 1, x + half);
-          const count = (x2 - x1 + 1) * (y2 - y1 + 1);
-          const sum = integ[(y2 + 1) * (w + 1) + (x2 + 1)]
-            - integ[y1 * (w + 1) + (x2 + 1)]
-            - integ[(y2 + 1) * (w + 1) + x1]
-            + integ[y1 * (w + 1) + x1];
-          const i = (y * w + x) * 4;
-          const v = data[i] < (sum / count) - cut ? 0 : 255;
-          data[i] = data[i + 1] = data[i + 2] = v;
-        }
-      }
-    }
-
-    function findStatSheetColumnSplit(canvas) {
-      const w = canvas.width;
-      const h = canvas.height;
-      if (w < 700) return -1;
-      const pix = canvas.getContext('2d').getImageData(0, 0, w, h).data;
-      const ink = new Float32Array(w);
-      const y0 = Math.floor(h * 0.06);
-      const y1 = Math.floor(h * 0.96);
-      for (let x = 0; x < w; x++) {
-        let n = 0;
-        for (let y = y0; y < y1; y++) if (pix[(y * w + x) * 4] < 128) n++;
-        ink[x] = n;
-      }
-      const smooth = new Float32Array(w);
-      const r = Math.max(6, Math.round(w / 180));
-      for (let x = 0; x < w; x++) {
-        let s = 0;
-        let n = 0;
-        for (let i = Math.max(0, x - r); i <= Math.min(w - 1, x + r); i++) { s += ink[i]; n++; }
-        smooth[x] = s / n;
-      }
-      const x0 = Math.floor(w * 0.34);
-      const x1 = Math.floor(w * 0.66);
-      let bestX = -1;
-      let bestVal = Infinity;
-      for (let x = x0; x < x1; x++) {
-        if (smooth[x] < bestVal) { bestVal = smooth[x]; bestX = x; }
-      }
-      let leftPeak = 0;
-      let rightPeak = 0;
-      for (let x = Math.floor(w * 0.06); x < x0; x++) if (smooth[x] > leftPeak) leftPeak = smooth[x];
-      for (let x = x1; x < Math.floor(w * 0.94); x++) if (smooth[x] > rightPeak) rightPeak = smooth[x];
-      const peak = Math.min(leftPeak, rightPeak);
-      if (peak < 8 || bestVal > peak * 0.22) return -1;
-      return bestX;
     }
 
     function prepareStatSheetForOcr(src) {
@@ -6793,28 +6694,21 @@
         const img = new Image();
         img.crossOrigin = 'anonymous';
         img.onload = () => {
-          let scale = Math.max(2.2, 2200 / Math.max(img.width, 1));
-          if (img.width * scale > 3800) scale = 3800 / img.width;
-          if (img.height * scale > 5200) scale = 5200 / img.height;
+          const scale = Math.max(2, 1600 / Math.max(img.width, 1));
           const canvas = document.createElement('canvas');
-          canvas.width = Math.max(1, Math.round(img.width * scale));
-          canvas.height = Math.max(1, Math.round(img.height * scale));
-          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext('2d');
           ctx.fillStyle = '#fff';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           const pix = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const d = pix.data;
           for (let i = 0; i < d.length; i += 4) {
-            const r = d[i];
-            const g = d[i + 1];
-            const b = d[i + 2];
-            const gray = r * 0.3 + g * 0.59 + b * 0.11;
-            const redInk = Math.min(g, b);
-            d[i] = d[i + 1] = d[i + 2] = Math.min(gray, redInk * 1.05);
+            const g = d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11;
+            const v = g < 168 ? 0 : 255;
+            d[i] = d[i + 1] = d[i + 2] = v;
           }
-          removeStatSheetRules(d, canvas.width, canvas.height);
-          adaptiveThreshold(d, canvas.width, canvas.height, 33, 8);
           ctx.putImageData(pix, 0, 0);
           resolve(canvas);
         };
@@ -6823,101 +6717,18 @@
       });
     }
 
-    async function ocrStatCanvas(worker, canvas, psm) {
-      await worker.setParameters({
-        tessedit_pageseg_mode: String(psm || 4),
-        preserve_interword_spaces: '1',
-        user_defined_dpi: '300'
-      });
-      const result = await worker.recognize(canvas);
-      return (result && result.data && result.data.text) || '';
+    function pickStatLine(text, re) {
+      const m = String(text || '').match(re);
+      return m ? m[1].replace(/\s+/g, ' ').trim() : '';
     }
-
-    async function readStatSheetOcrText(worker, canvas) {
-      const split = findStatSheetColumnSplit(canvas);
-      if (split > 0) {
-        const gap = Math.max(10, Math.round(canvas.width * 0.012));
-        const leftW = Math.max(80, split - gap);
-        const rightX = Math.min(canvas.width - 80, split + gap);
-        const left = cropStatCanvas(canvas, 0, 0, leftW, canvas.height);
-        const right = cropStatCanvas(canvas, rightX, 0, canvas.width - rightX, canvas.height);
-        const tLeft = await ocrStatCanvas(worker, left, 4);
-        const tRight = await ocrStatCanvas(worker, right, 4);
-        return (tLeft.trim() + '\n\n' + tRight.trim()).trim();
-      }
-      return (await ocrStatCanvas(worker, canvas, 4)).trim();
-    }
-
-    function tidyOcrStatText(text) {
-      return String(text || '')
-        .replace(/\u00a0/g, ' ')
-        .replace(/[|]+/g, ' ')
-        .replace(/Armor\s*C[il1]ass/gi, 'Armor Class')
-        .replace(/Hit\s*P[o0]ints?/gi, 'Hit Points')
-        .replace(/Saving\s*Throws?/gi, 'Saving Throws')
-        .replace(/Damage\s*Vulnerabilit(?:y|ies)/gi, 'Damage Vulnerabilities')
-        .replace(/Damage\s*Res[il1]stances?/gi, 'Damage Resistances')
-        .replace(/Damage\s*Immunit(?:y|ies)/gi, 'Damage Immunities')
-        .replace(/Condition\s*Immunit(?:y|ies)/gi, 'Condition Immunities')
-        .replace(/Prof[il1]ciency\s*Bonus/gi, 'Proficiency Bonus')
-        .replace(/\bAct[il1]ons\b/gi, 'Actions')
-        .replace(/\bReact[il1]ons\b/gi, 'Reactions')
-        .replace(/\bBonus\s*Act[il1]ons\b/gi, 'Bonus Actions')
-        .replace(/\bLegendary\s*Act[il1]ons\b/gi, 'Legendary Actions')
-        .replace(/\bf[tl]\.\b/gi, 'ft.')
-        .replace(/[ \t]+/g, ' ')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim();
-    }
-
-    const STAT_FIELD_DEFS = [
-      ['ac', /Armor\s*Class/i],
-      ['hp', /Hit\s*Points?/i],
-      ['speed', /Speed/i],
-      ['saves', /Saving\s*Throws?/i],
-      ['skills', /Skills?/i],
-      ['vuln', /Damage\s*Vulnerabilities/i],
-      ['resist', /Damage\s*Resistances?/i],
-      ['immune', /Damage\s*Immunities/i],
-      ['condImmune', /Condition\s*Immunities/i],
-      ['senses', /Senses?/i],
-      ['languages', /Languages?/i],
-      ['habitat', /Habitat/i],
-      ['challenge', /Challenge(?:\s*Rating)?/i],
-      ['pb', /(?:Proficiency\s*Bonus|\bPB\b)/i]
-    ];
-
-    const STAT_SECTION_NAMES = [
-      'Traits', 'Features', 'Actions', 'Bonus Actions', 'Reactions',
-      'Legendary Actions', 'Mythic Actions', 'Lair Actions', 'Regional Effects'
-    ];
 
     function parseStatAbilities(text) {
       const keys = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
       const out = {};
       keys.forEach(k => {
-        const m = text.match(new RegExp('\\b' + k + '\\s*(\\d{1,2})\\s*\\(\\s*([+−–-]\\d+)\\s*\\)', 'i'));
+        const m = text.match(new RegExp(k + '\\s*(\\d{1,2})\\s*\\(\\s*([+−–-]\\d+)\\s*\\)', 'i'));
         if (m) out[k] = m[1] + ' (' + m[2].replace(/[−–]/g, '-') + ')';
       });
-      if (keys.every(k => out[k])) return out;
-      const header = text.match(/\bSTR\b[\s\S]{0,50}\bDEX\b[\s\S]{0,50}\bCON\b[\s\S]{0,50}\bINT\b[\s\S]{0,50}\bWIS\b[\s\S]{0,50}\bCHA\b/i);
-      if (header) {
-        const after = text.slice(text.indexOf(header[0]) + header[0].length);
-        const nums = [...after.matchAll(/\b(\d{1,2})\b/g)].map(m => Number(m[1])).filter(n => n >= 1 && n <= 30).slice(0, 6);
-        const mods = [...after.matchAll(/\(\s*([+−–-]\d+)\s*\)/g)].map(m => m[1].replace(/[−–]/g, '-')).slice(0, 6);
-        if (nums.length === 6) {
-          keys.forEach((k, i) => {
-            if (out[k]) return;
-            const n = nums[i];
-            let mod = mods[i];
-            if (!mod) {
-              const m = Math.floor((n - 10) / 2);
-              mod = (m >= 0 ? '+' : '') + m;
-            }
-            out[k] = n + ' (' + mod + ')';
-          });
-        }
-      }
       if (keys.every(k => out[k])) return out;
       const mods = [...text.matchAll(/(\d{1,2})\s*\(\s*([+−–-]\d+)\s*\)/g)].slice(0, 6);
       if (mods.length === 6) {
@@ -6928,103 +6739,50 @@
       return out;
     }
 
-    function pickLabeledStatFields(text) {
-      const hits = STAT_FIELD_DEFS.map(([key, re]) => {
-        const m = String(text || '').match(re);
-        return m ? { key, index: m.index, len: m[0].length } : null;
-      }).filter(Boolean).sort((a, b) => a.index - b.index);
-      const stats = {};
-      hits.forEach((hit, i) => {
-        const start = hit.index + hit.len;
-        const end = i + 1 < hits.length ? hits[i + 1].index : text.length;
-        let val = text.slice(start, end).replace(/^[\s:.\-–]+/, '').trim();
-        val = val.split(/\n(?:Traits|Features|Actions|Bonus Actions|Reactions|Legendary Actions|Mythic Actions|Lair Actions)\s*$/im)[0] || val;
-        val = val.replace(/\s+/g, ' ').trim();
-        if (hit.key === 'ac' || hit.key === 'hp' || hit.key === 'speed') {
-          val = val.replace(/\s+\bSTR\b[\s\S]*$/i, '').trim();
-        }
-        if (hit.key === 'challenge') {
-          const pb = val.match(/Proficiency\s*Bonus\s*([+\-]?\d+)/i);
-          if (pb) {
-            stats.pb = pb[1].replace(/^(\d)/, '+$1');
-            val = val.replace(/Proficiency\s*Bonus\s*[+\-]?\d+/i, '').trim();
-          }
-          val = val.replace(/\s*PB\s*[+\-]?\d+\s*$/i, '').trim();
-        }
-        if (hit.key === 'pb') {
-          const m = val.match(/([+\-]?\d+)/);
-          val = m ? m[1].replace(/^(\d)/, '+$1') : val;
-        }
-        if (val) stats[hit.key] = val;
-      });
-      return stats;
-    }
-
-    function parseStatSectionItems(lines) {
-      const items = [];
-      const nameRe = /^([A-Z][A-Za-z0-9'’\- ]{1,72}(?:\s*\([^)]{1,48}\))?)\.\s*(.*)$/;
-      const skipName = /^(The|If|On|A|An|This|When|While|Each|Its|At|In|For|With|After)\b/;
-      lines.forEach(line => {
-        const item = line.match(nameRe);
-        if (item && !skipName.test(item[1])) {
-          items.push({ name: item[1].trim(), text: item[2].trim() });
-        } else if (items.length) {
-          items[items.length - 1].text += ' ' + line;
-        } else {
-          items.push({ name: '', text: line });
-        }
-      });
-      return items.filter(it => it.name || it.text);
-    }
-
     function parseStatSheetText(raw) {
-      const text = tidyOcrStatText(raw);
+      const text = String(raw || '')
+        .replace(/\u00a0/g, ' ')
+        .replace(/[|]+/g, ' ')
+        .replace(/[ \t]+/g, ' ')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
       const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean)
         .filter(l => !/SRD5|OGL|CC-BY/i.test(l) && !/^\[\d+\]$/.test(l) && !/^\[.+\]\s*\[/.test(l));
       const joined = lines.join('\n');
       const sizeRe = /^(Tiny|Small|Medium|Large|Huge|Gargantuan)\b/i;
-      const skipName = /^(Armor|Hit|Speed|STR|DEX|CON|INT|WIS|CHA|Skills|Senses|Languages|Habitat|Challenge|Features|Actions|Reactions|Saving|Damage|Condition|Proficiency|Traits|Bonus)\b/i;
-      const name = lines.find(l => l.length > 1 && l.length < 48 && !sizeRe.test(l) && !skipName.test(l) && !/\d{2,}/.test(l)) || '';
+      const name = lines.find(l => l.length > 1 && !sizeRe.test(l) && !/^(Armor|Hit|Speed|STR|Skills|Senses|Languages|Habitat|Challenge|Features|Actions|Reactions)\b/i.test(l)) || '';
       const kind = lines.find(l => sizeRe.test(l)) || '';
       const abilities = parseStatAbilities(joined);
-      const secRe = new RegExp('^(' + STAT_SECTION_NAMES.join('|') + ')\\s*$', 'i');
-      let firstSec = lines.findIndex(l => secRe.test(l));
-      let impliedActions = false;
-      if (firstSec < 0) {
-        const idx = lines.findIndex(l =>
-          /^Multiattack\b/i.test(l) ||
-          /^[A-Z][A-Za-z0-9'’\- ]{1,48}(?:\s*\([^)]{1,40}\))?\.?\s+(Melee |Ranged |The |One |Each )/i.test(l)
-        );
-        if (idx >= 0) { firstSec = idx; impliedActions = true; }
-      }
-      const headLines = firstSec >= 0 ? lines.slice(0, firstSec) : lines.slice();
-      const stats = pickLabeledStatFields(headLines.join('\n'));
+      const fields = [
+        ['ac', /Armor\s*C[il]ass\s*[:.]?\s*(.+)/i],
+        ['hp', /Hit\s*Points?\s*[:.]?\s*(.+)/i],
+        ['speed', /Speed\s*[:.]?\s*(.+)/i],
+        ['saves', /Saving\s*Throws?\s*[:.]?\s*(.+)/i],
+        ['skills', /Skills?\s*[:.]?\s*(.+)/i],
+        ['senses', /Senses?\s*[:.]?\s*(.+)/i],
+        ['languages', /Languages?\s*[:.]?\s*(.+)/i],
+        ['habitat', /Habitat\s*[:.]?\s*(.+)/i],
+        ['challenge', /Challenge(?:\s*Rating)?\s*[:.]?\s*(.+?)(?=\s*Proficiency|\s*PB\b|$)/i],
+        ['pb', /(?:Proficiency\s*Bonus|\bPB\b)\s*(?:\(PB\))?\s*([+\-]?\d+)/i]
+      ];
+      const stats = {};
+      fields.forEach(([key, re]) => { stats[key] = pickStatLine(joined, re); });
+      const sectionNames = ['Features', 'Actions', 'Bonus Actions', 'Reactions', 'Legendary Actions', 'Mythic Actions'];
       const sections = [];
-      if (impliedActions) {
-        sections.push({ title: 'Actions', items: parseStatSectionItems(lines.slice(firstSec)) });
-      } else if (firstSec >= 0) {
-        let current = null;
-        lines.slice(firstSec).forEach(line => {
-          if (secRe.test(line)) {
-            current = { title: line.replace(/\s+/g, ' '), items: [] };
-            sections.push(current);
-            return;
-          }
-          if (!current) return;
-          current.items.push(line);
-        });
-        sections.forEach(sec => { sec.items = parseStatSectionItems(sec.items); });
-      }
-      let lastField = -1;
-      headLines.forEach((line, i) => {
-        if (STAT_FIELD_DEFS.some(([, re]) => re.test(line))) lastField = i;
+      const secRe = new RegExp('^(' + sectionNames.join('|') + ')\\s*$', 'i');
+      let current = null;
+      lines.forEach(line => {
+        if (secRe.test(line)) {
+          current = { title: line.replace(/\s+/g, ' '), items: [] };
+          sections.push(current);
+          return;
+        }
+        if (!current) return;
+        const item = line.match(/^([A-Z][A-Za-z0-9'’\- ]{1,48})\.\s*(.*)$/);
+        if (item) current.items.push({ name: item[1].trim(), text: item[2].trim() });
+        else if (current.items.length) current.items[current.items.length - 1].text += ' ' + line;
+        else current.items.push({ name: '', text: line });
       });
-      const leftover = parseStatSectionItems(lastField >= 0 ? headLines.slice(lastField + 1) : []).filter(it => it.name);
-      if (leftover.length) {
-        const feats = sections.find(s => /features|traits/i.test(s.title));
-        if (feats) feats.items = leftover.concat(feats.items);
-        else sections.unshift({ title: 'Traits', items: leftover });
-      }
       return { name: name, kind: kind, stats: stats, abilities: abilities, sections: sections, raw: text };
     }
 
@@ -7049,10 +6807,6 @@
       const extra = [
         ['saves', 'Saving Throws'],
         ['skills', 'Skills'],
-        ['vuln', 'Damage Vulnerabilities'],
-        ['resist', 'Damage Resistances'],
-        ['immune', 'Damage Immunities'],
-        ['condImmune', 'Condition Immunities'],
         ['senses', 'Senses'],
         ['languages', 'Languages'],
         ['habitat', 'Habitat'],
@@ -7085,12 +6839,12 @@
       const existing = htmlToText(els.content.innerHTML || '').trim();
       if (existing && !confirm('Der Text wird durch den erkannten Stat-Sheet-Text ersetzt. Fortfahren?')) return;
       ocrBusy = true;
-      toast('Stat-Sheet wird gelesen… bei großen Blöcken kann das etwas dauern.');
+      toast('Stat-Sheet wird gelesen… das kann einen Moment dauern.');
       try {
         const worker = await getOcrWorker();
         const canvas = await prepareStatSheetForOcr(src);
-        const rawText = await readStatSheetOcrText(worker, canvas);
-        const parsed = parseStatSheetText(rawText);
+        const result = await worker.recognize(canvas);
+        const parsed = parseStatSheetText(result && result.data ? result.data.text : '');
         const html = statSheetToHtml(parsed);
         if (!htmlToText(html).trim()) throw new Error('Im Bild wurde kein Text erkannt.');
         els.content.innerHTML = html;
