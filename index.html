@@ -1823,6 +1823,7 @@
               <label>Bild</label>
               <div class="entry-image-tools">
                 <button class="ghost" id="uploadEntryImageBtn" type="button">Bild hochladen</button>
+                <button class="ghost hidden" id="ocrEntryImageBtn" type="button">Text aus Stat-Sheet lesen</button>
                 <button class="ghost hidden" id="removeEntryImageBtn" type="button">Bild entfernen</button>
               </div>
               <div id="entryImagePreview" class="entry-image-preview hidden">
@@ -2355,6 +2356,8 @@
     let editorImageId = '';
     let viewImageToken = 0;
     let editorImageToken = 0;
+    let ocrBusy = false;
+    let ocrWorkerPromise = null;
     let sheetDirty = false;
     let playerAccounts = {};
     let playersUpdatedAt = 0;
@@ -2881,15 +2884,18 @@
       const wrap = document.getElementById('entryImagePreview');
       const img = document.getElementById('entryImagePreviewImg');
       const removeBtn = document.getElementById('removeEntryImageBtn');
+      const ocrBtn = document.getElementById('ocrEntryImageBtn');
       if (!src) {
         wrap.classList.add('hidden');
         img.removeAttribute('src');
         removeBtn.classList.add('hidden');
+        if (ocrBtn) ocrBtn.classList.add('hidden');
         return;
       }
       img.src = src;
       wrap.classList.remove('hidden');
       removeBtn.classList.remove('hidden');
+      if (ocrBtn) ocrBtn.classList.remove('hidden');
     }
 
     function showViewImage(imageId, title) {
@@ -6565,6 +6571,197 @@
       }).join('');
     }
 
+    function loadTesseract() {
+      if (window.Tesseract) return Promise.resolve(window.Tesseract);
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+        s.onload = () => window.Tesseract ? resolve(window.Tesseract) : reject(new Error('Tesseract fehlt.'));
+        s.onerror = () => reject(new Error('Texterkennung konnte nicht geladen werden. Bitte Internet prüfen.'));
+        document.head.appendChild(s);
+      });
+    }
+
+    function getOcrWorker() {
+      if (ocrWorkerPromise) return ocrWorkerPromise;
+      ocrWorkerPromise = loadTesseract().then(T => T.createWorker('eng')).catch(err => {
+        ocrWorkerPromise = null;
+        throw err;
+      });
+      return ocrWorkerPromise;
+    }
+
+    function prepareStatSheetForOcr(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const scale = Math.max(2, 1600 / Math.max(img.width, 1));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const pix = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const d = pix.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const g = d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11;
+            const v = g < 168 ? 0 : 255;
+            d[i] = d[i + 1] = d[i + 2] = v;
+          }
+          ctx.putImageData(pix, 0, 0);
+          resolve(canvas);
+        };
+        img.onerror = () => reject(new Error('Das Stat-Sheet konnte nicht gelesen werden.'));
+        img.src = src;
+      });
+    }
+
+    function pickStatLine(text, re) {
+      const m = String(text || '').match(re);
+      return m ? m[1].replace(/\s+/g, ' ').trim() : '';
+    }
+
+    function parseStatAbilities(text) {
+      const keys = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
+      const out = {};
+      keys.forEach(k => {
+        const m = text.match(new RegExp(k + '\\s*(\\d{1,2})\\s*\\(\\s*([+−–-]\\d+)\\s*\\)', 'i'));
+        if (m) out[k] = m[1] + ' (' + m[2].replace(/[−–]/g, '-') + ')';
+      });
+      if (keys.every(k => out[k])) return out;
+      const mods = [...text.matchAll(/(\d{1,2})\s*\(\s*([+−–-]\d+)\s*\)/g)].slice(0, 6);
+      if (mods.length === 6) {
+        keys.forEach((k, i) => {
+          if (!out[k]) out[k] = mods[i][1] + ' (' + mods[i][2].replace(/[−–]/g, '-') + ')';
+        });
+      }
+      return out;
+    }
+
+    function parseStatSheetText(raw) {
+      const text = String(raw || '')
+        .replace(/\u00a0/g, ' ')
+        .replace(/[|]+/g, ' ')
+        .replace(/[ \t]+/g, ' ')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+      const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean)
+        .filter(l => !/SRD5|OGL|CC-BY/i.test(l) && !/^\[\d+\]$/.test(l) && !/^\[.+\]\s*\[/.test(l));
+      const joined = lines.join('\n');
+      const sizeRe = /^(Tiny|Small|Medium|Large|Huge|Gargantuan)\b/i;
+      const name = lines.find(l => l.length > 1 && !sizeRe.test(l) && !/^(Armor|Hit|Speed|STR|Skills|Senses|Languages|Habitat|Challenge|Features|Actions)\b/i.test(l)) || '';
+      const kind = lines.find(l => sizeRe.test(l)) || '';
+      const abilities = parseStatAbilities(joined);
+      const fields = [
+        ['ac', /Armor\s*C[il]ass\s*[:.]?\s*(.+)/i],
+        ['hp', /Hit\s*Points?\s*[:.]?\s*(.+)/i],
+        ['speed', /Speed\s*[:.]?\s*(.+)/i],
+        ['skills', /Skills?\s*[:.]?\s*(.+)/i],
+        ['senses', /Senses?\s*[:.]?\s*(.+)/i],
+        ['languages', /Languages?\s*[:.]?\s*(.+)/i],
+        ['habitat', /Habitat\s*[:.]?\s*(.+)/i],
+        ['challenge', /Challenge(?:\s*Rating)?\s*[:.]?\s*(.+?)(?=\s*Proficiency|\s*PB\b|$)/i],
+        ['pb', /(?:Proficiency\s*Bonus|\bPB\b)\s*(?:\(PB\))?\s*[:.]?\s*([+\-]?\d+)/i]
+      ];
+      const stats = {};
+      fields.forEach(([key, re]) => { stats[key] = pickStatLine(joined, re); });
+      const sectionNames = ['Features', 'Actions', 'Bonus Actions', 'Reactions', 'Legendary Actions', 'Mythic Actions'];
+      const sections = [];
+      const secRe = new RegExp('^(' + sectionNames.join('|') + ')\\s*$', 'i');
+      let current = null;
+      lines.forEach(line => {
+        if (secRe.test(line)) {
+          current = { title: line.replace(/\s+/g, ' '), items: [] };
+          sections.push(current);
+          return;
+        }
+        if (!current) return;
+        const item = line.match(/^([A-Z][A-Za-z0-9'’\- ]{1,48})\.\s*(.*)$/);
+        if (item) current.items.push({ name: item[1].trim(), text: item[2].trim() });
+        else if (current.items.length) current.items[current.items.length - 1].text += ' ' + line;
+        else current.items.push({ name: '', text: line });
+      });
+      return { name: name, kind: kind, stats: stats, abilities: abilities, sections: sections, raw: text };
+    }
+
+    function statSheetToHtml(parsed) {
+      const s = parsed.stats || {};
+      const rows = [];
+      if (parsed.name) rows.push('<b>' + escapeHtml(parsed.name) + '</b>' + (parsed.kind ? '<br><i>' + escapeHtml(parsed.kind) + '</i>' : ''));
+      else if (parsed.kind) rows.push('<i>' + escapeHtml(parsed.kind) + '</i>');
+      const core = [];
+      if (s.ac) core.push('<b>Rüstungsklasse:</b> ' + escapeHtml(s.ac));
+      if (s.hp) core.push('<b>Trefferpunkte:</b> ' + escapeHtml(s.hp));
+      if (s.speed) core.push('<b>Tempo:</b> ' + escapeHtml(s.speed));
+      if (core.length) rows.push(core.join('<br>'));
+      const keys = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
+      if (keys.some(k => parsed.abilities[k])) {
+        rows.push(keys.map(k => '<b>' + k + '</b> ' + escapeHtml(parsed.abilities[k] || '—')).join(' · '));
+      }
+      const extra = [
+        ['skills', 'Fertigkeiten'],
+        ['senses', 'Sinne'],
+        ['languages', 'Sprachen'],
+        ['habitat', 'Lebensraum'],
+        ['challenge', 'Herausforderungsgrad'],
+        ['pb', 'Übungsbonus']
+      ];
+      const extraLines = extra.filter(([key]) => s[key]).map(([key, label]) => '<b>' + label + ':</b> ' + escapeHtml(s[key]));
+      if (extraLines.length) rows.push(extraLines.join('<br>'));
+      const secLabel = {
+        features: 'Merkmale',
+        actions: 'Aktionen',
+        'bonus actions': 'Bonusaktionen',
+        reactions: 'Reaktionen',
+        'legendary actions': 'Legendäre Aktionen',
+        'mythic actions': 'Mythische Aktionen'
+      };
+      parsed.sections.forEach(sec => {
+        const title = secLabel[sec.title.toLowerCase()] || sec.title;
+        rows.push('<b>' + escapeHtml(title) + '</b>');
+        sec.items.forEach(item => {
+          if (item.name) rows.push('<i><b>' + escapeHtml(item.name) + '.</b></i> ' + escapeHtml(item.text));
+          else if (item.text) rows.push(escapeHtml(item.text));
+        });
+      });
+      if (rows.length < 2) return textToHtml(parsed.raw);
+      return rows.map(html => '<p>' + html + '</p>').join('');
+    }
+
+    function currentEditorImageSrc() {
+      if (typeof pendingEntryImage === 'string' && pendingEntryImage) return pendingEntryImage;
+      const img = document.getElementById('entryImagePreviewImg');
+      return (img && img.getAttribute('src')) || '';
+    }
+
+    async function readStatSheetFromEditorImage() {
+      if (!isDM || ocrBusy) return;
+      const src = currentEditorImageSrc();
+      if (!src) return toast('Zuerst ein Stat-Sheet-Bild hochladen oder den Eintrag mit Bild öffnen.');
+      const existing = htmlToText(els.content.innerHTML || '').trim();
+      if (existing && !confirm('Der Text wird durch den erkannten Stat-Sheet-Text ersetzt. Fortfahren?')) return;
+      ocrBusy = true;
+      toast('Stat-Sheet wird gelesen… das kann einen Moment dauern.');
+      try {
+        const worker = await getOcrWorker();
+        const canvas = await prepareStatSheetForOcr(src);
+        const result = await worker.recognize(canvas);
+        const parsed = parseStatSheetText(result && result.data ? result.data.text : '');
+        const html = statSheetToHtml(parsed);
+        if (!htmlToText(html).trim()) throw new Error('Im Bild wurde kein Text erkannt.');
+        els.content.innerHTML = html;
+        dirty = true;
+        toast('Text erkannt. Bitte kurz prüfen und dann speichern.');
+      } catch (err) {
+        toast(err.message || 'Das Stat-Sheet konnte nicht gelesen werden.');
+      } finally {
+        ocrBusy = false;
+      }
+    }
+
     function visibilityLabel(v) {
       return v === 'dm' ? 'Nur DM' : 'Spieler';
     }
@@ -7908,6 +8105,9 @@
     document.getElementById('uploadEntryImageBtn').onclick = () => {
       if (!isDM) return;
       document.getElementById('entryImageInput').click();
+    };
+    document.getElementById('ocrEntryImageBtn').onclick = () => {
+      readStatSheetFromEditorImage();
     };
     document.getElementById('removeEntryImageBtn').onclick = () => {
       pendingEntryImage = false;
