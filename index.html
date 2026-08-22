@@ -1772,6 +1772,8 @@
           </div>
           <div class="page-toolbar hidden" id="homeToolbar">
             <button class="primary" id="homeNewBtn" type="button">+ Neuer Eintrag</button>
+            <button class="ghost" id="homeMyDocBtn" type="button">Für mich</button>
+            <button class="ghost" id="homeUploadAllBtn" type="button">Alles hochladen</button>
           </div>
           <div class="cards" id="homeCards"></div>
         </section>
@@ -1861,6 +1863,8 @@
           </div>
           <div class="page-toolbar hidden" id="entstehungToolbar">
             <button class="primary" id="entstehungNewBtn" type="button">+ Neuer Eintrag</button>
+            <button class="ghost" id="entstehungMyDocBtn" type="button">Für mich</button>
+            <button class="ghost" id="entstehungUploadAllBtn" type="button">Alles hochladen</button>
           </div>
           <div id="entstehungText"></div>
         </section>
@@ -1873,6 +1877,8 @@
           </div>
           <div class="page-toolbar hidden" id="sitzungToolbar">
             <button class="primary" id="sitzungNewBtn" type="button">+ Neue Sitzung</button>
+            <button class="ghost" id="sitzungMyDocBtn" type="button">Für mich</button>
+            <button class="ghost" id="sitzungUploadAllBtn" type="button">Alles hochladen</button>
           </div>
           <div id="sitzungText"></div>
         </section>
@@ -6831,6 +6837,83 @@
       ].join('\n');
     }
 
+    function geminiSectionFor(type) {
+      if (type === STORY_CAT) return 'Entstehung';
+      if (type === SESSION_CAT) return 'Sitzung';
+      if (BESTIARIUM_CATS.includes(type)) return 'Bestiarium';
+      if (GLOSSAR_CATS.includes(type)) return 'Glossar';
+      return 'Kompendium';
+    }
+
+    function formatGeminiDocument(list) {
+      const items = (Array.isArray(list) ? list : []).slice().sort((a, b) => {
+        const ai = categories.indexOf(normalizeType(a.type));
+        const bi = categories.indexOf(normalizeType(b.type));
+        if (ai !== bi) return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
+        const ad = a.sessionDate || '';
+        const bd = b.sessionDate || '';
+        if (ad !== bd) return ad < bd ? 1 : -1;
+        return String(a.title || '').localeCompare(String(b.title || ''), 'de');
+      });
+      const byType = {};
+      const types = [];
+      items.forEach(e => {
+        const type = categories.includes(normalizeType(e.type)) ? normalizeType(e.type) : (e.type || 'Sonstiges');
+        if (!byType[type]) {
+          byType[type] = [];
+          types.push(type);
+        }
+        byType[type].push(e);
+      });
+      const toc = [];
+      const body = [];
+      let lastSection = '';
+      types.forEach(type => {
+        const section = geminiSectionFor(type);
+        if (section !== lastSection) {
+          lastSection = section;
+          toc.push('');
+          toc.push(section);
+          body.push('');
+          body.push('════════════════════════════════════');
+          body.push(section.toUpperCase());
+          body.push('════════════════════════════════════');
+        }
+        toc.push('  ' + type + ' (' + byType[type].length + ')');
+        body.push('');
+        body.push('── ' + type + ' ──');
+        byType[type].forEach(e => {
+          toc.push('    - ' + (e.title || 'Ohne Titel'));
+          body.push('');
+          body.push('### ' + (e.title || 'Ohne Titel'));
+          body.push('Kategorie: ' + (e.type || type));
+          body.push('Sichtbarkeit: ' + visibilityLabel(e.visibility));
+          if (e.sessionDate) body.push('Datum: ' + formatSessionDate(e.sessionDate));
+          body.push('');
+          body.push(htmlToText(e.content) || '(Kein Text)');
+          body.push('');
+          body.push('---');
+        });
+      });
+      return [
+        'Thalarion – Das Blutsiegel',
+        'Gesamtdokument',
+        '',
+        'Dieses Dokument enthält ALLE Codex-Einträge der Welt Thalarion.',
+        'Jeder Eintrag hat eine eigene Überschrift (### Name).',
+        'Bilder, Karten-Pins, Kampf und Charakterblätter sind nicht enthalten.',
+        '',
+        'Anzahl Einträge: ' + items.length,
+        'Stand: ' + new Date().toISOString().slice(0, 10),
+        '',
+        'INHALTSVERZEICHNIS',
+        ...toc,
+        '',
+        ...body,
+        ''
+      ].join('\n');
+    }
+
     function parseCodexFile(text) {
       const chunks = String(text || '').split(/===== EINTRAG START =====/i).slice(1);
       return chunks.map(chunk => {
@@ -6875,10 +6958,11 @@
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     }
 
-    function downloadAllEntries() {
+    function downloadMyDocument() {
       if (!isDM) return;
-      downloadText('Thalarion-Kompendium.txt', formatCodexFile(entries));
-      toast('Datei heruntergeladen.');
+      if (!entries.length) return toast('Es gibt noch keine Einträge.');
+      downloadText('Thalarion-Gesamtdokument.txt', formatGeminiDocument(entries));
+      toast(entries.length + ' Einträge in einem Dokument.');
     }
 
     function downloadOneEntry() {
@@ -7277,16 +7361,16 @@
         add.className = 'primary';
         add.textContent = '+ Neuer Eintrag';
         add.onclick = newEntry;
-        const dlAll = document.createElement('button');
-        dlAll.className = 'ghost';
-        dlAll.textContent = 'Alles herunterladen';
-        dlAll.onclick = downloadAllEntries;
+        const myDoc = document.createElement('button');
+        myDoc.className = 'ghost';
+        myDoc.textContent = 'Für mich';
+        myDoc.onclick = downloadMyDocument;
         const ulAll = document.createElement('button');
         ulAll.className = 'ghost';
         ulAll.textContent = 'Alles hochladen';
         ulAll.onclick = () => document.getElementById('uploadAllInput').click();
         actions.appendChild(add);
-        actions.appendChild(dlAll);
+        actions.appendChild(myDoc);
         actions.appendChild(ulAll);
       }
 
@@ -7859,6 +7943,20 @@
     document.getElementById('homeNewBtn').onclick = newEntry;
     document.getElementById('entstehungNewBtn').onclick = newEntry;
     document.getElementById('sitzungNewBtn').onclick = newEntry;
+    [
+      'homeMyDocBtn',
+      'entstehungMyDocBtn',
+      'sitzungMyDocBtn'
+    ].forEach(id => {
+      document.getElementById(id).onclick = downloadMyDocument;
+    });
+    [
+      'homeUploadAllBtn',
+      'entstehungUploadAllBtn',
+      'sitzungUploadAllBtn'
+    ].forEach(id => {
+      document.getElementById(id).onclick = () => document.getElementById('uploadAllInput').click();
+    });
     document.getElementById('menuBtn').onclick = () => els.sidebar.classList.toggle('open');
     document.getElementById('playerButton').onclick = () => {
       if (currentPlayerId) {
