@@ -1836,6 +1836,7 @@
           <article class="article">
             <div class="article-actions hidden" id="playerToEdit">
               <button class="ghost" id="editCurrent" type="button">Eintrag bearbeiten</button>
+              <button class="ghost hidden" id="entryToKarteBtn" type="button">Als Kampfkarte</button>
               <button class="ghost" id="downloadOneBtn" type="button">Nur diesen Eintrag herunterladen</button>
               <button class="ghost" id="uploadOneBtn" type="button">Hochladen</button>
             </div>
@@ -4299,6 +4300,73 @@
 
     function karteById(id) {
       return rosterCards.find(c => c.id === id) || null;
+    }
+
+    function firstStatNumber(line) {
+      const m = String(line || '').match(/\d+/);
+      return m ? m[0] : '';
+    }
+
+    function combatCardDraftFromEntry(e) {
+      const parsed = parseStatSheetText(htmlToText(e.content || ''));
+      const s = parsed.stats || {};
+      const actions = (parsed.sections || []).find(sec => /^actions$/i.test(sec.title));
+      const items = actions && Array.isArray(actions.items) ? actions.items : [];
+      const attack = items.find(it => it.name && !/^Multiattack$/i.test(it.name)) || items[0];
+      let note = '';
+      if (attack) {
+        note = [attack.name, attack.text].filter(Boolean).join('. ');
+        note = note.replace(/\s+/g, ' ').trim();
+        if (note.length > 110) note = note.slice(0, 107).trim() + '…';
+      }
+      return {
+        name: (e.title || '').trim(),
+        hp: firstStatNumber(s.hp),
+        ac: firstStatNumber(s.ac),
+        note: note
+      };
+    }
+
+    function updateEntryToKarteBtn() {
+      const btn = document.getElementById('entryToKarteBtn');
+      if (!btn) return;
+      const e = currentIndex !== null ? entries[currentIndex] : null;
+      const show = !!(isDM && e && BESTIARIUM_CATS.includes(e.type) && !els.viewer.classList.contains('hidden'));
+      btn.classList.toggle('hidden', !show);
+    }
+
+    async function createKampfKarteFromEntry() {
+      if (!isDM || currentIndex === null) return;
+      const e = entries[currentIndex];
+      if (!e || !BESTIARIUM_CATS.includes(e.type)) return;
+      const draft = combatCardDraftFromEntry(e);
+      if (!draft.name) return toast('Der Eintrag braucht einen Namen.');
+      const existing = rosterCards.find(c => (c.name || '').toLowerCase() === draft.name.toLowerCase());
+      if (existing && !confirm('Es gibt schon eine Karte „' + existing.name + '“. Werte ersetzen?')) return;
+      const next = normalizeKarte({
+        id: existing ? existing.id : combatNewId('k'),
+        name: draft.name,
+        hp: draft.hp,
+        ac: draft.ac,
+        count: existing ? existing.count : 1,
+        note: draft.note,
+        portraitId: existing ? existing.portraitId : ''
+      });
+      const previous = rosterCards;
+      try {
+        rosterCards = existing
+          ? rosterCards.map(c => c.id === existing.id ? next : c)
+          : rosterCards.concat([next]);
+        await persistRoster();
+        renderKampfKartenList();
+        const missing = !next.hp && !next.ac;
+        toast(missing
+          ? 'Kampfkarte angelegt. TP und Rüstung fehlen — bitte prüfen.'
+          : (existing ? 'Kampfkarte aktualisiert.' : 'Kampfkarte angelegt.'));
+      } catch (err) {
+        rosterCards = previous;
+        toast('Kampfkarte fehlgeschlagen: ' + err.message);
+      }
     }
 
     function clearKarteForm() {
@@ -7754,6 +7822,7 @@
       document.getElementById('viewContent').innerHTML = entryBodyHtml(e);
       showViewImage(e.imageId, e.title);
       els.playerToEdit.classList.toggle('hidden', !isDM);
+      updateEntryToKarteBtn();
       if (!selectedHomeCat && !wantsSidebar(pageForType(e.type))) selectedHomeCat = e.type;
       renderViewerCrumb(e);
       renderSidebar();
@@ -7944,6 +8013,7 @@
         if (currentPage === 'kampf') renderKampf();
         if (currentPage === 'kampf') renderBattleBoards();
         els.playerToEdit.classList.toggle('hidden', !on || currentIndex === null || els.viewer.classList.contains('hidden'));
+        updateEntryToKarteBtn();
         updateExtraToolbars();
       }
       if (!on) {
@@ -8256,6 +8326,7 @@
       else showHome();
     };
     document.getElementById('editCurrent').onclick = editCurrent;
+    document.getElementById('entryToKarteBtn').onclick = createKampfKarteFromEntry;
     document.getElementById('downloadOneBtn').onclick = downloadOneEntry;
     document.getElementById('uploadOneBtn').onclick = () => {
       if (!isDM || currentIndex === null) return;
