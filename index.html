@@ -4310,20 +4310,10 @@
     function combatCardDraftFromEntry(e) {
       const parsed = parseStatSheetText(htmlToText(e.content || ''));
       const s = parsed.stats || {};
-      const actions = (parsed.sections || []).find(sec => /^actions$/i.test(sec.title));
-      const items = actions && Array.isArray(actions.items) ? actions.items : [];
-      const attack = items.find(it => it.name && !/^Multiattack$/i.test(it.name)) || items[0];
-      let note = '';
-      if (attack) {
-        note = [attack.name, attack.text].filter(Boolean).join('. ');
-        note = note.replace(/\s+/g, ' ').trim();
-        if (note.length > 110) note = note.slice(0, 107).trim() + '…';
-      }
       return {
         name: (e.title || '').trim(),
         hp: firstStatNumber(s.hp),
-        ac: firstStatNumber(s.ac),
-        note: note
+        ac: firstStatNumber(s.ac)
       };
     }
 
@@ -4349,7 +4339,7 @@
         hp: draft.hp,
         ac: draft.ac,
         count: existing ? existing.count : 1,
-        note: draft.note,
+        note: existing && existing.note.length <= 80 ? existing.note : '',
         portraitId: existing ? existing.portraitId : ''
       });
       const previous = rosterCards;
