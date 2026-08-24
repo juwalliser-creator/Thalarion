@@ -390,6 +390,9 @@
       max-width: 860px;
       margin: 0 auto;
     }
+    #homeView.is-world-hub {
+      max-width: 980px;
+    }
     #kampfView.is-live {
       max-width: none;
     }
@@ -456,6 +459,48 @@
       margin-bottom: 0.25rem;
     }
     .card span { display: block; color: var(--muted); font-size: 0.92rem; }
+
+    .cards.is-world {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .world-tile {
+      position: relative;
+      display: block;
+      width: 100%;
+      padding: 0;
+      overflow: hidden;
+      aspect-ratio: 16 / 9;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+      color: inherit;
+      box-shadow: var(--shadow);
+    }
+    .world-tile img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.35s ease;
+    }
+    .world-tile-caption {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 2.2rem 0.75rem 0.9rem;
+      background: linear-gradient(transparent, rgba(16, 14, 12, 0.92) 62%);
+      font-family: Cinzel, serif;
+      font-size: 1.12rem;
+      letter-spacing: 0.08em;
+      color: var(--gold);
+      text-align: center;
+    }
+    .world-tile:hover { border-color: var(--gold); }
+    .world-tile:hover img { transform: scale(1.04); }
 
     .article {
       background: var(--panel);
@@ -1699,6 +1744,7 @@
         border-radius: 12px;
       }
       .cards { grid-template-columns: 1fr 1fr; }
+      .cards.is-world { grid-template-columns: 1fr; max-width: none; margin: 0; }
       .card { padding: 0.85rem; }
       .map-wrap {
         max-height: calc(100dvh - 12.5rem);
@@ -1719,7 +1765,7 @@
       input, select, textarea, .editor-canvas, .sheet-notes {
         font-size: 16px;
       }
-      button, .card, .entry, .search-hit {
+      button, .card, .world-tile, .entry, .search-hit {
         touch-action: manipulation;
       }
       .editor-canvas { min-height: 200px; }
@@ -7523,19 +7569,31 @@
     function renderHome() {
       const nav = document.getElementById('homeCatNav');
       els.homeCards.innerHTML = '';
+      els.homeCards.classList.remove('is-world');
+      els.homeView.classList.remove('is-world-hub');
       renderTitleKingdomBar();
       if (currentPage === 'world') {
         nav.classList.add('hidden');
         nav.innerHTML = '';
+        els.homeCards.classList.add('is-world');
+        els.homeView.classList.add('is-world-hub');
         [
-          { page: 'codex', title: 'Kompendium', blurb: 'Reiche, Städte, Götter und Geheimnisse.' },
-          { page: 'bestiarium', title: 'Bestiarium', blurb: 'Bestien, Monster und andere Wesen.' },
-          { page: 'glossar', title: 'Glossar', blurb: 'Namen, Heilpflanzen, Titel und Fachworte.' }
+          { page: 'codex', title: 'Kompendium', image: 'images/world-kompendium.jpg?v=2' },
+          { page: 'bestiarium', title: 'Bestiarium', image: 'images/world-bestiarium.jpg?v=2' },
+          { page: 'glossar', title: 'Glossar', image: 'images/world-glossar.jpg?v=2' }
         ].forEach(sec => {
-          const count = visibleEntries().filter(e => pageForType(e.type) === sec.page).length;
           const btn = document.createElement('button');
-          btn.className = 'card';
-          btn.innerHTML = `<b>${sec.title}</b><span>${sec.blurb}</span><span>${count} ${count === 1 ? 'Eintrag' : 'Einträge'}</span>`;
+          btn.className = 'world-tile';
+          btn.type = 'button';
+          btn.setAttribute('aria-label', sec.title);
+          const img = document.createElement('img');
+          img.src = sec.image;
+          img.alt = '';
+          const caption = document.createElement('span');
+          caption.className = 'world-tile-caption';
+          caption.textContent = sec.title;
+          btn.appendChild(img);
+          btn.appendChild(caption);
           btn.onclick = () => showCatalog(sec.page);
           els.homeCards.appendChild(btn);
         });
