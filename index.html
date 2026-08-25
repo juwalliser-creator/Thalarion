@@ -265,6 +265,17 @@
       background: rgba(212, 179, 106, 0.16);
       color: var(--gold);
     }
+    .char-alts {
+      margin: 0.15rem 0 0.4rem 0.45rem;
+      padding: 0.15rem 0 0.1rem 0.55rem;
+      border-left: 1px solid var(--gold-dim);
+    }
+    .char-roster .char-alt {
+      color: var(--muted);
+      font-size: 0.95em;
+      padding-left: 0.45rem;
+    }
+    .char-roster .char-alt.active { color: var(--gold); }
     .sheet-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -3394,6 +3405,70 @@
       return (name || '').trim().replace(/\s+/g, ' ').toLowerCase();
     }
 
+    const YUVI_ID = 'yuvi';
+    const HOLGER_ALT = 'holger';
+    const HOLGER_OWNER = YUVI_ID + ':' + HOLGER_ALT;
+
+    function sheetAccountId(owner) {
+      return String(owner || '').split(':')[0] || '';
+    }
+
+    function sheetOwnerRecord(owner) {
+      if (!owner) return null;
+      const parts = String(owner).split(':');
+      const acc = playerAccounts[parts[0]];
+      if (!acc) return null;
+      if (parts.length < 2) {
+        return { name: acc.name, sheet: acc.sheet, isAlt: false, accountId: parts[0] };
+      }
+      const alt = acc.alts && acc.alts[parts[1]];
+      if (!alt) return null;
+      return { name: alt.name, sheet: alt.sheet, isAlt: true, accountId: parts[0] };
+    }
+
+    function setOwnerSheet(owner, sheet) {
+      const rec = sheetOwnerRecord(owner);
+      if (!rec) return;
+      if (!rec.isAlt) {
+        playerAccounts[rec.accountId].sheet = sheet;
+        return;
+      }
+      playerAccounts[rec.accountId].alts[String(owner).split(':')[1]].sheet = sheet;
+    }
+
+    function canEditOwnerSheet(owner) {
+      if (isDM) return true;
+      if (!currentPlayerId || !owner) return false;
+      return sheetAccountId(owner) === currentPlayerId;
+    }
+
+    function ensureHolgerAlt(accs) {
+      const acc = accs && accs[YUVI_ID];
+      if (!acc) return;
+      if (!acc.alts || typeof acc.alts !== 'object') acc.alts = {};
+      if (!acc.alts[HOLGER_ALT]) {
+        acc.alts[HOLGER_ALT] = {
+          name: 'Holger',
+          sheet: Object.assign({}, EMPTY_SHEET, { name: 'Holger' })
+        };
+      }
+    }
+
+    function normalizeAlts(raw) {
+      const out = {};
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+      Object.keys(raw).forEach(key => {
+        const id = playerIdFromName(key);
+        if (!id) return;
+        const a = raw[key] || {};
+        out[id] = {
+          name: (a.name || key).trim(),
+          sheet: normalizeSheet(a.sheet)
+        };
+      });
+      return out;
+    }
+
     function normalizeAccounts(raw) {
       const out = {};
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
@@ -3405,9 +3480,11 @@
           name: (a.name || key).trim(),
           password: a.password || '',
           sheet: normalizeSheet(a.sheet),
+          alts: normalizeAlts(a.alts),
           createdAt: Number(a.createdAt) || 0
         };
       });
+      ensureHolgerAlt(out);
       return out;
     }
 
@@ -3416,8 +3493,9 @@
       const at = Number(data.updatedAt) || 0;
       if (at && at <= playersUpdatedAt) return;
       const incoming = normalizeAccounts(data.accounts);
-      if (sheetDirty && currentPlayerId && playerAccounts[currentPlayerId]) {
-        incoming[currentPlayerId] = playerAccounts[currentPlayerId];
+      if (sheetDirty && currentSheetOwner) {
+        const accId = sheetAccountId(currentSheetOwner);
+        if (accId && playerAccounts[accId]) incoming[accId] = playerAccounts[accId];
       }
       playersUpdatedAt = at;
       playerAccounts = incoming;
@@ -4786,6 +4864,14 @@
       renderCharakter();
     }
 
+    function selectSheetOwner(owner) {
+      if (currentSheetOwner === owner) return;
+      if (sheetDirty && !confirm('Das Charakterblatt ist nicht gespeichert. Wirklich wechseln?')) return;
+      currentSheetOwner = owner;
+      sheetDirty = false;
+      renderCharakter();
+    }
+
     function renderCharakter() {
       const guest = document.getElementById('charGuest');
       const app = document.getElementById('charApp');
@@ -4794,39 +4880,50 @@
       app.classList.toggle('hidden', !canUse);
       if (!canUse) return;
 
+      ensureHolgerAlt(playerAccounts);
       const roster = document.getElementById('charRoster');
       const layout = document.getElementById('charLayout');
       const ids = Object.keys(playerAccounts).sort((a, b) =>
         playerAccounts[a].name.localeCompare(playerAccounts[b].name, 'de')
       );
-      if (isDM) {
+      const yuviPlayer = !isDM && currentPlayerId === YUVI_ID;
+      const showRoster = isDM || yuviPlayer;
+      if (showRoster) {
         roster.classList.remove('hidden');
         layout.classList.remove('solo');
+        roster.querySelector('h3').textContent = yuviPlayer ? 'Charaktere' : 'Spieler';
         const list = document.getElementById('charRosterList');
         list.innerHTML = '';
-        if (!ids.length) {
+        const rosterIds = yuviPlayer ? [YUVI_ID] : ids;
+        if (!rosterIds.length) {
           const empty = document.createElement('p');
           empty.style.color = 'var(--muted)';
           empty.style.margin = '0';
           empty.textContent = 'Noch keine Spieler.';
           list.appendChild(empty);
         }
-        ids.forEach(id => {
+        rosterIds.forEach(id => {
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = currentSheetOwner === id ? 'active' : '';
           btn.textContent = playerAccounts[id].name;
-          btn.onclick = () => {
-            if (currentSheetOwner === id) return;
-            if (sheetDirty && !confirm('Das Charakterblatt ist nicht gespeichert. Wirklich wechseln?')) return;
-            currentSheetOwner = id;
-            sheetDirty = false;
-            renderCharakter();
-          };
+          btn.onclick = () => selectSheetOwner(id);
           list.appendChild(btn);
+          const showHolger = id === YUVI_ID && (yuviPlayer || sheetAccountId(currentSheetOwner) === YUVI_ID);
+          if (showHolger && playerAccounts[YUVI_ID] && playerAccounts[YUVI_ID].alts && playerAccounts[YUVI_ID].alts[HOLGER_ALT]) {
+            const wrap = document.createElement('div');
+            wrap.className = 'char-alts';
+            const altBtn = document.createElement('button');
+            altBtn.type = 'button';
+            altBtn.className = 'char-alt' + (currentSheetOwner === HOLGER_OWNER ? ' active' : '');
+            altBtn.textContent = playerAccounts[YUVI_ID].alts[HOLGER_ALT].name;
+            altBtn.onclick = () => selectSheetOwner(HOLGER_OWNER);
+            wrap.appendChild(altBtn);
+            list.appendChild(wrap);
+          }
         });
-        if (!currentSheetOwner || !playerAccounts[currentSheetOwner]) {
-          currentSheetOwner = ids[0] || null;
+        if (!currentSheetOwner || !sheetOwnerRecord(currentSheetOwner)) {
+          currentSheetOwner = rosterIds[0] || null;
         }
       } else {
         roster.classList.add('hidden');
@@ -4834,22 +4931,23 @@
         currentSheetOwner = currentPlayerId;
       }
 
-      const acc = currentSheetOwner ? playerAccounts[currentSheetOwner] : null;
+      const rec = currentSheetOwner ? sheetOwnerRecord(currentSheetOwner) : null;
       const del = document.getElementById('deletePlayerBtn');
-      del.classList.toggle('hidden', !isDM || !acc);
-      if (!acc) {
+      del.classList.toggle('hidden', !isDM || !rec || rec.isAlt);
+      if (!rec) {
         document.getElementById('charHeading').textContent = 'Charakterblatt';
         clearSheetForm();
         return;
       }
-      document.getElementById('charHeading').textContent = 'Charakterblatt · ' + acc.name;
-      if (!sheetDirty) fillSheetForm(acc.sheet);
+      document.getElementById('charHeading').textContent = 'Charakterblatt · ' + rec.name;
+      if (!sheetDirty) fillSheetForm(rec.sheet);
     }
 
     async function saveSheet() {
-      if (!currentSheetOwner || !playerAccounts[currentSheetOwner]) return;
-      if (!isDM && currentSheetOwner !== currentPlayerId) return;
-      const previous = playerAccounts[currentSheetOwner].sheet;
+      if (!currentSheetOwner || !sheetOwnerRecord(currentSheetOwner)) return;
+      if (!canEditOwnerSheet(currentSheetOwner)) return;
+      const rec = sheetOwnerRecord(currentSheetOwner);
+      const previous = rec.sheet;
       const btn = document.getElementById('saveSheetBtn');
       btn.disabled = true;
       btn.textContent = 'Speichert…';
@@ -4860,11 +4958,12 @@
           sheetPortraitId = imageId;
           pendingSheetPortrait = null;
         }
-        playerAccounts[currentSheetOwner].sheet = readSheetForm();
+        setOwnerSheet(currentSheetOwner, readSheetForm());
         await persistPlayers();
         combat.combatants.forEach(c => {
           if (c.playerId === currentSheetOwner) {
-            c.portraitId = playerAccounts[currentSheetOwner].sheet.portraitId || '';
+            const now = sheetOwnerRecord(currentSheetOwner);
+            c.portraitId = (now && now.sheet && now.sheet.portraitId) || '';
             upsertBattleToken(c);
           }
         });
@@ -4872,7 +4971,7 @@
         sheetDirty = false;
         toast('Charakterblatt gespeichert.');
       } catch (err) {
-        playerAccounts[currentSheetOwner].sheet = previous;
+        setOwnerSheet(currentSheetOwner, previous);
         toast('Speichern fehlgeschlagen: ' + err.message);
       } finally {
         btn.disabled = false;
@@ -4881,11 +4980,12 @@
     }
 
     async function deletePlayerAccount() {
-      if (!isDM || !currentSheetOwner || !playerAccounts[currentSheetOwner]) return;
-      const acc = playerAccounts[currentSheetOwner];
-      if (!confirm('Spieler „' + acc.name + '“ und das Charakterblatt wirklich entfernen?')) return;
+      if (!isDM || !currentSheetOwner || !sheetOwnerRecord(currentSheetOwner)) return;
+      const rec = sheetOwnerRecord(currentSheetOwner);
+      if (rec.isAlt) return;
+      if (!confirm('Spieler „' + rec.name + '“ und das Charakterblatt wirklich entfernen?')) return;
       const previous = playerAccounts;
-      const removedId = currentSheetOwner;
+      const removedId = rec.accountId;
       playerAccounts = Object.assign({}, playerAccounts);
       delete playerAccounts[removedId];
       try {
