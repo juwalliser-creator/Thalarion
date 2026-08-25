@@ -545,6 +545,12 @@
         box-shadow 0.45s ease,
         border-color 0.45s ease;
     }
+    .magic-clone.card {
+      margin: 0;
+      width: auto;
+      cursor: default;
+      object-fit: unset;
+    }
     .magic-veil.is-on .magic-clone {
       border-color: var(--gold);
       filter: brightness(1.28) saturate(1.08);
@@ -613,6 +619,8 @@
     #homeView.is-magic-in .hero,
     #homeView.is-magic-in .page-toolbar,
     #homeView.is-magic-in .card,
+    #viewer.is-magic-in .article,
+    #viewer.is-magic-in .page-toolbar,
     aside.is-magic-in {
       animation: magicFade 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
@@ -628,6 +636,8 @@
       #homeView.is-magic-in .hero,
       #homeView.is-magic-in .page-toolbar,
       #homeView.is-magic-in .card,
+      #viewer.is-magic-in .article,
+      #viewer.is-magic-in .page-toolbar,
       aside.is-magic-in {
         animation: none !important;
         opacity: 1 !important;
@@ -8184,53 +8194,71 @@
       return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     }
 
-    function openWorldCatalog(page, tile) {
-      if (!tile || prefersReducedMotion() || document.querySelector('.magic-veil')) {
-        showCatalog(page);
+    function playMagicTransition(fromEl, onOpen) {
+      if (typeof onOpen !== 'function') return;
+      if (!fromEl || prefersReducedMotion() || document.querySelector('.magic-veil')) {
+        onOpen();
         return;
       }
-      const img = tile.querySelector('img');
-      const rect = tile.getBoundingClientRect();
+      const rect = fromEl.getBoundingClientRect();
+      if (!rect.width || !rect.height) {
+        onOpen();
+        return;
+      }
       const veil = document.createElement('div');
       veil.className = 'magic-veil';
       veil.innerHTML = '<div class="magic-shade"></div><div class="magic-dust"></div><div class="magic-flash"></div>';
       const flash = veil.querySelector('.magic-flash');
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      flash.style.left = cx + 'px';
-      flash.style.top = cy + 'px';
+      flash.style.left = (rect.left + rect.width / 2) + 'px';
+      flash.style.top = (rect.top + rect.height / 2) + 'px';
+      const img = fromEl.querySelector && fromEl.querySelector('img');
+      let clone;
       if (img && img.src) {
-        const clone = document.createElement('img');
-        clone.className = 'magic-clone';
+        clone = document.createElement('img');
         clone.src = img.src;
         clone.alt = '';
-        clone.style.left = rect.left + 'px';
-        clone.style.top = rect.top + 'px';
-        clone.style.width = rect.width + 'px';
-        clone.style.height = rect.height + 'px';
-        veil.appendChild(clone);
+      } else {
+        clone = fromEl.cloneNode(true);
+        clone.removeAttribute('id');
+        clone.tabIndex = -1;
+        clone.setAttribute('aria-hidden', 'true');
       }
-      tile.style.visibility = 'hidden';
+      clone.classList.add('magic-clone');
+      clone.style.left = rect.left + 'px';
+      clone.style.top = rect.top + 'px';
+      clone.style.width = rect.width + 'px';
+      clone.style.height = rect.height + 'px';
+      veil.appendChild(clone);
+      fromEl.style.visibility = 'hidden';
       document.body.appendChild(veil);
       requestAnimationFrame(() => {
         requestAnimationFrame(() => veil.classList.add('is-on'));
       });
       window.setTimeout(() => {
-        showCatalog(page);
-        els.homeView.classList.add('is-magic-in');
+        onOpen();
+        if (!els.homeView.classList.contains('hidden')) {
+          els.homeView.classList.add('is-magic-in');
+          Array.from(els.homeCards.querySelectorAll('.card, .world-tile')).forEach((card, i) => {
+            card.style.setProperty('--n', String(i));
+          });
+        }
+        if (!els.viewer.classList.contains('hidden')) els.viewer.classList.add('is-magic-in');
         els.sidebar.classList.add('is-magic-in');
-        Array.from(els.homeCards.querySelectorAll('.card')).forEach((card, i) => {
-          card.style.setProperty('--n', String(i));
-        });
         requestAnimationFrame(() => {
           requestAnimationFrame(() => veil.classList.add('is-out'));
         });
         window.setTimeout(() => {
           veil.remove();
+          if (fromEl && fromEl.style) fromEl.style.visibility = '';
           els.homeView.classList.remove('is-magic-in');
+          els.viewer.classList.remove('is-magic-in');
           els.sidebar.classList.remove('is-magic-in');
         }, 820);
       }, 400);
+    }
+
+    function openWorldCatalog(page, tile) {
+      playMagicTransition(tile, () => showCatalog(page));
     }
 
     function showCatalog(page) {
@@ -8474,7 +8502,7 @@
             btn.className = 'card';
             const sub = e.kingdom || (e.visibility === 'dm' ? 'nur DM' : 'Öffnen');
             btn.innerHTML = `<b>${escapeHtml(e.title)}</b><span>${escapeHtml(sub)}</span>`;
-            btn.onclick = () => loadEntry(i);
+            btn.onclick = () => playMagicTransition(btn, () => loadEntry(i));
             els.homeCards.appendChild(btn);
           });
         }
@@ -8493,7 +8521,7 @@
         const btn = document.createElement('button');
         btn.className = 'card';
         btn.innerHTML = `<b>${cat}</b><span>${count} ${count === 1 ? 'Eintrag' : 'Einträge'}</span>`;
-        btn.onclick = () => openHomeCategory(cat);
+        btn.onclick = () => playMagicTransition(btn, () => openHomeCategory(cat));
         els.homeCards.appendChild(btn);
       });
     }
