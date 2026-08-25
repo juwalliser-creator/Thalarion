@@ -3406,8 +3406,8 @@
     }
 
     const YUVI_ID = 'yuvi';
-    const HOLGER_ALT = 'holger';
-    const HOLGER_OWNER = YUVI_ID + ':' + HOLGER_ALT;
+    const VEYR_ALT = 'veyr';
+    const VEYR_OWNER = YUVI_ID + ':' + VEYR_ALT;
 
     function sheetAccountId(owner) {
       return String(owner || '').split(':')[0] || '';
@@ -3442,15 +3442,23 @@
       return sheetAccountId(owner) === currentPlayerId;
     }
 
-    function ensureHolgerAlt(accs) {
+    function ensureVeyrAlt(accs) {
       const acc = accs && accs[YUVI_ID];
       if (!acc) return;
       if (!acc.alts || typeof acc.alts !== 'object') acc.alts = {};
-      if (!acc.alts[HOLGER_ALT]) {
-        acc.alts[HOLGER_ALT] = {
-          name: 'Holger',
-          sheet: Object.assign({}, EMPTY_SHEET, { name: 'Holger' })
+      if (acc.alts.holger && !acc.alts.veyr) {
+        acc.alts.veyr = acc.alts.holger;
+        delete acc.alts.holger;
+      }
+      if (!acc.alts[VEYR_ALT]) {
+        acc.alts[VEYR_ALT] = {
+          name: 'Veyr',
+          sheet: Object.assign({}, EMPTY_SHEET, { name: 'Veyr' })
         };
+      } else {
+        acc.alts[VEYR_ALT].name = 'Veyr';
+        const sheet = acc.alts[VEYR_ALT].sheet;
+        if (sheet && (!sheet.name || sheet.name === 'Holger')) sheet.name = 'Veyr';
       }
     }
 
@@ -3484,7 +3492,7 @@
           createdAt: Number(a.createdAt) || 0
         };
       });
-      ensureHolgerAlt(out);
+      ensureVeyrAlt(out);
       return out;
     }
 
@@ -4880,7 +4888,7 @@
       app.classList.toggle('hidden', !canUse);
       if (!canUse) return;
 
-      ensureHolgerAlt(playerAccounts);
+      ensureVeyrAlt(playerAccounts);
       const roster = document.getElementById('charRoster');
       const layout = document.getElementById('charLayout');
       const ids = Object.keys(playerAccounts).sort((a, b) =>
@@ -4909,15 +4917,15 @@
           btn.textContent = playerAccounts[id].name;
           btn.onclick = () => selectSheetOwner(id);
           list.appendChild(btn);
-          const showHolger = id === YUVI_ID && (yuviPlayer || sheetAccountId(currentSheetOwner) === YUVI_ID);
-          if (showHolger && playerAccounts[YUVI_ID] && playerAccounts[YUVI_ID].alts && playerAccounts[YUVI_ID].alts[HOLGER_ALT]) {
+          const showVeyr = id === YUVI_ID && (yuviPlayer || sheetAccountId(currentSheetOwner) === YUVI_ID);
+          if (showVeyr && playerAccounts[YUVI_ID] && playerAccounts[YUVI_ID].alts && playerAccounts[YUVI_ID].alts[VEYR_ALT]) {
             const wrap = document.createElement('div');
             wrap.className = 'char-alts';
             const altBtn = document.createElement('button');
             altBtn.type = 'button';
-            altBtn.className = 'char-alt' + (currentSheetOwner === HOLGER_OWNER ? ' active' : '');
-            altBtn.textContent = playerAccounts[YUVI_ID].alts[HOLGER_ALT].name;
-            altBtn.onclick = () => selectSheetOwner(HOLGER_OWNER);
+            altBtn.className = 'char-alt' + (currentSheetOwner === VEYR_OWNER ? ' active' : '');
+            altBtn.textContent = playerAccounts[YUVI_ID].alts[VEYR_ALT].name;
+            altBtn.onclick = () => selectSheetOwner(VEYR_OWNER);
             wrap.appendChild(altBtn);
             list.appendChild(wrap);
           }
