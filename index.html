@@ -275,7 +275,14 @@
       font-size: 0.95em;
       padding-left: 0.45rem;
     }
-    .char-roster .char-alt.active { color: var(--gold); }
+    .char-main.is-entry {
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      padding: 0;
+    }
+    .char-main.is-entry #charHeading,
+    .char-main.is-entry #charBlurb { display: none; }
     .sheet-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -2147,10 +2154,11 @@
                 <h3>Spieler</h3>
                 <div id="charRosterList"></div>
               </div>
-              <div class="editor-card">
+              <div class="editor-card char-main" id="charMainCard">
                 <h2 id="charHeading">Charakterblatt</h2>
                 <p id="charBlurb" style="color:var(--muted);margin:-0.4rem 0 1rem;">Feste Werte oben, Notizen und Ausrüstung darunter — nur für dich und den DM.</p>
-                <div class="sheet-grid">
+                <div id="charSheetBlock">
+                  <div class="sheet-grid">
                   <div class="field">
                     <label for="sheetName">Name</label>
                     <input id="sheetName" />
@@ -2212,6 +2220,65 @@
                 <div class="editor-actions">
                   <button class="primary" id="saveSheetBtn" type="button">Blatt speichern</button>
                   <button class="danger hidden" id="deletePlayerBtn" type="button">Spieler entfernen</button>
+                </div>
+                </div>
+                <div id="charEntryBlock" class="hidden">
+                  <article class="article" id="charEntryView">
+                    <div class="article-actions hidden" id="veyrViewActions">
+                      <button class="ghost" id="editVeyrBtn" type="button">Eintrag bearbeiten</button>
+                    </div>
+                    <div class="kicker" id="veyrViewType"></div>
+                    <h2 id="veyrViewTitle"></h2>
+                    <div id="veyrViewImageWrap" class="entry-image-wrap hidden">
+                      <img id="veyrViewImage" alt="" />
+                    </div>
+                    <div class="prose" id="veyrViewContent"></div>
+                  </article>
+                  <div id="charEntryEditor" class="hidden">
+                    <div class="grid-2">
+                      <div class="field">
+                        <label for="veyrTitle">Name</label>
+                        <input id="veyrTitle" />
+                      </div>
+                      <div class="field">
+                        <label for="veyrType">Art</label>
+                        <select id="veyrType">
+                          <option value="Hochfänge">Hochfang</option>
+                          <option value="Niederfänge">Niederfang</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="field">
+                      <label>Bild</label>
+                      <div class="entry-image-tools">
+                        <button class="ghost" id="uploadVeyrImageBtn" type="button">Bild hochladen</button>
+                        <button class="ghost hidden" id="ocrVeyrImageBtn" type="button">Text aus Stat-Sheet lesen</button>
+                        <button class="ghost hidden" id="removeVeyrImageBtn" type="button">Bild entfernen</button>
+                      </div>
+                      <div id="veyrImagePreview" class="entry-image-preview hidden">
+                        <img id="veyrImagePreviewImg" alt="Vorschau" />
+                      </div>
+                    </div>
+                    <div class="toolbar-label">Text</div>
+                    <div class="toolbar">
+                      <button type="button" onclick="fmt('bold')"><b>B</b></button>
+                      <button type="button" onclick="fmt('italic')"><i>I</i></button>
+                      <button type="button" onclick="fmt('underline')"><u>U</u></button>
+                      <select onchange="fmtValue('fontSize', this.value)">
+                        <option value="">Größe</option>
+                        <option value="2">Klein</option>
+                        <option value="3">Normal</option>
+                        <option value="5">Groß</option>
+                        <option value="7">Sehr groß</option>
+                      </select>
+                      <input type="color" onchange="fmtValue('foreColor', this.value)" title="Textfarbe" value="#f3ead8" />
+                    </div>
+                    <div id="veyrContent" class="editor-canvas" contenteditable="true"></div>
+                    <div class="editor-actions">
+                      <button class="primary" id="saveVeyrBtn" type="button">Speichern</button>
+                      <button class="ghost" id="cancelVeyrBtn" type="button">Abbrechen</button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2409,7 +2476,7 @@
   <input id="uploadOneInput" class="hidden" type="file" accept=".txt,.md,text/plain" />
   <input id="mapFileInput" class="hidden" type="file" accept="image/*" />
   <input id="entryImageInput" class="hidden" type="file" accept="image/*" />
-  <input id="sheetPortraitInput" class="hidden" type="file" accept="image/*" />
+  <input id="veyrImageInput" class="hidden" type="file" accept="image/*" />
   <input id="kampfKartePortraitInput" class="hidden" type="file" accept="image/*" />
   <input id="battleMapInput" class="hidden" type="file" accept="image/*" />
   <div id="pinOverlay" class="overlay hidden">
@@ -2603,6 +2670,9 @@
     let editingKarteId = null;
     let currentPlayerId = null;
     let currentSheetOwner = null;
+    let veyrEntryEditing = false;
+    let pendingVeyrImage = null;
+    let veyrImageToken = 0;
     let playerFormMode = 'login';
     let combat = { round: 1, started: false, activeId: null, debuffTick: 'turn', combatants: [], log: [], updatedAt: 0 };
     let writingCombat = false;
@@ -3442,6 +3512,17 @@
       return sheetAccountId(owner) === currentPlayerId;
     }
 
+    function normalizeAltEntry(raw, fallbackName) {
+      const e = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+      const type = e.type === 'Niederfänge' ? 'Niederfänge' : 'Hochfänge';
+      return {
+        title: String(e.title || fallbackName || 'Veyr').trim() || 'Veyr',
+        type: type,
+        content: typeof e.content === 'string' ? e.content : '',
+        imageId: typeof e.imageId === 'string' ? e.imageId : ''
+      };
+    }
+
     function ensureVeyrAlt(accs) {
       const acc = accs && accs[YUVI_ID];
       if (!acc) return;
@@ -3453,12 +3534,23 @@
       if (!acc.alts[VEYR_ALT]) {
         acc.alts[VEYR_ALT] = {
           name: 'Veyr',
-          sheet: Object.assign({}, EMPTY_SHEET, { name: 'Veyr' })
+          sheet: Object.assign({}, EMPTY_SHEET, { name: 'Veyr' }),
+          entry: normalizeAltEntry({ title: 'Veyr' }, 'Veyr')
         };
       } else {
         acc.alts[VEYR_ALT].name = 'Veyr';
         const sheet = acc.alts[VEYR_ALT].sheet;
         if (sheet && (!sheet.name || sheet.name === 'Holger')) sheet.name = 'Veyr';
+        const alt = acc.alts[VEYR_ALT];
+        if (!alt.entry) {
+          alt.entry = normalizeAltEntry({
+            title: 'Veyr',
+            content: sheet && sheet.extra,
+            imageId: sheet && sheet.portraitId
+          }, 'Veyr');
+        } else {
+          alt.entry = normalizeAltEntry(alt.entry, 'Veyr');
+        }
       }
     }
 
@@ -3471,8 +3563,10 @@
         const a = raw[key] || {};
         out[id] = {
           name: (a.name || key).trim(),
-          sheet: normalizeSheet(a.sheet)
+          sheet: normalizeSheet(a.sheet),
+          entry: a.entry ? normalizeAltEntry(a.entry, a.name || key) : undefined
         };
+        if (!out[id].entry) delete out[id].entry;
       });
       return out;
     }
@@ -4866,10 +4960,175 @@
       if (!confirmLeaveEditor()) return;
       dirty = false;
       sheetDirty = false;
+      veyrEntryEditing = false;
       showPage('char');
       currentIndex = null;
       currentTitle = null;
       renderCharakter();
+    }
+
+    function getVeyrEntry() {
+      ensureVeyrAlt(playerAccounts);
+      const alt = playerAccounts[YUVI_ID] && playerAccounts[YUVI_ID].alts && playerAccounts[YUVI_ID].alts[VEYR_ALT];
+      return alt && alt.entry ? alt.entry : null;
+    }
+
+    function setVeyrImagePreview(src) {
+      const wrap = document.getElementById('veyrImagePreview');
+      const img = document.getElementById('veyrImagePreviewImg');
+      const removeBtn = document.getElementById('removeVeyrImageBtn');
+      const ocrBtn = document.getElementById('ocrVeyrImageBtn');
+      if (!src) {
+        wrap.classList.add('hidden');
+        img.removeAttribute('src');
+        removeBtn.classList.add('hidden');
+        if (ocrBtn) ocrBtn.classList.add('hidden');
+        return;
+      }
+      img.src = src;
+      wrap.classList.remove('hidden');
+      removeBtn.classList.remove('hidden');
+      if (ocrBtn) ocrBtn.classList.remove('hidden');
+    }
+
+    function showVeyrViewImage(imageId, title) {
+      const wrap = document.getElementById('veyrViewImageWrap');
+      const img = document.getElementById('veyrViewImage');
+      const token = ++veyrImageToken;
+      if (!imageId) {
+        wrap.classList.add('hidden');
+        img.removeAttribute('src');
+        return;
+      }
+      wrap.classList.remove('hidden');
+      img.alt = title || 'Veyr';
+      if (imageCache[imageId]) {
+        img.src = imageCache[imageId];
+        return;
+      }
+      img.removeAttribute('src');
+      loadEntryImage(imageId).then(data => {
+        if (token !== veyrImageToken) return;
+        if (!data) {
+          wrap.classList.add('hidden');
+          return;
+        }
+        img.src = data;
+      }).catch(() => {
+        if (token !== veyrImageToken) return;
+        wrap.classList.add('hidden');
+      });
+    }
+
+    function fillVeyrEditor(e) {
+      document.getElementById('veyrTitle').value = e.title || 'Veyr';
+      document.getElementById('veyrType').value = e.type === 'Niederfänge' ? 'Niederfänge' : 'Hochfänge';
+      document.getElementById('veyrContent').innerHTML = sanitizeHtml(e.content || '');
+      pendingVeyrImage = null;
+      const token = ++veyrImageToken;
+      setVeyrImagePreview(null);
+      if (e.imageId) {
+        if (imageCache[e.imageId]) setVeyrImagePreview(imageCache[e.imageId]);
+        else {
+          loadEntryImage(e.imageId).then(data => {
+            if (token !== veyrImageToken || pendingVeyrImage !== null) return;
+            if (data) setVeyrImagePreview(data);
+          }).catch(() => {});
+        }
+      }
+    }
+
+    function renderVeyrPanel() {
+      const e = getVeyrEntry();
+      const card = document.getElementById('charMainCard');
+      const view = document.getElementById('charEntryView');
+      const editor = document.getElementById('charEntryEditor');
+      const canEdit = canEditOwnerSheet(VEYR_OWNER);
+      if (!e) return;
+      document.getElementById('charHeading').textContent = veyrEntryEditing ? 'Eintrag bearbeiten' : (e.title || 'Veyr');
+      card.classList.toggle('is-entry', !veyrEntryEditing);
+      if (veyrEntryEditing && canEdit) {
+        view.classList.add('hidden');
+        editor.classList.remove('hidden');
+        if (!sheetDirty) fillVeyrEditor(e);
+      } else {
+        veyrEntryEditing = false;
+        view.classList.remove('hidden');
+        editor.classList.add('hidden');
+        document.getElementById('veyrViewType').textContent = e.type || 'Hochfänge';
+        document.getElementById('veyrViewTitle').textContent = e.title || 'Veyr';
+        document.getElementById('veyrViewContent').innerHTML = htmlToText(e.content || '').trim()
+          ? sanitizeHtml(e.content)
+          : '<p><em>Noch kein Text.</em></p>';
+        showVeyrViewImage(e.imageId, e.title);
+        document.getElementById('veyrViewActions').classList.toggle('hidden', !canEdit);
+      }
+    }
+
+    async function saveVeyrEntry() {
+      if (!canEditOwnerSheet(VEYR_OWNER)) return;
+      ensureVeyrAlt(playerAccounts);
+      const alt = playerAccounts[YUVI_ID].alts[VEYR_ALT];
+      const previous = Object.assign({}, alt.entry);
+      const btn = document.getElementById('saveVeyrBtn');
+      btn.disabled = true;
+      btn.textContent = 'Speichert…';
+      try {
+        let imageId = previous.imageId || '';
+        if (pendingVeyrImage === false) {
+          if (imageId) await deleteEntryImage(imageId);
+          imageId = '';
+        } else if (typeof pendingVeyrImage === 'string') {
+          const nextId = newImageId();
+          await persistEntryImage(nextId, pendingVeyrImage);
+          imageId = nextId;
+        }
+        alt.entry = {
+          title: document.getElementById('veyrTitle').value.trim() || 'Veyr',
+          type: document.getElementById('veyrType').value === 'Niederfänge' ? 'Niederfänge' : 'Hochfänge',
+          content: document.getElementById('veyrContent').innerHTML,
+          imageId: imageId
+        };
+        await persistPlayers();
+        pendingVeyrImage = null;
+        sheetDirty = false;
+        veyrEntryEditing = false;
+        toast('Eintrag gespeichert.');
+        renderCharakter();
+      } catch (err) {
+        alt.entry = previous;
+        toast('Speichern fehlgeschlagen: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Speichern';
+      }
+    }
+
+    async function readStatSheetFromVeyrImage() {
+      if (!canEditOwnerSheet(VEYR_OWNER) || ocrBusy) return;
+      const src = (typeof pendingVeyrImage === 'string' && pendingVeyrImage)
+        || (document.getElementById('veyrImagePreviewImg') && document.getElementById('veyrImagePreviewImg').getAttribute('src'))
+        || '';
+      if (!src) return toast('Zuerst ein Stat-Sheet-Bild hochladen.');
+      const existing = htmlToText(document.getElementById('veyrContent').innerHTML || '').trim();
+      if (existing && !confirm('Der Text wird durch den erkannten Stat-Sheet-Text ersetzt. Fortfahren?')) return;
+      ocrBusy = true;
+      toast('Stat-Sheet wird gelesen… das kann einen Moment dauern.');
+      try {
+        const worker = await getOcrWorker();
+        const canvas = await prepareStatSheetForOcr(src);
+        const result = await worker.recognize(canvas);
+        const parsed = parseStatSheetText(result && result.data ? result.data.text : '');
+        const html = statSheetToHtml(parsed);
+        if (!htmlToText(html).trim()) throw new Error('Im Bild wurde kein Text erkannt.');
+        document.getElementById('veyrContent').innerHTML = html;
+        sheetDirty = true;
+        toast('Text erkannt. Bitte kurz prüfen und dann speichern. Das Bild bleibt.');
+      } catch (err) {
+        toast(err.message || 'Das Stat-Sheet konnte nicht gelesen werden.');
+      } finally {
+        ocrBusy = false;
+      }
     }
 
     function selectSheetOwner(owner) {
@@ -4877,6 +5136,8 @@
       if (sheetDirty && !confirm('Das Charakterblatt ist nicht gespeichert. Wirklich wechseln?')) return;
       currentSheetOwner = owner;
       sheetDirty = false;
+      veyrEntryEditing = false;
+      pendingVeyrImage = null;
       renderCharakter();
     }
 
@@ -4941,7 +5202,16 @@
 
       const rec = currentSheetOwner ? sheetOwnerRecord(currentSheetOwner) : null;
       const del = document.getElementById('deletePlayerBtn');
+      const isVeyr = currentSheetOwner === VEYR_OWNER;
+      document.getElementById('charSheetBlock').classList.toggle('hidden', isVeyr);
+      document.getElementById('charEntryBlock').classList.toggle('hidden', !isVeyr);
+      document.getElementById('charBlurb').classList.toggle('hidden', isVeyr);
       del.classList.toggle('hidden', !isDM || !rec || rec.isAlt);
+      if (isVeyr) {
+        renderVeyrPanel();
+        return;
+      }
+      document.getElementById('charMainCard').classList.remove('is-entry');
       if (!rec) {
         document.getElementById('charHeading').textContent = 'Charakterblatt';
         clearSheetForm();
@@ -8605,6 +8875,50 @@
     });
     document.getElementById('saveSheetBtn').onclick = saveSheet;
     document.getElementById('deletePlayerBtn').onclick = deletePlayerAccount;
+    document.getElementById('editVeyrBtn').onclick = () => {
+      if (!canEditOwnerSheet(VEYR_OWNER)) return;
+      veyrEntryEditing = true;
+      sheetDirty = false;
+      renderCharakter();
+    };
+    document.getElementById('cancelVeyrBtn').onclick = () => {
+      if (sheetDirty && !confirm('Ungespeicherte Änderungen verwerfen?')) return;
+      sheetDirty = false;
+      veyrEntryEditing = false;
+      pendingVeyrImage = null;
+      renderCharakter();
+    };
+    document.getElementById('saveVeyrBtn').onclick = saveVeyrEntry;
+    document.getElementById('uploadVeyrImageBtn').onclick = () => {
+      if (!canEditOwnerSheet(VEYR_OWNER)) return;
+      document.getElementById('veyrImageInput').click();
+    };
+    document.getElementById('ocrVeyrImageBtn').onclick = () => readStatSheetFromVeyrImage();
+    document.getElementById('removeVeyrImageBtn').onclick = () => {
+      pendingVeyrImage = false;
+      setVeyrImagePreview(null);
+      sheetDirty = true;
+    };
+    document.getElementById('veyrImageInput').onchange = async ev => {
+      const file = ev.target.files[0];
+      ev.target.value = '';
+      if (!file || !canEditOwnerSheet(VEYR_OWNER)) return;
+      try {
+        toast('Bild wird vorbereitet…');
+        const data = await fileToEntryImage(file);
+        pendingVeyrImage = data;
+        setVeyrImagePreview(data);
+        sheetDirty = true;
+        toast('Bild bereit. Jetzt Speichern, damit es für alle sichtbar ist.');
+      } catch (err) {
+        toast(err.message || 'Bild konnte nicht gelesen werden.');
+      }
+    };
+    ['veyrTitle', 'veyrType'].forEach(id => {
+      document.getElementById(id).addEventListener('input', () => { sheetDirty = true; });
+      document.getElementById(id).addEventListener('change', () => { sheetDirty = true; });
+    });
+    document.getElementById('veyrContent').addEventListener('input', () => { sheetDirty = true; });
     ['sheetName', 'sheetVolk', 'sheetKlasse', 'sheetStufe', 'sheetHp', 'sheetArmor', 'sheetStats', 'sheetNotes'].forEach(id => {
       document.getElementById(id).addEventListener('input', () => { sheetDirty = true; });
     });
