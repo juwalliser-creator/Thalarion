@@ -1830,6 +1830,13 @@
         transition: transform 0.2s ease;
       }
       aside.open { transform: none; }
+      body.sidebar-open .content::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 8, 6, 0.48);
+        z-index: 14;
+      }
       #menuBtn { display: inline-flex; }
       body.no-sidebar #menuBtn { display: none !important; }
       .content {
@@ -1843,8 +1850,8 @@
       }
       .kampf-stage.is-live .battle-card { position: static; }
       .kampf-stage.is-live .kampf-list {
-        max-height: none;
-        overflow: visible;
+        max-height: min(42vh, 340px);
+        overflow: auto;
       }
       .kampf-add-row input.kampf-num { flex: 1 1 5.5rem; }
       .brand strong { font-size: 1.1rem; }
@@ -1923,7 +1930,10 @@
       header { gap: 0.4rem 0.5rem; }
       .brand span { display: none; }
       .header-spacer { display: none; }
-      .player-chip { display: none !important; }
+      .player-chip {
+        font-size: 0.68rem;
+        padding: 0.22rem 0.5rem;
+      }
       body.is-dm .dm-menu { display: inline-flex; }
       #playerButton,
       #dmButton {
@@ -2601,6 +2611,7 @@
     const typeAliases = { Stadt: 'Städte', Königreich: 'Königreiche', Landschaft: 'Landschaften', Gott: 'Götter', Religion: 'Religionen', Gilde: 'Gilden', Magie: 'Heilpflanzen', Nutzpflanzen: 'Heilpflanzen' };
     const LOCAL_KEY = 'thalarion_world_data';
     const SESSION_KEY = 'thalarion_dm';
+    const VIEW_KEY = 'thalarion_view';
     const WORLD_DOC = 'codex';
     const PLAYERS_DOC = 'players';
     const ROSTER_DOC = 'kampfKarten';
@@ -2654,7 +2665,10 @@
     let mapPanX = 0;
     let mapPanY = 0;
     let mapDrag = null;
+    let mapViewMemo = null;
     let openedFromMap = false;
+    let localStorageOk = true;
+    let searchHitIndex = -1;
     let writingRemote = false;
     let writingMap = false;
     let storageAvailable = true;
@@ -2828,6 +2842,7 @@
     }
 
     function openHomeCategory(cat) {
+      if (!confirmLeaveEditor()) return;
       titleKingdomFilter = '';
       const matching = visibleEntriesInCat(cat);
       if (isSingleEntryCategory(cat) && matching.length === 1) {
@@ -2949,9 +2964,9 @@
       const showOrigBar = isDM && currentPage === 'entstehung' && !wantsSidebar('entstehung') && !els.entstehungView.classList.contains('hidden');
       const sitBar = document.getElementById('sitzungToolbar');
       const showSitBar = isDM && currentPage === 'sitzung' && !els.sitzungView.classList.contains('hidden');
-      homeBar.classList.toggle('hidden', !showHomeBar);
-      origBar.classList.toggle('hidden', !showOrigBar);
-      sitBar.classList.toggle('hidden', !showSitBar);
+      homeBar && homeBar.classList.toggle('hidden', !showHomeBar);
+      origBar && origBar.classList.toggle('hidden', !showOrigBar);
+      sitBar && sitBar.classList.toggle('hidden', !showSitBar);
     }
 
     function normalizeEntries(list) {
@@ -2983,6 +2998,7 @@
     function syncSessionDateField() {
       const wrap = document.getElementById('sessionDateWrap');
       const input = document.getElementById('sessionDate');
+      if (!wrap || !input || !els.type) return;
       const show = els.type.value === SESSION_CAT;
       wrap.classList.toggle('hidden', !show);
       if (show && !input.value) input.value = todayIsoDate();
@@ -3063,20 +3079,32 @@
       return entries.filter(e => isDM || e.visibility === 'player');
     }
 
-    function toast(msg) {
+    function toast(msg, ms) {
+      if (!els.toast) return;
       els.toast.textContent = msg;
       els.toast.classList.remove('hidden');
       clearTimeout(toast._t);
-      toast._t = setTimeout(() => els.toast.classList.add('hidden'), 2600);
+      if (ms === 0) return;
+      toast._t = setTimeout(() => els.toast.classList.add('hidden'), typeof ms === 'number' ? ms : 2600);
     }
 
     function writeLocal(key, value) {
+      if (!localStorageOk) return false;
       try {
         localStorage.setItem(key, value);
         return true;
       } catch (err) {
+        localStorageOk = false;
         toast('Lokaler Speicher ist voll. Die Cloud gilt weiter, dieser Browser nicht.');
         return false;
+      }
+    }
+
+    function encodeSecret(value) {
+      try {
+        return btoa(value || '');
+      } catch (err) {
+        throw new Error('Bitte nur Buchstaben, Zahlen und einfache Zeichen im Passwort.');
       }
     }
 
@@ -3496,7 +3524,7 @@
         armor: document.getElementById('sheetArmor').value.trim(),
         stats: document.getElementById('sheetStats').value.trim(),
         notes: document.getElementById('sheetNotes').value,
-        extra: document.getElementById('sheetContent').innerHTML,
+        extra: sanitizeHtml(document.getElementById('sheetContent').innerHTML),
         portraitId: sheetPortraitId || ''
       };
     }
@@ -5110,8 +5138,15 @@
 
     function setPlayer(id) {
       currentPlayerId = id;
-      if (id) sessionStorage.setItem(PLAYER_SESSION_KEY, id);
-      else sessionStorage.removeItem(PLAYER_SESSION_KEY);
+      try {
+        if (id) {
+          sessionStorage.setItem(PLAYER_SESSION_KEY, id);
+          localStorage.setItem(PLAYER_SESSION_KEY, id);
+        } else {
+          sessionStorage.removeItem(PLAYER_SESSION_KEY);
+          localStorage.removeItem(PLAYER_SESSION_KEY);
+        }
+      } catch (err) {}
       if (id) currentSheetOwner = id;
       else if (!isDM) currentSheetOwner = null;
       updatePlayerChrome();
@@ -5156,7 +5191,7 @@
       playerAccounts = Object.assign({}, playerAccounts);
       playerAccounts[id] = {
         name: name.trim().replace(/\s+/g, ' '),
-        password: btoa(password),
+        password: encodeSecret(password),
         sheet: Object.assign({}, EMPTY_SHEET),
         createdAt: Date.now()
       };
@@ -5172,7 +5207,7 @@
     function loginPlayer(name, password) {
       const id = playerIdFromName(name);
       const acc = playerAccounts[id];
-      if (!acc || acc.password !== btoa(password)) throw new Error('Name oder Passwort stimmt nicht.');
+      if (!acc || acc.password !== encodeSecret(password)) throw new Error('Name oder Passwort stimmt nicht.');
       setPlayer(id);
     }
 
@@ -5185,6 +5220,7 @@
       currentIndex = null;
       currentTitle = null;
       renderCharakter();
+      persistView();
     }
 
     function getVeyrEntry() {
@@ -5356,7 +5392,7 @@
       const existing = htmlToText(document.getElementById('veyrContent').innerHTML || '').trim();
       if (existing && !confirm('Der Text wird durch den erkannten Stat-Sheet-Text ersetzt. Fortfahren?')) return;
       ocrBusy = true;
-      toast('Stat-Sheet wird gelesen… das kann einen Moment dauern.');
+      toast('Stat-Sheet wird gelesen… das kann einen Moment dauern.', 0);
       try {
         const worker = await getOcrWorker();
         const canvas = await prepareStatSheetForOcr(src);
@@ -5383,7 +5419,7 @@
       const existing = htmlToText(document.getElementById('sheetContent').innerHTML || '').trim();
       if (existing && !confirm('Der Text wird durch den erkannten Stat-Sheet-Text ersetzt. Fortfahren?')) return;
       ocrBusy = true;
-      toast('Stat-Sheet wird gelesen… das kann einen Moment dauern.');
+      toast('Stat-Sheet wird gelesen… das kann einen Moment dauern.', 0);
       try {
         const worker = await getOcrWorker();
         const canvas = await prepareStatSheetForOcr(src);
@@ -5409,6 +5445,7 @@
       veyrEntryEditing = false;
       pendingVeyrImage = null;
       renderCharakter();
+      persistView();
     }
 
     function renderCharakter() {
@@ -6529,6 +6566,7 @@
       }
       rows.forEach(row => list.appendChild(kampfCompactItem(row)));
       applyBattleLinkHighlight();
+      renderKampfLog();
     }
 
     function renderKampf() {
@@ -6542,6 +6580,7 @@
       renderKampfKartenList();
 
       const playersBox = document.getElementById('kampfPlayers');
+      if (!playersBox) return;
       playersBox.innerHTML = '';
       const ids = Object.keys(playerAccounts).sort((a, b) =>
         playerAccounts[a].name.localeCompare(playerAccounts[b].name, 'de')
@@ -6584,6 +6623,7 @@
       }
 
       const tplBox = document.getElementById('kampfTplList');
+      if (!tplBox) return;
       tplBox.innerHTML = '';
       const tpls = loadCombatTemplates();
       if (!tpls.length) {
@@ -6869,20 +6909,24 @@
       });
       applyBattleLinkHighlight();
       syncKampfChrome();
+      renderKampfLog();
+    }
 
+    function renderKampfLog() {
       const logBox = document.getElementById('kampfLog');
+      if (!logBox) return;
       logBox.innerHTML = '';
       if (!combat.log.length) {
         logBox.classList.add('hidden');
-      } else {
-        logBox.classList.remove('hidden');
-        combat.log.forEach(line => {
-          const div = document.createElement('div');
-          div.textContent = combatLogText(line);
-          if (!div.textContent) return;
-          logBox.appendChild(div);
-        });
+        return;
       }
+      logBox.classList.remove('hidden');
+      combat.log.forEach(line => {
+        const div = document.createElement('div');
+        div.textContent = combatLogText(line);
+        if (!div.textContent) return;
+        logBox.appendChild(div);
+      });
     }
 
     function showKampf() {
@@ -6895,6 +6939,7 @@
       currentTitle = null;
       renderKampf();
       renderBattleBoards();
+      persistView();
     }
 
     function indexByTitle(title) {
@@ -7650,6 +7695,7 @@
       if (!pin) return;
       if (!pin.linked) {
         if (isDM) openPinEditor(id);
+        else toast('Dieser Ort ist noch nicht mit einem Eintrag verknüpft.');
         return;
       }
       const i = indexByTitle(pin.title);
@@ -7716,7 +7762,7 @@
 
     function htmlToText(html) {
       const d = document.createElement('div');
-      d.innerHTML = html || '';
+      d.innerHTML = sanitizeHtml(html || '');
       d.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
       d.querySelectorAll('p, div, h1, h2, h3, li, blockquote').forEach(el => {
         el.insertAdjacentText('afterend', '\n\n');
@@ -7911,13 +7957,13 @@
       const existing = htmlToText(els.content.innerHTML || '').trim();
       if (existing && !confirm('Der Text wird durch den erkannten Stat-Sheet-Text ersetzt. Fortfahren?')) return;
       ocrBusy = true;
-      toast('Stat-Sheet wird gelesen… das kann einen Moment dauern.');
+      toast('Stat-Sheet wird gelesen… das kann einen Moment dauern.', 0);
       try {
         const worker = await getOcrWorker();
         const canvas = await prepareStatSheetForOcr(src);
         const result = await worker.recognize(canvas);
         const parsed = parseStatSheetText(result && result.data ? result.data.text : '');
-        const html = statSheetToHtml(parsed);
+        const html = sanitizeHtml(statSheetToHtml(parsed));
         if (!htmlToText(html).trim()) throw new Error('Im Bild wurde kein Text erkannt.');
         els.content.innerHTML = html;
         dirty = true;
@@ -8191,8 +8237,56 @@
       }
     }
 
+    function captureMapView() {
+      const wrap = document.getElementById('mapWrap');
+      if (!wrap) return;
+      mapViewMemo = {
+        scale: mapScale,
+        panX: mapPanX,
+        panY: mapPanY,
+        sl: wrap.scrollLeft,
+        st: wrap.scrollTop
+      };
+    }
+
+    function restoreMapView() {
+      if (!mapViewMemo) return;
+      mapScale = Number(mapViewMemo.scale) || 1;
+      mapPanX = Number(mapViewMemo.panX) || 0;
+      mapPanY = Number(mapViewMemo.panY) || 0;
+      applyMapTransform();
+      const wrap = document.getElementById('mapWrap');
+      if (!wrap) return;
+      requestAnimationFrame(() => {
+        if (!mapViewMemo) return;
+        wrap.scrollLeft = mapViewMemo.sl || 0;
+        wrap.scrollTop = mapViewMemo.st || 0;
+      });
+    }
+
+    function persistView() {
+      try {
+        const wrap = document.getElementById('mapWrap');
+        sessionStorage.setItem(VIEW_KEY, JSON.stringify({
+          page: currentPage,
+          title: currentTitle || '',
+          cat: selectedHomeCat || '',
+          sheet: currentSheetOwner || '',
+          map: wrap ? {
+            scale: mapScale,
+            panX: mapPanX,
+            panY: mapPanY,
+            sl: wrap.scrollLeft,
+            st: wrap.scrollTop
+          } : mapViewMemo
+        }));
+      } catch (err) {}
+    }
+
     function showPage(page) {
+      if (currentPage === 'map' && page !== 'map') captureMapView();
       currentPage = page;
+      persistView();
       els.navWorld.classList.toggle('active', page === 'world' || page === 'codex' || page === 'bestiarium' || page === 'glossar');
       els.navEntstehung.classList.toggle('active', page === 'entstehung');
       els.navSitzung.classList.toggle('active', page === 'sitzung');
@@ -8333,10 +8427,12 @@
     }
 
     function openWorldCatalog(page, tile) {
+      if (!confirmLeaveEditor()) return;
       playMagicTransition(tile, () => showCatalog(page));
     }
 
     function showCatalog(page) {
+      if (!confirmLeaveEditor()) return;
       if (!isCatalogPage(page)) page = 'codex';
       openedFromMap = false;
       selectedHomeCat = null;
@@ -8368,6 +8464,7 @@
       renderMapPins();
       renderMapBorders();
       applyMapTransform();
+      restoreMapView();
     }
 
     function showEntstehung() {
@@ -8577,7 +8674,10 @@
             btn.className = 'card';
             const sub = e.kingdom || (e.visibility === 'dm' ? 'nur DM' : 'Öffnen');
             btn.innerHTML = `<b>${escapeHtml(e.title)}</b><span>${escapeHtml(sub)}</span>`;
-            btn.onclick = () => playMagicTransition(btn, () => loadEntry(i));
+            btn.onclick = () => {
+              if (!confirmLeaveEditor()) return;
+              playMagicTransition(btn, () => loadEntry(i));
+            };
             els.homeCards.appendChild(btn);
           });
         }
@@ -8596,7 +8696,10 @@
         const btn = document.createElement('button');
         btn.className = 'card';
         btn.innerHTML = `<b>${cat}</b><span>${count} ${count === 1 ? 'Eintrag' : 'Einträge'}</span>`;
-        btn.onclick = () => playMagicTransition(btn, () => openHomeCategory(cat));
+        btn.onclick = () => {
+          if (!confirmLeaveEditor()) return;
+          playMagicTransition(btn, () => openHomeCategory(cat));
+        };
         els.homeCards.appendChild(btn);
       });
     }
@@ -8720,6 +8823,7 @@
       const box = document.getElementById('searchResults');
       const query = (document.getElementById('globalSearch').value || '').trim().toLowerCase();
       box.innerHTML = '';
+      searchHitIndex = -1;
       if (!query) {
         box.classList.add('hidden');
         return;
@@ -8822,8 +8926,11 @@
       if (!selectedHomeCat && !wantsSidebar(pageForType(e.type))) selectedHomeCat = e.type;
       renderViewerCrumb(e);
       renderSidebar();
-      document.getElementById('sidebar').classList.remove('open');
+      setSidebarOpen(false);
       updateExtraToolbars();
+      const main = document.getElementById('main');
+      if (main) main.scrollTop = 0;
+      persistView();
     }
 
     function fillEditor(e) {
@@ -8885,6 +8992,7 @@
 
     function editCurrent() {
       if (!isDM || currentIndex === null) return;
+      if (!confirmLeaveEditor()) return;
       fillEditor(entries[currentIndex]);
       openEditor();
     }
@@ -8921,7 +9029,7 @@
         title: title,
         type: els.type.value,
         visibility: els.visibility.value,
-        content: els.content.innerHTML,
+        content: sanitizeHtml(els.content.innerHTML),
         imageId: imageId,
         sessionDate: els.type.value === SESSION_CAT ? (document.getElementById('sessionDate').value || '') : '',
         kingdom: els.type.value === TITLE_OFFICE_CAT ? (document.getElementById('titleKingdom').value || '').trim() : ''
@@ -8977,6 +9085,7 @@
     }
 
     function setDM(on) {
+      if (!on && isDM && !confirmLeaveEditor()) return;
       isDM = on;
       document.body.classList.toggle('is-dm', on);
       els.dmButton.textContent = on ? 'DM Logout' : 'DM Login';
@@ -9096,6 +9205,55 @@
       onClick(prefix + 'BattleZoomReset', resetBattleView);
     }
 
+    function setSidebarOpen(open) {
+      if (!els.sidebar) return;
+      els.sidebar.classList.toggle('open', !!open);
+      const mobile = window.matchMedia('(max-width: 860px)').matches;
+      document.body.classList.toggle('sidebar-open', !!open && mobile);
+    }
+
+    function restoreSessionView() {
+      let saved = null;
+      try { saved = JSON.parse(sessionStorage.getItem(VIEW_KEY) || 'null'); } catch (err) {}
+      if (saved && saved.map) {
+        mapViewMemo = {
+          scale: saved.map.scale,
+          panX: saved.map.panX,
+          panY: saved.map.panY,
+          sl: saved.map.sl,
+          st: saved.map.st
+        };
+      }
+      const page = saved && saved.page;
+      if (saved && saved.sheet && sheetOwnerRecord(saved.sheet)) currentSheetOwner = saved.sheet;
+      if (!page || page === 'map') {
+        showMap();
+        return;
+      }
+      if (page === 'kampf') showKampf();
+      else if (page === 'char') showCharakter();
+      else if (page === 'entstehung') showEntstehung();
+      else if (page === 'sitzung') showSitzung();
+      else if (page === 'world') showWorld();
+      else if (isCatalogPage(page)) {
+        if (saved.title) {
+          const i = indexByTitle(saved.title);
+          if (i !== null) {
+            selectedHomeCat = saved.cat || null;
+            loadEntry(i);
+            return;
+          }
+        }
+        showCatalog(page);
+        if (saved.cat) {
+          selectedHomeCat = saved.cat;
+          renderHome();
+          renderSidebar();
+          persistView();
+        }
+      } else showMap();
+    }
+
     function bindAll() {
       safeBind('nav', () => {
         onClick('homeBtn', showMap);
@@ -9105,7 +9263,7 @@
         onClick('navMap', showMap);
         onClick('navCharakter', showCharakter);
         onClick('navKampf', showKampf);
-        onClick('menuBtn', () => { if (els.sidebar) els.sidebar.classList.toggle('open'); });
+        onClick('menuBtn', () => setSidebarOpen(!(els.sidebar && els.sidebar.classList.contains('open'))));
       });
 
       safeBind('kampf', () => {
@@ -9260,14 +9418,41 @@
         onEv('globalSearch', 'input', renderGlobalSearch);
         onEv('globalSearch', 'focus', renderGlobalSearch);
         onEv('globalSearch', 'keydown', ev => {
-          if (ev.key !== 'Escape') return;
-          closeSearchResults();
-          closeDmMenu();
-          ev.target.blur();
+          const hits = Array.from(document.querySelectorAll('#searchResults .search-hit'));
+          if (ev.key === 'Escape') {
+            closeSearchResults();
+            closeDmMenu();
+            ev.target.blur();
+            return;
+          }
+          if (ev.key === 'ArrowDown' && hits.length) {
+            ev.preventDefault();
+            searchHitIndex = Math.min(hits.length - 1, searchHitIndex + 1);
+            hits.forEach((h, i) => h.classList.toggle('active', i === searchHitIndex));
+            hits[searchHitIndex].scrollIntoView({ block: 'nearest' });
+            return;
+          }
+          if (ev.key === 'ArrowUp' && hits.length) {
+            ev.preventDefault();
+            searchHitIndex = searchHitIndex <= 0 ? 0 : searchHitIndex - 1;
+            hits.forEach((h, i) => h.classList.toggle('active', i === searchHitIndex));
+            hits[searchHitIndex].scrollIntoView({ block: 'nearest' });
+            return;
+          }
+          if (ev.key === 'Enter') {
+            const box = document.getElementById('searchResults');
+            if (!box || box.classList.contains('hidden')) return;
+            ev.preventDefault();
+            const active = hits[searchHitIndex] || hits[0];
+            if (active) active.click();
+          }
         });
         document.addEventListener('click', ev => {
           if (!ev.target.closest('.header-search') && !ev.target.closest('#searchResults')) closeSearchResults();
           if (!ev.target.closest('#dmMenuWrap')) closeDmMenu();
+          if (els.sidebar && els.sidebar.classList.contains('open') && !ev.target.closest('#sidebar') && !ev.target.closest('#menuBtn')) {
+            setSidebarOpen(false);
+          }
         });
         window.addEventListener('resize', closeSearchResults);
         window.addEventListener('scroll', () => {
@@ -9426,7 +9611,7 @@
           const passEl = els.dmPassword;
           if (!userEl || !passEl) return;
           const userOk = (userEl.value || '').trim().toLowerCase() === DM_USER;
-          const passOk = btoa(passEl.value) === DM_PASS;
+          const passOk = encodeSecret(passEl.value) === DM_PASS;
           if (userOk && passOk) {
             closeLogin();
             setDM(true);
@@ -9630,6 +9815,40 @@
     bindAll();
     if (sessionStorage.getItem(SESSION_KEY) === '1') setDM(true);
 
+    window.addEventListener('keydown', ev => {
+      if (ev.key !== 'Escape') return;
+      if (ev.target && (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA' || ev.target.isContentEditable)) {
+        if (ev.target.id === 'globalSearch') return;
+      }
+      const login = document.getElementById('loginOverlay');
+      if (login && !login.classList.contains('hidden')) { closeLogin(); return; }
+      const player = document.getElementById('playerOverlay');
+      if (player && !player.classList.contains('hidden')) { closePlayerLogin(); return; }
+      const pin = document.getElementById('pinOverlay');
+      if (pin && !pin.classList.contains('hidden')) { closePinPicker(); return; }
+      const border = document.getElementById('borderOverlay');
+      if (border && !border.classList.contains('hidden')) {
+        const cancel = document.getElementById('borderCancel');
+        if (cancel) cancel.click();
+        return;
+      }
+      if (kampfAimFrom) { cancelKampfAim(); return; }
+      const searchBox = document.getElementById('searchResults');
+      if (searchBox && !searchBox.classList.contains('hidden')) {
+        closeSearchResults();
+        return;
+      }
+      if (els.sidebar && els.sidebar.classList.contains('open')) setSidebarOpen(false);
+    });
+
+    window.addEventListener('beforeunload', ev => {
+      const editing = dirty && isDM && els.editorView && !els.editorView.classList.contains('hidden');
+      const sheet = sheetDirty && els.charView && !els.charView.classList.contains('hidden');
+      if (!editing && !sheet) return;
+      ev.preventDefault();
+      ev.returnValue = '';
+    });
+
     (async function boot() {
       loadRosterLocal();
       loadCombatTemplatesLocal();
@@ -9658,7 +9877,7 @@
           const battleMapSnap = await battleMapRef().get();
           if (battleMapSnap.exists) applyBattleMap(battleMapSnap.data());
           const combatSnap = await combatRef().get();
-          if (combatSnap.exists) applyCombat(combatSnap.data(), true);
+          if (combatSnap.exists) applyCombat(combatSnap.data());
           else if (combat.combatants.length) persistCombat();
         } catch (err) {
           console.warn(err);
@@ -9705,10 +9924,12 @@
         }
       }
 
-      const savedPlayer = sessionStorage.getItem(PLAYER_SESSION_KEY);
+      const savedPlayer = sessionStorage.getItem(PLAYER_SESSION_KEY) || (function () {
+        try { return localStorage.getItem(PLAYER_SESSION_KEY); } catch (err) { return null; }
+      })();
       if (savedPlayer && playerAccounts[savedPlayer]) setPlayer(savedPlayer);
 
-      showMap();
+      restoreSessionView();
       listenWorld();
       listenMap();
       listenPins();
