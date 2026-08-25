@@ -2680,8 +2680,10 @@
     let pendingVeyrImage = null;
     let veyrImageToken = 0;
     let playerFormMode = 'login';
-    let combat = { round: 1, started: false, activeId: null, debuffTick: 'turn', combatants: [], log: [], updatedAt: 0 };
+    let combat = { round: 1, started: false, activeId: null, debuffTick: 'turn', turnAt: 0, combatants: [], removed: {}, log: [], updatedAt: 0 };
     let writingCombat = false;
+    let combatWriteQueued = false;
+    let pendingCombatSnap = null;
     let combatPersistTimer = null;
     let kampfAimFrom = '';
     let kampfAimTo = '';
@@ -2690,8 +2692,10 @@
     let pendingSheetPortrait = null;
     let kartePortraitId = '';
     let pendingKartePortrait = null;
-    let battle = { image: '', tokens: [], hazards: [], tokenSize: 48, gridSize: 1, updatedAt: 0, mapUpdatedAt: 0 };
+    let battle = { image: '', tokens: [], hazards: [], tokenSize: 48, gridSize: 1, updatedAt: 0, mapUpdatedAt: 0, layoutAt: 0, removedTokens: {}, removedHazards: {} };
     let writingBattle = false;
+    let battleWriteQueued = false;
+    let pendingBattleSnap = null;
     let writingBattleMap = false;
     let battlePersistTimer = null;
     let battleHazardMode = null;
@@ -3730,6 +3734,54 @@
       else loadEntryImage(portraitId).then(apply).catch(() => {});
     }
 
+    function stamp(n) {
+      const v = Number(n);
+      return Number.isFinite(v) ? v : 0;
+    }
+
+    function stampNow() {
+      return Date.now();
+    }
+
+    function mergeStampMap(a, b) {
+      const out = {};
+      [a, b].forEach(map => {
+        if (!map || typeof map !== 'object' || Array.isArray(map)) return;
+        Object.keys(map).forEach(id => {
+          out[id] = Math.max(stamp(out[id]), stamp(map[id]));
+        });
+      });
+      return out;
+    }
+
+    function normalizeLogItem(item) {
+      if (typeof item === 'string') return { t: 0, text: item };
+      if (!item || typeof item !== 'object') return null;
+      const text = String(item.text || '').trim();
+      if (!text) return null;
+      return { t: stamp(item.t), text: text };
+    }
+
+    function combatLogText(item) {
+      if (typeof item === 'string') return item;
+      return item && item.text ? String(item.text) : '';
+    }
+
+    function mergeCombatLogs(a, b) {
+      const seen = {};
+      const out = [];
+      [].concat(b || [], a || []).forEach(item => {
+        const n = normalizeLogItem(item);
+        if (!n) return;
+        const key = n.t + '\0' + n.text;
+        if (seen[key]) return;
+        seen[key] = 1;
+        out.push(n);
+      });
+      out.sort((x, y) => stamp(y.t) - stamp(x.t));
+      return out.slice(0, 20);
+    }
+
     function normalizeBattleToken(t) {
       return {
         id: t.id || combatNewId('t'),
@@ -3739,7 +3791,8 @@
         portraitId: t.portraitId || '',
         init: Number(t.init) || 0,
         x: Math.max(0, Math.min(100, Number(t.x) || 50)),
-        y: Math.max(0, Math.min(100, Number(t.y) || 50))
+        y: Math.max(0, Math.min(100, Number(t.y) || 50)),
+        movedAt: stamp(t.movedAt)
       };
     }
 
@@ -3749,28 +3802,95 @@
         x: Math.max(0, Math.min(100, Number(p.x) || 0)),
         y: Math.max(0, Math.min(100, Number(p.y) || 0))
       }));
-      return { id: h.id || combatNewId('h'), type: type, points: points };
+      return { id: h.id || combatNewId('h'), type: type, points: points, updatedAt: stamp(h.updatedAt) };
+    }
+
+    function battlePayload() {
+      return {
+        updatedAt: stamp(battle.updatedAt),
+        layoutAt: stamp(battle.layoutAt),
+        tokens: (battle.tokens || []).map(normalizeBattleToken),
+        hazards: (battle.hazards || []).map(normalizeBattleHazard),
+        tokenSize: clampBattleTokenSize(battle.tokenSize),
+        gridSize: clampBattleGridSize(battle.gridSize),
+        removedTokens: Object.assign({}, battle.removedTokens || {}),
+        removedHazards: Object.assign({}, battle.removedHazards || {})
+      };
+    }
+
+    function mergeByStamp(listA, listB, stampKey, removed) {
+      const byId = {};
+      [].concat(listA || [], listB || []).forEach(item => {
+        if (!item || !item.id) return;
+        const prev = byId[item.id];
+        if (!prev || stamp(item[stampKey]) >= stamp(prev[stampKey])) byId[item.id] = item;
+      });
+      return Object.keys(byId).map(id => byId[id]).filter(item => stamp(item[stampKey]) >= stamp(removed && removed[item.id]));
+    }
+
+    function mergeBattleStates(a, b) {
+      a = a || {};
+      b = b || {};
+      const removedTokens = mergeStampMap(a.removedTokens, b.removedTokens);
+      const removedHazards = mergeStampMap(a.removedHazards, b.removedHazards);
+      const aLay = stamp(a.layoutAt);
+      const bLay = stamp(b.layoutAt);
+      const layoutSrc = bLay >= aLay ? b : a;
+      return {
+        updatedAt: Math.max(stamp(a.updatedAt), stamp(b.updatedAt)),
+        layoutAt: Math.max(aLay, bLay),
+        tokens: mergeByStamp(
+          (Array.isArray(a.tokens) ? a.tokens : []).map(normalizeBattleToken),
+          (Array.isArray(b.tokens) ? b.tokens : []).map(normalizeBattleToken),
+          'movedAt',
+          removedTokens
+        ),
+        hazards: mergeByStamp(
+          (Array.isArray(a.hazards) ? a.hazards : []).map(normalizeBattleHazard),
+          (Array.isArray(b.hazards) ? b.hazards : []).map(normalizeBattleHazard),
+          'updatedAt',
+          removedHazards
+        ),
+        tokenSize: clampBattleTokenSize(layoutSrc.tokenSize),
+        gridSize: clampBattleGridSize(layoutSrc.gridSize),
+        removedTokens: removedTokens,
+        removedHazards: removedHazards
+      };
+    }
+
+    function applyBattleState(data, doRender) {
+      const next = mergeBattleStates({}, data);
+      battle.updatedAt = stamp(next.updatedAt);
+      battle.layoutAt = stamp(next.layoutAt);
+      battle.tokens = next.tokens;
+      battle.hazards = next.hazards;
+      battle.tokenSize = next.tokenSize;
+      battle.gridSize = next.gridSize;
+      battle.removedTokens = next.removedTokens;
+      battle.removedHazards = next.removedHazards;
+      persistBattleLocal();
+      if (doRender !== false) {
+        renderBattleBoards();
+        if (currentPage === 'kampf' && !isDM) renderPlayerKampfList();
+      }
     }
 
     function persistBattleLocal() {
-      writeLocal(BATTLE_LOCAL_KEY, JSON.stringify({
-        updatedAt: battle.updatedAt,
-        tokens: battle.tokens,
-        hazards: battle.hazards,
-        tokenSize: clampBattleTokenSize(battle.tokenSize),
-        gridSize: clampBattleGridSize(battle.gridSize)
-      }));
+      writeLocal(BATTLE_LOCAL_KEY, JSON.stringify(battlePayload()));
     }
 
     function loadBattleLocal() {
       try {
         const raw = JSON.parse(localStorage.getItem(BATTLE_LOCAL_KEY) || 'null');
         if (!raw || typeof raw !== 'object') return;
-        battle.updatedAt = Number(raw.updatedAt) || 0;
+        battle.updatedAt = stamp(raw.updatedAt);
+        battle.layoutAt = stamp(raw.layoutAt);
         battle.tokens = (Array.isArray(raw.tokens) ? raw.tokens : []).map(normalizeBattleToken);
         battle.hazards = (Array.isArray(raw.hazards) ? raw.hazards : []).map(normalizeBattleHazard);
         battle.tokenSize = clampBattleTokenSize(raw.tokenSize);
         battle.gridSize = clampBattleGridSize(raw.gridSize);
+        battle.removedTokens = Object.assign({}, raw.removedTokens || {});
+        battle.removedHazards = Object.assign({}, raw.removedHazards || {});
       } catch (err) {}
     }
 
@@ -3872,18 +3992,13 @@
       });
     }
 
-    function applyBattle(data) {
-      if (!data || battleTokenDrag) return;
-      const at = Number(data.updatedAt) || 0;
-      if (at && at <= battle.updatedAt) return;
-      battle.updatedAt = at;
-      battle.tokens = (Array.isArray(data.tokens) ? data.tokens : []).map(normalizeBattleToken);
-      battle.hazards = (Array.isArray(data.hazards) ? data.hazards : []).map(normalizeBattleHazard);
-      battle.tokenSize = clampBattleTokenSize(data.tokenSize);
-      battle.gridSize = clampBattleGridSize(data.gridSize);
-      persistBattleLocal();
-      renderBattleBoards();
-      if (currentPage === 'kampf' && !isDM) renderPlayerKampfList();
+    function applyBattle(data, force) {
+      if (!data) return;
+      if (battleTokenDrag && !force) {
+        pendingBattleSnap = data;
+        return;
+      }
+      applyBattleState(mergeBattleStates(battlePayload(), data));
     }
 
     function applyBattleMap(data) {
@@ -3898,7 +4013,11 @@
     function listenBattle() {
       if (!db) return;
       battleRef().onSnapshot(snap => {
-        if (writingBattle || !snap.exists) return;
+        if (!snap.exists) return;
+        if (writingBattle) {
+          pendingBattleSnap = snap.data();
+          return;
+        }
         applyBattle(snap.data());
       });
       battleMapRef().onSnapshot(snap => {
@@ -3908,34 +4027,27 @@
     }
 
     function combatPayload() {
-      return {
-        updatedAt: combat.updatedAt || Date.now(),
+      return normalizeCombatState({
+        updatedAt: combat.updatedAt,
+        turnAt: combat.turnAt,
         round: combat.round,
-        started: !!combat.started,
-        activeId: combat.activeId || null,
-        debuffTick: combat.debuffTick === 'round' ? 'round' : 'turn',
-        combatants: (combat.combatants || []).map(normalizeCombatant),
-        log: Array.isArray(combat.log) ? combat.log.slice(0, 20) : []
-      };
+        started: combat.started,
+        activeId: combat.activeId,
+        debuffTick: combat.debuffTick,
+        combatants: combat.combatants,
+        removed: combat.removed,
+        log: combat.log
+      });
     }
 
     function persistCombatLocal() {
       writeLocal(COMBAT_KEY, JSON.stringify(combatPayload()));
     }
 
-    function applyCombat(data, force) {
+    function applyCombat(data) {
       if (!data) return;
-      const at = Number(data.updatedAt) || 0;
-      if (!force && at && at <= (Number(combat.updatedAt) || 0)) return;
-      combat = {
-        updatedAt: at,
-        round: Math.max(1, Number(data.round) || 1),
-        started: !!data.started,
-        activeId: data.activeId || null,
-        debuffTick: data.debuffTick === 'round' ? 'round' : 'turn',
-        combatants: (Array.isArray(data.combatants) ? data.combatants : []).map(normalizeCombatant),
-        log: Array.isArray(data.log) ? data.log.slice(0, 20) : []
-      };
+      const merged = mergeCombatStates(combatPayload(), data);
+      combat = merged;
       persistCombatLocal();
       applyBattleTurnHighlight();
       if (currentPage === 'kampf') renderKampf();
@@ -3944,53 +4056,102 @@
     function listenCombat() {
       if (!db) return;
       combatRef().onSnapshot(snap => {
-        if (writingCombat || !snap.exists) return;
+        if (!snap.exists) return;
+        if (writingCombat) {
+          pendingCombatSnap = snap.data();
+          return;
+        }
         applyCombat(snap.data());
       });
     }
 
     async function persistCombatRemote() {
       if (!db) return;
-      const nextAt = combat.updatedAt || Date.now();
+      if (writingCombat) {
+        combatWriteQueued = true;
+        return;
+      }
       writingCombat = true;
+      combatWriteQueued = false;
+      let wrote = null;
       try {
-        await combatRef().set(combatPayload());
-        combat.updatedAt = nextAt;
+        await db.runTransaction(async tx => {
+          const ref = combatRef();
+          const snap = await tx.get(ref);
+          wrote = snap.exists ? mergeCombatStates(snap.data(), combatPayload()) : combatPayload();
+          wrote.updatedAt = Math.max(stamp(wrote.updatedAt), stampNow());
+          tx.set(ref, wrote);
+        });
+        if (wrote) {
+          combat = mergeCombatStates(wrote, combatPayload());
+          persistCombatLocal();
+          applyBattleTurnHighlight();
+          if (currentPage === 'kampf') renderKampf();
+        }
       } catch (err) {
         toast('Kampfstand konnte nicht gespeichert werden: ' + err.message);
       } finally {
         writingCombat = false;
+        if (pendingCombatSnap) {
+          const snapData = pendingCombatSnap;
+          pendingCombatSnap = null;
+          applyCombat(snapData);
+        }
+        if (combatWriteQueued) persistCombatSoon();
       }
     }
 
     function persistCombatSoon() {
+      if (writingCombat) {
+        combatWriteQueued = true;
+        return;
+      }
       clearTimeout(combatPersistTimer);
       combatPersistTimer = setTimeout(() => { persistCombatRemote(); }, 180);
     }
 
     function persistBattleSoon() {
+      if (writingBattle) {
+        battleWriteQueued = true;
+        return;
+      }
       clearTimeout(battlePersistTimer);
       battlePersistTimer = setTimeout(() => { persistBattle(); }, 180);
     }
 
     async function persistBattle() {
-      const nextAt = Date.now();
-      battle.updatedAt = nextAt;
       persistBattleLocal();
       if (!db) return;
+      if (writingBattle) {
+        battleWriteQueued = true;
+        return;
+      }
       writingBattle = true;
+      battleWriteQueued = false;
+      let wrote = null;
       try {
-        await battleRef().set({
-          updatedAt: nextAt,
-          tokens: battle.tokens,
-          hazards: battle.hazards,
-          tokenSize: clampBattleTokenSize(battle.tokenSize),
-          gridSize: clampBattleGridSize(battle.gridSize)
+        await db.runTransaction(async tx => {
+          const ref = battleRef();
+          const snap = await tx.get(ref);
+          wrote = snap.exists ? mergeBattleStates(snap.data(), battlePayload()) : battlePayload();
+          wrote.updatedAt = Math.max(stamp(wrote.updatedAt), stampNow());
+          tx.set(ref, wrote);
         });
+        if (wrote) {
+          const keepImage = battle.image;
+          applyBattleState(mergeBattleStates(wrote, battlePayload()), currentPage === 'kampf');
+          battle.image = keepImage;
+        }
       } catch (err) {
         toast('Schlachtfeld konnte nicht gespeichert werden: ' + err.message);
       } finally {
         writingBattle = false;
+        if (pendingBattleSnap && !battleTokenDrag) {
+          const snap = pendingBattleSnap;
+          pendingBattleSnap = null;
+          applyBattle(snap, true);
+        }
+        if (battleWriteQueued) persistBattleSoon();
       }
     }
 
@@ -4135,15 +4296,20 @@
           portraitId: row.portraitId,
           init: row.init,
           x: 12 + (battle.tokens.length % 6) * 14,
-          y: 82
+          y: 82,
+          movedAt: stampNow()
         }));
         snapBattleTokenPos(battle.tokens[battle.tokens.length - 1]);
+        battle.tokens[battle.tokens.length - 1].movedAt = stampNow();
       }
+      if (battle.removedTokens) delete battle.removedTokens[row.id];
       persistBattleSoon();
       renderBattleBoards();
     }
 
     function removeBattleToken(id) {
+      if (!battle.removedTokens) battle.removedTokens = {};
+      battle.removedTokens[id] = stampNow();
       battle.tokens = battle.tokens.filter(t => t.id !== id);
       persistBattleSoon();
       renderBattleBoards();
@@ -4162,7 +4328,8 @@
           portraitId: c.portraitId,
           init: c.init,
           x: old ? old.x : 12 + (i % 6) * 14,
-          y: old ? old.y : 82
+          y: old ? old.y : 82,
+          movedAt: old ? old.movedAt : stampNow()
         });
       });
       persistBattleSoon();
@@ -4170,6 +4337,11 @@
     }
 
     function clearBattleTokensAndHazards() {
+      const now = stampNow();
+      if (!battle.removedTokens) battle.removedTokens = {};
+      if (!battle.removedHazards) battle.removedHazards = {};
+      battle.tokens.forEach(t => { battle.removedTokens[t.id] = now; });
+      battle.hazards.forEach(h => { battle.removedHazards[h.id] = now; });
       battle.tokens = [];
       battle.hazards = [];
       battleDraft = [];
@@ -4302,6 +4474,8 @@
             poly.addEventListener('click', ev => {
               ev.stopPropagation();
               if (!confirm(spec.label + '-Fläche entfernen?')) return;
+              if (!battle.removedHazards) battle.removedHazards = {};
+              battle.removedHazards[id] = stampNow();
               battle.hazards = battle.hazards.filter(h => h.id !== id);
               persistBattleSoon();
               renderBattleBoards();
@@ -4490,6 +4664,7 @@
         if (Math.abs(next.x - t.x) > 0.0001 || Math.abs(next.y - t.y) > 0.0001) {
           t.x = next.x;
           t.y = next.y;
+          t.movedAt = stampNow();
           changed = true;
         }
       });
@@ -4545,11 +4720,18 @@
             const pct = snapBattlePct(stage, { x: t.x, y: t.y }, null, token.id);
             t.x = pct.x;
             t.y = pct.y;
+            t.movedAt = stampNow();
+            if (battle.removedTokens) delete battle.removedTokens[t.id];
             el.style.left = t.x + '%';
             el.style.top = t.y + '%';
           }
         }
         persistBattleSoon();
+        if (pendingBattleSnap) {
+          const snap = pendingBattleSnap;
+          pendingBattleSnap = null;
+          applyBattle(snap, true);
+        }
         if (!battleTokenDragMoved) {
           if (!pickKampfAim(token.id)) setBattleLink(token.id, true);
           battleTokenDragMoved = true;
@@ -4582,8 +4764,10 @@
       battle.hazards.push(normalizeBattleHazard({
         id: combatNewId('h'),
         type: battleHazardMode,
-        points: battleDraft.slice()
+        points: battleDraft.slice(),
+        updatedAt: stampNow()
       }));
+      if (battle.removedHazards) delete battle.removedHazards[battle.hazards[battle.hazards.length - 1].id];
       battleDraft = [];
       battleHazardMode = null;
       persistBattleSoon();
@@ -5279,6 +5463,7 @@
           if (c.playerId === currentSheetOwner) {
             const now = sheetOwnerRecord(currentSheetOwner);
             c.portraitId = (now && now.sheet && now.sheet.portraitId) || '';
+            touchCombatant(c);
             upsertBattleToken(c);
           }
         });
@@ -5317,7 +5502,7 @@
     }
 
     function emptyCombat() {
-      return { round: 1, started: false, activeId: null, debuffTick: 'turn', combatants: [], log: [], updatedAt: 0 };
+      return { round: 1, started: false, activeId: null, debuffTick: 'turn', turnAt: 0, combatants: [], removed: {}, log: [], updatedAt: 0 };
     }
 
     function parseSheetHp(str) {
@@ -5374,7 +5559,61 @@
         count: Math.max(0, count),
         countMax: countMax,
         debuffs: normalizeCombatDebuffs(c.debuffs),
-        portraitId: typeof c.portraitId === 'string' ? c.portraitId : ''
+        portraitId: typeof c.portraitId === 'string' ? c.portraitId : '',
+        updatedAt: stamp(c.updatedAt)
+      };
+    }
+
+    function touchCombatant(row) {
+      if (row) row.updatedAt = stampNow();
+    }
+
+    function touchCombatTurn() {
+      combat.turnAt = stampNow();
+    }
+
+    function markCombatRemoved(id) {
+      if (!id) return;
+      if (!combat.removed || typeof combat.removed !== 'object') combat.removed = {};
+      combat.removed[id] = stampNow();
+    }
+
+    function normalizeCombatState(raw) {
+      const data = raw && typeof raw === 'object' ? raw : {};
+      return {
+        updatedAt: stamp(data.updatedAt),
+        turnAt: stamp(data.turnAt),
+        round: Math.max(1, Number(data.round) || 1),
+        started: !!data.started,
+        activeId: data.activeId || null,
+        debuffTick: data.debuffTick === 'round' ? 'round' : 'turn',
+        combatants: (Array.isArray(data.combatants) ? data.combatants : []).map(normalizeCombatant),
+        removed: Object.assign({}, data.removed && typeof data.removed === 'object' && !Array.isArray(data.removed) ? data.removed : {}),
+        log: mergeCombatLogs(data.log, [])
+      };
+    }
+
+    function mergeCombatStates(a, b) {
+      a = normalizeCombatState(a);
+      b = normalizeCombatState(b);
+      const turnSrc = stamp(b.turnAt) >= stamp(a.turnAt) ? b : a;
+      const removed = mergeStampMap(a.removed, b.removed);
+      const byId = {};
+      a.combatants.concat(b.combatants).forEach(c => {
+        const prev = byId[c.id];
+        if (!prev || stamp(c.updatedAt) >= stamp(prev.updatedAt)) byId[c.id] = c;
+      });
+      const combatants = Object.keys(byId).map(id => byId[id]).filter(c => stamp(c.updatedAt) >= stamp(removed[c.id]));
+      return {
+        updatedAt: Math.max(stamp(a.updatedAt), stamp(b.updatedAt)),
+        turnAt: Math.max(stamp(a.turnAt), stamp(b.turnAt)),
+        round: Math.max(1, Number(turnSrc.round) || 1),
+        started: !!turnSrc.started,
+        activeId: turnSrc.activeId || null,
+        debuffTick: turnSrc.debuffTick === 'round' ? 'round' : 'turn',
+        combatants: combatants,
+        removed: removed,
+        log: mergeCombatLogs(a.log, b.log)
       };
     }
 
@@ -5389,7 +5628,7 @@
     }
 
     function persistCombat() {
-      combat.updatedAt = Date.now();
+      combat.updatedAt = stampNow();
       persistCombatLocal();
       persistCombatSoon();
     }
@@ -5401,15 +5640,7 @@
           combat = emptyCombat();
           return;
         }
-        combat = {
-          updatedAt: Number(raw.updatedAt) || 0,
-          round: Math.max(1, Number(raw.round) || 1),
-          started: !!raw.started,
-          activeId: raw.activeId || null,
-          debuffTick: raw.debuffTick === 'round' ? 'round' : 'turn',
-          combatants: (Array.isArray(raw.combatants) ? raw.combatants : []).map(normalizeCombatant),
-          log: Array.isArray(raw.log) ? raw.log.slice(0, 20) : []
-        };
+        combat = normalizeCombatState(raw);
       } catch (err) {
         combat = emptyCombat();
       }
@@ -5487,7 +5718,7 @@
     }
 
     function combatLog(line) {
-      combat.log.unshift('Runde ' + combat.round + ' · ' + line);
+      combat.log.unshift({ t: stampNow(), text: 'Runde ' + combat.round + ' · ' + line });
       combat.log = combat.log.slice(0, 20);
     }
 
@@ -5530,6 +5761,8 @@
         portraitId: data.portraitId || ''
       });
       combat.combatants.push(row);
+      touchCombatant(row);
+      if (combat.removed) delete combat.removed[row.id];
       ensureCombatTurn();
       persistCombat();
       upsertBattleToken(row);
@@ -5585,6 +5818,7 @@
 
     function removeCombatant(id) {
       if (!combatantById(id)) return;
+      markCombatRemoved(id);
       combat.combatants = combat.combatants.filter(c => c.id !== id);
       ensureCombatTurn();
       persistCombat();
@@ -5630,6 +5864,8 @@
         a.order = ob;
         b.order = oa;
       }
+      touchCombatant(a);
+      touchCombatant(b);
       persistCombat();
       renderKampf();
     }
@@ -5654,6 +5890,7 @@
         if (n > 0) row.hp = Math.max(0, row.hp - n);
         combatLog(prefix + row.name + ' · ' + Math.abs(Number(amount) || 0) + ' Schaden');
       }
+      touchCombatant(row);
       persistCombat();
       renderKampf();
     }
@@ -5766,6 +6003,7 @@
       kampfAimTo = '';
       kampfAimEffect = '';
       row.count = Math.max(0, (Number(row.count) || 0) - 1);
+      touchCombatant(row);
       combatLog((from ? from.name + ' → ' : '') + row.name + ' · einer tot');
       persistCombat();
       renderKampf();
@@ -5930,6 +6168,7 @@
       }
       const src = fromId ? combatantById(fromId) : null;
       combatLog((src ? src.name + ' → ' : '') + row.name + ' · ' + label);
+      touchCombatant(row);
       persistCombat();
       renderKampf();
     }
@@ -5938,6 +6177,7 @@
       const row = combatantById(cid);
       if (!row) return;
       row.debuffs = row.debuffs.filter(d => d.id !== did);
+      touchCombatant(row);
       persistCombat();
       renderKampf();
     }
@@ -5948,6 +6188,7 @@
         if (d.rounds == null || !Number.isFinite(Number(d.rounds))) return d;
         return { id: d.id, text: d.text, kind: d.kind === 'buff' ? 'buff' : 'debuff', rounds: Number(d.rounds) - 1 };
       }).filter(d => d.rounds == null || d.rounds > 0);
+      touchCombatant(row);
     }
 
     function startKampf() {
@@ -5958,6 +6199,7 @@
       }
       ensureCombatTurn();
       combat.started = true;
+      touchCombatTurn();
       cancelKampfAim();
       persistCombat();
       renderKampf();
@@ -5969,6 +6211,7 @@
     function setCombatActive(id) {
       if (!combatantById(id) || !combat.started) return;
       combat.activeId = id;
+      touchCombatTurn();
       persistCombat();
       renderKampf();
     }
@@ -5995,6 +6238,7 @@
       } else {
         combat.activeId = list[(i < 0 ? 0 : i) + 1].id;
       }
+      touchCombatTurn();
       persistCombat();
       renderKampf();
     }
@@ -6012,6 +6256,7 @@
       ensureCombatTurn();
       const i = Math.max(0, list.findIndex(c => c.id === combat.activeId));
       combat.activeId = list[(i + 1) % list.length].id;
+      touchCombatTurn();
       persistCombat();
       renderKampf();
     }
@@ -6029,15 +6274,21 @@
       ensureCombatTurn();
       const i = Math.max(0, list.findIndex(c => c.id === combat.activeId));
       combat.activeId = list[(i - 1 + list.length) % list.length].id;
+      touchCombatTurn();
       persistCombat();
       renderKampf();
     }
 
     function endCombat() {
       const tick = combat.debuffTick;
+      const now = stampNow();
+      const removed = Object.assign({}, combat.removed || {});
+      combat.combatants.forEach(c => { if (c && c.id) removed[c.id] = now; });
       if (!combat.combatants.length) {
         combat = emptyCombat();
         combat.debuffTick = tick;
+        combat.removed = removed;
+        combat.turnAt = now;
         cancelKampfAim();
         persistCombat();
         clearBattleTokensAndHazards();
@@ -6047,6 +6298,8 @@
       if (!confirm('Kampf beenden und die Tafel leeren? Die Charakterblätter und Vorlagen bleiben unverändert.')) return;
       combat = emptyCombat();
       combat.debuffTick = tick;
+      combat.removed = removed;
+      combat.turnAt = now;
       cancelKampfAim();
       persistCombat();
       clearBattleTokensAndHazards();
@@ -6097,10 +6350,15 @@
       if (!tpl) return;
       if (combat.combatants.length && !confirm('Tafel durch die Vorlage „' + tpl.name + '“ ersetzen?')) return;
       const tick = combat.debuffTick;
+      const now = stampNow();
+      const removed = Object.assign({}, combat.removed || {});
+      combat.combatants.forEach(c => { if (c && c.id) removed[c.id] = now; });
       combat = emptyCombat();
       combat.debuffTick = tick;
+      combat.removed = removed;
+      combat.turnAt = now;
       (tpl.combatants || []).forEach(c => {
-        combat.combatants.push(normalizeCombatant({
+        const row = normalizeCombatant({
           name: c.name,
           kind: c.kind,
           playerId: c.playerId,
@@ -6115,7 +6373,10 @@
           tempHp: 0,
           debuffs: [],
           portraitId: c.portraitId || ''
-        }));
+        });
+        touchCombatant(row);
+        if (combat.removed) delete combat.removed[row.id];
+        combat.combatants.push(row);
       });
       ensureCombatTurn();
       persistCombat();
@@ -6144,6 +6405,7 @@
     }
 
     function refreshCombatantVisual(row) {
+      if (row) touchCombatant(row);
       persistCombat();
       if (!row) return;
       const down = combatantDown(row);
@@ -6311,6 +6573,7 @@
         initLabel.textContent = 'Init';
         const initInput = kampfNumberInput(row.init, el => {
           row.init = parseCombatInit(el.value);
+          touchCombatant(row);
           persistCombat();
           upsertBattleToken(row);
           renderKampf();
@@ -6334,6 +6597,7 @@
             return;
           }
           row.name = next;
+          touchCombatant(row);
           persistCombat();
           upsertBattleToken(row);
           renderKampf();
@@ -6403,6 +6667,7 @@
         acInput.placeholder = '—';
         acInput.onchange = () => {
           row.ac = (acInput.value || '').trim();
+          touchCombatant(row);
           persistCombat();
         };
         const tempInput = kampfNumberInput(row.tempHp, el => {
@@ -6547,7 +6812,8 @@
         logBox.classList.remove('hidden');
         combat.log.forEach(line => {
           const div = document.createElement('div');
-          div.textContent = line;
+          div.textContent = combatLogText(line);
+          if (!div.textContent) return;
           logBox.appendChild(div);
         });
       }
@@ -8675,12 +8941,14 @@
         sizeEl.addEventListener('input', () => {
           if (!isDM) return;
           battle.tokenSize = clampBattleTokenSize(sizeEl.value);
+          battle.layoutAt = stampNow();
           applyBattleTokenSize();
           persistBattleSoon();
         });
         sizeEl.addEventListener('change', () => {
           if (!isDM) return;
           battle.tokenSize = clampBattleTokenSize(sizeEl.value);
+          battle.layoutAt = stampNow();
           applyBattleTokenSize();
           persistBattleSoon();
         });
@@ -8690,6 +8958,7 @@
         const setGrid = () => {
           if (!isDM) return;
           battle.gridSize = clampBattleGridSize(Number(gridEl.value) / 10);
+          battle.layoutAt = stampNow();
           applyBattleGridSize();
           snapBattleTokensToGrid();
           persistBattleSoon();
