@@ -530,7 +530,7 @@
       position: fixed;
       inset: 0;
       z-index: 40;
-      pointer-events: none;
+      pointer-events: auto;
       overflow: hidden;
     }
     .magic-clone {
@@ -8250,9 +8250,24 @@
       return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     }
 
+    let magicAnim = null;
+
+    function stopMagicTransition() {
+      if (!magicAnim) return;
+      window.clearTimeout(magicAnim.openTimer);
+      window.clearTimeout(magicAnim.endTimer);
+      if (magicAnim.fromEl && magicAnim.fromEl.style) magicAnim.fromEl.style.visibility = '';
+      if (magicAnim.veil && magicAnim.veil.parentNode) magicAnim.veil.remove();
+      els.homeView.classList.remove('is-magic-in');
+      els.viewer.classList.remove('is-magic-in');
+      els.sidebar.classList.remove('is-magic-in');
+      magicAnim = null;
+    }
+
     function playMagicTransition(fromEl, onOpen) {
       if (typeof onOpen !== 'function') return;
-      if (!fromEl || prefersReducedMotion() || document.querySelector('.magic-veil')) {
+      stopMagicTransition();
+      if (!fromEl || prefersReducedMotion()) {
         onOpen();
         return;
       }
@@ -8287,10 +8302,15 @@
       veil.appendChild(clone);
       fromEl.style.visibility = 'hidden';
       document.body.appendChild(veil);
+      const anim = { veil: veil, fromEl: fromEl, openTimer: 0, endTimer: 0 };
+      magicAnim = anim;
+      void veil.offsetWidth;
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => veil.classList.add('is-on'));
+        if (magicAnim !== anim) return;
+        veil.classList.add('is-on');
       });
-      window.setTimeout(() => {
+      anim.openTimer = window.setTimeout(() => {
+        if (magicAnim !== anim) return;
         onOpen();
         if (!els.homeView.classList.contains('hidden')) {
           els.homeView.classList.add('is-magic-in');
@@ -8300,15 +8320,14 @@
         }
         if (!els.viewer.classList.contains('hidden')) els.viewer.classList.add('is-magic-in');
         els.sidebar.classList.add('is-magic-in');
+        void veil.offsetWidth;
         requestAnimationFrame(() => {
-          requestAnimationFrame(() => veil.classList.add('is-out'));
+          if (magicAnim !== anim) return;
+          veil.classList.add('is-out');
         });
-        window.setTimeout(() => {
-          veil.remove();
-          if (fromEl && fromEl.style) fromEl.style.visibility = '';
-          els.homeView.classList.remove('is-magic-in');
-          els.viewer.classList.remove('is-magic-in');
-          els.sidebar.classList.remove('is-magic-in');
+        anim.endTimer = window.setTimeout(() => {
+          if (magicAnim !== anim) return;
+          stopMagicTransition();
         }, 820);
       }, 400);
     }
