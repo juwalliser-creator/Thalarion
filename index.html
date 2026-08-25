@@ -261,7 +261,8 @@
       border-radius: 6px;
     }
     .char-roster button:hover { background: rgba(212, 179, 106, 0.08); }
-    .char-roster button.active {
+    .char-roster button.active,
+    .char-roster .char-alt.active {
       background: rgba(212, 179, 106, 0.16);
       color: var(--gold);
     }
@@ -319,6 +320,10 @@
       gap: 0.5rem;
       margin: 0 0 1.2rem;
       flex-wrap: wrap;
+    }
+    .char-main #veyrViewBar {
+      justify-content: flex-start;
+      margin: 0 0 1rem;
     }
 
     aside {
@@ -2223,10 +2228,10 @@
                 </div>
                 </div>
                 <div id="charEntryBlock" class="hidden">
+                  <div class="page-toolbar" id="veyrViewBar">
+                    <button class="primary" id="editVeyrBtn" type="button">Eintrag bearbeiten</button>
+                  </div>
                   <article class="article" id="charEntryView">
-                    <div class="article-actions hidden" id="veyrViewActions">
-                      <button class="ghost" id="editVeyrBtn" type="button">Eintrag bearbeiten</button>
-                    </div>
                     <div class="kicker" id="veyrViewType"></div>
                     <h2 id="veyrViewTitle"></h2>
                     <div id="veyrViewImageWrap" class="entry-image-wrap hidden">
@@ -2476,6 +2481,7 @@
   <input id="uploadOneInput" class="hidden" type="file" accept=".txt,.md,text/plain" />
   <input id="mapFileInput" class="hidden" type="file" accept="image/*" />
   <input id="entryImageInput" class="hidden" type="file" accept="image/*" />
+  <input id="sheetPortraitInput" class="hidden" type="file" accept="image/*" />
   <input id="veyrImageInput" class="hidden" type="file" accept="image/*" />
   <input id="kampfKartePortraitInput" class="hidden" type="file" accept="image/*" />
   <input id="battleMapInput" class="hidden" type="file" accept="image/*" />
@@ -3096,9 +3102,17 @@
       if (node) node.onclick = handler;
     }
 
-    function onEv(id, type, handler) {
+    function onEv(id, type, handler, opts) {
       const node = document.getElementById(id);
-      if (node) node.addEventListener(type, handler);
+      if (node) node.addEventListener(type, handler, opts);
+    }
+
+    function safeBind(label, fn) {
+      try {
+        fn();
+      } catch (err) {
+        console.warn('[Thalarion] bind', label, err);
+      }
     }
 
     function parseWorldPayload(data) {
@@ -3595,7 +3609,7 @@
       const at = Number(data.updatedAt) || 0;
       if (at && at <= playersUpdatedAt) return;
       const incoming = normalizeAccounts(data.accounts);
-      if (sheetDirty && currentSheetOwner) {
+      if ((sheetDirty || veyrEntryEditing) && currentSheetOwner) {
         const accId = sheetAccountId(currentSheetOwner);
         if (accId && playerAccounts[accId]) incoming[accId] = playerAccounts[accId];
       }
@@ -4970,7 +4984,22 @@
     function getVeyrEntry() {
       ensureVeyrAlt(playerAccounts);
       const alt = playerAccounts[YUVI_ID] && playerAccounts[YUVI_ID].alts && playerAccounts[YUVI_ID].alts[VEYR_ALT];
-      return alt && alt.entry ? alt.entry : null;
+      if (!alt) return null;
+      if (!alt.entry) alt.entry = normalizeAltEntry({ title: 'Veyr' }, 'Veyr');
+      return alt.entry;
+    }
+
+    function openVeyrEditor() {
+      if (!canEditOwnerSheet(VEYR_OWNER)) {
+        toast('Nur Yuvi und der DM können diesen Eintrag bearbeiten.');
+        return;
+      }
+      ensureVeyrAlt(playerAccounts);
+      currentSheetOwner = VEYR_OWNER;
+      veyrEntryEditing = true;
+      sheetDirty = false;
+      pendingVeyrImage = null;
+      renderCharakter();
     }
 
     function setVeyrImagePreview(src) {
@@ -5039,36 +5068,44 @@
     }
 
     function renderVeyrPanel() {
-      const e = getVeyrEntry();
+      const e = getVeyrEntry() || normalizeAltEntry({ title: 'Veyr' }, 'Veyr');
       const card = document.getElementById('charMainCard');
       const view = document.getElementById('charEntryView');
       const editor = document.getElementById('charEntryEditor');
+      const bar = document.getElementById('veyrViewBar');
       const canEdit = canEditOwnerSheet(VEYR_OWNER);
-      if (!e) return;
-      document.getElementById('charHeading').textContent = veyrEntryEditing ? 'Eintrag bearbeiten' : (e.title || 'Veyr');
-      card.classList.toggle('is-entry', !veyrEntryEditing);
-      if (veyrEntryEditing && canEdit) {
+      const editing = !!(veyrEntryEditing && canEdit);
+      veyrEntryEditing = editing;
+      document.getElementById('charHeading').textContent = editing ? 'Eintrag bearbeiten' : (e.title || 'Veyr');
+      card.classList.toggle('is-entry', !editing);
+      if (bar) bar.classList.toggle('hidden', editing || !canEdit);
+      if (editing) {
         view.classList.add('hidden');
         editor.classList.remove('hidden');
         if (!sheetDirty) fillVeyrEditor(e);
       } else {
-        veyrEntryEditing = false;
         view.classList.remove('hidden');
         editor.classList.add('hidden');
         document.getElementById('veyrViewType').textContent = e.type || 'Hochfänge';
         document.getElementById('veyrViewTitle').textContent = e.title || 'Veyr';
         document.getElementById('veyrViewContent').innerHTML = htmlToText(e.content || '').trim()
           ? sanitizeHtml(e.content)
-          : '<p><em>Noch kein Text.</em></p>';
+          : '<p><em>Noch kein Text. Über „Eintrag bearbeiten“ kannst du ihn anlegen.</em></p>';
         showVeyrViewImage(e.imageId, e.title);
-        document.getElementById('veyrViewActions').classList.toggle('hidden', !canEdit);
       }
     }
 
     async function saveVeyrEntry() {
-      if (!canEditOwnerSheet(VEYR_OWNER)) return;
+      if (!canEditOwnerSheet(VEYR_OWNER)) {
+        toast('Nur Yuvi und der DM können diesen Eintrag bearbeiten.');
+        return;
+      }
       ensureVeyrAlt(playerAccounts);
-      const alt = playerAccounts[YUVI_ID].alts[VEYR_ALT];
+      const alt = playerAccounts[YUVI_ID] && playerAccounts[YUVI_ID].alts && playerAccounts[YUVI_ID].alts[VEYR_ALT];
+      if (!alt) {
+        toast('Veyr fehlt noch. Der Account Yuvi muss existieren.');
+        return;
+      }
       const previous = Object.assign({}, alt.entry);
       const btn = document.getElementById('saveVeyrBtn');
       btn.disabled = true;
@@ -5086,7 +5123,7 @@
         alt.entry = {
           title: document.getElementById('veyrTitle').value.trim() || 'Veyr',
           type: document.getElementById('veyrType').value === 'Niederfänge' ? 'Niederfänge' : 'Hochfänge',
-          content: document.getElementById('veyrContent').innerHTML,
+          content: sanitizeHtml(document.getElementById('veyrContent').innerHTML),
           imageId: imageId
         };
         await persistPlayers();
@@ -5119,7 +5156,7 @@
         const canvas = await prepareStatSheetForOcr(src);
         const result = await worker.recognize(canvas);
         const parsed = parseStatSheetText(result && result.data ? result.data.text : '');
-        const html = statSheetToHtml(parsed);
+        const html = sanitizeHtml(statSheetToHtml(parsed));
         if (!htmlToText(html).trim()) throw new Error('Im Bild wurde kein Text erkannt.');
         document.getElementById('veyrContent').innerHTML = html;
         sheetDirty = true;
@@ -8621,105 +8658,18 @@
       els.loginOverlay.classList.add('hidden');
     }
 
-    try {
-    document.getElementById('homeBtn').onclick = () => {
-      showMap();
-    };
-    document.getElementById('navWorld').onclick = () => {
-      showWorld();
-    };
-    document.getElementById('navEntstehung').onclick = () => {
-      showEntstehung();
-    };
-    document.getElementById('navSitzung').onclick = () => {
-      showSitzung();
-    };
-    document.getElementById('navMap').onclick = () => {
-      showMap();
-    };
-    document.getElementById('navCharakter').onclick = () => {
-      showCharakter();
-    };
-    document.getElementById('navKampf').onclick = () => {
-      showKampf();
-    };
-    document.getElementById('kampfStartBtn').onclick = startKampf;
-    document.getElementById('kampfNextBtn').onclick = nextCombatTurn;
-    document.getElementById('kampfPrevBtn').onclick = prevCombatTurn;
-    document.getElementById('kampfSkipBtn').onclick = skipCombatTurn;
-    document.getElementById('kampfEndBtn').onclick = endCombat;
-    document.getElementById('kampfAimCancel').onclick = cancelKampfAim;
-    document.getElementById('kampfActDmg').onclick = () => applyKampfAimDamage(false);
-    document.getElementById('kampfActHeal').onclick = () => applyKampfAimDamage(true);
-    document.getElementById('kampfActBuff').onclick = () => showKampfEffectPicker('buff');
-    document.getElementById('kampfActDebuff').onclick = () => showKampfEffectPicker('debuff');
-    document.getElementById('kampfActKill').onclick = applyKampfAimKill;
-    document.getElementById('kampfEffectAdd').onclick = () => applyKampfEffect('');
-    document.getElementById('kampfDmgAmt').addEventListener('keydown', ev => {
-      if (ev.key !== 'Enter') return;
-      ev.preventDefault();
-      applyKampfAimDamage(false);
-    });
-    document.getElementById('kampfEffectText').addEventListener('keydown', ev => {
-      if (ev.key !== 'Enter') return;
-      ev.preventDefault();
-      applyKampfEffect('');
-    });
-    document.getElementById('kampfAddEnemyBtn').onclick = addEnemyToCombat;
-    document.getElementById('kampfSaveTplBtn').onclick = saveCombatTemplate;
-    document.getElementById('kampfKartenSearch').addEventListener('input', renderKampfKartenList);
-    document.getElementById('kampfKarteSaveBtn').onclick = saveKampfKarte;
-    document.getElementById('kampfKarteCancelBtn').onclick = clearKarteForm;
-    document.getElementById('kampfKarteDeleteBtn').onclick = deleteKampfKarte;
-    document.getElementById('kampfKartePortraitBtn').onclick = () => {
-      if (!isDM) return;
-      document.getElementById('kampfKartePortraitInput').click();
-    };
-    document.getElementById('kampfKartePortraitInput').onchange = async ev => {
-      const file = ev.target.files[0];
-      ev.target.value = '';
-      if (!file || !isDM) return;
-      try {
-        pendingKartePortrait = await fileToPortraitImage(file);
-        updateKartePortraitStatus();
-        toast('Portrait bereit. Karte speichern, dann ist es dabei.');
-      } catch (err) {
-        toast(err.message || 'Portrait konnte nicht gelesen werden.');
-      }
-    };
-    document.getElementById('uploadSheetPortraitBtn').onclick = () => {
-      document.getElementById('sheetPortraitInput').click();
-    };
-    document.getElementById('removeSheetPortraitBtn').onclick = () => {
-      pendingSheetPortrait = null;
-      sheetPortraitId = '';
-      setSheetPortraitPreview(null);
-      sheetDirty = true;
-    };
-    document.getElementById('sheetPortraitInput').onchange = async ev => {
-      const file = ev.target.files[0];
-      ev.target.value = '';
-      if (!file) return;
-      try {
-        pendingSheetPortrait = await fileToPortraitImage(file);
-        setSheetPortraitPreview(pendingSheetPortrait);
-        sheetDirty = true;
-        toast('Portrait bereit. Blatt speichern, dann ist es für den Kampf da.');
-      } catch (err) {
-        toast(err.message || 'Portrait konnte nicht gelesen werden.');
-      }
-    };
     function bindBattleTools(prefix) {
-      document.getElementById(prefix + 'BattleUploadBtn').onclick = () => {
+      onClick(prefix + 'BattleUploadBtn', () => {
         if (!isDM) return;
-        document.getElementById('battleMapInput').click();
-      };
-      document.getElementById(prefix + 'BattleFireBtn').onclick = () => setBattleHazardMode('fire');
-      document.getElementById(prefix + 'BattleWaterBtn').onclick = () => setBattleHazardMode('water');
-      document.getElementById(prefix + 'BattleOilBtn').onclick = () => setBattleHazardMode('oil');
-      document.getElementById(prefix + 'BattleCloseBtn').onclick = closeBattleDraft;
-      document.getElementById(prefix + 'BattleCancelDrawBtn').onclick = cancelBattleDraw;
-      document.getElementById(prefix + 'BattleClearBtn').onclick = clearBattleMap;
+        const input = document.getElementById('battleMapInput');
+        if (input) input.click();
+      });
+      onClick(prefix + 'BattleFireBtn', () => setBattleHazardMode('fire'));
+      onClick(prefix + 'BattleWaterBtn', () => setBattleHazardMode('water'));
+      onClick(prefix + 'BattleOilBtn', () => setBattleHazardMode('oil'));
+      onClick(prefix + 'BattleCloseBtn', closeBattleDraft);
+      onClick(prefix + 'BattleCancelDrawBtn', cancelBattleDraw);
+      onClick(prefix + 'BattleClearBtn', clearBattleMap);
       const sizeEl = document.getElementById(prefix + 'BattleSize');
       if (sizeEl) {
         sizeEl.addEventListener('input', () => {
@@ -8767,433 +8717,538 @@
         ro.observe(stage);
       }
       bindBattleZoom(board, stage);
-      const zoomIn = document.getElementById(prefix + 'BattleZoomIn');
-      const zoomOut = document.getElementById(prefix + 'BattleZoomOut');
-      const zoomReset = document.getElementById(prefix + 'BattleZoomReset');
-      if (zoomIn) zoomIn.onclick = () => zoomBattleBy(0.35);
-      if (zoomOut) zoomOut.onclick = () => zoomBattleBy(-0.35);
-      if (zoomReset) zoomReset.onclick = resetBattleView;
-    }
-    bindBattleTools('kampf');
-    document.getElementById('battleMapInput').onchange = ev => {
-      const file = ev.target.files[0];
-      ev.target.value = '';
-      uploadBattleMap(file);
-    };
-    ['kampfKarteName', 'kampfKarteHp', 'kampfKarteAc', 'kampfKarteCount', 'kampfKarteNote'].forEach(id => {
-      document.getElementById(id).addEventListener('keydown', ev => {
-        if (ev.key !== 'Enter') return;
-        ev.preventDefault();
-        saveKampfKarte();
-      });
-    });
-    ['kampfEnemyName', 'kampfEnemyHp', 'kampfEnemyAc', 'kampfEnemyInit', 'kampfEnemyCount', 'kampfTplName'].forEach(id => {
-      document.getElementById(id).addEventListener('keydown', ev => {
-        if (ev.key !== 'Enter') return;
-        ev.preventDefault();
-        if (id === 'kampfTplName') saveCombatTemplate();
-        else addEnemyToCombat();
-      });
-    });
-    document.getElementById('globalSearch').addEventListener('input', renderGlobalSearch);
-    document.getElementById('globalSearch').addEventListener('focus', renderGlobalSearch);
-    document.getElementById('globalSearch').addEventListener('keydown', ev => {
-      if (ev.key === 'Escape') {
-        closeSearchResults();
-        closeDmMenu();
-        ev.target.blur();
-      }
-    });
-    document.addEventListener('click', ev => {
-      if (!ev.target.closest('.header-search') && !ev.target.closest('#searchResults')) closeSearchResults();
-      if (!ev.target.closest('#dmMenuWrap')) closeDmMenu();
-    });
-    window.addEventListener('resize', closeSearchResults);
-    window.addEventListener('scroll', () => {
-      if (!document.getElementById('searchResults').classList.contains('hidden')) placeSearchResults();
-    }, true);
-    document.getElementById('homeNewBtn').onclick = newEntry;
-    document.getElementById('entstehungNewBtn').onclick = newEntry;
-    document.getElementById('sitzungNewBtn').onclick = newEntry;
-    document.getElementById('dmMenuBtn').onclick = ev => {
-      ev.stopPropagation();
-      toggleDmMenu();
-    };
-    document.getElementById('dmMenuMyDoc').onclick = () => {
-      closeDmMenu();
-      downloadMyDocument();
-    };
-    [
-      'homeUploadAllBtn',
-      'entstehungUploadAllBtn',
-      'sitzungUploadAllBtn'
-    ].forEach(id => {
-      document.getElementById(id).onclick = () => document.getElementById('uploadAllInput').click();
-    });
-    document.getElementById('menuBtn').onclick = () => els.sidebar.classList.toggle('open');
-    document.getElementById('playerButton').onclick = () => {
-      if (currentPlayerId) {
-        if (currentPage === 'char' && sheetDirty && !confirm('Das Charakterblatt ist nicht gespeichert. Wirklich abmelden?')) return;
-        sheetDirty = false;
-        setPlayer(null);
-        if (currentPage === 'char') renderCharakter();
-        toast('Spieler abgemeldet.');
-      } else {
-        openPlayerLogin('login');
-      }
-    };
-    document.getElementById('charLoginBtn').onclick = () => openPlayerLogin('login');
-    document.getElementById('charRegisterBtn').onclick = () => openPlayerLogin('register');
-    document.getElementById('playerTabLogin').onclick = () => setPlayerFormMode('login');
-    document.getElementById('playerTabRegister').onclick = () => setPlayerFormMode('register');
-    document.getElementById('playerCancel').onclick = closePlayerLogin;
-    document.getElementById('playerOverlay').addEventListener('click', ev => {
-      if (ev.target === document.getElementById('playerOverlay')) closePlayerLogin();
-    });
-    document.getElementById('playerForm').addEventListener('submit', async ev => {
-      ev.preventDefault();
-      const name = document.getElementById('playerUser').value;
-      const password = document.getElementById('playerPassword').value;
-      const errEl = document.getElementById('playerError');
-      errEl.textContent = '';
-      try {
-        if (playerFormMode === 'register') {
-          const again = document.getElementById('playerPassword2').value;
-          if (password !== again) throw new Error('Die Passwörter stimmen nicht überein.');
-          await registerPlayer(name, password);
-          closePlayerLogin();
-          toast('Willkommen, ' + playerAccounts[currentPlayerId].name + '.');
-        } else {
-          loginPlayer(name, password);
-          closePlayerLogin();
-          toast('Angemeldet als ' + playerAccounts[currentPlayerId].name + '.');
-        }
-        showCharakter();
-      } catch (err) {
-        errEl.textContent = err.message || 'Das hat nicht geklappt.';
-      }
-    });
-    document.getElementById('saveSheetBtn').onclick = saveSheet;
-    document.getElementById('deletePlayerBtn').onclick = deletePlayerAccount;
-    document.getElementById('editVeyrBtn').onclick = () => {
-      if (!canEditOwnerSheet(VEYR_OWNER)) return;
-      veyrEntryEditing = true;
-      sheetDirty = false;
-      renderCharakter();
-    };
-    document.getElementById('cancelVeyrBtn').onclick = () => {
-      if (sheetDirty && !confirm('Ungespeicherte Änderungen verwerfen?')) return;
-      sheetDirty = false;
-      veyrEntryEditing = false;
-      pendingVeyrImage = null;
-      renderCharakter();
-    };
-    document.getElementById('saveVeyrBtn').onclick = saveVeyrEntry;
-    document.getElementById('uploadVeyrImageBtn').onclick = () => {
-      if (!canEditOwnerSheet(VEYR_OWNER)) return;
-      document.getElementById('veyrImageInput').click();
-    };
-    document.getElementById('ocrVeyrImageBtn').onclick = () => readStatSheetFromVeyrImage();
-    document.getElementById('removeVeyrImageBtn').onclick = () => {
-      pendingVeyrImage = false;
-      setVeyrImagePreview(null);
-      sheetDirty = true;
-    };
-    document.getElementById('veyrImageInput').onchange = async ev => {
-      const file = ev.target.files[0];
-      ev.target.value = '';
-      if (!file || !canEditOwnerSheet(VEYR_OWNER)) return;
-      try {
-        toast('Bild wird vorbereitet…');
-        const data = await fileToEntryImage(file);
-        pendingVeyrImage = data;
-        setVeyrImagePreview(data);
-        sheetDirty = true;
-        toast('Bild bereit. Jetzt Speichern, damit es für alle sichtbar ist.');
-      } catch (err) {
-        toast(err.message || 'Bild konnte nicht gelesen werden.');
-      }
-    };
-    ['veyrTitle', 'veyrType'].forEach(id => {
-      document.getElementById(id).addEventListener('input', () => { sheetDirty = true; });
-      document.getElementById(id).addEventListener('change', () => { sheetDirty = true; });
-    });
-    document.getElementById('veyrContent').addEventListener('input', () => { sheetDirty = true; });
-    ['sheetName', 'sheetVolk', 'sheetKlasse', 'sheetStufe', 'sheetHp', 'sheetArmor', 'sheetStats', 'sheetNotes'].forEach(id => {
-      document.getElementById(id).addEventListener('input', () => { sheetDirty = true; });
-    });
-    document.getElementById('sheetContent').addEventListener('input', () => { sheetDirty = true; });
-    document.getElementById('dmButton').onclick = () => {
-      if (isDM) setDM(false);
-      else openLogin();
-    };
-    document.getElementById('loginCancel').onclick = closeLogin;
-    els.loginOverlay.addEventListener('click', ev => {
-      if (ev.target === els.loginOverlay) closeLogin();
-    });
-    els.loginForm.addEventListener('submit', ev => {
-      ev.preventDefault();
-      const userOk = (els.dmUser.value || '').trim().toLowerCase() === DM_USER;
-      const passOk = btoa(els.dmPassword.value) === DM_PASS;
-      if (userOk && passOk) {
-        closeLogin();
-        setDM(true);
-        toast('Angemeldet als DM.');
-      } else {
-        els.loginError.textContent = 'Benutzername oder Passwort stimmt nicht.';
-      }
-    });
-    document.getElementById('saveBtn').onclick = saveEntry;
-    document.getElementById('deleteBtn').onclick = deleteEntry;
-    document.getElementById('cancelEdit').onclick = () => {
-      if (!confirmLeaveEditor()) return;
-      dirty = false;
-      if (currentIndex !== null && entries[currentIndex]?.type === STORY_CAT) showEntstehung();
-      else if (currentIndex !== null && entries[currentIndex]?.type === SESSION_CAT) showSitzung();
-      else if (currentIndex !== null) loadEntry(currentIndex);
-      else if (isCatalogPage(currentPage)) showCatalog(currentPage);
-      else if (currentPage === 'entstehung') showEntstehung();
-      else if (currentPage === 'sitzung') showSitzung();
-      else if (currentPage === 'map') showMap();
-      else showHome();
-    };
-    document.getElementById('editCurrent').onclick = editCurrent;
-    document.getElementById('entryToKarteBtn').onclick = createKampfKarteFromEntry;
-    document.getElementById('downloadOneBtn').onclick = downloadOneEntry;
-    document.getElementById('uploadOneBtn').onclick = () => {
-      if (!isDM || currentIndex === null) return;
-      document.getElementById('uploadOneInput').click();
-    };
-    document.getElementById('uploadAllInput').onchange = ev => {
-      const file = ev.target.files[0];
-      ev.target.value = '';
-      uploadAllEntries(file);
-    };
-    document.getElementById('uploadOneInput').onchange = ev => {
-      const file = ev.target.files[0];
-      ev.target.value = '';
-      uploadOneEntry(file);
-    };
-    document.getElementById('placePinBtn').onclick = () => {
-      if (!isDM) return;
-      setPlacingPin(!placingPin);
-    };
-    document.getElementById('mapZoomIn').onclick = () => zoomMapBy(0.35);
-    document.getElementById('mapZoomOut').onclick = () => zoomMapBy(-0.35);
-    document.getElementById('mapZoomReset').onclick = resetMapView;
-    document.getElementById('mapWrap').addEventListener('wheel', ev => {
-      if (mapScale <= 1 && !ev.ctrlKey) return;
-      ev.preventDefault();
-      const step = ev.deltaY > 0 ? -0.18 : 0.18;
-      zoomMapAt(ev.clientX, ev.clientY, mapScale + step);
-    }, { passive: false });
-    document.getElementById('mapWrap').addEventListener('pointerdown', ev => {
-      if (ev.button && ev.button !== 0) return;
-      if (placingPin || drawingBorder) return;
-      if (ev.target.closest('.map-pin-del') || ev.target.closest('.map-border-del')) return;
-      const pinEl = ev.target.closest('.map-pin');
-      const wrap = document.getElementById('mapWrap');
-      if (pinEl && isDM) {
-        ev.preventDefault();
-        mapDrag = { type: 'pin', id: pinEl.dataset.pinId, el: pinEl, x: ev.clientX, y: ev.clientY, moved: false };
-        wrap.classList.add('panning');
-        wrap.setPointerCapture(ev.pointerId);
-        return;
-      }
-      if (pinEl) {
-        mapDrag = { type: 'pin-click', id: pinEl.dataset.pinId, x: ev.clientX, y: ev.clientY, moved: false };
-        wrap.setPointerCapture(ev.pointerId);
-        return;
-      }
-      if (mapScale <= 1) return;
-      ev.preventDefault();
-      const hit = ev.target.closest('.map-border-hit');
-      mapDrag = {
-        type: 'pan',
-        id: ev.pointerId,
-        x: ev.clientX,
-        y: ev.clientY,
-        panX: mapPanX,
-        panY: mapPanY,
-        moved: false,
-        borderId: hit ? (hit.getAttribute('data-border-id') || '') : null
-      };
-      wrap.classList.add('panning');
-      wrap.setPointerCapture(ev.pointerId);
-    });
-    document.addEventListener('pointermove', ev => {
-      if (!mapDrag) return;
-      if (mapDrag.type === 'pan' || mapDrag.type === 'pin') ev.preventDefault();
-      const dx = ev.clientX - mapDrag.x;
-      const dy = ev.clientY - mapDrag.y;
-      if (!mapDrag.moved && (dx * dx + dy * dy) > 36) mapDrag.moved = true;
-      if (!mapDrag.moved) return;
-      if (mapDrag.type === 'pan') {
-        mapPanX = mapDrag.panX + dx;
-        mapPanY = mapDrag.panY + dy;
-        applyMapTransform();
-        return;
-      }
-      if (mapDrag.type === 'pin') {
-        const pos = mapClickToPercent(ev);
-        if (!pos) return;
-        const pin = mapPins.find(p => p.id === mapDrag.id);
-        if (!pin) return;
-        pin.x = pos.x;
-        pin.y = pos.y;
-        if (mapDrag.el) {
-          mapDrag.el.style.left = pos.x + '%';
-          mapDrag.el.style.top = pos.y + '%';
-        }
-      }
-    });
-    document.addEventListener('pointerup', async ev => {
-      const wrap = document.getElementById('mapWrap');
-      if (wrap) wrap.classList.remove('panning');
-      const drag = mapDrag;
-      mapDrag = null;
-      if (!drag) return;
-      if (drag.type === 'pin' && drag.moved) {
-        try { await persistPins(); toast('Ort verschoben.'); }
-        catch (err) { toast('Konnte den Ort nicht speichern: ' + err.message); }
-        return;
-      }
-      if ((drag.type === 'pin' || drag.type === 'pin-click') && !drag.moved) {
-        openMapPin(drag.id);
-        return;
-      }
-      if (drag.type === 'pan' && !drag.moved && drag.borderId && isDM) {
-        openBorderEditor(drag.borderId);
-      }
-    });
-    document.addEventListener('pointercancel', () => {
-      mapDrag = null;
-      const wrap = document.getElementById('mapWrap');
-      if (wrap) wrap.classList.remove('panning');
-    });
-    document.getElementById('mapStage').addEventListener('click', ev => {
-      if (!isDM) return;
-      if (ev.target.closest('.map-pin') || ev.target.closest('.map-border-del')) return;
-      const pos = mapClickToPercent(ev);
-      if (!pos) return;
-      if (drawingBorder) {
-        borderDraft.push(pos);
-        renderMapBorders();
-        return;
-      }
-      if (!placingPin) return;
-      pendingPin = pos;
-      openPinPicker();
-    });
-    document.getElementById('drawBorderBtn').onclick = () => {
-      if (!isDM) return;
-      if (!drawingBorder) {
-        setDrawingBorder(true);
-        return;
-      }
-      if (borderDraft.length < 3) {
-        editingBorderId = null;
-        setDrawingBorder(false);
-        toast('Zeichnen abgebrochen.');
-        return;
-      }
-      finishBorderDraft();
-    };
-    document.getElementById('mapLegendBtn').onclick = () => {
-      const box = document.getElementById('mapLegend');
-      const hide = !box.classList.contains('hidden');
-      box.classList.toggle('hidden', hide);
-      if (!hide && !box.childElementCount) renderMapLegend();
-      else if (!hide) renderMapLegend();
-    };
-    document.getElementById('pinNoEntry').onclick = () => {
-      const name = (document.getElementById('pinLabel').value || '').trim();
-      if (!name) return toast('Bitte einen Namen für die Markierung eingeben.');
-      applyPinChoice(name, false);
-    };
-    document.getElementById('pinSaveEdit').onclick = () => {
-      const name = (document.getElementById('pinLabel').value || '').trim();
-      savePinEdits(name, false);
-    };
-    document.getElementById('borderForm').addEventListener('submit', ev => {
-      ev.preventDefault();
-      const name = (document.getElementById('borderName').value || '').trim();
-      if (!name) return toast('Bitte einen Namen für die Grenze vergeben.');
-      saveBorderDraft(name, document.getElementById('borderColor').value);
-    });
-    document.getElementById('borderRedraw').onclick = () => {
-      if (!isDM || !editingBorderId) return;
-      document.getElementById('borderOverlay').classList.add('hidden');
-      setDrawingBorder(true);
-    };
-    document.getElementById('borderCancel').onclick = () => {
-      document.getElementById('borderOverlay').classList.add('hidden');
-      if (drawingBorder && !editingBorderId) setDrawingBorder(false);
-      else if (!drawingBorder) editingBorderId = null;
-    };
-    document.getElementById('worldMap').addEventListener('load', () => {
-      renderMapPins();
-      applyMapTransform();
-    });
-    window.addEventListener('resize', () => {
-      if (currentPage === 'map') applyMapTransform();
-    });
-    document.getElementById('pinSearch').addEventListener('input', renderPinPicker);
-    document.getElementById('pinCancel').onclick = closePinPicker;
-    document.getElementById('pinOverlay').addEventListener('click', ev => {
-      if (ev.target === document.getElementById('pinOverlay')) closePinPicker();
-    });
-    document.getElementById('uploadMapBtn').onclick = () => {
-      if (!isDM) return;
-      document.getElementById('mapFileInput').click();
-    };
-    document.getElementById('mapFileInput').onchange = ev => {
-      const file = ev.target.files[0];
-      ev.target.value = '';
-      uploadMapFile(file);
-    };
-    document.getElementById('uploadEntryImageBtn').onclick = () => {
-      if (!isDM) return;
-      document.getElementById('entryImageInput').click();
-    };
-    document.getElementById('ocrEntryImageBtn').onclick = () => {
-      readStatSheetFromEditorImage();
-    };
-    document.getElementById('removeEntryImageBtn').onclick = () => {
-      pendingEntryImage = false;
-      setEditorImagePreview(null);
-      dirty = true;
-    };
-    document.getElementById('entryImageInput').onchange = async ev => {
-      const file = ev.target.files[0];
-      ev.target.value = '';
-      if (!file || !isDM) return;
-      try {
-        toast('Bild wird vorbereitet…');
-        const data = await fileToEntryImage(file);
-        pendingEntryImage = data;
-        setEditorImagePreview(data);
-        dirty = true;
-        toast('Bild bereit. Jetzt Speichern, damit es für alle sichtbar ist.');
-      } catch (err) {
-        toast(err.message || 'Bild konnte nicht gelesen werden.');
-      }
-    };
-    ['title', 'type', 'visibility', 'sessionDate'].forEach(id => {
-      document.getElementById(id).addEventListener('input', () => { dirty = true; });
-      document.getElementById(id).addEventListener('change', () => { dirty = true; });
-    });
-    els.type.addEventListener('change', () => {
-      syncSessionDateField();
-      syncTitleKingdomField();
-    });
-    document.getElementById('titleKingdom').addEventListener('change', () => { dirty = true; });
-    els.content.addEventListener('input', () => { dirty = true; });
-    } catch (err) {
-      console.warn(err);
-      toast('Ein Teil der Seite konnte nicht starten. Bitte neu laden.');
+      onClick(prefix + 'BattleZoomIn', () => zoomBattleBy(0.35));
+      onClick(prefix + 'BattleZoomOut', () => zoomBattleBy(-0.35));
+      onClick(prefix + 'BattleZoomReset', resetBattleView);
     }
 
+    function bindAll() {
+      safeBind('nav', () => {
+        onClick('homeBtn', showMap);
+        onClick('navWorld', showWorld);
+        onClick('navEntstehung', showEntstehung);
+        onClick('navSitzung', showSitzung);
+        onClick('navMap', showMap);
+        onClick('navCharakter', showCharakter);
+        onClick('navKampf', showKampf);
+        onClick('menuBtn', () => { if (els.sidebar) els.sidebar.classList.toggle('open'); });
+      });
+
+      safeBind('kampf', () => {
+        onClick('kampfStartBtn', startKampf);
+        onClick('kampfNextBtn', nextCombatTurn);
+        onClick('kampfPrevBtn', prevCombatTurn);
+        onClick('kampfSkipBtn', skipCombatTurn);
+        onClick('kampfEndBtn', endCombat);
+        onClick('kampfAimCancel', cancelKampfAim);
+        onClick('kampfActDmg', () => applyKampfAimDamage(false));
+        onClick('kampfActHeal', () => applyKampfAimDamage(true));
+        onClick('kampfActBuff', () => showKampfEffectPicker('buff'));
+        onClick('kampfActDebuff', () => showKampfEffectPicker('debuff'));
+        onClick('kampfActKill', applyKampfAimKill);
+        onClick('kampfEffectAdd', () => applyKampfEffect(''));
+        onEv('kampfDmgAmt', 'keydown', ev => {
+          if (ev.key !== 'Enter') return;
+          ev.preventDefault();
+          applyKampfAimDamage(false);
+        });
+        onEv('kampfEffectText', 'keydown', ev => {
+          if (ev.key !== 'Enter') return;
+          ev.preventDefault();
+          applyKampfEffect('');
+        });
+        onClick('kampfAddEnemyBtn', addEnemyToCombat);
+        onClick('kampfSaveTplBtn', saveCombatTemplate);
+        onEv('kampfKartenSearch', 'input', renderKampfKartenList);
+        onClick('kampfKarteSaveBtn', saveKampfKarte);
+        onClick('kampfKarteCancelBtn', clearKarteForm);
+        onClick('kampfKarteDeleteBtn', deleteKampfKarte);
+        onClick('kampfKartePortraitBtn', () => {
+          if (!isDM) return;
+          const input = document.getElementById('kampfKartePortraitInput');
+          if (input) input.click();
+        });
+        onEv('kampfKartePortraitInput', 'change', async ev => {
+          const file = ev.target.files[0];
+          ev.target.value = '';
+          if (!file || !isDM) return;
+          try {
+            pendingKartePortrait = await fileToPortraitImage(file);
+            updateKartePortraitStatus();
+            toast('Portrait bereit. Karte speichern, dann ist es dabei.');
+          } catch (err) {
+            toast(err.message || 'Portrait konnte nicht gelesen werden.');
+          }
+        });
+        ['kampfKarteName', 'kampfKarteHp', 'kampfKarteAc', 'kampfKarteCount', 'kampfKarteNote'].forEach(id => {
+          onEv(id, 'keydown', ev => {
+            if (ev.key !== 'Enter') return;
+            ev.preventDefault();
+            saveKampfKarte();
+          });
+        });
+        ['kampfEnemyName', 'kampfEnemyHp', 'kampfEnemyAc', 'kampfEnemyInit', 'kampfEnemyCount', 'kampfTplName'].forEach(id => {
+          onEv(id, 'keydown', ev => {
+            if (ev.key !== 'Enter') return;
+            ev.preventDefault();
+            if (id === 'kampfTplName') saveCombatTemplate();
+            else addEnemyToCombat();
+          });
+        });
+        bindBattleTools('kampf');
+        onEv('battleMapInput', 'change', ev => {
+          const file = ev.target.files[0];
+          ev.target.value = '';
+          uploadBattleMap(file);
+        });
+      });
+
+      safeBind('char', () => {
+        onClick('uploadSheetPortraitBtn', () => {
+          const input = document.getElementById('sheetPortraitInput');
+          if (input) input.click();
+        });
+        onClick('removeSheetPortraitBtn', () => {
+          pendingSheetPortrait = null;
+          sheetPortraitId = '';
+          setSheetPortraitPreview(null);
+          sheetDirty = true;
+        });
+        onEv('sheetPortraitInput', 'change', async ev => {
+          const file = ev.target.files[0];
+          ev.target.value = '';
+          if (!file) return;
+          try {
+            pendingSheetPortrait = await fileToPortraitImage(file);
+            setSheetPortraitPreview(pendingSheetPortrait);
+            sheetDirty = true;
+            toast('Portrait bereit. Blatt speichern, dann ist es für den Kampf da.');
+          } catch (err) {
+            toast(err.message || 'Portrait konnte nicht gelesen werden.');
+          }
+        });
+        onClick('saveSheetBtn', saveSheet);
+        onClick('deletePlayerBtn', deletePlayerAccount);
+        ['sheetName', 'sheetVolk', 'sheetKlasse', 'sheetStufe', 'sheetHp', 'sheetArmor', 'sheetStats', 'sheetNotes'].forEach(id => {
+          onEv(id, 'input', () => { sheetDirty = true; });
+        });
+        onEv('sheetContent', 'input', () => { sheetDirty = true; });
+        onClick('charLoginBtn', () => openPlayerLogin('login'));
+        onClick('charRegisterBtn', () => openPlayerLogin('register'));
+        onClick('editVeyrBtn', openVeyrEditor);
+        onClick('cancelVeyrBtn', () => {
+          if (sheetDirty && !confirm('Ungespeicherte Änderungen verwerfen?')) return;
+          sheetDirty = false;
+          veyrEntryEditing = false;
+          pendingVeyrImage = null;
+          renderCharakter();
+        });
+        onClick('saveVeyrBtn', saveVeyrEntry);
+        onClick('uploadVeyrImageBtn', () => {
+          if (!canEditOwnerSheet(VEYR_OWNER)) return;
+          const input = document.getElementById('veyrImageInput');
+          if (input) input.click();
+        });
+        onClick('ocrVeyrImageBtn', () => readStatSheetFromVeyrImage());
+        onClick('removeVeyrImageBtn', () => {
+          pendingVeyrImage = false;
+          setVeyrImagePreview(null);
+          sheetDirty = true;
+        });
+        onEv('veyrImageInput', 'change', async ev => {
+          const file = ev.target.files[0];
+          ev.target.value = '';
+          if (!file || !canEditOwnerSheet(VEYR_OWNER)) return;
+          try {
+            toast('Bild wird vorbereitet…');
+            const data = await fileToEntryImage(file);
+            pendingVeyrImage = data;
+            setVeyrImagePreview(data);
+            sheetDirty = true;
+            toast('Bild bereit. Jetzt Speichern, damit es für alle sichtbar ist.');
+          } catch (err) {
+            toast(err.message || 'Bild konnte nicht gelesen werden.');
+          }
+        });
+        ['veyrTitle', 'veyrType'].forEach(id => {
+          onEv(id, 'input', () => { sheetDirty = true; });
+          onEv(id, 'change', () => { sheetDirty = true; });
+        });
+        onEv('veyrContent', 'input', () => { sheetDirty = true; });
+      });
+
+      safeBind('search', () => {
+        onEv('globalSearch', 'input', renderGlobalSearch);
+        onEv('globalSearch', 'focus', renderGlobalSearch);
+        onEv('globalSearch', 'keydown', ev => {
+          if (ev.key !== 'Escape') return;
+          closeSearchResults();
+          closeDmMenu();
+          ev.target.blur();
+        });
+        document.addEventListener('click', ev => {
+          if (!ev.target.closest('.header-search') && !ev.target.closest('#searchResults')) closeSearchResults();
+          if (!ev.target.closest('#dmMenuWrap')) closeDmMenu();
+        });
+        window.addEventListener('resize', closeSearchResults);
+        window.addEventListener('scroll', () => {
+          const box = document.getElementById('searchResults');
+          if (box && !box.classList.contains('hidden')) placeSearchResults();
+        }, true);
+      });
+
+      safeBind('codex', () => {
+        onClick('homeNewBtn', newEntry);
+        onClick('entstehungNewBtn', newEntry);
+        onClick('sitzungNewBtn', newEntry);
+        ['homeUploadAllBtn', 'entstehungUploadAllBtn', 'sitzungUploadAllBtn'].forEach(id => {
+          onClick(id, () => {
+            const input = document.getElementById('uploadAllInput');
+            if (input) input.click();
+          });
+        });
+        onClick('saveBtn', saveEntry);
+        onClick('deleteBtn', deleteEntry);
+        onClick('cancelEdit', () => {
+          if (!confirmLeaveEditor()) return;
+          dirty = false;
+          if (currentIndex !== null && entries[currentIndex] && entries[currentIndex].type === STORY_CAT) showEntstehung();
+          else if (currentIndex !== null && entries[currentIndex] && entries[currentIndex].type === SESSION_CAT) showSitzung();
+          else if (currentIndex !== null) loadEntry(currentIndex);
+          else if (isCatalogPage(currentPage)) showCatalog(currentPage);
+          else if (currentPage === 'entstehung') showEntstehung();
+          else if (currentPage === 'sitzung') showSitzung();
+          else if (currentPage === 'map') showMap();
+          else showHome();
+        });
+        onClick('editCurrent', editCurrent);
+        onClick('entryToKarteBtn', createKampfKarteFromEntry);
+        onClick('downloadOneBtn', downloadOneEntry);
+        onClick('uploadOneBtn', () => {
+          if (!isDM || currentIndex === null) return;
+          const input = document.getElementById('uploadOneInput');
+          if (input) input.click();
+        });
+        onEv('uploadAllInput', 'change', ev => {
+          const file = ev.target.files[0];
+          ev.target.value = '';
+          uploadAllEntries(file);
+        });
+        onEv('uploadOneInput', 'change', ev => {
+          const file = ev.target.files[0];
+          ev.target.value = '';
+          uploadOneEntry(file);
+        });
+        onClick('uploadEntryImageBtn', () => {
+          if (!isDM) return;
+          const input = document.getElementById('entryImageInput');
+          if (input) input.click();
+        });
+        onClick('ocrEntryImageBtn', () => { readStatSheetFromEditorImage(); });
+        onClick('removeEntryImageBtn', () => {
+          pendingEntryImage = false;
+          setEditorImagePreview(null);
+          dirty = true;
+        });
+        onEv('entryImageInput', 'change', async ev => {
+          const file = ev.target.files[0];
+          ev.target.value = '';
+          if (!file || !isDM) return;
+          try {
+            toast('Bild wird vorbereitet…');
+            const data = await fileToEntryImage(file);
+            pendingEntryImage = data;
+            setEditorImagePreview(data);
+            dirty = true;
+            toast('Bild bereit. Jetzt Speichern, damit es für alle sichtbar ist.');
+          } catch (err) {
+            toast(err.message || 'Bild konnte nicht gelesen werden.');
+          }
+        });
+        ['title', 'type', 'visibility', 'sessionDate'].forEach(id => {
+          onEv(id, 'input', () => { dirty = true; });
+          onEv(id, 'change', () => { dirty = true; });
+        });
+        onEv('type', 'change', () => {
+          syncSessionDateField();
+          syncTitleKingdomField();
+        });
+        onEv('titleKingdom', 'change', () => { dirty = true; });
+        onEv('content', 'input', () => { dirty = true; });
+      });
+
+      safeBind('player', () => {
+        onClick('playerButton', () => {
+          if (currentPlayerId) {
+            if (currentPage === 'char' && sheetDirty && !confirm('Das Charakterblatt ist nicht gespeichert. Wirklich abmelden?')) return;
+            sheetDirty = false;
+            setPlayer(null);
+            if (currentPage === 'char') renderCharakter();
+            toast('Spieler abgemeldet.');
+          } else {
+            openPlayerLogin('login');
+          }
+        });
+        onClick('playerTabLogin', () => setPlayerFormMode('login'));
+        onClick('playerTabRegister', () => setPlayerFormMode('register'));
+        onClick('playerCancel', closePlayerLogin);
+        onEv('playerOverlay', 'click', ev => {
+          if (ev.target === document.getElementById('playerOverlay')) closePlayerLogin();
+        });
+        onEv('playerForm', 'submit', async ev => {
+          ev.preventDefault();
+          const nameEl = document.getElementById('playerUser');
+          const passEl = document.getElementById('playerPassword');
+          const errEl = document.getElementById('playerError');
+          if (!nameEl || !passEl || !errEl) return;
+          const name = nameEl.value;
+          const password = passEl.value;
+          errEl.textContent = '';
+          try {
+            if (playerFormMode === 'register') {
+              const againEl = document.getElementById('playerPassword2');
+              const again = againEl ? againEl.value : '';
+              if (password !== again) throw new Error('Die Passwörter stimmen nicht überein.');
+              await registerPlayer(name, password);
+              closePlayerLogin();
+              toast('Willkommen, ' + playerAccounts[currentPlayerId].name + '.');
+            } else {
+              loginPlayer(name, password);
+              closePlayerLogin();
+              toast('Angemeldet als ' + playerAccounts[currentPlayerId].name + '.');
+            }
+            showCharakter();
+          } catch (err) {
+            errEl.textContent = err.message || 'Das hat nicht geklappt.';
+          }
+        });
+      });
+
+      safeBind('dm', () => {
+        onClick('dmMenuBtn', ev => {
+          ev.stopPropagation();
+          toggleDmMenu();
+        });
+        onClick('dmMenuMyDoc', () => {
+          closeDmMenu();
+          downloadMyDocument();
+        });
+        onClick('dmButton', () => {
+          if (isDM) setDM(false);
+          else openLogin();
+        });
+        onClick('loginCancel', closeLogin);
+        onEv('loginOverlay', 'click', ev => {
+          if (ev.target === document.getElementById('loginOverlay')) closeLogin();
+        });
+        onEv('loginForm', 'submit', ev => {
+          ev.preventDefault();
+          const userEl = els.dmUser;
+          const passEl = els.dmPassword;
+          if (!userEl || !passEl) return;
+          const userOk = (userEl.value || '').trim().toLowerCase() === DM_USER;
+          const passOk = btoa(passEl.value) === DM_PASS;
+          if (userOk && passOk) {
+            closeLogin();
+            setDM(true);
+            toast('Angemeldet als DM.');
+          } else if (els.loginError) {
+            els.loginError.textContent = 'Benutzername oder Passwort stimmt nicht.';
+          }
+        });
+      });
+
+      safeBind('map', () => {
+        onClick('placePinBtn', () => {
+          if (!isDM) return;
+          setPlacingPin(!placingPin);
+        });
+        onClick('mapZoomIn', () => zoomMapBy(0.35));
+        onClick('mapZoomOut', () => zoomMapBy(-0.35));
+        onClick('mapZoomReset', resetMapView);
+        onEv('mapWrap', 'wheel', ev => {
+          if (mapScale <= 1 && !ev.ctrlKey) return;
+          ev.preventDefault();
+          const step = ev.deltaY > 0 ? -0.18 : 0.18;
+          zoomMapAt(ev.clientX, ev.clientY, mapScale + step);
+        }, { passive: false });
+        onEv('mapWrap', 'pointerdown', ev => {
+          if (ev.button && ev.button !== 0) return;
+          if (placingPin || drawingBorder) return;
+          if (ev.target.closest('.map-pin-del') || ev.target.closest('.map-border-del')) return;
+          const pinEl = ev.target.closest('.map-pin');
+          const wrap = document.getElementById('mapWrap');
+          if (!wrap) return;
+          if (pinEl && isDM) {
+            ev.preventDefault();
+            mapDrag = { type: 'pin', id: pinEl.dataset.pinId, el: pinEl, x: ev.clientX, y: ev.clientY, moved: false };
+            wrap.classList.add('panning');
+            wrap.setPointerCapture(ev.pointerId);
+            return;
+          }
+          if (pinEl) {
+            mapDrag = { type: 'pin-click', id: pinEl.dataset.pinId, x: ev.clientX, y: ev.clientY, moved: false };
+            wrap.setPointerCapture(ev.pointerId);
+            return;
+          }
+          if (mapScale <= 1) return;
+          ev.preventDefault();
+          const hit = ev.target.closest('.map-border-hit');
+          mapDrag = {
+            type: 'pan',
+            id: ev.pointerId,
+            x: ev.clientX,
+            y: ev.clientY,
+            panX: mapPanX,
+            panY: mapPanY,
+            moved: false,
+            borderId: hit ? (hit.getAttribute('data-border-id') || '') : null
+          };
+          wrap.classList.add('panning');
+          wrap.setPointerCapture(ev.pointerId);
+        });
+        document.addEventListener('pointermove', ev => {
+          if (!mapDrag) return;
+          if (mapDrag.type === 'pan' || mapDrag.type === 'pin') ev.preventDefault();
+          const dx = ev.clientX - mapDrag.x;
+          const dy = ev.clientY - mapDrag.y;
+          if (!mapDrag.moved && (dx * dx + dy * dy) > 36) mapDrag.moved = true;
+          if (!mapDrag.moved) return;
+          if (mapDrag.type === 'pan') {
+            mapPanX = mapDrag.panX + dx;
+            mapPanY = mapDrag.panY + dy;
+            applyMapTransform();
+            return;
+          }
+          if (mapDrag.type === 'pin') {
+            const pos = mapClickToPercent(ev);
+            if (!pos) return;
+            const pin = mapPins.find(p => p.id === mapDrag.id);
+            if (!pin) return;
+            pin.x = pos.x;
+            pin.y = pos.y;
+            if (mapDrag.el) {
+              mapDrag.el.style.left = pos.x + '%';
+              mapDrag.el.style.top = pos.y + '%';
+            }
+          }
+        });
+        document.addEventListener('pointerup', async ev => {
+          const wrap = document.getElementById('mapWrap');
+          if (wrap) wrap.classList.remove('panning');
+          const drag = mapDrag;
+          mapDrag = null;
+          if (!drag) return;
+          if (drag.type === 'pin' && drag.moved) {
+            try { await persistPins(); toast('Ort verschoben.'); }
+            catch (err) { toast('Konnte den Ort nicht speichern: ' + err.message); }
+            return;
+          }
+          if ((drag.type === 'pin' || drag.type === 'pin-click') && !drag.moved) {
+            openMapPin(drag.id);
+            return;
+          }
+          if (drag.type === 'pan' && !drag.moved && drag.borderId && isDM) {
+            openBorderEditor(drag.borderId);
+          }
+        });
+        document.addEventListener('pointercancel', () => {
+          mapDrag = null;
+          const wrap = document.getElementById('mapWrap');
+          if (wrap) wrap.classList.remove('panning');
+        });
+        onEv('mapStage', 'click', ev => {
+          if (!isDM) return;
+          if (ev.target.closest('.map-pin') || ev.target.closest('.map-border-del')) return;
+          const pos = mapClickToPercent(ev);
+          if (!pos) return;
+          if (drawingBorder) {
+            borderDraft.push(pos);
+            renderMapBorders();
+            return;
+          }
+          if (!placingPin) return;
+          pendingPin = pos;
+          openPinPicker();
+        });
+        onClick('drawBorderBtn', () => {
+          if (!isDM) return;
+          if (!drawingBorder) {
+            setDrawingBorder(true);
+            return;
+          }
+          if (borderDraft.length < 3) {
+            editingBorderId = null;
+            setDrawingBorder(false);
+            toast('Zeichnen abgebrochen.');
+            return;
+          }
+          finishBorderDraft();
+        });
+        onClick('mapLegendBtn', () => {
+          const box = document.getElementById('mapLegend');
+          if (!box) return;
+          const hide = !box.classList.contains('hidden');
+          box.classList.toggle('hidden', hide);
+          if (!hide) renderMapLegend();
+        });
+        onClick('pinNoEntry', () => {
+          const nameEl = document.getElementById('pinLabel');
+          const name = ((nameEl && nameEl.value) || '').trim();
+          if (!name) return toast('Bitte einen Namen für die Markierung eingeben.');
+          applyPinChoice(name, false);
+        });
+        onClick('pinSaveEdit', () => {
+          const nameEl = document.getElementById('pinLabel');
+          const name = ((nameEl && nameEl.value) || '').trim();
+          savePinEdits(name, false);
+        });
+        onEv('borderForm', 'submit', ev => {
+          ev.preventDefault();
+          const nameEl = document.getElementById('borderName');
+          const colorEl = document.getElementById('borderColor');
+          const name = ((nameEl && nameEl.value) || '').trim();
+          if (!name) return toast('Bitte einen Namen für die Grenze vergeben.');
+          saveBorderDraft(name, colorEl ? colorEl.value : '');
+        });
+        onClick('borderRedraw', () => {
+          if (!isDM || !editingBorderId) return;
+          const overlay = document.getElementById('borderOverlay');
+          if (overlay) overlay.classList.add('hidden');
+          setDrawingBorder(true);
+        });
+        onClick('borderCancel', () => {
+          const overlay = document.getElementById('borderOverlay');
+          if (overlay) overlay.classList.add('hidden');
+          if (drawingBorder && !editingBorderId) setDrawingBorder(false);
+          else if (!drawingBorder) editingBorderId = null;
+        });
+        onEv('worldMap', 'load', () => {
+          renderMapPins();
+          applyMapTransform();
+        });
+        window.addEventListener('resize', () => {
+          if (currentPage === 'map') applyMapTransform();
+        });
+        onEv('pinSearch', 'input', renderPinPicker);
+        onClick('pinCancel', closePinPicker);
+        onEv('pinOverlay', 'click', ev => {
+          if (ev.target === document.getElementById('pinOverlay')) closePinPicker();
+        });
+        onClick('uploadMapBtn', () => {
+          if (!isDM) return;
+          const input = document.getElementById('mapFileInput');
+          if (input) input.click();
+        });
+        onEv('mapFileInput', 'change', ev => {
+          const file = ev.target.files[0];
+          ev.target.value = '';
+          uploadMapFile(file);
+        });
+      });
+    }
+
+    bindAll();
     if (sessionStorage.getItem(SESSION_KEY) === '1') setDM(true);
 
     (async function boot() {
