@@ -8176,6 +8176,8 @@
       renderHome();
       renderSidebar();
       updateExtraToolbars();
+      const main = document.getElementById('main');
+      if (main) main.scrollTop = 0;
     }
 
     function prefersReducedMotion() {
