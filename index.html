@@ -2791,6 +2791,7 @@
     const SOUND_FX = [];
     let soundMusic = null;
     let soundFade = 0;
+    let soundPlayGen = 0;
     let soundTrackId = '';
     let soundVol = 0.55;
     let soundDuckUntil = 0;
@@ -6402,18 +6403,24 @@
       return !!(soundMusic && !soundMusic.paused && !soundMusic.ended);
     }
 
-    function getSoundMusic() {
-      if (!soundMusic) {
-        soundMusic = new Audio();
-        soundMusic.loop = true;
-        soundMusic.preload = 'auto';
-        soundMusic.addEventListener('play', syncSoundUi);
-        soundMusic.addEventListener('pause', syncSoundUi);
-        soundMusic.addEventListener('error', () => {
-          toast('Musikdatei wurde nicht gefunden. Bitte Strg+F5, sonst fehlt die mp3 auf GitHub.');
-        });
-      }
-      return soundMusic;
+    function bindSoundMusic(audio) {
+      audio.loop = true;
+      audio.preload = 'auto';
+      audio.addEventListener('play', syncSoundUi);
+      audio.addEventListener('pause', syncSoundUi);
+      audio.addEventListener('error', () => {
+        toast('Musikdatei wurde nicht gefunden. Bitte Strg+F5, sonst fehlt die mp3 auf GitHub.');
+      });
+    }
+
+    function discardSoundMusic() {
+      soundPlayGen += 1;
+      stopSoundFade();
+      const old = soundMusic;
+      soundMusic = null;
+      if (!old) return;
+      try { old.pause(); } catch (err) {}
+      try { old.removeAttribute('src'); } catch (err) {}
     }
 
     function stopSoundFade() {
@@ -6428,18 +6435,24 @@
     }
 
     function fadeSoundTo(target, ms, onDone) {
-      const audio = getSoundMusic();
+      const audio = soundMusic;
+      if (!audio) {
+        if (onDone) onDone();
+        return;
+      }
       stopSoundFade();
       const from = Number(audio.volume) || 0;
       const start = performance.now();
       const dur = Math.max(0, ms || 0);
       const fadeOut = target <= 0.001;
+      const gen = soundPlayGen;
       if (!dur) {
         audio.volume = fadeOut ? 0 : Math.min(1, Math.max(0, currentSoundTargetVol()));
         if (onDone) onDone();
         return;
       }
       const tick = now => {
+        if (gen !== soundPlayGen || soundMusic !== audio) return;
         const t = Math.min(1, (now - start) / dur);
         const dest = fadeOut ? 0 : currentSoundTargetVol();
         audio.volume = from + (dest - from) * t;
@@ -6478,49 +6491,48 @@
       if (!isDM) return;
       const track = SOUND_TRACKS[id];
       if (!track) return;
-      const restart = !!(opts && opts.restart);
       const fadeIn = opts && opts.fadeIn != null ? opts.fadeIn : track.fadeIn;
-      if (soundTrackId === id && isSoundPlaying() && !restart) {
-        syncSoundUi();
-        return;
-      }
-      const audio = getSoundMusic();
-      stopSoundFade();
-      soundDuckUntil = 0;
-      const nextSrc = soundAssetUrl(track.src);
-      const sameFile = audio.src && audio.src.indexOf(track.src.replace(/^\.\//, '')) >= 0;
-      if (soundTrackId !== id || restart || !sameFile) {
-        try { audio.pause(); } catch (err) {}
-        audio.src = nextSrc;
-        audio.load();
-        try { audio.currentTime = 0; } catch (err) {}
-      }
-      soundTrackId = id;
-      audio.loop = true;
+      discardSoundMusic();
+      const audio = new Audio(soundAssetUrl(track.src));
+      bindSoundMusic(audio);
       audio.volume = 0;
-      const startFade = () => fadeSoundTo(soundVol, fadeIn);
+      soundMusic = audio;
+      soundTrackId = id;
+      const gen = soundPlayGen;
+      const begin = () => {
+        if (gen !== soundPlayGen || soundMusic !== audio) return;
+        fadeSoundTo(soundVol, fadeIn);
+        syncSoundUi();
+      };
       const play = audio.play();
       if (play && typeof play.then === 'function') {
-        play.then(startFade).catch(() => {
+        play.then(begin).catch(err => {
+          if (gen !== soundPlayGen || soundMusic !== audio) return;
+          if (err && err.name === 'AbortError') {
+            audio.play().then(begin).catch(() => {
+              toast('Musik startet nicht. Nochmal auf ' + track.name + ' tippen.');
+              syncSoundUi();
+            });
+            return;
+          }
+          toast('Musik startet nicht. Nochmal auf ' + track.name + ' tippen.');
           syncSoundUi();
-          toast('Musik wurde vom Browser blockiert. Unten auf Kampfmusik tippen.');
         });
       } else {
-        startFade();
+        begin();
       }
       syncSoundUi();
     }
 
     function stopSoundTrack() {
-      if (!soundMusic) {
+      const audio = soundMusic;
+      if (!audio) {
         soundTrackId = '';
         syncSoundUi();
         return;
       }
-      const audio = soundMusic;
-      fadeSoundTo(0, 700, () => {
-        try { audio.pause(); } catch (err) {}
-        try { audio.currentTime = 0; } catch (err) {}
+      fadeSoundTo(0, 500, () => {
+        discardSoundMusic();
         soundTrackId = '';
         syncSoundUi();
       });
