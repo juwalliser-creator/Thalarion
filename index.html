@@ -2890,7 +2890,7 @@
     const SOUND_PREF_KEY = 'thalarion_sound_prefs';
     const SOUND_FADE_IN = 1600;
     const SOUND_FADE_OUT = 1400;
-    const SOUND_CROSSFADE = 2000;
+    const SOUND_CROSSFADE = 5000;
     const SOUND_FAV_MAX = 6;
     const SOUND_GROUPS = [
       { id: 'reise', name: 'Reise' },
@@ -6574,7 +6574,15 @@
       return soundDuckUntil > performance.now() ? soundVolAmb * 0.32 : soundVolAmb;
     }
 
-    function fadeAudio(audio, target, ms, onDone) {
+    function soundFadeMix(t, ease) {
+      const x = Math.min(1, Math.max(0, t));
+      if (ease === 'out') return 1 - Math.cos(x * Math.PI / 2);
+      if (ease === 'in') return Math.sin(x * Math.PI / 2);
+      if (ease === 'smooth') return 0.5 - 0.5 * Math.cos(Math.PI * x);
+      return x;
+    }
+
+    function fadeAudio(audio, target, ms, onDone, ease) {
       if (!audio) {
         if (onDone) onDone();
         return;
@@ -6595,7 +6603,7 @@
         if (soundFadeRafs.get(audio) !== rafId) return;
         const t = Math.min(1, (now - start) / dur);
         const dest = destNow();
-        audio.volume = from + (dest - from) * t;
+        audio.volume = from + (dest - from) * soundFadeMix(t, ease);
         if (t < 1) {
           rafId = requestAnimationFrame(tick);
           soundFadeRafs.set(audio, rafId);
@@ -6774,16 +6782,16 @@
         try { audio.currentTime = 0; } catch (err) {}
       }
       audio.muted = false;
-      audio.volume = 0.04;
+      audio.volume = outgoing ? 0 : 0.04;
       if (outgoing) {
         fadeAudio(outgoing, 0, SOUND_CROSSFADE, () => {
           try { outgoing.pause(); } catch (err) {}
           try { outgoing.currentTime = 0; } catch (err) {}
-        });
+        }, 'out');
       }
       const fadeMs = outgoing ? SOUND_CROSSFADE : SOUND_FADE_IN;
       playIncomingAudio(audio, gen, () => {
-        fadeAudio(audio, null, fadeMs);
+        fadeAudio(audio, null, fadeMs, null, outgoing ? 'in' : 'smooth');
         syncSoundUi();
       });
       syncSoundUi();
