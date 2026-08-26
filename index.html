@@ -2902,7 +2902,9 @@
       reise: { name: 'Reisemusik', src: 'audio/reise/reisemusik.mp3', group: 'reise' },
       kampf: { name: 'Kampfmusik', src: 'audio/kampf/kampfmusik.mp3', group: 'kampf' }
     };
-    const SOUND_FX = [];
+    const SOUND_FX = [
+      { id: 'etwas-brennt', name: 'etwas brennt', src: 'audio/fx/etwas-brennt.mp3', loop: true }
+    ];
     const soundPlayers = {};
     const soundFadeRafs = new Map();
     const soundLoopFx = {};
