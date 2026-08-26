@@ -1025,6 +1025,54 @@
       z-index: 50;
       box-shadow: var(--shadow);
     }
+    body.is-dm .toast { bottom: 5.6rem; }
+
+    .sound-dock {
+      display: flex;
+      position: fixed;
+      left: 0.75rem;
+      right: 0.75rem;
+      bottom: 0.7rem;
+      z-index: 36;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.45rem 0.55rem;
+      padding: 0.55rem 0.75rem;
+      background: var(--panel);
+      border: 1px solid var(--gold-dim);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+    .sound-dock-label {
+      font-family: Cinzel, serif;
+      color: var(--gold);
+      letter-spacing: 0.08em;
+      font-size: 0.82rem;
+      margin-right: 0.2rem;
+    }
+    .sound-dock .sound-now {
+      color: var(--muted);
+      font-size: 0.85rem;
+      min-width: 7rem;
+    }
+    .sound-dock .sound-vol {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    .sound-dock .sound-vol input {
+      width: 7.5rem;
+      accent-color: var(--gold);
+    }
+    .sound-fx-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      width: 100%;
+    }
+    .sound-fx-row:empty { display: none; }
 
     .kampf-bar {
       display: flex;
@@ -1913,6 +1961,15 @@
         right: 0.75rem;
         bottom: max(0.75rem, env(safe-area-inset-bottom));
       }
+      body.is-dm .toast {
+        bottom: max(5.8rem, calc(env(safe-area-inset-bottom) + 5rem));
+      }
+      .sound-dock {
+        left: 0.5rem;
+        right: 0.5rem;
+        bottom: max(0.45rem, env(safe-area-inset-bottom));
+      }
+      .sound-dock .sound-vol input { width: 5.5rem; }
       input, select, textarea, .editor-canvas, .sheet-notes {
         font-size: 16px;
       }
@@ -2556,6 +2613,20 @@
     </form>
   </div>
 
+  <div id="soundDock" class="sound-dock hidden">
+    <span class="sound-dock-label">Klang</span>
+    <span class="sound-now" id="soundNow">Stille</span>
+    <button class="ghost" id="soundReiseBtn" type="button">Reisemusik</button>
+    <button class="ghost" id="soundKampfBtn" type="button">Kampfmusik</button>
+    <button class="ghost" id="soundStopBtn" type="button">Stop</button>
+    <label class="sound-vol">Laut
+      <input id="soundVol" type="range" min="0" max="100" value="55" />
+    </label>
+    <button class="ghost" id="soundFxPickBtn" type="button">Effekt abspielen</button>
+    <input id="soundFxInput" class="hidden" type="file" accept="audio/*" />
+    <div class="sound-fx-row" id="soundFxRow"></div>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -2712,11 +2783,17 @@
     let combatWriteQueued = false;
     let pendingCombatSnap = null;
     let combatPersistTimer = null;
-    let kampfMusic = null;
-    let kampfMusicFade = 0;
-    const KAMPF_MUSIC_SRC = 'audio/kampf/kampfmusik.mp3';
-    const KAMPF_MUSIC_VOL = 0.55;
-    const KAMPF_MUSIC_FADE_MS = 5000;
+    const SOUND_VOL_KEY = 'thalarion_sound_vol';
+    const SOUND_TRACKS = {
+      reise: { name: 'Reisemusik', src: 'audio/reise/reisemusik.mp3', fadeIn: 2500 },
+      kampf: { name: 'Kampfmusik', src: 'audio/kampf/kampfmusik.mp3', fadeIn: 5000 }
+    };
+    const SOUND_FX = [];
+    let soundMusic = null;
+    let soundFade = 0;
+    let soundTrackId = '';
+    let soundVol = 0.55;
+    let soundDuckUntil = 0;
     let kampfAimFrom = '';
     let kampfAimTo = '';
     let kampfAimEffect = '';
@@ -6299,67 +6376,187 @@
       touchCombatant(row);
     }
 
-    function getKampfMusic() {
-      if (!kampfMusic) {
-        kampfMusic = new Audio(KAMPF_MUSIC_SRC);
-        kampfMusic.loop = true;
-        kampfMusic.preload = 'auto';
-      }
-      return kampfMusic;
+    function loadSoundVol() {
+      try {
+        const n = Number(localStorage.getItem(SOUND_VOL_KEY));
+        if (Number.isFinite(n)) soundVol = Math.min(1, Math.max(0, n));
+      } catch (err) {}
     }
 
-    function stopKampfMusicFade() {
-      if (kampfMusicFade) {
-        cancelAnimationFrame(kampfMusicFade);
-        kampfMusicFade = 0;
+    function saveSoundVol() {
+      try { localStorage.setItem(SOUND_VOL_KEY, String(soundVol)); } catch (err) {}
+    }
+
+    function isSoundPlaying() {
+      return !!(soundMusic && !soundMusic.paused && !soundMusic.ended);
+    }
+
+    function getSoundMusic() {
+      if (!soundMusic) {
+        soundMusic = new Audio();
+        soundMusic.loop = true;
+        soundMusic.preload = 'auto';
+        soundMusic.addEventListener('play', syncSoundUi);
+        soundMusic.addEventListener('pause', syncSoundUi);
+      }
+      return soundMusic;
+    }
+
+    function stopSoundFade() {
+      if (soundFade) {
+        cancelAnimationFrame(soundFade);
+        soundFade = 0;
       }
     }
 
-    function fadeKampfMusicTo(target, ms, onDone) {
-      const audio = getKampfMusic();
-      stopKampfMusicFade();
+    function currentSoundTargetVol() {
+      return soundDuckUntil > performance.now() ? soundVol * 0.32 : soundVol;
+    }
+
+    function fadeSoundTo(target, ms, onDone) {
+      const audio = getSoundMusic();
+      stopSoundFade();
       const from = Number(audio.volume) || 0;
       const start = performance.now();
       const dur = Math.max(0, ms || 0);
+      const fadeOut = target <= 0.001;
       if (!dur) {
-        audio.volume = target;
+        audio.volume = fadeOut ? 0 : Math.min(1, Math.max(0, currentSoundTargetVol()));
         if (onDone) onDone();
         return;
       }
       const tick = now => {
         const t = Math.min(1, (now - start) / dur);
-        audio.volume = from + (target - from) * t;
-        if (t < 1) kampfMusicFade = requestAnimationFrame(tick);
+        const dest = fadeOut ? 0 : currentSoundTargetVol();
+        audio.volume = from + (dest - from) * t;
+        if (t < 1) soundFade = requestAnimationFrame(tick);
         else {
-          kampfMusicFade = 0;
-          audio.volume = target;
+          soundFade = 0;
+          audio.volume = dest;
           if (onDone) onDone();
         }
       };
-      kampfMusicFade = requestAnimationFrame(tick);
+      soundFade = requestAnimationFrame(tick);
     }
 
-    function startKampfMusic() {
+    function applySoundVolumeNow() {
+      if (!soundMusic || soundFade) return;
+      soundMusic.volume = Math.min(1, Math.max(0, currentSoundTargetVol()));
+    }
+
+    function syncSoundUi() {
+      const dock = document.getElementById('soundDock');
+      if (dock) dock.classList.toggle('hidden', !isDM);
+      const now = document.getElementById('soundNow');
+      if (now) {
+        const track = SOUND_TRACKS[soundTrackId];
+        now.textContent = isSoundPlaying() && track ? track.name : 'Stille';
+      }
+      const reise = document.getElementById('soundReiseBtn');
+      const kampf = document.getElementById('soundKampfBtn');
+      if (reise) reise.className = soundTrackId === 'reise' && isSoundPlaying() ? 'primary' : 'ghost';
+      if (kampf) kampf.className = soundTrackId === 'kampf' && isSoundPlaying() ? 'primary' : 'ghost';
+      const vol = document.getElementById('soundVol');
+      if (vol && document.activeElement !== vol) vol.value = String(Math.round(soundVol * 100));
+    }
+
+    function playSoundTrack(id, opts) {
       if (!isDM) return;
-      const audio = getKampfMusic();
-      stopKampfMusicFade();
-      try { audio.pause(); } catch (err) {}
-      try { audio.currentTime = 0; } catch (err) {}
+      const track = SOUND_TRACKS[id];
+      if (!track) return;
+      const restart = !!(opts && opts.restart);
+      const fadeIn = opts && opts.fadeIn != null ? opts.fadeIn : track.fadeIn;
+      if (soundTrackId === id && isSoundPlaying() && !restart) {
+        syncSoundUi();
+        return;
+      }
+      const audio = getSoundMusic();
+      stopSoundFade();
+      soundDuckUntil = 0;
+      if (soundTrackId !== id || restart || audio.src.indexOf(track.src) < 0) {
+        try { audio.pause(); } catch (err) {}
+        audio.src = track.src;
+        try { audio.currentTime = 0; } catch (err) {}
+      }
+      soundTrackId = id;
+      audio.loop = true;
       audio.volume = 0;
       const play = audio.play();
-      fadeKampfMusicTo(KAMPF_MUSIC_VOL, KAMPF_MUSIC_FADE_MS);
+      fadeSoundTo(soundVol, fadeIn);
+      syncSoundUi();
       if (play && typeof play.catch === 'function') {
-        play.catch(() => toast('Musik wurde vom Browser blockiert. Kampf nochmal starten.'));
+        play.catch(() => {
+          syncSoundUi();
+          toast('Musik wurde vom Browser blockiert. Nochmal auf den Titel tippen.');
+        });
       }
     }
 
-    function stopKampfMusic() {
-      if (!kampfMusic) return;
-      const audio = kampfMusic;
-      fadeKampfMusicTo(0, 700, () => {
+    function stopSoundTrack() {
+      if (!soundMusic) {
+        soundTrackId = '';
+        syncSoundUi();
+        return;
+      }
+      const audio = soundMusic;
+      fadeSoundTo(0, 700, () => {
         try { audio.pause(); } catch (err) {}
         try { audio.currentTime = 0; } catch (err) {}
+        soundTrackId = '';
+        syncSoundUi();
       });
+    }
+
+    function setSoundVolume(raw) {
+      soundVol = Math.min(1, Math.max(0, Number(raw) || 0));
+      saveSoundVol();
+      applySoundVolumeNow();
+    }
+
+    function duckSoundMusic(ms) {
+      soundDuckUntil = performance.now() + Math.max(400, ms || 1600);
+      applySoundVolumeNow();
+      window.setTimeout(() => {
+        if (soundDuckUntil <= performance.now()) applySoundVolumeNow();
+      }, (ms || 1600) + 40);
+    }
+
+    function playSoundFxSrc(src) {
+      if (!isDM || !src) return;
+      const fx = new Audio(src);
+      fx.volume = Math.min(1, Math.max(0.15, soundVol * 1.2));
+      duckSoundMusic(1600);
+      const play = fx.play();
+      if (play && typeof play.catch === 'function') {
+        play.catch(() => toast('Effekt konnte nicht abgespielt werden.'));
+      }
+    }
+
+    function playSoundFx(id) {
+      const fx = SOUND_FX.find(item => item.id === id);
+      if (fx) playSoundFxSrc(fx.src);
+    }
+
+    function renderSoundFxButtons() {
+      const row = document.getElementById('soundFxRow');
+      if (!row) return;
+      row.innerHTML = '';
+      SOUND_FX.forEach(fx => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ghost';
+        btn.textContent = fx.name;
+        btn.onclick = () => playSoundFx(fx.id);
+        row.appendChild(btn);
+      });
+    }
+
+    function startKampfMusic() {
+      playSoundTrack('kampf', { restart: soundTrackId !== 'kampf' || !isSoundPlaying() });
+    }
+
+    function stopKampfMusic() {
+      if (soundTrackId === 'kampf' || !soundTrackId) stopSoundTrack();
     }
 
     function startKampf() {
@@ -9168,6 +9365,7 @@
         closeDmMenu();
         setPlacingPin(false);
         setDrawingBorder(false);
+        stopSoundTrack();
       }
       renderMapPins();
       renderMapBorders();
@@ -9191,6 +9389,7 @@
         els.playerToEdit.classList.toggle('hidden', !on || currentIndex === null || els.viewer.classList.contains('hidden'));
         updateEntryToKarteBtn();
         updateExtraToolbars();
+        syncSoundUi();
       }
       if (!on) {
         cancelBattleDraw();
@@ -9343,6 +9542,22 @@
         onClick('kampfPrevBtn', prevCombatTurn);
         onClick('kampfSkipBtn', skipCombatTurn);
         onClick('kampfEndBtn', endCombat);
+        onClick('soundReiseBtn', () => playSoundTrack('reise'));
+        onClick('soundKampfBtn', () => playSoundTrack('kampf'));
+        onClick('soundStopBtn', stopSoundTrack);
+        onClick('soundFxPickBtn', () => {
+          const input = document.getElementById('soundFxInput');
+          if (input) input.click();
+        });
+        onEv('soundVol', 'input', ev => setSoundVolume(Number(ev.target.value) / 100));
+        onEv('soundFxInput', 'change', ev => {
+          const file = ev.target.files && ev.target.files[0];
+          ev.target.value = '';
+          if (!file) return;
+          const url = URL.createObjectURL(file);
+          playSoundFxSrc(url);
+          window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+        });
         onClick('kampfAimCancel', cancelKampfAim);
         onClick('kampfActDmg', () => applyKampfAimDamage(false));
         onClick('kampfActHeal', () => applyKampfAimDamage(true));
@@ -9884,7 +10099,10 @@
     }
 
     bindAll();
+    loadSoundVol();
+    renderSoundFxButtons();
     if (sessionStorage.getItem(SESSION_KEY) === '1') setDM(true);
+    else syncSoundUi();
 
     window.addEventListener('keydown', ev => {
       if (ev.key !== 'Escape') return;
