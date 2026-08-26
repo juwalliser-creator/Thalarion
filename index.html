@@ -1076,7 +1076,13 @@
       gap: 0.35rem;
       width: 100%;
     }
-    .sound-fx-row:empty { display: none; }
+    .sound-els audio {
+      position: absolute;
+      width: 0;
+      height: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
 
     .kampf-bar {
       display: flex;
@@ -2617,6 +2623,10 @@
     </form>
   </div>
 
+  <div class="sound-els" aria-hidden="true">
+    <audio id="soundElReise" preload="auto" loop playsinline src="audio/reise/reisemusik.mp3"></audio>
+    <audio id="soundElKampf" preload="auto" loop playsinline src="audio/kampf/kampfmusik.mp3"></audio>
+  </div>
   <div id="soundDock" class="sound-dock hidden">
     <span class="sound-dock-label">Klang</span>
     <span class="sound-now" id="soundNow">Stille</span>
@@ -2793,12 +2803,14 @@
       kampf: { name: 'Kampfmusik', src: 'audio/kampf/kampfmusik.mp3', fadeIn: 5000 }
     };
     const SOUND_FX = [];
+    const soundPlayers = {};
     let soundMusic = null;
     let soundFade = 0;
     let soundPlayGen = 0;
     let soundTrackId = '';
     let soundVol = 0.55;
     let soundDuckUntil = 0;
+    let soundUnlocked = false;
     let kampfAimFrom = '';
     let kampfAimTo = '';
     let kampfAimEffect = '';
@@ -6395,36 +6407,15 @@
     }
 
     function soundAssetUrl(rel) {
-      let dir = location.pathname || '/';
-      if (!dir.endsWith('/')) {
-        if (dir.indexOf('.') >= 0) dir = dir.slice(0, dir.lastIndexOf('/') + 1);
-        else dir += '/';
+      try {
+        return new URL(rel, document.baseURI || location.href).href;
+      } catch (err) {
+        return rel;
       }
-      return dir + String(rel || '').replace(/^\//, '');
     }
 
     function isSoundPlaying() {
       return !!(soundMusic && !soundMusic.paused && !soundMusic.ended);
-    }
-
-    function bindSoundMusic(audio) {
-      audio.loop = true;
-      audio.preload = 'auto';
-      audio.addEventListener('play', syncSoundUi);
-      audio.addEventListener('pause', syncSoundUi);
-      audio.addEventListener('error', () => {
-        toast('Musikdatei wurde nicht gefunden. Bitte Strg+F5, sonst fehlt die mp3 auf GitHub.');
-      });
-    }
-
-    function discardSoundMusic() {
-      soundPlayGen += 1;
-      stopSoundFade();
-      const old = soundMusic;
-      soundMusic = null;
-      if (!old) return;
-      try { old.pause(); } catch (err) {}
-      try { old.removeAttribute('src'); } catch (err) {}
     }
 
     function stopSoundFade() {
@@ -6491,55 +6482,105 @@
       if (vol && document.activeElement !== vol) vol.value = String(Math.round(soundVol * 100));
     }
 
+    function soundElId(id) {
+      return id === 'kampf' ? 'soundElKampf' : 'soundElReise';
+    }
+
+    function getSoundPlayer(id) {
+      if (soundPlayers[id]) return soundPlayers[id];
+      const el = document.getElementById(soundElId(id));
+      if (!el) return null;
+      el.loop = true;
+      el.preload = 'auto';
+      el.setAttribute('playsinline', '');
+      el.addEventListener('play', syncSoundUi);
+      el.addEventListener('pause', syncSoundUi);
+      el.addEventListener('error', () => {
+        toast('Musikdatei fehlt oder lädt nicht. Bitte Strg+F5.');
+      });
+      soundPlayers[id] = el;
+      try { el.load(); } catch (err) {}
+      return el;
+    }
+
+    function warmupSoundPlayers() {
+      Object.keys(SOUND_TRACKS).forEach(id => getSoundPlayer(id));
+    }
+
+    function unlockSound() {
+      if (soundUnlocked) return;
+      soundUnlocked = true;
+      const dummy = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+      dummy.volume = 0.01;
+      const p = dummy.play();
+      if (p && typeof p.then === 'function') p.then(() => dummy.pause()).catch(() => {});
+    }
+
+    function pauseOtherSoundPlayers(keepId) {
+      Object.keys(SOUND_TRACKS).forEach(id => {
+        if (id === keepId) return;
+        const el = soundPlayers[id];
+        if (!el) return;
+        try { el.pause(); } catch (err) {}
+      });
+    }
+
     function playSoundTrack(id, opts) {
       if (!isDM) return;
       const track = SOUND_TRACKS[id];
       if (!track) return;
+      unlockSound();
       const fadeIn = opts && opts.fadeIn != null ? opts.fadeIn : track.fadeIn;
-      discardSoundMusic();
-      const audio = new Audio(soundAssetUrl(track.src));
-      bindSoundMusic(audio);
-      audio.volume = 0;
+      const audio = getSoundPlayer(id);
+      if (!audio) return toast('Musikplayer fehlt.');
+      pauseOtherSoundPlayers(id);
+      stopSoundFade();
+      soundPlayGen += 1;
+      const gen = soundPlayGen;
       soundMusic = audio;
       soundTrackId = id;
-      const gen = soundPlayGen;
-      const begin = () => {
+      soundDuckUntil = 0;
+      try { audio.currentTime = 0; } catch (err) {}
+      const startVol = Math.max(0.18, Math.min(soundVol, 0.35));
+      audio.muted = false;
+      audio.volume = startVol;
+      const beginFade = () => {
         if (gen !== soundPlayGen || soundMusic !== audio) return;
         fadeSoundTo(soundVol, fadeIn);
         syncSoundUi();
       };
       const play = audio.play();
       if (play && typeof play.then === 'function') {
-        play.then(begin).catch(err => {
+        play.then(beginFade).catch(() => {
           if (gen !== soundPlayGen || soundMusic !== audio) return;
-          if (err && err.name === 'AbortError') {
-            audio.play().then(begin).catch(() => {
+          const retry = () => {
+            audio.removeEventListener('canplay', retry);
+            if (gen !== soundPlayGen || soundMusic !== audio) return;
+            audio.play().then(beginFade).catch(() => {
               toast('Musik startet nicht. Nochmal auf ' + track.name + ' tippen.');
               syncSoundUi();
             });
-            return;
-          }
-          toast('Musik startet nicht. Nochmal auf ' + track.name + ' tippen.');
-          syncSoundUi();
+          };
+          audio.addEventListener('canplay', retry);
+          try { audio.load(); } catch (err) {}
         });
       } else {
-        begin();
+        beginFade();
       }
       syncSoundUi();
     }
 
     function stopSoundTrack() {
-      const audio = soundMusic;
-      if (!audio) {
-        soundTrackId = '';
-        syncSoundUi();
-        return;
+      soundPlayGen += 1;
+      stopSoundFade();
+      pauseOtherSoundPlayers('');
+      if (soundMusic) {
+        try { soundMusic.pause(); } catch (err) {}
+        try { soundMusic.currentTime = 0; } catch (err) {}
       }
-      fadeSoundTo(0, 500, () => {
-        discardSoundMusic();
-        soundTrackId = '';
-        syncSoundUi();
-      });
+      soundMusic = null;
+      soundTrackId = '';
+      syncSoundUi();
     }
 
     function setSoundVolume(raw) {
@@ -9381,8 +9422,10 @@
       isDM = on;
       document.body.classList.toggle('is-dm', on);
       els.dmButton.textContent = on ? 'DM Logout' : 'DM Login';
-      if (on) sessionStorage.setItem(SESSION_KEY, '1');
-      else sessionStorage.removeItem(SESSION_KEY);
+      if (on) {
+        sessionStorage.setItem(SESSION_KEY, '1');
+        warmupSoundPlayers();
+      } else sessionStorage.removeItem(SESSION_KEY);
       document.getElementById('mapToolbar').classList.toggle('hidden', !on);
       updateSidebarVisibility(currentPage);
       if (!on) {
@@ -9561,6 +9604,9 @@
       });
 
       safeBind('sound', () => {
+        warmupSoundPlayers();
+        const dock = document.getElementById('soundDock');
+        if (dock) dock.addEventListener('pointerdown', unlockSound, { passive: true });
         onClick('soundReiseBtn', () => playSoundTrack('reise'));
         onClick('soundKampfBtn', () => playSoundTrack('kampf'));
         onClick('soundStopBtn', stopSoundTrack);
