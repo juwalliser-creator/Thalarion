@@ -6951,6 +6951,12 @@
     function renderSoundGroupBar() {
       const bar = document.getElementById('soundGroupBar');
       if (!bar) return;
+      if (soundPickKind === 'fx') {
+        bar.classList.add('hidden');
+        bar.innerHTML = '';
+        return;
+      }
+      bar.classList.remove('hidden');
       bar.innerHTML = '';
       [{ id: 'all', name: 'Alle' }].concat(SOUND_GROUPS).forEach(g => {
         const btn = document.createElement('button');
@@ -6968,18 +6974,29 @@
       });
     }
 
+    function syncSoundPickerChrome() {
+      const fx = soundPickKind === 'fx';
+      const meta = document.getElementById('soundPickMeta');
+      const add = document.getElementById('soundPickAddBtn');
+      const exp = document.getElementById('soundPickExportBtn');
+      const imp = document.getElementById('soundPickImportBtn');
+      if (meta) meta.classList.toggle('hidden', fx);
+      if (add) add.classList.toggle('hidden', fx);
+      if (exp) exp.classList.toggle('hidden', fx);
+      if (imp) imp.classList.toggle('hidden', fx);
+    }
+
     function openSoundPicker(kind) {
       if (!isDM) return;
       soundPickKind = kind === 'fx' ? 'fx' : 'ambiente';
       const overlay = document.getElementById('soundPickOverlay');
       const title = document.getElementById('soundPickTitle');
       const hint = document.getElementById('soundPickHint');
-      const loopWrap = document.getElementById('soundAddLoopWrap');
       if (title) title.textContent = soundPickKind === 'fx' ? 'Effekte' : 'Ambiente';
       if (hint) hint.textContent = soundPickKind === 'fx'
-        ? 'Kurzer Effekt einmal. Loop bleibt, bis du ihn nochmal antippst oder Stop drückst. Stern legt ihn in die Leiste.'
+        ? 'Effekt antippen. Stern legt ihn in die Leiste.'
         : 'Klang antippen. Pause hält die Stelle, Stop blendet aus. Gruppen filtern die Liste.';
-      if (loopWrap) loopWrap.classList.toggle('hidden', soundPickKind !== 'fx');
+      syncSoundPickerChrome();
       renderSoundGroupBar();
       renderSoundPickList();
       if (overlay) overlay.classList.remove('hidden');
@@ -7157,7 +7174,7 @@
           items.push({ id: c.id, name: c.name, group: c.group, custom: true, loop: !!c.loop });
         });
       }
-      if (soundGroupFilter !== 'all') {
+      if (soundPickKind === 'ambiente' && soundGroupFilter !== 'all') {
         return items.filter(item => item.group === soundGroupFilter);
       }
       return items;
@@ -7173,7 +7190,7 @@
         empty.className = 'sound-pick-hint';
         empty.style.gridColumn = '1 / -1';
         empty.textContent = soundPickKind === 'fx'
-          ? (soundUserClips.some(c => c.kind === 'fx') ? 'Keine Effekte in dieser Gruppe.' : 'Noch keine Effekte. Name wählen, dann Hinzufügen.')
+          ? 'Noch keine Effekte.'
           : (soundGroupFilter === 'all' ? 'Noch kein Ambiente.' : 'Keine Klänge in dieser Gruppe.');
         list.appendChild(empty);
         return;
