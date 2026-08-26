@@ -2712,6 +2712,11 @@
     let combatWriteQueued = false;
     let pendingCombatSnap = null;
     let combatPersistTimer = null;
+    let kampfMusic = null;
+    let kampfMusicFade = 0;
+    const KAMPF_MUSIC_SRC = 'audio/kampf/kampfmusik.mp3';
+    const KAMPF_MUSIC_VOL = 0.55;
+    const KAMPF_MUSIC_FADE_MS = 5000;
     let kampfAimFrom = '';
     let kampfAimTo = '';
     let kampfAimEffect = '';
@@ -6294,6 +6299,69 @@
       touchCombatant(row);
     }
 
+    function getKampfMusic() {
+      if (!kampfMusic) {
+        kampfMusic = new Audio(KAMPF_MUSIC_SRC);
+        kampfMusic.loop = true;
+        kampfMusic.preload = 'auto';
+      }
+      return kampfMusic;
+    }
+
+    function stopKampfMusicFade() {
+      if (kampfMusicFade) {
+        cancelAnimationFrame(kampfMusicFade);
+        kampfMusicFade = 0;
+      }
+    }
+
+    function fadeKampfMusicTo(target, ms, onDone) {
+      const audio = getKampfMusic();
+      stopKampfMusicFade();
+      const from = Number(audio.volume) || 0;
+      const start = performance.now();
+      const dur = Math.max(0, ms || 0);
+      if (!dur) {
+        audio.volume = target;
+        if (onDone) onDone();
+        return;
+      }
+      const tick = now => {
+        const t = Math.min(1, (now - start) / dur);
+        audio.volume = from + (target - from) * t;
+        if (t < 1) kampfMusicFade = requestAnimationFrame(tick);
+        else {
+          kampfMusicFade = 0;
+          audio.volume = target;
+          if (onDone) onDone();
+        }
+      };
+      kampfMusicFade = requestAnimationFrame(tick);
+    }
+
+    function startKampfMusic() {
+      if (!isDM) return;
+      const audio = getKampfMusic();
+      stopKampfMusicFade();
+      try { audio.pause(); } catch (err) {}
+      try { audio.currentTime = 0; } catch (err) {}
+      audio.volume = 0;
+      const play = audio.play();
+      fadeKampfMusicTo(KAMPF_MUSIC_VOL, KAMPF_MUSIC_FADE_MS);
+      if (play && typeof play.catch === 'function') {
+        play.catch(() => toast('Musik wurde vom Browser blockiert. Kampf nochmal starten.'));
+      }
+    }
+
+    function stopKampfMusic() {
+      if (!kampfMusic) return;
+      const audio = kampfMusic;
+      fadeKampfMusicTo(0, 700, () => {
+        try { audio.pause(); } catch (err) {}
+        try { audio.currentTime = 0; } catch (err) {}
+      });
+    }
+
     function startKampf() {
       if (!isDM) return;
       if (!combat.combatants.length) {
@@ -6307,6 +6375,7 @@
       persistCombat();
       renderKampf();
       renderBattleBoards();
+      startKampfMusic();
       const who = combatantById(combat.activeId);
       toast('Kampf läuft' + (who ? ' · ' + who.name + ' ist dran' : '') + '.');
     }
@@ -6396,6 +6465,7 @@
         persistCombat();
         clearBattleTokensAndHazards();
         renderKampf();
+        stopKampfMusic();
         return;
       }
       if (!confirm('Kampf beenden und die Tafel leeren? Die Charakterblätter und Vorlagen bleiben unverändert.')) return;
@@ -6407,6 +6477,7 @@
       persistCombat();
       clearBattleTokensAndHazards();
       renderKampf();
+      stopKampfMusic();
       toast('Kampf beendet.');
     }
 
