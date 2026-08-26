@@ -1083,6 +1083,34 @@
       opacity: 0;
       pointer-events: none;
     }
+    .sound-pick-card {
+      width: min(520px, 100%);
+      max-height: min(80vh, 640px);
+      display: flex;
+      flex-direction: column;
+    }
+    .sound-pick-card h2 { margin-bottom: 0.35rem; }
+    .sound-pick-hint { color: var(--muted); margin: 0 0 0.85rem; }
+    .sound-pick-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 0.5rem;
+      overflow: auto;
+      min-height: 4rem;
+      margin-bottom: 0.9rem;
+    }
+    .sound-pick-item {
+      display: flex;
+      gap: 0.3rem;
+      align-items: stretch;
+    }
+    .sound-pick-item .sound-pick-play {
+      flex: 1;
+      text-align: left;
+    }
+    .sound-pick-item .sound-pick-del {
+      padding: 0.4rem 0.55rem;
+    }
 
     .kampf-bar {
       display: flex;
@@ -2623,6 +2651,18 @@
     </form>
   </div>
 
+  <div id="soundPickOverlay" class="overlay hidden">
+    <div class="login-card sound-pick-card">
+      <h2 id="soundPickTitle">Ambiente</h2>
+      <p class="sound-pick-hint" id="soundPickHint">Wähle einen Klang. Er läuft in der Schleife, bis du Stop drückst.</p>
+      <div class="sound-pick-list" id="soundPickList"></div>
+      <div class="editor-actions">
+        <button class="primary" id="soundPickAddBtn" type="button">Hinzufügen</button>
+        <button class="ghost" id="soundPickCloseBtn" type="button">Schließen</button>
+      </div>
+    </div>
+  </div>
+
   <div class="sound-els" aria-hidden="true">
     <audio id="soundElReise" preload="auto" loop playsinline src="audio/reise/reisemusik.mp3"></audio>
     <audio id="soundElKampf" preload="auto" loop playsinline src="audio/kampf/kampfmusik.mp3"></audio>
@@ -2630,15 +2670,13 @@
   <div id="soundDock" class="sound-dock hidden">
     <span class="sound-dock-label">Klang</span>
     <span class="sound-now" id="soundNow">Stille</span>
-    <button class="ghost" id="soundReiseBtn" type="button">Reisemusik</button>
-    <button class="ghost" id="soundKampfBtn" type="button">Kampfmusik</button>
+    <button class="ghost" id="soundAmbienteBtn" type="button">Ambiente</button>
+    <button class="ghost" id="soundFxPickBtn" type="button">Effekt abspielen</button>
     <button class="ghost" id="soundStopBtn" type="button">Stop</button>
     <label class="sound-vol">Laut
       <input id="soundVol" type="range" min="0" max="100" value="55" />
     </label>
-    <button class="ghost" id="soundFxPickBtn" type="button">Effekt abspielen</button>
     <input id="soundFxInput" class="hidden" type="file" accept="audio/*" />
-    <div class="sound-fx-row" id="soundFxRow"></div>
   </div>
 
   <div id="toast" class="toast hidden"></div>
@@ -2811,6 +2849,8 @@
     let soundVol = 0.55;
     let soundDuckUntil = 0;
     let soundUnlocked = false;
+    let soundPickKind = 'ambiente';
+    let soundUserClips = [];
     let kampfAimFrom = '';
     let kampfAimTo = '';
     let kampfAimEffect = '';
@@ -6470,16 +6510,18 @@
       const dock = document.getElementById('soundDock');
       if (dock) dock.classList.toggle('hidden', !isDM);
       const now = document.getElementById('soundNow');
-      if (now) {
-        const track = SOUND_TRACKS[soundTrackId];
-        now.textContent = isSoundPlaying() && track ? track.name : 'Stille';
-      }
-      const reise = document.getElementById('soundReiseBtn');
-      const kampf = document.getElementById('soundKampfBtn');
-      if (reise) reise.className = soundTrackId === 'reise' && isSoundPlaying() ? 'primary' : 'ghost';
-      if (kampf) kampf.className = soundTrackId === 'kampf' && isSoundPlaying() ? 'primary' : 'ghost';
+      if (now) now.textContent = isSoundPlaying() ? soundTrackLabel(soundTrackId) : 'Stille';
+      const amb = document.getElementById('soundAmbienteBtn');
+      if (amb) amb.className = isSoundPlaying() ? 'primary' : 'ghost';
       const vol = document.getElementById('soundVol');
       if (vol && document.activeElement !== vol) vol.value = String(Math.round(soundVol * 100));
+      if (soundPickOpen()) renderSoundPickList();
+    }
+
+    function soundTrackLabel(id) {
+      if (SOUND_TRACKS[id]) return SOUND_TRACKS[id].name;
+      const rec = soundUserClips.find(c => c.id === id);
+      return rec ? rec.name : 'Ambiente';
     }
 
     function soundElId(id) {
@@ -6488,18 +6530,29 @@
 
     function getSoundPlayer(id) {
       if (soundPlayers[id]) return soundPlayers[id];
-      const el = document.getElementById(soundElId(id));
-      if (!el) return null;
-      el.loop = true;
+      if (SOUND_TRACKS[id]) {
+        const el = document.getElementById(soundElId(id));
+        if (!el) return null;
+        el.loop = true;
+        el.preload = 'auto';
+        el.setAttribute('playsinline', '');
+        el.addEventListener('play', syncSoundUi);
+        el.addEventListener('pause', syncSoundUi);
+        el.addEventListener('error', () => {
+          toast('Musikdatei fehlt oder lädt nicht. Bitte Strg+F5.');
+        });
+        soundPlayers[id] = el;
+        try { el.load(); } catch (err) {}
+        return el;
+      }
+      const rec = soundUserClips.find(c => c.id === id);
+      if (!rec || !rec.url) return null;
+      const el = new Audio(rec.url);
+      el.loop = rec.kind === 'ambiente';
       el.preload = 'auto';
-      el.setAttribute('playsinline', '');
       el.addEventListener('play', syncSoundUi);
       el.addEventListener('pause', syncSoundUi);
-      el.addEventListener('error', () => {
-        toast('Musikdatei fehlt oder lädt nicht. Bitte Strg+F5.');
-      });
       soundPlayers[id] = el;
-      try { el.load(); } catch (err) {}
       return el;
     }
 
@@ -6517,7 +6570,7 @@
     }
 
     function pauseOtherSoundPlayers(keepId) {
-      Object.keys(SOUND_TRACKS).forEach(id => {
+      Object.keys(soundPlayers).forEach(id => {
         if (id === keepId) return;
         const el = soundPlayers[id];
         if (!el) return;
@@ -6527,10 +6580,11 @@
 
     function playSoundTrack(id, opts) {
       if (!isDM) return;
-      const track = SOUND_TRACKS[id];
-      if (!track) return;
+      const builtin = SOUND_TRACKS[id];
+      const rec = soundUserClips.find(c => c.id === id);
+      if (!builtin && !(rec && rec.kind === 'ambiente')) return;
       unlockSound();
-      const fadeIn = opts && opts.fadeIn != null ? opts.fadeIn : track.fadeIn;
+      const fadeIn = opts && opts.fadeIn != null ? opts.fadeIn : (builtin && builtin.fadeIn) || 1800;
       const audio = getSoundPlayer(id);
       if (!audio) return toast('Musikplayer fehlt.');
       pauseOtherSoundPlayers(id);
@@ -6557,7 +6611,7 @@
             audio.removeEventListener('canplay', retry);
             if (gen !== soundPlayGen || soundMusic !== audio) return;
             audio.play().then(beginFade).catch(() => {
-              toast('Musik startet nicht. Nochmal auf ' + track.name + ' tippen.');
+              toast('Musik startet nicht. Nochmal antippen.');
               syncSoundUi();
             });
           };
@@ -6609,23 +6663,182 @@
     }
 
     function playSoundFx(id) {
-      const fx = SOUND_FX.find(item => item.id === id);
-      if (fx) playSoundFxSrc(fx.src);
+      const builtin = SOUND_FX.find(item => item.id === id);
+      if (builtin) {
+        playSoundFxSrc(soundAssetUrl(builtin.src));
+        return;
+      }
+      const rec = soundUserClips.find(c => c.id === id && c.kind === 'fx');
+      if (rec && rec.url) playSoundFxSrc(rec.url);
     }
 
-    function renderSoundFxButtons() {
-      const row = document.getElementById('soundFxRow');
-      if (!row) return;
-      row.innerHTML = '';
-      SOUND_FX.forEach(fx => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'ghost';
-        btn.textContent = fx.name;
-        btn.onclick = () => playSoundFx(fx.id);
-        row.appendChild(btn);
+    function soundPickOpen() {
+      const el = document.getElementById('soundPickOverlay');
+      return !!(el && !el.classList.contains('hidden'));
+    }
+
+    function closeSoundPicker() {
+      const el = document.getElementById('soundPickOverlay');
+      if (el) el.classList.add('hidden');
+    }
+
+    function openSoundPicker(kind) {
+      if (!isDM) return;
+      soundPickKind = kind === 'fx' ? 'fx' : 'ambiente';
+      const overlay = document.getElementById('soundPickOverlay');
+      const title = document.getElementById('soundPickTitle');
+      const hint = document.getElementById('soundPickHint');
+      if (title) title.textContent = soundPickKind === 'fx' ? 'Effekte' : 'Ambiente';
+      if (hint) hint.textContent = soundPickKind === 'fx'
+        ? 'Effekt antippen. Über Hinzufügen speicherst du weitere Dateien in diesem Fenster.'
+        : 'Klang antippen. Er läuft in der Schleife, bis du Stop drückst. Weitere Dateien über Hinzufügen.';
+      renderSoundPickList();
+      if (overlay) overlay.classList.remove('hidden');
+    }
+
+    function soundClipName(file) {
+      return String(file && file.name || 'Klang')
+        .replace(/\.[^.]+$/, '')
+        .replace(/[_-]+/g, ' ')
+        .trim() || 'Klang';
+    }
+
+    function openSoundDb() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open('thalarion_sounds', 1);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains('clips')) db.createObjectStore('clips', { keyPath: 'id' });
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
       });
     }
+
+    async function loadSoundUserClips() {
+      soundUserClips.forEach(c => {
+        if (c.url) try { URL.revokeObjectURL(c.url); } catch (err) {}
+      });
+      soundUserClips = [];
+      try {
+        const db = await openSoundDb();
+        const rows = await new Promise((resolve, reject) => {
+          const tx = db.transaction('clips', 'readonly');
+          const req = tx.objectStore('clips').getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => reject(req.error);
+        });
+        db.close();
+        soundUserClips = rows.map(row => ({
+          id: row.id,
+          kind: row.kind === 'fx' ? 'fx' : 'ambiente',
+          name: row.name || 'Klang',
+          url: row.blob ? URL.createObjectURL(row.blob) : ''
+        })).filter(c => c.url);
+      } catch (err) {
+        soundUserClips = [];
+      }
+    }
+
+    async function saveSoundUserClip(kind, file) {
+      const rec = {
+        id: 'user_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+        kind: kind === 'fx' ? 'fx' : 'ambiente',
+        name: soundClipName(file),
+        blob: file
+      };
+      const db = await openSoundDb();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('clips', 'readwrite');
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+        tx.objectStore('clips').put(rec);
+      });
+      db.close();
+      soundUserClips.push({
+        id: rec.id,
+        kind: rec.kind,
+        name: rec.name,
+        url: URL.createObjectURL(file)
+      });
+    }
+
+    async function deleteSoundUserClip(id) {
+      if (soundTrackId === id) stopSoundTrack();
+      if (soundPlayers[id]) {
+        try { soundPlayers[id].pause(); } catch (err) {}
+        delete soundPlayers[id];
+      }
+      const rec = soundUserClips.find(c => c.id === id);
+      if (rec && rec.url) try { URL.revokeObjectURL(rec.url); } catch (err) {}
+      soundUserClips = soundUserClips.filter(c => c.id !== id);
+      try {
+        const db = await openSoundDb();
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction('clips', 'readwrite');
+          tx.oncomplete = resolve;
+          tx.onerror = () => reject(tx.error);
+          tx.objectStore('clips').delete(id);
+        });
+        db.close();
+      } catch (err) {}
+      renderSoundPickList();
+    }
+
+    function renderSoundPickList() {
+      const list = document.getElementById('soundPickList');
+      if (!list) return;
+      list.innerHTML = '';
+      const items = [];
+      if (soundPickKind === 'ambiente') {
+        Object.keys(SOUND_TRACKS).forEach(id => {
+          items.push({ id: id, name: SOUND_TRACKS[id].name, custom: false });
+        });
+        soundUserClips.filter(c => c.kind === 'ambiente').forEach(c => {
+          items.push({ id: c.id, name: c.name, custom: true });
+        });
+      } else {
+        SOUND_FX.forEach(fx => items.push({ id: fx.id, name: fx.name, custom: false }));
+        soundUserClips.filter(c => c.kind === 'fx').forEach(c => {
+          items.push({ id: c.id, name: c.name, custom: true });
+        });
+      }
+      if (!items.length) {
+        const empty = document.createElement('p');
+        empty.className = 'sound-pick-hint';
+        empty.style.gridColumn = '1 / -1';
+        empty.textContent = soundPickKind === 'fx'
+          ? 'Noch keine Effekte. Über Hinzufügen eine Datei speichern.'
+          : 'Noch kein Ambiente.';
+        list.appendChild(empty);
+        return;
+      }
+      items.forEach(item => {
+        const wrap = document.createElement('div');
+        wrap.className = 'sound-pick-item';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'sound-pick-play ' + (soundPickKind === 'ambiente' && soundTrackId === item.id && isSoundPlaying() ? 'primary' : 'ghost');
+        btn.textContent = item.name;
+        btn.onclick = () => {
+          if (soundPickKind === 'fx') playSoundFx(item.id);
+          else playSoundTrack(item.id);
+        };
+        wrap.appendChild(btn);
+        if (item.custom) {
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'ghost sound-pick-del';
+          del.title = 'Entfernen';
+          del.textContent = '×';
+          del.onclick = () => deleteSoundUserClip(item.id);
+          wrap.appendChild(del);
+        }
+        list.appendChild(wrap);
+      });
+    }
+
+    function renderSoundFxButtons() {}
 
     function startKampf() {
       if (!isDM) return;
@@ -9605,23 +9818,34 @@
 
       safeBind('sound', () => {
         warmupSoundPlayers();
+        loadSoundUserClips().then(() => {
+          if (soundPickOpen()) renderSoundPickList();
+        }).catch(() => {});
         const dock = document.getElementById('soundDock');
         if (dock) dock.addEventListener('pointerdown', unlockSound, { passive: true });
-        onClick('soundReiseBtn', () => playSoundTrack('reise'));
-        onClick('soundKampfBtn', () => playSoundTrack('kampf'));
+        onClick('soundAmbienteBtn', () => openSoundPicker('ambiente'));
+        onClick('soundFxPickBtn', () => openSoundPicker('fx'));
         onClick('soundStopBtn', stopSoundTrack);
-        onClick('soundFxPickBtn', () => {
+        onClick('soundPickCloseBtn', closeSoundPicker);
+        onClick('soundPickAddBtn', () => {
           const input = document.getElementById('soundFxInput');
           if (input) input.click();
         });
         onEv('soundVol', 'input', ev => setSoundVolume(Number(ev.target.value) / 100));
-        onEv('soundFxInput', 'change', ev => {
+        onEv('soundFxInput', 'change', async ev => {
           const file = ev.target.files && ev.target.files[0];
           ev.target.value = '';
           if (!file) return;
-          const url = URL.createObjectURL(file);
-          playSoundFxSrc(url);
-          window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+          try {
+            await saveSoundUserClip(soundPickKind, file);
+            renderSoundPickList();
+            toast((soundPickKind === 'fx' ? 'Effekt' : 'Ambiente') + ' gespeichert.');
+          } catch (err) {
+            toast('Datei konnte nicht gespeichert werden.');
+          }
+        });
+        onEv('soundPickOverlay', 'click', ev => {
+          if (ev.target === document.getElementById('soundPickOverlay')) closeSoundPicker();
         });
       });
 
@@ -10188,6 +10412,8 @@
       if (player && !player.classList.contains('hidden')) { closePlayerLogin(); return; }
       const pin = document.getElementById('pinOverlay');
       if (pin && !pin.classList.contains('hidden')) { closePinPicker(); return; }
+      const soundPick = document.getElementById('soundPickOverlay');
+      if (soundPick && !soundPick.classList.contains('hidden')) { closeSoundPicker(); return; }
       const border = document.getElementById('borderOverlay');
       if (border && !border.classList.contains('hidden')) {
         const cancel = document.getElementById('borderCancel');
