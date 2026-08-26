@@ -2719,6 +2719,7 @@
     <button class="ghost" id="soundFxPickBtn" type="button">Effekt abspielen</button>
     <button class="ghost" id="soundPauseBtn" type="button">Pause</button>
     <button class="ghost" id="soundStopBtn" type="button">Stop</button>
+    <button class="ghost" id="soundFxStopBtn" type="button">Effekte aus</button>
     <label class="sound-vol">Ambiente
       <input id="soundVolAmb" type="range" min="0" max="100" value="55" />
     </label>
@@ -2909,6 +2910,7 @@
     const soundPlayers = {};
     const soundFadeRafs = new Map();
     const soundLoopFx = {};
+    const soundFxShots = [];
     let soundMusic = null;
     let soundPlayGen = 0;
     let soundTrackId = '';
@@ -6674,6 +6676,8 @@
         pauseBtn.textContent = isSoundPlaying() ? 'Pause' : 'Weiter';
         pauseBtn.disabled = !isSoundPlaying() && !soundTrackId && !soundAmbientExists(soundLastAmbientId);
       }
+      const fxStop = document.getElementById('soundFxStopBtn');
+      if (fxStop) fxStop.disabled = !isAnyFxPlaying();
       const volA = document.getElementById('soundVolAmb');
       if (volA && document.activeElement !== volA) volA.value = String(Math.round(soundVolAmb * 100));
       const volF = document.getElementById('soundVolFx');
@@ -6838,10 +6842,24 @@
       Object.keys(soundLoopFx).forEach(id => stopLoopFx(id, hard));
     }
 
+    function stopAllSoundFx(hard) {
+      stopAllLoopFx(hard);
+      soundFxShots.splice(0).forEach(el => {
+        cancelSoundFade(el);
+        try { el.pause(); } catch (err) {}
+        try { el.currentTime = 0; } catch (err) {}
+      });
+      syncSoundUi();
+    }
+
+    function isAnyFxPlaying() {
+      return Object.keys(soundLoopFx).length > 0 || soundFxShots.some(el => isElementPlaying(el));
+    }
+
     function stopSoundTrack() {
       soundPlayGen += 1;
       soundPaused = false;
-      stopAllLoopFx(false);
+      stopAllSoundFx(false);
       const audio = soundMusic;
       if (!audio) {
         soundMusic = null;
@@ -6886,11 +6904,23 @@
       unlockSound();
       const fx = new Audio(src);
       fx.volume = Math.min(1, Math.max(0, soundVolFx));
+      soundFxShots.push(fx);
+      fx.addEventListener('ended', () => {
+        const i = soundFxShots.indexOf(fx);
+        if (i >= 0) soundFxShots.splice(i, 1);
+        syncSoundUi();
+      });
       duckSoundMusic(1600);
       const play = fx.play();
       if (play && typeof play.catch === 'function') {
-        play.catch(() => toast('Effekt konnte nicht abgespielt werden.'));
+        play.catch(() => {
+          const i = soundFxShots.indexOf(fx);
+          if (i >= 0) soundFxShots.splice(i, 1);
+          toast('Effekt konnte nicht abgespielt werden.');
+          syncSoundUi();
+        });
       }
+      syncSoundUi();
     }
 
     function fxSrcFor(id) {
@@ -10357,6 +10387,7 @@
         onClick('soundFxPickBtn', () => openSoundPicker('fx'));
         onClick('soundPauseBtn', togglePauseSound);
         onClick('soundStopBtn', stopSoundTrack);
+        onClick('soundFxStopBtn', () => stopAllSoundFx(false));
         onClick('soundPickCloseBtn', closeSoundPicker);
         onClick('soundPickAddBtn', () => {
           const input = document.getElementById('soundFxInput');
