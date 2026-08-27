@@ -6790,16 +6790,23 @@
       }
       audio.muted = false;
       audio.volume = outgoing ? 0 : 0.04;
+      const intoKampf = !!(outgoing && id === 'kampf');
       if (outgoing) {
         fadeAudio(outgoing, 0, SOUND_CROSSFADE, () => {
           try { outgoing.pause(); } catch (err) {}
           try { outgoing.currentTime = 0; } catch (err) {}
         }, 'out');
       }
-      const fadeMs = outgoing ? SOUND_CROSSFADE : SOUND_FADE_IN;
+      const fadeMs = !outgoing ? SOUND_FADE_IN : (intoKampf ? SOUND_CROSSFADE + 1500 : SOUND_CROSSFADE);
+      const fadeEase = !outgoing ? 'smooth' : (intoKampf ? 'smooth' : 'in');
       playIncomingAudio(audio, gen, () => {
-        fadeAudio(audio, null, fadeMs, null, outgoing ? 'in' : 'smooth');
-        syncSoundUi();
+        const beginFade = () => {
+          if (gen !== soundPlayGen || soundMusic !== audio) return;
+          fadeAudio(audio, null, fadeMs, null, fadeEase);
+          syncSoundUi();
+        };
+        if (intoKampf) window.setTimeout(beginFade, 1200);
+        else beginFade();
       });
       syncSoundUi();
     }
