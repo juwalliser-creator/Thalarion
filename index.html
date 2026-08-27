@@ -9004,9 +9004,36 @@
       });
     }
 
+    function scrubStatOcrNoise(text) {
+      return String(text || '')
+        .replace(/\[\s*\d+\s*\]/g, ' ')
+        .replace(/\(\s*po[il1]nt(?:er|or)?\s*\)/gi, ' ')
+        .replace(/(^|\s)pointer(?=\s|$)/gi, '$1')
+        .replace(/\bSRD\s*5(?:\.\d+)?\b/gi, ' ')
+        .replace(/\bOGL\b/g, ' ')
+        .replace(/\bCC-BY(?:-SA)?(?:-\d+(?:\.\d+)?)?\b/gi, ' ')
+        .replace(/\b5e\.?tools\b/gi, ' ')
+        .replace(/\(\s*\)/g, ' ')
+        .replace(/[ \t]+/g, ' ')
+        .replace(/[ \t]+\n/g, '\n')
+        .replace(/\n[ \t]+/g, '\n')
+        .replace(/ +\./g, '.')
+        .trim();
+    }
+
+    function isOcrJunkWord(text) {
+      const t = String(text || '').trim();
+      if (!t) return true;
+      if (/^(\[\s*\d+\s*\])+$/.test(t)) return true;
+      if (/^\(\s*po[il1]nt(?:er|or)?\s*\)$/i.test(t)) return true;
+      if (/^pointer$/i.test(t)) return true;
+      if (/^(SRD5|OGL|CC-BY)/i.test(t)) return true;
+      return false;
+    }
+
     function pickStatLine(text, re) {
       const m = String(text || '').match(re);
-      return m ? m[1].replace(/\s+/g, ' ').trim() : '';
+      return m ? scrubStatOcrNoise(m[1].replace(/\s+/g, ' ')) : '';
     }
 
     function abilityModFromScore(n) {
@@ -9036,12 +9063,10 @@
     }
 
     function ocrWordsFromData(data) {
-      if (data && Array.isArray(data.words) && data.words.length) return data.words;
-      const out = [];
-      ((data && data.lines) || []).forEach(line => {
-        (line.words || []).forEach(w => out.push(w));
-      });
-      return out;
+      const raw = (data && Array.isArray(data.words) && data.words.length)
+        ? data.words
+        : ((data && data.lines) || []).reduce((out, line) => out.concat(line.words || []), []);
+      return raw.filter(w => !isOcrJunkWord(w && w.text));
     }
 
     function normalizeOcrNumText(text) {
@@ -9235,14 +9260,13 @@
     }
 
     function parseStatSheetText(raw, words, seededAbs) {
-      const text = String(raw || '')
+      const text = scrubStatOcrNoise(String(raw || '')
         .replace(/\u00a0/g, ' ')
         .replace(/[|]+/g, ' ')
         .replace(/[ \t]+/g, ' ')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim();
-      const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean)
-        .filter(l => !/SRD5|OGL|CC-BY/i.test(l) && !/^\[\d+\]$/.test(l) && !/^\[.+\]\s*\[/.test(l));
+        .replace(/\n{3,}/g, '\n\n'));
+      const lines = text.split(/\n/).map(l => scrubStatOcrNoise(l)).filter(Boolean)
+        .filter(l => !/SRD5|OGL|CC-BY/i.test(l) && !/^pointer$/i.test(l));
       const joined = lines.join('\n');
       const sizeRe = /^(Tiny|Small|Medium|Large|Huge|Gargantuan)\b/i;
       const name = lines.find(l => l.length > 1 && !sizeRe.test(l) && !/^(Armor|Hit|Speed|STR|Skills|Senses|Languages|Habitat|Challenge|Features|Actions|Reactions)\b/i.test(l)) || '';
@@ -9274,15 +9298,15 @@
         }
         if (!current) return;
         const item = line.match(/^([A-Z][A-Za-z0-9'’\- ]{1,48})\.\s*(.*)$/);
-        if (item) current.items.push({ name: item[1].trim(), text: item[2].trim() });
-        else if (current.items.length) current.items[current.items.length - 1].text += ' ' + line;
-        else current.items.push({ name: '', text: line });
+        if (item) current.items.push({ name: scrubStatOcrNoise(item[1]), text: scrubStatOcrNoise(item[2]) });
+        else if (current.items.length) current.items[current.items.length - 1].text += ' ' + scrubStatOcrNoise(line);
+        else current.items.push({ name: '', text: scrubStatOcrNoise(line) });
       });
       return { name: name, kind: kind, stats: stats, abilities: abilities, sections: sections, raw: text };
     }
 
     function cleanStatText(text) {
-      return String(text || '').replace(/\s+/g, ' ').trim();
+      return scrubStatOcrNoise(String(text || '').replace(/\s+/g, ' '));
     }
 
     function statSheetToHtml(parsed) {
