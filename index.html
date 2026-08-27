@@ -6739,24 +6739,24 @@
         if (gen !== soundPlayGen || soundMusic !== audio) return;
         onReady();
       };
-      const play = audio.play();
-      if (play && typeof play.then === 'function') {
-        play.then(begin).catch(() => {
-          if (gen !== soundPlayGen || soundMusic !== audio) return;
-          const retry = () => {
-            audio.removeEventListener('canplay', retry);
+      const tryPlay = () => {
+        if (gen !== soundPlayGen || soundMusic !== audio) return;
+        const play = audio.play();
+        if (play && typeof play.then === 'function') {
+          play.then(begin).catch(err => {
             if (gen !== soundPlayGen || soundMusic !== audio) return;
-            audio.play().then(begin).catch(() => {
-              toast('Musik startet nicht. Nochmal antippen.');
-              syncSoundUi();
-            });
-          };
-          audio.addEventListener('canplay', retry);
-          try { audio.load(); } catch (err) {}
-        });
-      } else {
-        begin();
-      }
+            if (err && err.name === 'AbortError') {
+              window.setTimeout(tryPlay, 50);
+              return;
+            }
+            toast('Musik startet nicht. Nochmal antippen.');
+            syncSoundUi();
+          });
+        } else {
+          begin();
+        }
+      };
+      tryPlay();
     }
 
     function playSoundTrack(id, opts) {
@@ -6788,9 +6788,11 @@
       if (!resume) {
         try { audio.currentTime = 0; } catch (err) {}
       }
-      audio.muted = false;
-      audio.volume = outgoing ? 0 : 0.04;
       const intoKampf = !!(outgoing && id === 'kampf');
+      audio.muted = false;
+      audio.volume = outgoing
+        ? (intoKampf ? 0.08 : 0.12)
+        : Math.max(0.18, Math.min(soundVolAmb || 0.55, 0.32));
       if (outgoing) {
         fadeAudio(outgoing, 0, SOUND_CROSSFADE, () => {
           try { outgoing.pause(); } catch (err) {}
@@ -6800,13 +6802,8 @@
       const fadeMs = !outgoing ? SOUND_FADE_IN : (intoKampf ? SOUND_CROSSFADE + 1500 : SOUND_CROSSFADE);
       const fadeEase = !outgoing ? 'smooth' : (intoKampf ? 'smooth' : 'in');
       playIncomingAudio(audio, gen, () => {
-        const beginFade = () => {
-          if (gen !== soundPlayGen || soundMusic !== audio) return;
-          fadeAudio(audio, null, fadeMs, null, fadeEase);
-          syncSoundUi();
-        };
-        if (intoKampf) window.setTimeout(beginFade, 1200);
-        else beginFade();
+        fadeAudio(audio, null, fadeMs, null, fadeEase);
+        syncSoundUi();
       });
       syncSoundUi();
     }
