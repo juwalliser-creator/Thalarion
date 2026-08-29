@@ -3825,6 +3825,31 @@
       return sheetAccountId(owner) === currentPlayerId;
     }
 
+    function isOwnCombatOwner(ownerId) {
+      if (!currentPlayerId || !ownerId) return false;
+      return sheetAccountId(ownerId) === currentPlayerId;
+    }
+
+    function combatOwnerLabel(ownerId) {
+      const rec = sheetOwnerRecord(ownerId);
+      return rec ? rec.name : ownerId;
+    }
+
+    function combatSheetOwners() {
+      ensureVeyrAlt(playerAccounts);
+      const ids = Object.keys(playerAccounts).sort((a, b) =>
+        playerAccounts[a].name.localeCompare(playerAccounts[b].name, 'de')
+      );
+      const out = [];
+      ids.forEach(id => {
+        out.push(id);
+        if (id === YUVI_ID && playerAccounts[YUVI_ID] && playerAccounts[YUVI_ID].alts && playerAccounts[YUVI_ID].alts[VEYR_ALT]) {
+          out.push(VEYR_OWNER);
+        }
+      });
+      return out;
+    }
+
     function normalizeAltEntry(raw, fallbackName) {
       const e = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
       const type = e.type === 'Niederfänge' ? 'Niederfänge' : 'Hochfänge';
@@ -4653,7 +4678,7 @@
 
     function canMoveBattleToken(token) {
       if (isDM) return true;
-      return !!(currentPlayerId && token.playerId && token.playerId === currentPlayerId);
+      return isOwnCombatOwner(token.playerId);
     }
 
     function battleHintText() {
@@ -4810,7 +4835,7 @@
         const el = document.createElement('button');
         el.type = 'button';
         el.className = 'battle-token ' + (token.kind === 'player' ? 'is-player' : 'is-enemy');
-        if (currentPlayerId && token.playerId === currentPlayerId) el.classList.add('is-mine');
+        if (isOwnCombatOwner(token.playerId)) el.classList.add('is-mine');
         if (combat.activeId && token.id === combat.activeId) el.classList.add('is-turn');
         if (kampfAimFrom && token.id === kampfAimFrom) el.classList.add('is-aim-from');
         if (kampfAimTo && token.id === kampfAimTo) el.classList.add('is-aim-to');
@@ -6118,24 +6143,25 @@
     }
 
     function addPlayerToCombat(playerId, quiet) {
-      const acc = playerAccounts[playerId];
-      if (!acc) return;
+      const rec = sheetOwnerRecord(playerId);
+      if (!rec) return;
       if (combat.combatants.some(c => c.playerId === playerId)) {
-        if (!quiet) toast(acc.name + ' ist schon im Kampf.');
+        if (!quiet) toast(rec.name + ' ist schon im Kampf.');
         return;
       }
-      const hp = parseSheetHp(acc.sheet && acc.sheet.hp);
+      const sheet = rec.sheet || {};
+      const hp = parseSheetHp(sheet.hp);
       addCombatant({
-        name: (acc.sheet && acc.sheet.name) || acc.name,
+        name: sheet.name || rec.name,
         kind: 'player',
         playerId: playerId,
         init: 0,
         hp: hp.hp,
         hpMax: hp.hpMax,
-        ac: (acc.sheet && acc.sheet.armor) || '',
-        portraitId: (acc.sheet && acc.sheet.portraitId) || ''
+        ac: sheet.armor || '',
+        portraitId: sheet.portraitId || ''
       }, quiet);
-      if (!quiet) toast(acc.name + ' übernommen. Initiative noch eintragen.');
+      if (!quiet) toast(rec.name + ' übernommen. Initiative noch eintragen.');
     }
 
     function addEnemyToCombat() {
@@ -6392,7 +6418,7 @@
     function kampfCompactItem(row) {
       const el = document.createElement('div');
       el.className = 'kampf-side-item ' + (row.kind === 'player' ? 'is-player' : 'is-enemy');
-      if (currentPlayerId && row.playerId === currentPlayerId) el.classList.add('is-mine');
+      if (isOwnCombatOwner(row.playerId)) el.classList.add('is-mine');
       if (row.id === combat.activeId) el.classList.add('is-active');
       if (combatantDown(row)) el.classList.add('is-down');
       bindKampfListLink(el, row.id);
@@ -7724,9 +7750,7 @@
       const playersBox = document.getElementById('kampfPlayers');
       if (!playersBox) return;
       playersBox.innerHTML = '';
-      const ids = Object.keys(playerAccounts).sort((a, b) =>
-        playerAccounts[a].name.localeCompare(playerAccounts[b].name, 'de')
-      );
+      const ids = combatSheetOwners();
       const free = ids.filter(id => !combat.combatants.some(c => c.playerId === id));
       if (!ids.length) {
         const empty = document.createElement('p');
@@ -7758,7 +7782,7 @@
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'ghost';
-          btn.textContent = playerAccounts[id].name;
+          btn.textContent = combatOwnerLabel(id);
           btn.onclick = () => addPlayerToCombat(id);
           playersBox.appendChild(btn);
         });
