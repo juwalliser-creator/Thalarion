@@ -223,6 +223,152 @@
       padding: 0.28rem 0.7rem;
     }
     body.is-player .player-chip { display: inline-flex; }
+    .chat-btn {
+      display: none;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    body.is-dm .chat-btn,
+    body.is-player .chat-btn { display: inline-flex; }
+    .chat-badge {
+      min-width: 1.15rem;
+      height: 1.15rem;
+      padding: 0 0.28rem;
+      border-radius: 999px;
+      background: var(--blood);
+      color: #f6e8e8;
+      font-size: 0.68rem;
+      line-height: 1.15rem;
+      text-align: center;
+    }
+    .chat-badge.hidden { display: none !important; }
+    .chat-panel {
+      position: fixed;
+      right: 0.85rem;
+      bottom: 1rem;
+      z-index: 39;
+      width: min(420px, calc(100vw - 1.5rem));
+      height: min(520px, calc(100dvh - 5.5rem));
+      display: flex;
+      flex-direction: column;
+      background: var(--panel);
+      border: 1px solid var(--gold-dim);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+    }
+    body.is-dm .chat-panel { bottom: 5.5rem; }
+    .chat-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.6rem;
+      padding: 0.65rem 0.75rem;
+      border-bottom: 1px solid var(--line);
+    }
+    .chat-head h3 {
+      margin: 0;
+      font-family: Cinzel, serif;
+      font-weight: 500;
+      font-size: 1.05rem;
+    }
+    .chat-head .ghost { padding: 0.2rem 0.5rem; }
+    .chat-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+    .chat-panel.is-dm .chat-body { grid-template-columns: 8.4rem 1fr; }
+    .chat-threads {
+      display: none;
+      overflow: auto;
+      border-right: 1px solid var(--line);
+      padding: 0.35rem;
+    }
+    .chat-panel.is-dm .chat-threads { display: block; }
+    .chat-threads button {
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: 0;
+      color: var(--ink);
+      padding: 0.45rem 0.5rem;
+      border-radius: 8px;
+      margin-bottom: 0.15rem;
+    }
+    .chat-threads button:hover { background: rgba(212, 179, 106, 0.08); }
+    .chat-threads button.active {
+      background: rgba(212, 179, 106, 0.16);
+      color: var(--gold);
+    }
+    .chat-threads button em {
+      display: inline-block;
+      min-width: 1rem;
+      margin-left: 0.25rem;
+      font-style: normal;
+      color: #f0d0d0;
+      font-size: 0.75rem;
+    }
+    .chat-main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-log {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
+      padding: 0.7rem 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+    .chat-empty {
+      color: var(--muted);
+      margin: auto 0;
+      text-align: center;
+    }
+    .chat-msg {
+      max-width: 88%;
+      align-self: flex-start;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0.38rem 0.55rem 0.42rem;
+    }
+    .chat-msg.is-mine {
+      align-self: flex-end;
+      background: rgba(212, 179, 106, 0.16);
+      border-color: var(--gold-dim);
+    }
+    .chat-msg b {
+      display: block;
+      font-size: 0.74rem;
+      color: var(--gold);
+      font-weight: 600;
+    }
+    .chat-msg span { display: block; white-space: pre-wrap; word-break: break-word; }
+    .chat-msg small {
+      display: block;
+      margin-top: 0.18rem;
+      color: var(--muted);
+      font-size: 0.7rem;
+    }
+    .chat-compose {
+      display: flex;
+      gap: 0.4rem;
+      padding: 0.55rem 0.65rem;
+      border-top: 1px solid var(--line);
+    }
+    .chat-compose input {
+      flex: 1 1 auto;
+      min-width: 0;
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      color: var(--ink);
+      border-radius: 8px;
+      padding: 0.45rem 0.6rem;
+    }
     .dm-only-nav { display: none !important; }
     body.is-dm .dm-only-nav { display: inline-flex !important; }
 
@@ -2275,6 +2421,7 @@
         </div>
       </div>
       <div class="header-spacer"></div>
+      <button class="ghost chat-btn" id="chatBtn" type="button">Chat <span class="chat-badge hidden" id="chatBadge">0</span></button>
       <span class="player-chip" id="playerChip">Spieler</span>
       <button class="ghost" id="playerButton" type="button">Spieler Login</button>
       <div class="dm-menu" id="dmMenuWrap">
@@ -2285,6 +2432,22 @@
       </div>
       <button class="ghost" id="dmButton" type="button">DM Login</button>
     </header>
+    <div id="chatPanel" class="chat-panel hidden" role="dialog" aria-label="Chat">
+      <div class="chat-head">
+        <h3 id="chatTitle">Chat</h3>
+        <button class="ghost" id="chatCloseBtn" type="button" title="Schließen">×</button>
+      </div>
+      <div class="chat-body">
+        <div class="chat-threads" id="chatThreads"></div>
+        <div class="chat-main">
+          <div class="chat-log" id="chatLog"></div>
+          <form class="chat-compose" id="chatForm">
+            <input id="chatInput" maxlength="500" placeholder="Nachricht…" autocomplete="off" />
+            <button class="primary" type="submit">Senden</button>
+          </form>
+        </div>
+      </div>
+    </div>
 
     <div class="shell">
       <aside id="sidebar"></aside>
@@ -3070,6 +3233,11 @@
     let editingKarteId = null;
     let currentPlayerId = null;
     let currentSheetOwner = null;
+    let chatThreads = {};
+    let chatUnsubs = {};
+    let chatOpen = false;
+    let chatActiveId = null;
+    let writingChat = {};
     let veyrEntryEditing = false;
     let pendingVeyrImage = null;
     let veyrImageToken = 0;
@@ -3671,6 +3839,10 @@
       return db.collection('world').doc(PLAYERS_DOC);
     }
 
+    function chatRef(playerId) {
+      return db.collection('world').doc('chat-' + playerId);
+    }
+
     function rosterRef() {
       return db.collection('world').doc(ROSTER_DOC);
     }
@@ -4223,6 +4395,8 @@
       if (needsCloudRename && db && !sheetDirty && !veyrEntryEditing) {
         persistPlayers().catch(() => {});
       }
+      syncChatListeners();
+      renderChatChrome();
       if (currentPage === 'char') renderCharakter();
       else if (currentPage === 'kampf') renderKampf();
       else updatePlayerChrome();
@@ -5809,6 +5983,282 @@
       const acc = currentPlayerId ? playerAccounts[currentPlayerId] : null;
       document.getElementById('playerChip').textContent = acc ? acc.name : 'Spieler';
       document.getElementById('playerButton').textContent = on ? 'Spieler Logout' : 'Spieler Login';
+      syncChatListeners();
+      renderChatChrome();
+    }
+
+    function chatPlayerIds() {
+      return Object.keys(playerAccounts).sort((a, b) =>
+        playerAccounts[a].name.localeCompare(playerAccounts[b].name, 'de')
+      );
+    }
+
+    function canUseChat() {
+      return isDM || !!currentPlayerId;
+    }
+
+    function emptyChatThread() {
+      return { updatedAt: 0, lastReadDm: 0, lastReadPlayer: 0, messages: [] };
+    }
+
+    function normalizeChatThread(raw) {
+      const data = raw && typeof raw === 'object' ? raw : {};
+      const messages = (Array.isArray(data.messages) ? data.messages : []).map(m => ({
+        id: String(m.id || ''),
+        from: m.from === 'dm' ? 'dm' : String(m.from || ''),
+        text: String(m.text || '').replace(/\s+/g, ' ').trim().slice(0, 500),
+        at: Number(m.at) || 0
+      })).filter(m => m.id && m.text && m.from);
+      return {
+        updatedAt: Number(data.updatedAt) || 0,
+        lastReadDm: Number(data.lastReadDm) || 0,
+        lastReadPlayer: Number(data.lastReadPlayer) || 0,
+        messages: messages.slice(-150)
+      };
+    }
+
+    function isOwnChatMessage(msg) {
+      if (!msg) return false;
+      if (isDM) return msg.from === 'dm';
+      return !!currentPlayerId && msg.from === currentPlayerId;
+    }
+
+    function chatUnreadCount(id) {
+      const t = chatThreads[id] || emptyChatThread();
+      const last = isDM ? t.lastReadDm : t.lastReadPlayer;
+      return t.messages.filter(m => m.at > last && !isOwnChatMessage(m)).length;
+    }
+
+    function formatChatTime(at) {
+      const d = new Date(Number(at) || 0);
+      if (!at || Number.isNaN(d.getTime())) return '';
+      const now = new Date();
+      const sameDay = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      const time = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      return sameDay ? time : d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + ' ' + time;
+    }
+
+    function applyChatThread(id, data, quiet) {
+      if (!id) return;
+      const prev = chatThreads[id];
+      const next = normalizeChatThread(data);
+      chatThreads[id] = next;
+      const newest = next.messages[next.messages.length - 1];
+      const prevNewest = prev && prev.messages[prev.messages.length - 1];
+      if (
+        !quiet &&
+        newest &&
+        (!prevNewest || prevNewest.id !== newest.id) &&
+        !isOwnChatMessage(newest)
+      ) {
+        const last = isDM ? next.lastReadDm : next.lastReadPlayer;
+        if (newest.at > last && (!chatOpen || chatActiveId !== id)) {
+          const who = newest.from === 'dm' ? 'DM' : ((playerAccounts[id] && playerAccounts[id].name) || 'Spieler');
+          toast('Nachricht von ' + who);
+        }
+      }
+      if (chatOpen && chatActiveId === id) markChatRead(id);
+      renderChatChrome();
+    }
+
+    function syncChatListeners() {
+      if (!db) return;
+      const want = {};
+      if (isDM) chatPlayerIds().forEach(id => { want[id] = true; });
+      else if (currentPlayerId) want[currentPlayerId] = true;
+      Object.keys(chatUnsubs).forEach(id => {
+        if (!want[id] && chatUnsubs[id]) {
+          chatUnsubs[id]();
+          delete chatUnsubs[id];
+          delete chatThreads[id];
+        }
+      });
+      Object.keys(want).forEach(id => {
+        if (chatUnsubs[id]) return;
+        chatUnsubs[id] = chatRef(id).onSnapshot(snap => {
+          if (writingChat[id]) return;
+          applyChatThread(id, snap.exists ? snap.data() : emptyChatThread());
+        });
+      });
+      if (!isDM && currentPlayerId) chatActiveId = currentPlayerId;
+      if (isDM && chatActiveId && !playerAccounts[chatActiveId]) chatActiveId = null;
+    }
+
+    function renderChatChrome() {
+      const btn = document.getElementById('chatBtn');
+      const panel = document.getElementById('chatPanel');
+      const badge = document.getElementById('chatBadge');
+      if (!btn || !panel) return;
+      const allowed = canUseChat();
+      btn.classList.toggle('hidden', !allowed);
+      if (!allowed) {
+        chatOpen = false;
+        panel.classList.add('hidden');
+        return;
+      }
+      panel.classList.toggle('hidden', !chatOpen);
+      panel.classList.toggle('is-dm', isDM);
+      if (!isDM && currentPlayerId) chatActiveId = currentPlayerId;
+      let unread = 0;
+      const ids = isDM ? chatPlayerIds() : (currentPlayerId ? [currentPlayerId] : []);
+      ids.forEach(id => { unread += chatUnreadCount(id); });
+      if (badge) {
+        badge.textContent = unread > 9 ? '9+' : String(unread);
+        badge.classList.toggle('hidden', unread < 1);
+      }
+      if (!chatOpen) return;
+      const title = document.getElementById('chatTitle');
+      if (isDM) {
+        const acc = chatActiveId && playerAccounts[chatActiveId];
+        if (title) title.textContent = acc ? acc.name : 'Chat';
+      } else if (title) {
+        title.textContent = 'Nachricht an den DM';
+      }
+      const list = document.getElementById('chatThreads');
+      if (list) {
+        list.innerHTML = '';
+        if (isDM) {
+          if (!ids.length) {
+            const empty = document.createElement('p');
+            empty.className = 'chat-empty';
+            empty.textContent = 'Keine Spieler.';
+            list.appendChild(empty);
+          }
+          ids.forEach(id => {
+            const acc = playerAccounts[id];
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = chatActiveId === id ? 'active' : '';
+            b.textContent = acc ? acc.name : id;
+            const n = chatUnreadCount(id);
+            if (n) {
+              const em = document.createElement('em');
+              em.textContent = String(n);
+              b.appendChild(em);
+            }
+            b.onclick = () => selectChatThread(id);
+            list.appendChild(b);
+          });
+        }
+      }
+      renderChatLog();
+    }
+
+    function renderChatLog() {
+      const log = document.getElementById('chatLog');
+      if (!log) return;
+      log.innerHTML = '';
+      if (isDM && !chatActiveId) {
+        const empty = document.createElement('p');
+        empty.className = 'chat-empty';
+        empty.textContent = 'Links einen Spieler wählen.';
+        log.appendChild(empty);
+        return;
+      }
+      const id = isDM ? chatActiveId : currentPlayerId;
+      const t = (id && chatThreads[id]) || emptyChatThread();
+      if (!t.messages.length) {
+        const empty = document.createElement('p');
+        empty.className = 'chat-empty';
+        empty.textContent = 'Noch keine Nachrichten.';
+        log.appendChild(empty);
+        return;
+      }
+      t.messages.forEach(m => {
+        const el = document.createElement('div');
+        el.className = 'chat-msg' + (isOwnChatMessage(m) ? ' is-mine' : '');
+        const who = document.createElement('b');
+        who.textContent = m.from === 'dm' ? 'DM' : ((playerAccounts[id] && playerAccounts[id].name) || 'Spieler');
+        const text = document.createElement('span');
+        text.textContent = m.text;
+        const time = document.createElement('small');
+        time.textContent = formatChatTime(m.at);
+        el.appendChild(who);
+        el.appendChild(text);
+        el.appendChild(time);
+        log.appendChild(el);
+      });
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function selectChatThread(id) {
+      chatActiveId = id;
+      markChatRead(id);
+      renderChatChrome();
+      const input = document.getElementById('chatInput');
+      if (input) input.focus();
+    }
+
+    function toggleChat(open) {
+      if (!canUseChat()) {
+        chatOpen = false;
+        renderChatChrome();
+        return;
+      }
+      chatOpen = open == null ? !chatOpen : !!open;
+      if (chatOpen) {
+        if (!isDM && currentPlayerId) chatActiveId = currentPlayerId;
+        if (chatActiveId) markChatRead(chatActiveId);
+      }
+      renderChatChrome();
+      if (chatOpen) {
+        const input = document.getElementById('chatInput');
+        if (input) input.focus();
+      }
+    }
+
+    async function markChatRead(id) {
+      if (!id || !db || !canUseChat()) return;
+      const t = chatThreads[id] || emptyChatThread();
+      const newest = t.messages[t.messages.length - 1];
+      if (!newest) return;
+      const field = isDM ? 'lastReadDm' : 'lastReadPlayer';
+      if ((t[field] || 0) >= newest.at) return;
+      t[field] = newest.at;
+      try {
+        await chatRef(id).set(t, { merge: true });
+      } catch (err) {}
+      renderChatChrome();
+    }
+
+    async function sendChatMessage(text) {
+      const raw = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+      if (!raw || !db || !canUseChat()) return;
+      const id = isDM ? chatActiveId : currentPlayerId;
+      if (!id || (isDM && !playerAccounts[id]) || (!isDM && id !== currentPlayerId)) {
+        return toast(isDM ? 'Zuerst einen Spieler wählen.' : 'Bitte zuerst anmelden.');
+      }
+      const msg = {
+        id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        from: isDM ? 'dm' : currentPlayerId,
+        text: raw,
+        at: Date.now()
+      };
+      writingChat[id] = true;
+      try {
+        await db.runTransaction(async tx => {
+          const ref = chatRef(id);
+          const snap = await tx.get(ref);
+          const cur = snap.exists ? normalizeChatThread(snap.data()) : emptyChatThread();
+          cur.messages.push(msg);
+          cur.messages = cur.messages.slice(-150);
+          cur.updatedAt = msg.at;
+          if (isDM) cur.lastReadDm = msg.at;
+          else cur.lastReadPlayer = msg.at;
+          tx.set(ref, cur);
+        });
+        const local = chatThreads[id] || emptyChatThread();
+        local.messages = local.messages.concat([msg]).slice(-150);
+        local.updatedAt = msg.at;
+        if (isDM) local.lastReadDm = msg.at;
+        else local.lastReadPlayer = msg.at;
+        chatThreads[id] = local;
+        renderChatChrome();
+      } catch (err) {
+        toast('Nachricht nicht gesendet: ' + (err.message || err));
+      } finally {
+        writingChat[id] = false;
+      }
     }
 
     function setPlayer(id) {
@@ -11077,6 +11527,14 @@
         setDrawingBorder(false);
         stopSoundTrack();
         if (isDmNotesOwner(currentSheetOwner)) currentSheetOwner = currentPlayerId || null;
+        if (!currentPlayerId) toggleChat(false);
+        else {
+          syncChatListeners();
+          renderChatChrome();
+        }
+      } else {
+        syncChatListeners();
+        renderChatChrome();
       }
       renderMapPins();
       renderMapBorders();
@@ -11573,6 +12031,16 @@
       });
 
       safeBind('player', () => {
+        onClick('chatBtn', () => toggleChat());
+        onClick('chatCloseBtn', () => toggleChat(false));
+        onEv('chatForm', 'submit', ev => {
+          ev.preventDefault();
+          const input = document.getElementById('chatInput');
+          const text = input ? input.value : '';
+          sendChatMessage(text).then(() => {
+            if (input) input.value = '';
+          });
+        });
         onClick('playerButton', () => {
           if (currentPlayerId) {
             if (currentPage === 'char' && sheetDirty && !confirm('Das Charakterblatt ist nicht gespeichert. Wirklich abmelden?')) return;
@@ -11856,6 +12324,7 @@
       if (ev.target && (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA' || ev.target.isContentEditable)) {
         if (ev.target.id === 'globalSearch') return;
       }
+      if (chatOpen) { toggleChat(false); return; }
       const login = document.getElementById('loginOverlay');
       if (login && !login.classList.contains('hidden')) { closeLogin(); return; }
       const player = document.getElementById('playerOverlay');
@@ -11975,6 +12444,7 @@
       listenMap();
       listenPins();
       listenPlayers();
+      syncChatListeners();
       listenRoster();
       listenCombatTemplates();
       listenBattle();
