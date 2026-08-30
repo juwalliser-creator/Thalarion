@@ -5166,6 +5166,10 @@
       return m ? m[0] : '';
     }
 
+    function canEntryBecomeKarte(e) {
+      return !!(e && (BESTIARIUM_CATS.includes(e.type) || e.type === 'NPCs'));
+    }
+
     function combatCardDraftFromEntry(e) {
       const parsed = parseStatSheetText(htmlToText(e.content || ''));
       const s = parsed.stats || {};
@@ -5180,14 +5184,14 @@
       const btn = document.getElementById('entryToKarteBtn');
       if (!btn) return;
       const e = currentIndex !== null ? entries[currentIndex] : null;
-      const show = !!(isDM && e && BESTIARIUM_CATS.includes(e.type) && !els.viewer.classList.contains('hidden'));
+      const show = !!(isDM && e && canEntryBecomeKarte(e) && !els.viewer.classList.contains('hidden'));
       btn.classList.toggle('hidden', !show);
     }
 
     async function createKampfKarteFromEntry() {
       if (!isDM || currentIndex === null) return;
       const e = entries[currentIndex];
-      if (!e || !BESTIARIUM_CATS.includes(e.type)) return;
+      if (!canEntryBecomeKarte(e)) return;
       const draft = combatCardDraftFromEntry(e);
       if (!draft.name) return toast('Der Eintrag braucht einen Namen.');
       const existing = rosterCards.find(c => (c.name || '').toLowerCase() === draft.name.toLowerCase());
@@ -5199,7 +5203,7 @@
         ac: draft.ac,
         count: existing ? existing.count : 1,
         note: existing && existing.note.length <= 80 ? existing.note : '',
-        portraitId: existing ? existing.portraitId : ''
+        portraitId: (existing && existing.portraitId) || e.imageId || ''
       });
       const previous = rosterCards;
       try {
