@@ -3917,6 +3917,40 @@
       return (name || '').trim().replace(/\s+/g, ' ').toLowerCase();
     }
 
+    function isRolfAccountId(id) {
+      const s = String(id || '').toLowerCase().replace(/\s+/g, ' ');
+      return s === 'dr. rolf' || s === 'dr rolf' || s === 'dr.rolf' || s === 'rolf';
+    }
+
+    function isRolfName(name) {
+      const s = String(name || '').trim();
+      return /dr\.?\s*rolf/i.test(s) || /^rolf$/i.test(s);
+    }
+
+    function isBjoernLogin(name) {
+      return /bj[öo]rn/i.test(String(name || '').trim());
+    }
+
+    function renameRolfToBjoern(accs) {
+      if (!accs) return;
+      Object.keys(accs).forEach(id => {
+        const acc = accs[id];
+        if (!acc || (!isRolfAccountId(id) && !isRolfName(acc.name))) return;
+        acc.name = 'Björn';
+        if (acc.sheet && (!acc.sheet.name || isRolfName(acc.sheet.name))) acc.sheet.name = 'Björn';
+      });
+    }
+
+    function accountIdFromLoginName(name) {
+      const id = playerIdFromName(name);
+      if (playerAccounts[id]) return id;
+      if (isBjoernLogin(name) || isRolfName(name)) {
+        const found = Object.keys(playerAccounts).find(k => isRolfAccountId(k) || isRolfName(playerAccounts[k] && playerAccounts[k].name));
+        if (found) return found;
+      }
+      return id;
+    }
+
     const YUVI_ID = 'yuvi';
     const VEYR_ALT = 'veyr';
     const VEYR_OWNER = YUVI_ID + ':' + VEYR_ALT;
@@ -4088,6 +4122,7 @@
       });
       ensureVeyrAlt(out);
       ensureIllusionAlt(out);
+      renameRolfToBjoern(out);
       return out;
     }
 
@@ -5731,7 +5766,7 @@
     }
 
     function loginPlayer(name, password) {
-      const id = playerIdFromName(name);
+      const id = accountIdFromLoginName(name);
       const acc = playerAccounts[id];
       if (!acc || acc.password !== encodeSecret(password)) throw new Error('Name oder Passwort stimmt nicht.');
       setPlayer(id);
