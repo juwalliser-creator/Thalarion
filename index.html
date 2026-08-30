@@ -3920,6 +3920,9 @@
     const YUVI_ID = 'yuvi';
     const VEYR_ALT = 'veyr';
     const VEYR_OWNER = YUVI_ID + ':' + VEYR_ALT;
+    const CHRIS_ID = 'chris';
+    const ILLUSION_ALT = 'illusion';
+    const ILLUSION_OWNER = CHRIS_ID + ':' + ILLUSION_ALT;
 
     function sheetAccountId(owner) {
       return String(owner || '').split(':')[0] || '';
@@ -3966,6 +3969,7 @@
 
     function combatSheetOwners() {
       ensureVeyrAlt(playerAccounts);
+      ensureIllusionAlt(playerAccounts);
       const ids = Object.keys(playerAccounts).sort((a, b) =>
         playerAccounts[a].name.localeCompare(playerAccounts[b].name, 'de')
       );
@@ -3974,6 +3978,9 @@
         out.push(id);
         if (id === YUVI_ID && playerAccounts[YUVI_ID] && playerAccounts[YUVI_ID].alts && playerAccounts[YUVI_ID].alts[VEYR_ALT]) {
           out.push(VEYR_OWNER);
+        }
+        if (id === CHRIS_ID && playerAccounts[CHRIS_ID] && playerAccounts[CHRIS_ID].alts && playerAccounts[CHRIS_ID].alts[ILLUSION_ALT]) {
+          out.push(ILLUSION_OWNER);
         }
       });
       return out;
@@ -4027,6 +4034,26 @@
       }
     }
 
+    function ensureIllusionAlt(accs) {
+      const acc = accs && accs[CHRIS_ID];
+      if (!acc) return;
+      if (!acc.alts || typeof acc.alts !== 'object') acc.alts = {};
+      if (!acc.alts[ILLUSION_ALT]) {
+        acc.alts[ILLUSION_ALT] = {
+          name: 'Illusion',
+          sheet: Object.assign({}, EMPTY_SHEET, { name: 'Illusion', hp: '1' })
+        };
+        return;
+      }
+      acc.alts[ILLUSION_ALT].name = 'Illusion';
+      if (!acc.alts[ILLUSION_ALT].sheet) {
+        acc.alts[ILLUSION_ALT].sheet = Object.assign({}, EMPTY_SHEET, { name: 'Illusion', hp: '1' });
+      }
+      const sheet = acc.alts[ILLUSION_ALT].sheet;
+      sheet.name = 'Illusion';
+      if (!String(sheet.hp || '').trim()) sheet.hp = '1';
+    }
+
     function normalizeAlts(raw) {
       const out = {};
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
@@ -4060,6 +4087,7 @@
         };
       });
       ensureVeyrAlt(out);
+      ensureIllusionAlt(out);
       return out;
     }
 
@@ -6365,10 +6393,25 @@
     }
 
     function addPlayerToCombat(playerId, quiet) {
+      if (playerId === ILLUSION_OWNER) ensureIllusionAlt(playerAccounts);
       const rec = sheetOwnerRecord(playerId);
       if (!rec) return;
       if (combat.combatants.some(c => c.playerId === playerId)) {
         if (!quiet) toast(rec.name + ' ist schon im Kampf.');
+        return;
+      }
+      if (playerId === ILLUSION_OWNER) {
+        addCombatant({
+          name: 'Illusion',
+          kind: 'player',
+          playerId: ILLUSION_OWNER,
+          init: 0,
+          hp: 1,
+          hpMax: 1,
+          ac: '',
+          portraitId: (rec.sheet && rec.sheet.portraitId) || ''
+        }, quiet);
+        if (!quiet) toast('Illusion übernommen. 1 TP, keine Aktionen.');
         return;
       }
       const sheet = rec.sheet || {};
