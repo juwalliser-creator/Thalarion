@@ -422,6 +422,7 @@
     .content:has(#kampfView.is-live:not(.hidden)) {
       padding-left: 1.1rem;
       padding-right: 1.1rem;
+      overflow-x: hidden;
     }
     #kampfView.is-live > .hero { display: none; }
     #kampfView.is-live .kampf-bar,
@@ -1350,7 +1351,7 @@
       min-height: min(62vh, 780px);
     }
     .kampf-stage.is-live {
-      grid-template-columns: minmax(0, 1.4fr) minmax(16.5rem, 23rem);
+      grid-template-columns: minmax(0, 1.4fr) minmax(15.25rem, 20.5rem);
       gap: 0.75rem;
       align-items: start;
     }
@@ -1358,27 +1359,32 @@
       position: sticky;
       top: 0.4rem;
       padding: 0.7rem 0.75rem 0.85rem;
+      min-width: 0;
     }
     .kampf-stage.is-live .battle-board {
       min-height: min(68vh, 820px);
     }
     .kampf-stage.is-live .kampf-list {
-      gap: 0.5rem;
+      gap: 0.45rem;
       max-height: calc(100dvh - 8.5rem);
-      overflow: auto;
-      padding-right: 0.15rem;
+      overflow-x: hidden;
+      overflow-y: auto;
+      min-width: 0;
+      padding-right: 0;
       align-content: start;
     }
     .kampf-side-item {
       display: flex;
       align-items: flex-start;
-      gap: 0.6rem;
+      gap: 0.4rem;
       width: 100%;
+      max-width: 100%;
+      min-width: 0;
       text-align: left;
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 0.62rem 0.7rem;
+      border-radius: 12px;
+      padding: 0.48rem 0.48rem;
       cursor: pointer;
       flex-wrap: nowrap;
     }
@@ -1395,8 +1401,8 @@
       box-shadow: 0 0 0 1px var(--gold-dim), var(--shadow);
     }
     .kampf-side-item.is-active .kampf-face {
-      width: 54px;
-      height: 54px;
+      width: 44px;
+      height: 44px;
       border-width: 2px;
       border-color: var(--gold);
     }
@@ -1406,20 +1412,20 @@
       border-color: #6a645c;
     }
     .kampf-side-item .kampf-face {
-      width: 48px;
-      height: 48px;
-      margin-top: 0.15rem;
+      width: 38px;
+      height: 38px;
+      margin-top: 0.12rem;
     }
     .kampf-side-init {
-      flex: 0 0 2.55rem;
+      flex: 0 0 2.05rem;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       align-self: stretch;
       gap: 0.05rem;
-      padding: 0.1rem 0.45rem 0.1rem 0;
-      margin-right: 0.05rem;
+      padding: 0.1rem 0.32rem 0.1rem 0;
+      margin-right: 0;
       border-right: 1px solid var(--line);
     }
     .kampf-side-init span {
@@ -1432,7 +1438,7 @@
     .kampf-side-init strong {
       font-family: Cinzel, serif;
       font-weight: 500;
-      font-size: 1.2rem;
+      font-size: 1.05rem;
       color: var(--gold);
       line-height: 1.1;
     }
@@ -1480,17 +1486,27 @@
       font-size: 0.76rem;
       padding: 0.1rem 0.28rem 0.1rem 0.48rem;
     }
+    .kampf-side-tools {
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.22rem;
+      align-self: center;
+    }
     .kampf-side-del {
       flex: 0 0 auto;
-      align-self: flex-start;
-      min-width: 2rem;
-      padding: 0.18rem 0.45rem;
+      align-self: stretch;
+      min-width: 0;
+      padding: 0.12rem 0.32rem;
+      line-height: 1;
     }
     .kampf-sheet-btn {
       flex: 0 0 auto;
-      align-self: center;
-      padding: 0.22rem 0.45rem;
-      font-size: 0.72rem;
+      align-self: stretch;
+      padding: 0.14rem 0.32rem;
+      font-size: 0.68rem;
+      line-height: 1.15;
     }
     .kampf-face.is-sheet {
       cursor: pointer;
@@ -6844,8 +6860,10 @@
       el.appendChild(init);
       el.appendChild(face);
       el.appendChild(body);
+      const tools = document.createElement('div');
+      tools.className = 'kampf-side-tools';
       const sheetBtn = makeStatSheetBtn(row);
-      if (sheetBtn) el.appendChild(sheetBtn);
+      if (sheetBtn) tools.appendChild(sheetBtn);
       if (isDM && combat.started) {
         const del = document.createElement('button');
         del.type = 'button';
@@ -6856,8 +6874,9 @@
           ev.stopPropagation();
           removeCombatant(row.id);
         };
-        el.appendChild(del);
+        tools.appendChild(del);
       }
+      if (tools.childNodes.length) el.appendChild(tools);
       return el;
     }
 
