@@ -286,6 +286,11 @@
     .char-main.is-entry #charBlurb { display: none; }
     .char-main.is-veyr-sheet #sheetNotesField { display: none; }
     .char-main.is-veyr-sheet .editor-canvas { min-height: 280px; }
+    .char-roster .char-dm-notes {
+      color: var(--gold);
+      margin-bottom: 0.45rem;
+    }
+    .char-main.is-dm-notes .editor-canvas { min-height: 22rem; }
     .sheet-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -2585,6 +2590,26 @@
                     </div>
                   </div>
                 </div>
+                <div id="charDmNotesBlock" class="hidden">
+                  <div class="toolbar-label">Notizen</div>
+                  <div class="toolbar">
+                    <button type="button" onclick="fmt('bold')"><b>B</b></button>
+                    <button type="button" onclick="fmt('italic')"><i>I</i></button>
+                    <button type="button" onclick="fmt('underline')"><u>U</u></button>
+                    <select onchange="fmtValue('fontSize', this.value)">
+                      <option value="">Größe</option>
+                      <option value="2">Klein</option>
+                      <option value="3">Normal</option>
+                      <option value="5">Groß</option>
+                      <option value="7">Sehr groß</option>
+                    </select>
+                    <input type="color" onchange="fmtValue('foreColor', this.value)" title="Textfarbe" value="#f3ead8" />
+                  </div>
+                  <div id="dmNotesContent" class="editor-canvas" contenteditable="true"></div>
+                  <div class="editor-actions">
+                    <button class="primary" id="saveDmNotesBtn" type="button">Notizen speichern</button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -3032,6 +3057,7 @@
     let ocrWorkerPromise = null;
     let sheetDirty = false;
     let playerAccounts = {};
+    let dmNotes = '';
     let playersUpdatedAt = 0;
     let writingPlayers = false;
     let rosterCards = [];
@@ -3999,9 +4025,14 @@
     const CHRIS_ID = 'chris';
     const ILLUSION_ALT = 'illusion';
     const ILLUSION_OWNER = CHRIS_ID + ':' + ILLUSION_ALT;
+    const DM_NOTES_OWNER = 'dm-notes';
 
     function sheetAccountId(owner) {
       return String(owner || '').split(':')[0] || '';
+    }
+
+    function isDmNotesOwner(owner) {
+      return owner === DM_NOTES_OWNER;
     }
 
     function sheetOwnerRecord(owner) {
@@ -4182,6 +4213,9 @@
         const accId = sheetAccountId(currentSheetOwner);
         if (accId && playerAccounts[accId]) incoming[accId] = playerAccounts[accId];
       }
+      if (!(sheetDirty && isDmNotesOwner(currentSheetOwner))) {
+        dmNotes = typeof data.dmNotes === 'string' ? data.dmNotes : '';
+      }
       playersUpdatedAt = at;
       playerAccounts = incoming;
       if (currentPlayerId && !playerAccounts[currentPlayerId]) setPlayer(null);
@@ -4210,7 +4244,8 @@
       try {
         await playersRef().set({
           updatedAt: nextAt,
-          accounts: playerAccounts
+          accounts: playerAccounts,
+          dmNotes: typeof dmNotes === 'string' ? dmNotes : ''
         });
         playersUpdatedAt = nextAt;
       } finally {
@@ -6072,7 +6107,7 @@
 
     function selectSheetOwner(owner) {
       if (currentSheetOwner === owner) return;
-      if (sheetDirty && !confirm('Das Charakterblatt ist nicht gespeichert. Wirklich wechseln?')) return;
+      if (sheetDirty && !confirm('Ungespeicherte Änderungen. Wirklich wechseln?')) return;
       currentSheetOwner = owner;
       sheetDirty = false;
       veyrEntryEditing = false;
@@ -6103,6 +6138,14 @@
         roster.querySelector('h3').textContent = yuviPlayer ? 'Charaktere' : 'Spieler';
         const list = document.getElementById('charRosterList');
         list.innerHTML = '';
+        if (isDM) {
+          const dmBtn = document.createElement('button');
+          dmBtn.type = 'button';
+          dmBtn.className = 'char-dm-notes' + (isDmNotesOwner(currentSheetOwner) ? ' active' : '');
+          dmBtn.textContent = 'DM-Notizen';
+          dmBtn.onclick = () => selectSheetOwner(DM_NOTES_OWNER);
+          list.appendChild(dmBtn);
+        }
         const rosterIds = yuviPlayer ? [YUVI_ID] : ids;
         if (!rosterIds.length) {
           const empty = document.createElement('p');
@@ -6131,8 +6174,8 @@
             list.appendChild(wrap);
           }
         });
-        if (!currentSheetOwner || !sheetOwnerRecord(currentSheetOwner)) {
-          currentSheetOwner = rosterIds[0] || null;
+        if (!currentSheetOwner || !(sheetOwnerRecord(currentSheetOwner) || (isDM && isDmNotesOwner(currentSheetOwner)))) {
+          currentSheetOwner = rosterIds[0] || (isDM ? DM_NOTES_OWNER : null);
         }
       } else {
         roster.classList.add('hidden');
@@ -6143,19 +6186,32 @@
       const rec = currentSheetOwner ? sheetOwnerRecord(currentSheetOwner) : null;
       const del = document.getElementById('deletePlayerBtn');
       const isVeyr = currentSheetOwner === VEYR_OWNER;
-      document.getElementById('charSheetBlock').classList.remove('hidden');
+      const isNotes = isDM && isDmNotesOwner(currentSheetOwner);
+      document.getElementById('charSheetBlock').classList.toggle('hidden', isNotes);
       document.getElementById('charEntryBlock').classList.add('hidden');
+      const notesBlock = document.getElementById('charDmNotesBlock');
+      if (notesBlock) notesBlock.classList.toggle('hidden', !isNotes);
       document.getElementById('charBlurb').classList.remove('hidden');
       document.getElementById('charMainCard').classList.remove('is-entry');
-      document.getElementById('charMainCard').classList.toggle('is-veyr-sheet', isVeyr);
+      document.getElementById('charMainCard').classList.toggle('is-veyr-sheet', isVeyr && !isNotes);
+      document.getElementById('charMainCard').classList.toggle('is-dm-notes', isNotes);
       const notesField = document.getElementById('sheetNotesField');
-      if (notesField) notesField.classList.toggle('hidden', isVeyr);
+      if (notesField) notesField.classList.toggle('hidden', isVeyr || isNotes);
       const extraLabel = document.getElementById('sheetExtraLabel');
       if (extraLabel) extraLabel.textContent = isVeyr ? 'Text' : 'Ausrüstung & mehr';
+      del.classList.toggle('hidden', !isDM || !rec || rec.isAlt || isNotes);
+      if (isNotes) {
+        document.getElementById('charHeading').textContent = 'DM-Notizen';
+        document.getElementById('charBlurb').textContent = 'Nur für dich. Liegt nicht in Sitzung, Codex oder auf den Spielerblättern.';
+        if (!sheetDirty) {
+          const box = document.getElementById('dmNotesContent');
+          if (box) box.innerHTML = sanitizeHtml(dmNotes);
+        }
+        return;
+      }
       document.getElementById('charBlurb').textContent = isVeyr
         ? 'Feste Werte oben, Text darunter — nur für dich und den DM.'
         : 'Feste Werte oben, Notizen und Ausrüstung darunter — nur für dich und den DM.';
-      del.classList.toggle('hidden', !isDM || !rec || rec.isAlt);
       if (!rec) {
         document.getElementById('charHeading').textContent = 'Charakterblatt';
         clearSheetForm();
@@ -6163,6 +6219,31 @@
       }
       document.getElementById('charHeading').textContent = 'Charakterblatt · ' + rec.name;
       if (!sheetDirty) fillSheetForm(rec.sheet);
+    }
+
+    async function saveDmNotes() {
+      if (!isDM) return;
+      const box = document.getElementById('dmNotesContent');
+      const btn = document.getElementById('saveDmNotesBtn');
+      const previous = dmNotes;
+      dmNotes = sanitizeHtml(box ? box.innerHTML : '');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Speichert…';
+      }
+      try {
+        await persistPlayers();
+        sheetDirty = false;
+        toast('Notizen gespeichert.');
+      } catch (err) {
+        dmNotes = previous;
+        toast('Speichern fehlgeschlagen: ' + err.message);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Notizen speichern';
+        }
+      }
     }
 
     async function saveSheet() {
@@ -10977,6 +11058,10 @@
 
     function setDM(on) {
       if (!on && isDM && !confirmLeaveEditor()) return;
+      if (!on && isDM && sheetDirty && els.charView && !els.charView.classList.contains('hidden')) {
+        if (!confirm('Ungespeicherte Charakter- oder DM-Notizen. Trotzdem abmelden?')) return;
+        sheetDirty = false;
+      }
       isDM = on;
       document.body.classList.toggle('is-dm', on);
       els.dmButton.textContent = on ? 'DM Logout' : 'DM Login';
@@ -10991,6 +11076,7 @@
         setPlacingPin(false);
         setDrawingBorder(false);
         stopSoundTrack();
+        if (isDmNotesOwner(currentSheetOwner)) currentSheetOwner = currentPlayerId || null;
       }
       renderMapPins();
       renderMapBorders();
@@ -11121,7 +11207,9 @@
         };
       }
       const page = saved && saved.page;
-      if (saved && saved.sheet && sheetOwnerRecord(saved.sheet)) currentSheetOwner = saved.sheet;
+      if (saved && saved.sheet && (sheetOwnerRecord(saved.sheet) || (isDM && isDmNotesOwner(saved.sheet)))) {
+        currentSheetOwner = saved.sheet;
+      }
       if (!page || page === 'map') {
         showMap();
         return;
@@ -11306,7 +11394,9 @@
           }
         });
         onClick('saveSheetBtn', saveSheet);
+        onClick('saveDmNotesBtn', saveDmNotes);
         onClick('deletePlayerBtn', deletePlayerAccount);
+        onEv('dmNotesContent', 'input', () => { sheetDirty = true; });
         ['sheetName', 'sheetVolk', 'sheetKlasse', 'sheetStufe', 'sheetHp', 'sheetArmor', 'sheetStats', 'sheetNotes'].forEach(id => {
           onEv(id, 'input', () => { sheetDirty = true; });
         });
