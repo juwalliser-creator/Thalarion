@@ -1428,6 +1428,62 @@
       min-width: 2rem;
       padding: 0.18rem 0.45rem;
     }
+    .kampf-sheet-btn {
+      flex: 0 0 auto;
+      align-self: center;
+      padding: 0.22rem 0.45rem;
+      font-size: 0.72rem;
+    }
+    .kampf-face.is-sheet {
+      cursor: pointer;
+    }
+    .kampf-face.is-sheet:hover {
+      box-shadow: 0 0 0 1px var(--gold);
+    }
+    .stat-sheet-overlay {
+      z-index: 45;
+      align-items: center;
+    }
+    .stat-sheet-card {
+      width: min(860px, 96vw);
+      max-height: min(90vh, 920px);
+      display: flex;
+      flex-direction: column;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .stat-sheet-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.8rem;
+      padding: 0.7rem 0.9rem;
+      border-bottom: 1px solid var(--line);
+    }
+    .stat-sheet-head h3 {
+      font-family: Cinzel, serif;
+      font-weight: 500;
+      margin: 0;
+      font-size: 1.05rem;
+    }
+    .stat-sheet-body {
+      overflow: auto;
+      padding: 0.7rem;
+      background: #14110e;
+    }
+    .stat-sheet-body img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+    }
+    .stat-sheet-empty {
+      color: var(--muted);
+      margin: 0.4rem 0.2rem;
+    }
     .kampf-chip button {
       border: 0;
       background: transparent;
@@ -2037,6 +2093,7 @@
       .overlay { padding: 0.6rem; padding-bottom: max(0.6rem, env(safe-area-inset-bottom)); }
       .login-card,
       .pin-card { width: min(100%, 420px); }
+      .stat-sheet-card { width: min(100%, 96vw); max-height: min(88dvh, 920px); }
       .toast {
         left: 0.75rem;
         right: 0.75rem;
@@ -2592,6 +2649,19 @@
           <div class="kampf-log hidden" id="kampfLog"></div>
         </section>
       </main>
+    </div>
+  </div>
+
+  <div id="statSheetOverlay" class="overlay stat-sheet-overlay hidden">
+    <div class="stat-sheet-card" role="dialog" aria-modal="true" aria-labelledby="statSheetTitle">
+      <div class="stat-sheet-head">
+        <h3 id="statSheetTitle">Stat-Sheet</h3>
+        <button class="ghost" id="statSheetCloseBtn" type="button">Schließen</button>
+      </div>
+      <div class="stat-sheet-body" id="statSheetBody">
+        <p class="stat-sheet-empty hidden" id="statSheetEmpty">Kein Stat-Sheet-Bild hinterlegt.</p>
+        <img id="statSheetImg" class="hidden" alt="Stat-Sheet" />
+      </div>
     </div>
   </div>
 
@@ -5343,6 +5413,95 @@
       toast(karte.name + ' in den Kampf. Initiative noch eintragen.');
     }
 
+    function combatantBaseName(name) {
+      return String(name || '').replace(/\s+\d+$/, '').trim();
+    }
+
+    function statSheetImageIdForCombatant(row) {
+      if (!row || row.kind === 'player') return '';
+      const base = combatantBaseName(row.name);
+      const want = base.toLowerCase();
+      if (want) {
+        const entry = entries.find(e => canEntryBecomeKarte(e) && (e.title || '').trim().toLowerCase() === want && e.imageId);
+        if (entry) return entry.imageId;
+      }
+      if (row.portraitId) return row.portraitId;
+      if (want) {
+        const karte = rosterCards.find(c => (c.name || '').toLowerCase() === want && c.portraitId);
+        if (karte) return karte.portraitId;
+      }
+      return '';
+    }
+
+    function closeStatSheetOverlay() {
+      const overlay = document.getElementById('statSheetOverlay');
+      const img = document.getElementById('statSheetImg');
+      if (overlay) overlay.classList.add('hidden');
+      if (img) {
+        img.classList.add('hidden');
+        img.removeAttribute('src');
+      }
+    }
+
+    function openStatSheetOverlay(row) {
+      if (!isDM || !row || row.kind === 'player') return;
+      const imageId = statSheetImageIdForCombatant(row);
+      if (!imageId) {
+        toast('Kein Stat-Sheet-Bild hinterlegt.');
+        return;
+      }
+      const overlay = document.getElementById('statSheetOverlay');
+      const title = document.getElementById('statSheetTitle');
+      const empty = document.getElementById('statSheetEmpty');
+      const img = document.getElementById('statSheetImg');
+      if (!overlay || !img) return;
+      if (title) title.textContent = row.name || 'Stat-Sheet';
+      if (empty) empty.classList.add('hidden');
+      img.classList.add('hidden');
+      img.alt = (row.name || 'Stat-Sheet') + ' Stat-Sheet';
+      const show = src => {
+        if (!src) {
+          toast('Kein Stat-Sheet-Bild hinterlegt.');
+          return;
+        }
+        img.src = src;
+        img.classList.remove('hidden');
+        overlay.classList.remove('hidden');
+      };
+      if (imageCache[imageId]) show(imageCache[imageId]);
+      else {
+        overlay.classList.remove('hidden');
+        loadEntryImage(imageId).then(show).catch(() => {
+          overlay.classList.add('hidden');
+          toast('Das Stat-Sheet-Bild konnte nicht geladen werden.');
+        });
+      }
+    }
+
+    function bindStatSheetOpen(el, row) {
+      if (!el || !isDM || !row || row.kind === 'player') return;
+      el.classList.add('is-sheet');
+      el.title = 'Stat-Sheet anzeigen';
+      el.addEventListener('click', ev => {
+        ev.stopPropagation();
+        openStatSheetOverlay(row);
+      });
+    }
+
+    function makeStatSheetBtn(row) {
+      if (!isDM || !row || row.kind === 'player') return null;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ghost kampf-sheet-btn';
+      btn.textContent = 'Sheet';
+      btn.title = 'Stat-Sheet anzeigen';
+      btn.onclick = ev => {
+        ev.stopPropagation();
+        openStatSheetOverlay(row);
+      };
+      return btn;
+    }
+
     function renderKampfKartenList() {
       const box = document.getElementById('kampfKartenList');
       if (!box) return;
@@ -6439,6 +6598,7 @@
       const face = document.createElement('div');
       face.className = 'kampf-face';
       paintPortraitEl(face, row.portraitId, row.name);
+      bindStatSheetOpen(face, row);
 
       const body = document.createElement('div');
       body.className = 'kampf-side-body';
@@ -6492,6 +6652,8 @@
       el.appendChild(init);
       el.appendChild(face);
       el.appendChild(body);
+      const sheetBtn = makeStatSheetBtn(row);
+      if (sheetBtn) el.appendChild(sheetBtn);
       if (isDM && combat.started) {
         const del = document.createElement('button');
         del.type = 'button';
@@ -7860,6 +8022,7 @@
         const face = document.createElement('div');
         face.className = 'kampf-face';
         paintPortraitEl(face, row.portraitId, row.name);
+        bindStatSheetOpen(face, row);
 
         const who = document.createElement('div');
         who.className = 'kampf-who';
@@ -7905,6 +8068,8 @@
         down.onclick = () => nudgeCombatant(row.id, 1);
         tools.appendChild(up);
         tools.appendChild(down);
+        const sheetBtn = makeStatSheetBtn(row);
+        if (sheetBtn) tools.appendChild(sheetBtn);
         if (!combat.started && row.kind !== 'player') {
           const dup = document.createElement('button');
           dup.type = 'button';
@@ -9754,6 +9919,7 @@
       els.mapView.classList.toggle('hidden', page !== 'map');
       els.charView.classList.toggle('hidden', page !== 'char');
       els.kampfView.classList.toggle('hidden', page !== 'kampf');
+      if (page !== 'kampf') closeStatSheetOverlay();
       updateSidebarVisibility(page);
       if (page === 'map' || page === 'char' || page === 'kampf') {
         els.homeView.classList.add('hidden');
@@ -10792,6 +10958,10 @@
           ev.preventDefault();
           applyKampfEffect('');
         });
+        onClick('statSheetCloseBtn', closeStatSheetOverlay);
+        onEv('statSheetOverlay', 'click', ev => {
+          if (ev.target === document.getElementById('statSheetOverlay')) closeStatSheetOverlay();
+        });
         onClick('kampfAddEnemyBtn', addEnemyToCombat);
         onClick('kampfSaveTplBtn', saveCombatTemplate);
         onEv('kampfKartenSearch', 'input', renderKampfKartenList);
@@ -11334,6 +11504,8 @@
       if (pin && !pin.classList.contains('hidden')) { closePinPicker(); return; }
       const soundPick = document.getElementById('soundPickOverlay');
       if (soundPick && !soundPick.classList.contains('hidden')) { closeSoundPicker(); return; }
+      const statSheet = document.getElementById('statSheetOverlay');
+      if (statSheet && !statSheet.classList.contains('hidden')) { closeStatSheetOverlay(); return; }
       const border = document.getElementById('borderOverlay');
       if (border && !border.classList.contains('hidden')) {
         const cancel = document.getElementById('borderCancel');
