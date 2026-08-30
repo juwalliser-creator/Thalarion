@@ -9531,9 +9531,9 @@
         'Thalarion – Das Blutsiegel',
         'Gesamtdokument',
         '',
-        'Dieses Dokument enthält Entstehung, Kompendium, Bestiarium und Glossar.',
+        'Dieses Dokument enthält Entstehung, Sitzung, Kompendium, Bestiarium und Glossar.',
         'Jeder Eintrag hat eine eigene Überschrift (### Name).',
-        'Sitzung, Bilder, Karten-Pins, Kampf und Charakterblätter sind nicht enthalten.',
+        'Bilder, Karten-Pins, Kampf und Charakterblätter sind nicht enthalten.',
         '',
         'Anzahl Einträge: ' + items.length,
         'Stand: ' + new Date().toISOString().slice(0, 10),
@@ -9593,6 +9593,7 @@
     function isMyDocumentEntry(e) {
       const type = normalizeType(e.type);
       return type === STORY_CAT ||
+        type === SESSION_CAT ||
         KOMPENDIUM_CATS.includes(type) ||
         BESTIARIUM_CATS.includes(type) ||
         GLOSSAR_CATS.includes(type);
