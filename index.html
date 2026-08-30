@@ -3917,35 +3917,61 @@
       return (name || '').trim().replace(/\s+/g, ' ').toLowerCase();
     }
 
-    function isRolfAccountId(id) {
-      const s = String(id || '').toLowerCase().replace(/\s+/g, ' ');
-      return s === 'dr. rolf' || s === 'dr rolf' || s === 'dr.rolf' || s === 'rolf';
+    function isReptileAccountId(id) {
+      const s = String(id || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+      return s === 'drreptile' || s === 'reptile';
     }
 
-    function isRolfName(name) {
-      const s = String(name || '').trim();
-      return /dr\.?\s*rolf/i.test(s) || /^rolf$/i.test(s);
+    function isReptileName(name) {
+      const s = String(name || '').toLowerCase().replace(/[^a-z0-9äöüß]+/g, '');
+      return s === 'drreptile' || s === 'reptile' || s.indexOf('reptile') >= 0;
     }
 
     function isBjoernLogin(name) {
       return /bj[öo]rn/i.test(String(name || '').trim());
     }
 
-    function renameRolfToBjoern(accs) {
-      if (!accs) return;
+    function renameReptileToBjoern(accs) {
+      if (!accs) return false;
+      let changed = false;
       Object.keys(accs).forEach(id => {
         const acc = accs[id];
-        if (!acc || (!isRolfAccountId(id) && !isRolfName(acc.name))) return;
-        acc.name = 'Björn';
-        if (acc.sheet && (!acc.sheet.name || isRolfName(acc.sheet.name))) acc.sheet.name = 'Björn';
+        if (!acc) return;
+        const forceChris = id === 'chris';
+        if (forceChris || isReptileAccountId(id) || isReptileName(acc.name)) {
+          if (acc.name !== 'Björn') {
+            acc.name = 'Björn';
+            changed = true;
+          }
+        }
+        if (acc.sheet && (isReptileName(acc.sheet.name) || (forceChris && !String(acc.sheet.name || '').trim()))) {
+          if (acc.sheet.name !== 'Björn') {
+            acc.sheet.name = 'Björn';
+            changed = true;
+          }
+        }
+        const alts = acc.alts || {};
+        Object.keys(alts).forEach(key => {
+          const alt = alts[key];
+          if (!alt) return;
+          if (isReptileName(alt.name)) {
+            alt.name = 'Björn';
+            changed = true;
+          }
+          if (alt.sheet && isReptileName(alt.sheet.name)) {
+            alt.sheet.name = 'Björn';
+            changed = true;
+          }
+        });
       });
+      return changed;
     }
 
     function accountIdFromLoginName(name) {
       const id = playerIdFromName(name);
       if (playerAccounts[id]) return id;
-      if (isBjoernLogin(name) || isRolfName(name)) {
-        const found = Object.keys(playerAccounts).find(k => isRolfAccountId(k) || isRolfName(playerAccounts[k] && playerAccounts[k].name));
+      if (isBjoernLogin(name) || isReptileName(name)) {
+        const found = Object.keys(playerAccounts).find(k => isReptileAccountId(k) || isReptileName(playerAccounts[k] && playerAccounts[k].name));
         if (found) return found;
       }
       return id;
@@ -4122,7 +4148,7 @@
       });
       ensureVeyrAlt(out);
       ensureIllusionAlt(out);
-      renameRolfToBjoern(out);
+      renameReptileToBjoern(out);
       return out;
     }
 
@@ -4130,6 +4156,11 @@
       if (!data) return;
       const at = Number(data.updatedAt) || 0;
       if (at && at <= playersUpdatedAt) return;
+      const rawChris = data.accounts && data.accounts.chris;
+      const needsCloudRename = !!(rawChris && (
+        rawChris.name !== 'Björn' ||
+        (rawChris.sheet && rawChris.sheet.name !== 'Björn' && (!String(rawChris.sheet.name || '').trim() || isReptileName(rawChris.sheet.name)))
+      ));
       const incoming = normalizeAccounts(data.accounts);
       if ((sheetDirty || veyrEntryEditing) && currentSheetOwner) {
         const accId = sheetAccountId(currentSheetOwner);
@@ -4138,6 +4169,10 @@
       playersUpdatedAt = at;
       playerAccounts = incoming;
       if (currentPlayerId && !playerAccounts[currentPlayerId]) setPlayer(null);
+      syncPlayerCombatNames();
+      if (needsCloudRename && db && !sheetDirty && !veyrEntryEditing) {
+        persistPlayers().catch(() => {});
+      }
       if (currentPage === 'char') renderCharakter();
       else if (currentPage === 'kampf') renderKampf();
       else updatePlayerChrome();
@@ -4153,6 +4188,7 @@
 
     async function persistPlayers() {
       if (!db) throw new Error('Keine Verbindung zur Cloud.');
+      renameReptileToBjoern(playerAccounts);
       const nextAt = Date.now();
       writingPlayers = true;
       try {
@@ -6120,6 +6156,7 @@
           if (c.playerId === currentSheetOwner) {
             const now = sheetOwnerRecord(currentSheetOwner);
             c.portraitId = (now && now.sheet && now.sheet.portraitId) || '';
+            if (now) c.name = (now.sheet && now.sheet.name) || now.name;
             touchCombatant(c);
             upsertBattleToken(c);
           }
@@ -6425,6 +6462,24 @@
       upsertBattleToken(row);
       if (!quiet) renderKampf();
       return row;
+    }
+
+    function syncPlayerCombatNames() {
+      if (!combat || !Array.isArray(combat.combatants) || !combat.combatants.length) return;
+      let changed = false;
+      combat.combatants.forEach(c => {
+        if (!c || c.kind !== 'player' || !c.playerId || c.playerId === ILLUSION_OWNER) return;
+        const rec = sheetOwnerRecord(c.playerId);
+        if (!rec) return;
+        const next = (rec.sheet && rec.sheet.name) || rec.name;
+        if (next && c.name !== next) {
+          c.name = next;
+          touchCombatant(c);
+          if (typeof upsertBattleToken === 'function') upsertBattleToken(c);
+          changed = true;
+        }
+      });
+      if (changed) persistCombat();
     }
 
     function addPlayerToCombat(playerId, quiet) {
