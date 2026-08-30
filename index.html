@@ -821,6 +821,35 @@
       align-items: center;
     }
     .map-zoom button { min-width: 2.4rem; }
+    #mapView.is-full {
+      position: fixed;
+      inset: 0;
+      z-index: 36;
+      display: flex;
+      flex-direction: column;
+      margin: 0;
+      padding: 0.7rem 0.85rem 0.85rem;
+      background: var(--bg);
+    }
+    body.is-map-full { overflow: hidden; }
+    body.is-dm #mapView.is-full {
+      padding-bottom: max(0.85rem, calc(env(safe-area-inset-bottom) + 5.6rem));
+    }
+    #mapView.is-full .map-toolbar {
+      flex-shrink: 0;
+      margin-bottom: 0.55rem;
+    }
+    #mapView.is-full .map-legend {
+      flex: 0 1 auto;
+      max-height: 26vh;
+      overflow: auto;
+      margin-bottom: 0.55rem;
+    }
+    #mapView.is-full .map-wrap {
+      flex: 1 1 auto;
+      max-height: none;
+      min-height: 0;
+    }
     .map-stage {
       position: relative;
       width: 100%;
@@ -2345,6 +2374,7 @@
               <button class="ghost" id="mapZoomIn" type="button" title="Vergrößern">+</button>
             </span>
             <button class="ghost" id="mapLegendBtn" type="button">Legende</button>
+            <button class="ghost" id="mapFullBtn" type="button">Vollbild</button>
             <span class="map-dm-tools hidden" id="mapToolbar">
               <button class="ghost" id="placePinBtn" type="button">Ort setzen</button>
               <button class="ghost" id="drawBorderBtn" type="button">Grenze zeichnen</button>
@@ -9013,6 +9043,34 @@
       zoomMapAt(rect.left + rect.width / 2, rect.top + rect.height / 2, mapScale + delta);
     }
 
+    function isMapFullscreen() {
+      const view = document.getElementById('mapView');
+      return !!(view && view.classList.contains('is-full'));
+    }
+
+    function syncMapFullscreenBtn() {
+      const btn = document.getElementById('mapFullBtn');
+      if (!btn) return;
+      const on = isMapFullscreen();
+      btn.textContent = on ? 'Vollbild aus' : 'Vollbild';
+      btn.classList.toggle('primary', on);
+      btn.classList.toggle('ghost', !on);
+    }
+
+    function setMapFullscreen(on) {
+      const view = document.getElementById('mapView');
+      if (!view) return;
+      const next = !!on && currentPage === 'map' && !view.classList.contains('hidden');
+      view.classList.toggle('is-full', next);
+      document.body.classList.toggle('is-map-full', next);
+      syncMapFullscreenBtn();
+      requestAnimationFrame(() => applyMapTransform());
+    }
+
+    function toggleMapFullscreen() {
+      setMapFullscreen(!isMapFullscreen());
+    }
+
     function resetMapView() {
       mapScale = 1;
       mapPanX = 0;
@@ -9917,6 +9975,7 @@
       els.navCharakter.classList.toggle('active', page === 'char');
       els.navKampf.classList.toggle('active', page === 'kampf');
       els.mapView.classList.toggle('hidden', page !== 'map');
+      if (page !== 'map') setMapFullscreen(false);
       els.charView.classList.toggle('hidden', page !== 'char');
       els.kampfView.classList.toggle('hidden', page !== 'kampf');
       if (page !== 'kampf') closeStatSheetOverlay();
@@ -11428,7 +11487,9 @@
           const hide = !box.classList.contains('hidden');
           box.classList.toggle('hidden', hide);
           if (!hide) renderMapLegend();
+          if (isMapFullscreen()) requestAnimationFrame(() => applyMapTransform());
         });
+        onClick('mapFullBtn', toggleMapFullscreen);
         onClick('pinNoEntry', () => {
           const nameEl = document.getElementById('pinLabel');
           const name = ((nameEl && nameEl.value) || '').trim();
@@ -11513,6 +11574,7 @@
         return;
       }
       if (kampfAimFrom) { cancelKampfAim(); return; }
+      if (isMapFullscreen()) { setMapFullscreen(false); return; }
       const searchBox = document.getElementById('searchResults');
       if (searchBox && !searchBox.classList.contains('hidden')) {
         closeSearchResults();
