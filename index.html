@@ -1987,7 +1987,7 @@
     }
     .battle-token {
       position: absolute;
-      transform: translate(-50%, -50%);
+      transform: translate(-50%, calc(var(--battle-token-face, 48px) / -2));
       width: var(--battle-token-size, 52px);
       padding: 0;
       border: 0;
@@ -3097,7 +3097,7 @@
     let pendingSheetPortrait = null;
     let kartePortraitId = '';
     let pendingKartePortrait = null;
-    let battle = { image: '', tokens: [], hazards: [], tokenSize: 48, gridSize: 1, updatedAt: 0, mapUpdatedAt: 0, layoutAt: 0, removedTokens: {}, removedHazards: {} };
+    let battle = { image: '', tokens: [], hazards: [], tokenSize: 48, gridSize: 1, gridFrac: 0, updatedAt: 0, mapUpdatedAt: 0, layoutAt: 0, removedTokens: {}, removedHazards: {} };
     let writingBattle = false;
     let battleWriteQueued = false;
     let pendingBattleSnap = null;
@@ -4383,6 +4383,7 @@
         hazards: (battle.hazards || []).map(normalizeBattleHazard),
         tokenSize: clampBattleTokenSize(battle.tokenSize),
         gridSize: clampBattleGridSize(battle.gridSize),
+        gridFrac: clampBattleGridFrac(battle.gridFrac),
         removedTokens: Object.assign({}, battle.removedTokens || {}),
         removedHazards: Object.assign({}, battle.removedHazards || {})
       };
@@ -4423,6 +4424,7 @@
         ),
         tokenSize: clampBattleTokenSize(layoutSrc.tokenSize),
         gridSize: clampBattleGridSize(layoutSrc.gridSize),
+        gridFrac: clampBattleGridFrac(layoutSrc.gridFrac) || clampBattleGridFrac(a.gridFrac) || clampBattleGridFrac(b.gridFrac),
         removedTokens: removedTokens,
         removedHazards: removedHazards
       };
@@ -4436,6 +4438,7 @@
       battle.hazards = next.hazards;
       battle.tokenSize = next.tokenSize;
       battle.gridSize = next.gridSize;
+      battle.gridFrac = next.gridFrac;
       battle.removedTokens = next.removedTokens;
       battle.removedHazards = next.removedHazards;
       persistBattleLocal();
@@ -4459,6 +4462,7 @@
         battle.hazards = (Array.isArray(raw.hazards) ? raw.hazards : []).map(normalizeBattleHazard);
         battle.tokenSize = clampBattleTokenSize(raw.tokenSize);
         battle.gridSize = clampBattleGridSize(raw.gridSize);
+        battle.gridFrac = clampBattleGridFrac(raw.gridFrac);
         battle.removedTokens = Object.assign({}, raw.removedTokens || {});
         battle.removedHazards = Object.assign({}, raw.removedHazards || {});
       } catch (err) {}
@@ -4476,17 +4480,32 @@
       return Math.max(0.5, Math.min(4, Math.round(v * 10) / 10));
     }
 
+    function clampBattleGridFrac(n) {
+      const v = Number(n);
+      if (!Number.isFinite(v) || v < 0.015 || v > 0.45) return 0;
+      return Math.round(v * 100000) / 100000;
+    }
+
     function applyBattleGridSize() {
       const size = clampBattleGridSize(battle.gridSize);
       battle.gridSize = size;
       battleGridMetricsCache = null;
+      let lockedFrac = false;
       document.querySelectorAll('.battle-stage').forEach(stage => {
-        stage.style.setProperty('--battle-grid-size', size + 'cm');
         const m = battleGridMetrics(stage);
         if (m.width && m.height && m.cellW && m.cellH) {
+          if (isDM && !clampBattleGridFrac(battle.gridFrac)) {
+            const nextFrac = clampBattleGridFrac(m.cellW / m.width);
+            if (nextFrac) {
+              battle.gridFrac = nextFrac;
+              lockedFrac = true;
+              battleGridMetricsCache = null;
+            }
+          }
           stage.style.setProperty('--battle-grid-x', ((m.cellW / m.width) * 100) + '%');
           stage.style.setProperty('--battle-grid-y', ((m.cellH / m.height) * 100) + '%');
         } else {
+          stage.style.setProperty('--battle-grid-size', size + 'cm');
           stage.style.removeProperty('--battle-grid-x');
           stage.style.removeProperty('--battle-grid-y');
         }
@@ -4495,6 +4514,7 @@
       const val = document.getElementById('kampfBattleGridVal');
       if (slider && document.activeElement !== slider) slider.value = String(Math.round(size * 10));
       if (val) val.textContent = (Math.round(size * 10) % 10 ? size.toFixed(1).replace('.', ',') : String(size)) + ' cm';
+      if (lockedFrac) persistBattleSoon();
     }
 
     function applyBattleTokenSize() {
@@ -5132,19 +5152,26 @@
       const width = stage.offsetWidth;
       const height = stage.offsetHeight;
       const cm = clampBattleGridSize(battle.gridSize);
+      const frac = clampBattleGridFrac(battle.gridFrac);
       if (
         battleGridMetricsCache &&
         battleGridMetricsCache.gridSize === cm &&
+        battleGridMetricsCache.gridFrac === frac &&
         battleGridMetricsCache.width === width &&
         battleGridMetricsCache.height === height
       ) return battleGridMetricsCache;
-      const probe = document.createElement('div');
-      probe.style.cssText = 'position:absolute;left:0;top:0;width:' + cm + 'cm;height:' + cm + 'cm;visibility:hidden;pointer-events:none';
-      stage.appendChild(probe);
-      const cellW = probe.offsetWidth || (cm * 96 / 2.54);
-      const cellH = probe.offsetHeight || (cm * 96 / 2.54);
-      probe.remove();
-      battleGridMetricsCache = { width: width, height: height, cellW: cellW, cellH: cellH, gridSize: cm };
+      let cellW = 0;
+      if (frac && width) {
+        cellW = frac * width;
+      } else {
+        const probe = document.createElement('div');
+        probe.style.cssText = 'position:absolute;left:0;top:0;width:' + cm + 'cm;height:' + cm + 'cm;visibility:hidden;pointer-events:none';
+        stage.appendChild(probe);
+        cellW = probe.offsetWidth || (cm * 96 / 2.54);
+        probe.remove();
+      }
+      const cellH = cellW;
+      battleGridMetricsCache = { width: width, height: height, cellW: cellW, cellH: cellH, gridSize: cm, gridFrac: frac };
       return battleGridMetricsCache;
     }
 
@@ -11040,6 +11067,7 @@
         const setGrid = () => {
           if (!isDM) return;
           battle.gridSize = clampBattleGridSize(Number(gridEl.value) / 10);
+          battle.gridFrac = 0;
           battle.layoutAt = stampNow();
           applyBattleGridSize();
           snapBattleTokensToGrid();
