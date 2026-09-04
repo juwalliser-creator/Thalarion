@@ -249,14 +249,19 @@
       z-index: 39;
       width: min(420px, calc(100vw - 1.5rem));
       height: min(520px, calc(100dvh - 5.5rem));
+      max-height: calc(100dvh - 2rem);
       display: flex;
       flex-direction: column;
+      overflow: hidden;
       background: var(--panel);
       border: 1px solid var(--gold-dim);
       border-radius: 14px;
       box-shadow: var(--shadow);
     }
-    body.is-dm .chat-panel { bottom: 5.5rem; }
+    body.is-dm .chat-panel {
+      bottom: 5.5rem;
+      max-height: calc(100dvh - 7rem);
+    }
     .chat-head {
       display: flex;
       align-items: center;
@@ -264,6 +269,7 @@
       gap: 0.6rem;
       padding: 0.65rem 0.75rem;
       border-bottom: 1px solid var(--line);
+      flex: 0 0 auto;
     }
     .chat-head h3 {
       margin: 0;
@@ -275,13 +281,16 @@
     .chat-body {
       flex: 1 1 auto;
       min-height: 0;
+      min-width: 0;
       display: grid;
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
+      overflow: hidden;
     }
-    .chat-panel.is-dm .chat-body { grid-template-columns: 8.4rem 1fr; }
+    .chat-panel.is-dm .chat-body { grid-template-columns: 8.4rem minmax(0, 1fr); }
     .chat-threads {
       display: none;
       overflow: auto;
+      min-height: 0;
       border-right: 1px solid var(--line);
       padding: 0.35rem;
     }
@@ -311,13 +320,18 @@
     }
     .chat-main {
       min-width: 0;
+      min-height: 0;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
     .chat-log {
       flex: 1 1 auto;
       min-height: 0;
-      overflow: auto;
+      min-width: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
       padding: 0.7rem 0.75rem;
       display: flex;
       flex-direction: column;
@@ -330,6 +344,8 @@
     }
     .chat-msg {
       max-width: 88%;
+      min-width: 0;
+      box-sizing: border-box;
       align-self: flex-start;
       background: var(--panel-2);
       border: 1px solid var(--line);
@@ -347,7 +363,12 @@
       color: var(--gold);
       font-weight: 600;
     }
-    .chat-msg span { display: block; white-space: pre-wrap; word-break: break-word; }
+    .chat-msg span {
+      display: block;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
     .chat-msg small {
       display: block;
       margin-top: 0.18rem;
@@ -359,6 +380,7 @@
       gap: 0.4rem;
       padding: 0.55rem 0.65rem;
       border-top: 1px solid var(--line);
+      flex: 0 0 auto;
     }
     .chat-compose input {
       flex: 1 1 auto;
