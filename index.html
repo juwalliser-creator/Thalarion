@@ -2791,6 +2791,7 @@
               <button class="ghost hidden" id="kampfPrevBtn" type="button">Zurück</button>
               <button class="ghost hidden" id="kampfSkipBtn" type="button">Überspringen</button>
               <button class="primary hidden" id="kampfNextBtn" type="button">Nächster Zug</button>
+              <button class="ghost hidden" id="kampfAddToggleBtn" type="button">Figur dazu</button>
               <button class="ghost" id="kampfEndBtn" type="button">Kampf beenden</button>
             </div>
           </div>
@@ -5708,10 +5709,6 @@
     }
 
     function addKarteToCombat(id) {
-      if (combat.started) {
-        toast('Der Kampf läuft. Keine neuen Figuren.');
-        return;
-      }
       const karte = karteById(id);
       if (!karte) return;
       const override = Number(document.getElementById('kampfKartenUseCount').value);
@@ -6916,10 +6913,6 @@
     }
 
     function addCombatant(data, quiet) {
-      if (combat.started) {
-        if (!quiet) toast('Der Kampf läuft. Keine neuen Figuren.');
-        return;
-      }
       const row = normalizeCombatant({
         name: data.name,
         kind: data.kind || 'enemy',
@@ -7354,9 +7347,11 @@
         else round.textContent = 'Runde ' + combat.round + (active ? ' · ' + (active.name || '') : '');
       }
       const add = document.getElementById('kampfAdd');
-      if (add) add.classList.toggle('hidden', isDM && combat.started);
+      if (add) add.classList.remove('hidden');
       const startBtn = document.getElementById('kampfStartBtn');
       if (startBtn) startBtn.classList.toggle('hidden', !isDM || combat.started);
+      const addToggle = document.getElementById('kampfAddToggleBtn');
+      if (addToggle) addToggle.classList.toggle('hidden', !isDM || !combat.started);
       ['kampfPrevBtn', 'kampfSkipBtn', 'kampfNextBtn'].forEach(id => {
         const btn = document.getElementById(id);
         if (btn) btn.classList.toggle('hidden', !isDM || !combat.started);
@@ -11658,6 +11653,12 @@
 
       safeBind('kampf', () => {
         onClick('kampfStartBtn', startKampf);
+        onClick('kampfAddToggleBtn', () => {
+          const add = document.getElementById('kampfAdd');
+          if (!add) return;
+          add.classList.remove('hidden');
+          add.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        });
         onClick('kampfNextBtn', nextCombatTurn);
         onClick('kampfPrevBtn', prevCombatTurn);
         onClick('kampfSkipBtn', skipCombatTurn);
