@@ -477,6 +477,263 @@
       padding: 0.7rem 0.8rem;
       font: inherit;
     }
+    .char-main.is-dnd {
+      background: #12101a;
+      border-color: #3a3228;
+      padding: 0.7rem;
+    }
+    .char-main.is-dnd #charHeading,
+    .char-main.is-dnd #charBlurb { display: none; }
+    .char-layout:has(.is-dnd) { grid-template-columns: 180px 1fr; }
+    .dnd-sheet {
+      --dnd-card: #1c1a24;
+      --dnd-ink: #f4efe4;
+      --dnd-mute: #a79a86;
+      --dnd-line: #3d362c;
+      --dnd-gold: #d4b36a;
+      --dnd-red: #c23b3b;
+      color: var(--dnd-ink);
+      font-size: 0.92rem;
+    }
+    .dnd-sheet input,
+    .dnd-sheet textarea,
+    .dnd-sheet select {
+      background: #14121a;
+      border: 1px solid var(--dnd-line);
+      color: var(--dnd-ink);
+      border-radius: 6px;
+      padding: 0.28rem 0.4rem;
+      width: 100%;
+    }
+    .dnd-sheet textarea { min-height: 5.5rem; resize: vertical; }
+    .dnd-sheet label { color: var(--dnd-mute); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
+    .dnd-head {
+      display: grid;
+      grid-template-columns: 88px 1fr auto;
+      gap: 0.8rem;
+      align-items: center;
+      background: var(--dnd-card);
+      border: 1px solid var(--dnd-line);
+      border-radius: 12px;
+      padding: 0.7rem;
+      margin-bottom: 0.65rem;
+    }
+    .dnd-portrait {
+      width: 88px;
+      height: 88px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--dnd-gold);
+      background: #0d0b12;
+      position: relative;
+      cursor: pointer;
+    }
+    .dnd-portrait img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .dnd-portrait img.is-empty { display: none; }
+    .dnd-portrait.is-empty::after {
+      content: 'Portrait';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--dnd-mute);
+      font-size: 0.7rem;
+    }
+    .dnd-id input[data-dnd-field="name"] {
+      font-family: Cinzel, serif;
+      font-size: 1.35rem;
+      letter-spacing: 0.04em;
+      color: var(--dnd-gold);
+      background: transparent;
+      border: 0;
+      border-bottom: 1px solid var(--dnd-line);
+      border-radius: 0;
+      padding: 0 0 0.15rem;
+    }
+    .dnd-meta {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.4rem;
+      margin-top: 0.45rem;
+    }
+    .dnd-chips {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      min-width: 7.5rem;
+    }
+    .dnd-chip {
+      background: #14121a;
+      border: 1px solid var(--dnd-line);
+      border-radius: 10px;
+      padding: 0.35rem 0.5rem;
+      text-align: center;
+    }
+    .dnd-chip strong { display: block; color: var(--dnd-gold); font-size: 1.1rem; }
+    .dnd-insp {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--dnd-line);
+      background: #14121a;
+      color: var(--dnd-mute);
+      padding: 0.4rem 0.5rem;
+    }
+    .dnd-insp.is-on { color: var(--dnd-gold); border-color: var(--dnd-gold); }
+    .dnd-combat {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 0.5rem;
+      margin-bottom: 0.65rem;
+    }
+    .dnd-stat {
+      background: var(--dnd-card);
+      border: 1px solid var(--dnd-line);
+      border-radius: 10px;
+      padding: 0.45rem 0.5rem;
+    }
+    .dnd-stat .dnd-big {
+      font-family: Cinzel, serif;
+      font-size: 1.35rem;
+      color: var(--dnd-gold);
+    }
+    .dnd-stat.is-hp .dnd-big { color: var(--dnd-red); }
+    .dnd-hp-row, .dnd-inline { display: flex; gap: 0.35rem; align-items: center; }
+    .dnd-hp-row input { text-align: center; }
+    .dnd-pips { display: flex; gap: 0.25rem; margin-top: 0.25rem; }
+    .dnd-pip {
+      width: 14px;
+      height: 14px;
+      padding: 0;
+      border-radius: 50%;
+      border: 1px solid var(--dnd-gold);
+      background: transparent;
+    }
+    .dnd-pip.is-on { background: var(--dnd-gold); }
+    .dnd-pip.is-fail.is-on { background: var(--dnd-red); border-color: var(--dnd-red); }
+    .dnd-body {
+      display: grid;
+      grid-template-columns: 250px 1fr;
+      gap: 0.65rem;
+      align-items: start;
+    }
+    .dnd-col, .dnd-main, .dnd-pane, .dnd-stat, .dnd-ability {
+      background: var(--dnd-card);
+      border: 1px solid var(--dnd-line);
+      border-radius: 10px;
+    }
+    .dnd-col { padding: 0.45rem; }
+    .dnd-main { padding: 0.55rem; background: transparent; border: 0; }
+    .dnd-ability { padding: 0.45rem 0.5rem; margin-bottom: 0.45rem; }
+    .dnd-ability-top {
+      display: grid;
+      grid-template-columns: 1fr 52px;
+      gap: 0.35rem;
+      align-items: center;
+    }
+    .dnd-ability-name { color: var(--dnd-gold); font-family: Cinzel, serif; font-size: 0.78rem; letter-spacing: 0.08em; }
+    .dnd-mod {
+      text-align: center;
+      font-size: 1.15rem;
+      color: var(--dnd-gold);
+      border: 1px solid var(--dnd-line);
+      border-radius: 8px;
+      padding: 0.2rem 0;
+    }
+    .dnd-save {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      margin: 0.35rem 0 0.25rem;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 0.82rem;
+      color: var(--dnd-ink);
+    }
+    .dnd-save input { width: auto; }
+    .dnd-skill {
+      display: grid;
+      grid-template-columns: 16px 2.2rem 1fr;
+      gap: 0.35rem;
+      align-items: center;
+      margin: 0.18rem 0;
+      font-size: 0.82rem;
+    }
+    .dnd-prof {
+      width: 14px;
+      height: 14px;
+      padding: 0;
+      border: 2px solid var(--gold-dim);
+      background: transparent;
+      transform: rotate(45deg);
+    }
+    .dnd-prof.is-prof { background: var(--dnd-gold); border-color: var(--dnd-gold); }
+    .dnd-prof.is-expert {
+      background: var(--dnd-gold);
+      border-color: var(--dnd-gold);
+      box-shadow: 0 0 0 2px #1c1a24, 0 0 0 3px var(--dnd-gold);
+    }
+    .dnd-skill-mod { text-align: right; color: var(--dnd-gold); }
+    .dnd-passives { margin-top: 0.4rem; padding: 0.4rem; }
+    .dnd-passives div { display: flex; justify-content: space-between; margin: 0.15rem 0; }
+    .dnd-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+      margin-bottom: 0.5rem;
+    }
+    .dnd-tabs button {
+      background: #14121a;
+      border: 1px solid var(--dnd-line);
+      color: var(--dnd-mute);
+      border-radius: 999px;
+      padding: 0.28rem 0.7rem;
+      font-size: 0.82rem;
+    }
+    .dnd-tabs button.active { color: #1a140c; background: var(--dnd-gold); border-color: var(--dnd-gold); }
+    .dnd-pane { padding: 0.7rem; }
+    .dnd-pane.hidden { display: none; }
+    .dnd-row {
+      display: grid;
+      grid-template-columns: 1.4fr 5.5rem 1fr auto;
+      gap: 0.35rem;
+      align-items: center;
+      margin-bottom: 0.35rem;
+    }
+    .dnd-row-spell { grid-template-columns: 3.2rem 1.3fr 5.2rem 1fr auto; }
+    .dnd-row-item { grid-template-columns: 1.3fr 3.4rem 4rem 5.2rem 5.2rem 1fr auto; }
+    .dnd-row-feat { grid-template-columns: 1.2fr 4rem 4rem 7rem 1fr auto; }
+    .dnd-slots {
+      display: grid;
+      grid-template-columns: repeat(9, minmax(0, 1fr));
+      gap: 0.3rem;
+      margin: 0.5rem 0 0.8rem;
+    }
+    .dnd-slot { text-align: center; }
+    .dnd-slot input { text-align: center; }
+    .dnd-money {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0.4rem;
+      margin-bottom: 0.6rem;
+    }
+    .dnd-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
+    .dnd-add { margin-top: 0.35rem; }
+    .dnd-rests { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.6rem; }
+    .dnd-check { width: auto !important; }
+    @media (max-width: 1100px) {
+      .char-layout:has(.is-dnd) { grid-template-columns: 1fr; }
+      .dnd-head, .dnd-body, .dnd-combat, .dnd-meta, .dnd-grid-2, .dnd-slots, .dnd-money,
+      .dnd-row, .dnd-row-spell, .dnd-row-item, .dnd-row-feat {
+        grid-template-columns: 1fr;
+      }
+      .dnd-chips { flex-direction: row; }
+    }
 
     #menuBtn { display: none; }
 
@@ -2724,10 +2981,189 @@
                   <input type="color" onchange="fmtValue('foreColor', this.value)" title="Textfarbe" value="#f3ead8" />
                 </div>
                 <div id="sheetContent" class="editor-canvas" contenteditable="true"></div>
-                <div class="editor-actions">
+                </div>
+                <div id="charDndBlock" class="hidden">
+                  <div class="dnd-sheet">
+                    <div class="dnd-head">
+                      <div class="dnd-portrait is-empty" id="dndPortraitBtn" title="Portrait">
+                        <img id="dndPortraitImg" alt="Portrait" class="is-empty" />
+                      </div>
+                      <div class="dnd-id">
+                        <input data-dnd-field="name" placeholder="Charaktername" />
+                        <div class="dnd-meta">
+                          <div><label>Klasse</label><input data-dnd-field="klasse" /></div>
+                          <div><label>Stufe</label><input data-dnd-field="stufe" inputmode="numeric" /></div>
+                          <div><label>Spezies</label><input data-dnd-field="volk" /></div>
+                          <div><label>Hintergrund</label><input data-dnd-field="background" /></div>
+                          <div><label>Gesinnung</label><input data-dnd-field="alignment" /></div>
+                          <div><label>EP</label><input data-dnd-field="xp" /></div>
+                          <div><label>Spieler</label><input data-dnd-field="playerName" /></div>
+                          <div><label>Übungsbonus</label><input data-dnd-field="profBonus" placeholder="auto" /></div>
+                        </div>
+                      </div>
+                      <div class="dnd-chips">
+                        <button type="button" class="dnd-insp" id="dndInsp">Inspiration</button>
+                        <div class="dnd-chip"><label>Übung</label><strong id="dndProfOut">+2</strong></div>
+                        <div class="dnd-chip"><label>Init</label><strong id="dndInitOut">+0</strong></div>
+                      </div>
+                    </div>
+                    <div class="dnd-combat">
+                      <div class="dnd-stat"><label>Rüstungsklasse</label><input data-dnd-field="ac" /></div>
+                      <div class="dnd-stat"><label>Initiative-Bonus</label><input data-dnd-field="initiativeBonus" placeholder="0" /><div class="dnd-big" id="dndInitBox">+0</div></div>
+                      <div class="dnd-stat"><label>Bewegung</label><input data-dnd-field="speed" placeholder="9 m" /></div>
+                      <div class="dnd-stat is-hp">
+                        <label>Trefferpunkte</label>
+                        <div class="dnd-hp-row">
+                          <input data-dnd-field="hpCurrent" placeholder="akt" />
+                          <span>/</span>
+                          <input data-dnd-field="hpMax" placeholder="max" />
+                        </div>
+                        <label>Temp. TP</label>
+                        <input data-dnd-field="hpTemp" />
+                      </div>
+                      <div class="dnd-stat">
+                        <label>Trefferwürfel</label>
+                        <div class="dnd-hp-row">
+                          <input data-dnd-field="hitDiceUsed" placeholder="verbraucht" />
+                          <span>/</span>
+                          <input data-dnd-field="hitDice" placeholder="gesamt" />
+                        </div>
+                      </div>
+                      <div class="dnd-stat">
+                        <label>Todesrettung</label>
+                        <div>Erfolg</div>
+                        <div class="dnd-pips" id="dndDeathOk"></div>
+                        <div>Misserfolg</div>
+                        <div class="dnd-pips" id="dndDeathFail"></div>
+                      </div>
+                    </div>
+                    <div class="dnd-body">
+                      <aside class="dnd-col" id="dndAbilityCol"></aside>
+                      <div class="dnd-main">
+                        <div class="dnd-grid-2" style="margin-bottom:0.55rem;">
+                          <div class="dnd-stat">
+                            <label>Sinne</label>
+                            <div id="dndSensesOut"></div>
+                            <textarea data-dnd-field="senses" placeholder="Weitere Sinne"></textarea>
+                          </div>
+                          <div class="dnd-stat">
+                            <label>Verteidigungen</label>
+                            <input data-dnd-field="resistances" placeholder="Resistenzen" />
+                            <input data-dnd-field="immunities" placeholder="Immunitäten" />
+                            <input data-dnd-field="vulnerabilities" placeholder="Verwundbarkeiten" />
+                            <input data-dnd-field="conditions" placeholder="Zustände" />
+                          </div>
+                        </div>
+                        <nav class="dnd-tabs" id="dndTabs">
+                          <button type="button" data-dnd-tab="actions" class="active">Aktionen</button>
+                          <button type="button" data-dnd-tab="spells">Zauber</button>
+                          <button type="button" data-dnd-tab="inventory">Inventar</button>
+                          <button type="button" data-dnd-tab="features">Merkmale</button>
+                          <button type="button" data-dnd-tab="description">Beschreibung</button>
+                          <button type="button" data-dnd-tab="notes">Notizen</button>
+                          <button type="button" data-dnd-tab="extras">Extras</button>
+                        </nav>
+                        <div class="dnd-pane" data-dnd-pane="actions">
+                          <label>Angriffe</label>
+                          <div id="dndAttackList"></div>
+                          <button class="ghost dnd-add" type="button" data-dnd-add="attacks">Angriff hinzufügen</button>
+                          <div class="dnd-grid-2" style="margin-top:0.7rem;">
+                            <div><label>Bonusaktionen</label><textarea data-dnd-field="bonusActions"></textarea></div>
+                            <div><label>Reaktionen</label><textarea data-dnd-field="reactions"></textarea></div>
+                          </div>
+                          <label>Weitere Aktionen</label>
+                          <textarea data-dnd-field="otherActions"></textarea>
+                        </div>
+                        <div class="dnd-pane hidden" data-dnd-pane="spells">
+                          <div class="dnd-grid-2">
+                            <div>
+                              <label>Zauberattribut</label>
+                              <select data-dnd-field="spellAbility">
+                                <option value="int">Intelligenz</option>
+                                <option value="wis">Weisheit</option>
+                                <option value="cha">Charisma</option>
+                              </select>
+                            </div>
+                            <div class="dnd-grid-2">
+                              <div class="dnd-chip"><label>Zauber-SG</label><strong id="dndSpellDc">10</strong></div>
+                              <div class="dnd-chip"><label>Zauberangriff</label><strong id="dndSpellAtk">+2</strong></div>
+                            </div>
+                          </div>
+                          <label>Zauberplätze (max / verbraucht)</label>
+                          <div class="dnd-slots" id="dndSpellSlots"></div>
+                          <label>Zauber</label>
+                          <div id="dndSpellList"></div>
+                          <button class="ghost dnd-add" type="button" data-dnd-add="spells">Zauber hinzufügen</button>
+                        </div>
+                        <div class="dnd-pane hidden" data-dnd-pane="inventory">
+                          <label>Währung</label>
+                          <div class="dnd-money">
+                            <div><label>PM</label><input data-dnd-field="pp" /></div>
+                            <div><label>GM</label><input data-dnd-field="gp" /></div>
+                            <div><label>EM</label><input data-dnd-field="ep" /></div>
+                            <div><label>SM</label><input data-dnd-field="sp" /></div>
+                            <div><label>KM</label><input data-dnd-field="cp" /></div>
+                          </div>
+                          <label>Einstimmung</label>
+                          <div class="dnd-grid-2" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:0.55rem;">
+                            <input data-dnd-attune="0" placeholder="Platz 1" />
+                            <input data-dnd-attune="1" placeholder="Platz 2" />
+                            <input data-dnd-attune="2" placeholder="Platz 3" />
+                          </div>
+                          <label>Ausrüstung</label>
+                          <div id="dndItemList"></div>
+                          <button class="ghost dnd-add" type="button" data-dnd-add="items">Gegenstand hinzufügen</button>
+                        </div>
+                        <div class="dnd-pane hidden" data-dnd-pane="features">
+                          <label>Klassenmerkmale, Spezies, Talente</label>
+                          <div id="dndFeatureList"></div>
+                          <button class="ghost dnd-add" type="button" data-dnd-add="features">Merkmal hinzufügen</button>
+                          <div class="dnd-grid-2" style="margin-top:0.7rem;">
+                            <div><label>Rüstungsübung</label><textarea data-dnd-field="armorProf"></textarea></div>
+                            <div><label>Waffenübung</label><textarea data-dnd-field="weaponProf"></textarea></div>
+                            <div><label>Werkzeuge</label><textarea data-dnd-field="toolProf"></textarea></div>
+                            <div><label>Sprachen</label><textarea data-dnd-field="languages"></textarea></div>
+                          </div>
+                        </div>
+                        <div class="dnd-pane hidden" data-dnd-pane="description">
+                          <div class="dnd-grid-2">
+                            <div><label>Aussehen</label><textarea data-dnd-field="appearance"></textarea></div>
+                            <div><label>Persönlichkeit</label><textarea data-dnd-field="personality"></textarea></div>
+                            <div><label>Ideale</label><textarea data-dnd-field="ideals"></textarea></div>
+                            <div><label>Bindungen</label><textarea data-dnd-field="bonds"></textarea></div>
+                            <div><label>Makel</label><textarea data-dnd-field="flaws"></textarea></div>
+                            <div><label>Organisationen</label><textarea data-dnd-field="organizations"></textarea></div>
+                          </div>
+                          <label>Hintergrundgeschichte</label>
+                          <textarea data-dnd-field="backstory"></textarea>
+                        </div>
+                        <div class="dnd-pane hidden" data-dnd-pane="notes">
+                          <div class="dnd-grid-2">
+                            <div><label>Verbündete</label><textarea data-dnd-field="allies"></textarea></div>
+                            <div><label>Feinde</label><textarea data-dnd-field="enemies"></textarea></div>
+                          </div>
+                          <label>Weitere Notizen</label>
+                          <textarea data-dnd-field="notesOther"></textarea>
+                        </div>
+                        <div class="dnd-pane hidden" data-dnd-pane="extras">
+                          <div class="dnd-rests">
+                            <button class="ghost" type="button" id="dndShortRest">Kurzrast</button>
+                            <button class="ghost" type="button" id="dndLongRest">Langrast</button>
+                            <button class="ghost" type="button" id="dndDawn">Morgengrauen</button>
+                          </div>
+                          <label class="dnd-save"><input class="dnd-check" type="checkbox" data-dnd-field="jackOfAllTrades" /> Alleskönner</label>
+                          <label>Begrenzte Fähigkeiten / Begleiter</label>
+                          <textarea data-dnd-field="extras"></textarea>
+                          <label>Kreaturen</label>
+                          <textarea data-dnd-field="creatures"></textarea>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="editor-actions" id="charSheetActions">
                   <button class="primary" id="saveSheetBtn" type="button">Blatt speichern</button>
                   <button class="danger hidden" id="deletePlayerBtn" type="button">Spieler entfernen</button>
-                </div>
                 </div>
                 <div id="charEntryBlock" class="hidden">
                   <div class="page-toolbar" id="veyrViewBar">
@@ -4106,6 +4542,7 @@
 
     function fillSheetForm(sheet) {
       const s = normalizeSheet(sheet);
+      if (isUdoOwner(currentSheetOwner)) fillDndForm(s);
       document.getElementById('sheetName').value = s.name || '';
       document.getElementById('sheetVolk').value = s.volk || '';
       document.getElementById('sheetKlasse').value = s.klasse || '';
@@ -4133,6 +4570,18 @@
       const img = document.getElementById('sheetPortraitImg');
       const removeBtn = document.getElementById('removeSheetPortraitBtn');
       const ocrBtn = document.getElementById('ocrSheetPortraitBtn');
+      const dndImg = document.getElementById('dndPortraitImg');
+      const dndBtn = document.getElementById('dndPortraitBtn');
+      if (dndImg) {
+        if (src) {
+          dndImg.src = src;
+          dndImg.classList.remove('is-empty');
+        } else {
+          dndImg.removeAttribute('src');
+          dndImg.classList.add('is-empty');
+        }
+      }
+      if (dndBtn) dndBtn.classList.toggle('is-empty', !src);
       if (!src) {
         wrap.classList.add('hidden');
         img.removeAttribute('src');
@@ -4147,6 +4596,7 @@
     }
 
     function readSheetForm() {
+      if (isUdoOwner(currentSheetOwner)) return readDndForm();
       return {
         name: document.getElementById('sheetName').value.trim(),
         volk: document.getElementById('sheetVolk').value.trim(),
@@ -4236,6 +4686,11 @@
     const ILLUSION_ALT = 'illusion';
     const ILLUSION_OWNER = CHRIS_ID + ':' + ILLUSION_ALT;
     const DM_NOTES_OWNER = 'dm-notes';
+    const UDO_ID = 'udo';
+
+    function isUdoOwner(owner) {
+      return owner === UDO_ID;
+    }
 
     function sheetAccountId(owner) {
       return String(owner || '').split(':')[0] || '';
@@ -4371,6 +4826,433 @@
       if (!String(sheet.hp || '').trim()) sheet.hp = '1';
     }
 
+    const DND_ABS = [
+      { id: 'str', label: 'Stärke' },
+      { id: 'dex', label: 'Geschicklichkeit' },
+      { id: 'con', label: 'Konstitution' },
+      { id: 'int', label: 'Intelligenz' },
+      { id: 'wis', label: 'Weisheit' },
+      { id: 'cha', label: 'Charisma' }
+    ];
+    const DND_SKILLS = [
+      { id: 'athletics', ability: 'str', label: 'Athletik' },
+      { id: 'acrobatics', ability: 'dex', label: 'Akrobatik' },
+      { id: 'sleight', ability: 'dex', label: 'Fingerfertigkeit' },
+      { id: 'stealth', ability: 'dex', label: 'Heimlichkeit' },
+      { id: 'arcana', ability: 'int', label: 'Arkanum' },
+      { id: 'history', ability: 'int', label: 'Geschichte' },
+      { id: 'investigation', ability: 'int', label: 'Nachforschungen' },
+      { id: 'nature', ability: 'int', label: 'Naturkunde' },
+      { id: 'religion', ability: 'int', label: 'Religion' },
+      { id: 'animal', ability: 'wis', label: 'Mit Tieren umgehen' },
+      { id: 'insight', ability: 'wis', label: 'Motiv erkennen' },
+      { id: 'medicine', ability: 'wis', label: 'Heilkunde' },
+      { id: 'perception', ability: 'wis', label: 'Wahrnehmung' },
+      { id: 'survival', ability: 'wis', label: 'Überlebenskunst' },
+      { id: 'deception', ability: 'cha', label: 'Täuschen' },
+      { id: 'intimidation', ability: 'cha', label: 'Einschüchtern' },
+      { id: 'performance', ability: 'cha', label: 'Auftreten' },
+      { id: 'persuasion', ability: 'cha', label: 'Überzeugen' }
+    ];
+
+    function emptyDndSheet() {
+      const abilities = {};
+      DND_ABS.forEach(a => { abilities[a.id] = { score: 10, save: false }; });
+      const skills = {};
+      DND_SKILLS.forEach(s => { skills[s.id] = 0; });
+      const spellSlots = {};
+      for (let i = 1; i <= 9; i++) spellSlots[i] = { max: '', used: '' };
+      return {
+        name: 'Udo', volk: '', klasse: '', stufe: '',
+        background: '', alignment: '', xp: '', playerName: '', inspiration: false, profBonus: '',
+        abilities: abilities, skills: skills, jackOfAllTrades: false,
+        ac: '', initiativeBonus: '', speed: '9 m',
+        hpCurrent: '', hpMax: '', hpTemp: '', hitDice: '', hitDiceUsed: '',
+        deathSuccess: 0, deathFail: 0,
+        senses: '', resistances: '', immunities: '', vulnerabilities: '', conditions: '',
+        armorProf: '', weaponProf: '', toolProf: '', languages: '',
+        attacks: [], bonusActions: '', reactions: '', otherActions: '',
+        spellAbility: 'int', spellSlots: spellSlots, spells: [],
+        pp: '', gp: '', ep: '', sp: '', cp: '', attunement: ['', '', ''], items: [],
+        features: [], appearance: '', personality: '', ideals: '', bonds: '', flaws: '',
+        backstory: '', allies: '', enemies: '', organizations: '', notesOther: '',
+        extras: '', creatures: '', tab: 'actions'
+      };
+    }
+
+    function normalizeDndSheet(raw) {
+      const base = emptyDndSheet();
+      const src = raw && typeof raw === 'object' ? raw : {};
+      Object.keys(base).forEach(key => {
+        if (key === 'abilities' || key === 'skills' || key === 'spellSlots' || key === 'attunement') return;
+        if (src[key] !== undefined) base[key] = src[key];
+      });
+      DND_ABS.forEach(a => {
+        const s = src.abilities && src.abilities[a.id];
+        base.abilities[a.id] = {
+          score: Math.max(1, Number((s && s.score) || 10) || 10),
+          save: !!(s && s.save)
+        };
+      });
+      DND_SKILLS.forEach(sk => {
+        const n = Number(src.skills && src.skills[sk.id]);
+        base.skills[sk.id] = n === 2 || n === 1 ? n : 0;
+      });
+      for (let i = 1; i <= 9; i++) {
+        const s = src.spellSlots && src.spellSlots[i];
+        base.spellSlots[i] = { max: s && s.max != null ? String(s.max) : '', used: s && s.used != null ? String(s.used) : '' };
+      }
+      base.attunement = [0, 1, 2].map(i => String((src.attunement && src.attunement[i]) || ''));
+      base.inspiration = !!src.inspiration;
+      base.jackOfAllTrades = !!src.jackOfAllTrades;
+      base.deathSuccess = Math.max(0, Math.min(3, Number(src.deathSuccess) || 0));
+      base.deathFail = Math.max(0, Math.min(3, Number(src.deathFail) || 0));
+      const list = (arr, shape) => (Array.isArray(arr) ? arr : []).map(shape).filter(Boolean);
+      base.attacks = list(src.attacks, x => x && {
+        id: x.id || combatNewId('a'), name: String(x.name || ''), bonus: String(x.bonus || ''),
+        damage: String(x.damage || ''), notes: String(x.notes || '')
+      });
+      base.spells = list(src.spells, x => x && {
+        id: x.id || combatNewId('s'), level: String(x.level || '0'), name: String(x.name || ''),
+        prepared: !!x.prepared, notes: String(x.notes || '')
+      });
+      base.items = list(src.items, x => x && {
+        id: x.id || combatNewId('i'), name: String(x.name || ''), qty: String(x.qty || '1'),
+        weight: String(x.weight || ''), equipped: !!x.equipped, attuned: !!x.attuned, notes: String(x.notes || '')
+      });
+      base.features = list(src.features, x => x && {
+        id: x.id || combatNewId('f'), name: String(x.name || ''), uses: String(x.uses || ''),
+        used: String(x.used || ''), reset: /^(short|long|dawn)$/.test(x.reset) ? x.reset : 'long',
+        text: String(x.text || '')
+      });
+      if (!['actions', 'spells', 'inventory', 'features', 'description', 'notes', 'extras'].includes(base.tab)) base.tab = 'actions';
+      return base;
+    }
+
+    let dndState = emptyDndSheet();
+
+    function ensureUdoAccount(accs) {
+      if (!accs) return;
+      if (!accs[UDO_ID]) {
+        accs[UDO_ID] = {
+          name: 'Udo',
+          password: '',
+          sheet: Object.assign({}, EMPTY_SHEET, { name: 'Udo', dnd: emptyDndSheet() }),
+          alts: {},
+          createdAt: Date.now()
+        };
+        return;
+      }
+      accs[UDO_ID].name = 'Udo';
+      if (!accs[UDO_ID].sheet) accs[UDO_ID].sheet = Object.assign({}, EMPTY_SHEET, { name: 'Udo' });
+      if (!accs[UDO_ID].sheet.name) accs[UDO_ID].sheet.name = 'Udo';
+      accs[UDO_ID].sheet.dnd = normalizeDndSheet(accs[UDO_ID].sheet.dnd);
+    }
+
+    function dndMod(score) {
+      return Math.floor((Number(score) - 10) / 2);
+    }
+
+    function dndSigned(n) {
+      const v = Number(n) || 0;
+      return (v >= 0 ? '+' : '') + v;
+    }
+
+    function dndProficiency() {
+      const custom = String(dndState.profBonus || '').trim();
+      if (custom) {
+        const n = Number(String(custom).replace(',', '.'));
+        if (Number.isFinite(n)) return n;
+      }
+      const lvl = Math.max(1, Number(dndState.stufe) || 1);
+      return 2 + Math.floor((Math.min(20, lvl) - 1) / 4);
+    }
+
+    function dndSkillBonus(skillId) {
+      const sk = DND_SKILLS.find(s => s.id === skillId);
+      if (!sk) return 0;
+      const mod = dndMod(dndState.abilities[sk.ability].score);
+      const rank = dndState.skills[skillId] || 0;
+      const prof = dndProficiency();
+      if (rank === 2) return mod + prof * 2;
+      if (rank === 1) return mod + prof;
+      if (dndState.jackOfAllTrades) return mod + Math.floor(prof / 2);
+      return mod;
+    }
+
+    function collectDndFields() {
+      document.querySelectorAll('#charDndBlock [data-dnd-field]').forEach(el => {
+        const key = el.getAttribute('data-dnd-field');
+        if (el.type === 'checkbox') dndState[key] = el.checked;
+        else dndState[key] = el.value;
+      });
+      document.querySelectorAll('#charDndBlock [data-dnd-attune]').forEach(el => {
+        dndState.attunement[Number(el.getAttribute('data-dnd-attune'))] = el.value;
+      });
+      DND_ABS.forEach(a => {
+        const score = document.querySelector('#charDndBlock [data-dnd-score="' + a.id + '"]');
+        const save = document.querySelector('#charDndBlock [data-dnd-save="' + a.id + '"]');
+        if (score) dndState.abilities[a.id].score = Math.max(1, Number(score.value) || 10);
+        if (save) dndState.abilities[a.id].save = save.checked;
+      });
+      for (let i = 1; i <= 9; i++) {
+        const max = document.querySelector('#charDndBlock [data-dnd-slot-max="' + i + '"]');
+        const used = document.querySelector('#charDndBlock [data-dnd-slot-used="' + i + '"]');
+        if (max) dndState.spellSlots[i].max = max.value;
+        if (used) dndState.spellSlots[i].used = used.value;
+      }
+    }
+
+    function applyDndFields() {
+      document.querySelectorAll('#charDndBlock [data-dnd-field]').forEach(el => {
+        const key = el.getAttribute('data-dnd-field');
+        if (el.type === 'checkbox') el.checked = !!dndState[key];
+        else if (dndState[key] != null && typeof dndState[key] !== 'object') el.value = dndState[key];
+      });
+      document.querySelectorAll('#charDndBlock [data-dnd-attune]').forEach(el => {
+        el.value = dndState.attunement[Number(el.getAttribute('data-dnd-attune'))] || '';
+      });
+      const nameEl = document.querySelector('#charDndBlock [data-dnd-field="name"]');
+      if (nameEl && !nameEl.value) nameEl.value = 'Udo';
+    }
+
+    function renderDndAbilityCol() {
+      const col = document.getElementById('dndAbilityCol');
+      if (!col) return;
+      col.innerHTML = DND_ABS.map(a => {
+        const skills = DND_SKILLS.filter(s => s.ability === a.id).map(s => {
+          const rank = dndState.skills[s.id] || 0;
+          return '<div class="dnd-skill">' +
+            '<button type="button" class="dnd-prof' + (rank === 1 ? ' is-prof' : rank === 2 ? ' is-expert' : '') + '" data-skill="' + s.id + '" title="Übung / Expertise"></button>' +
+            '<span class="dnd-skill-mod" data-skill-mod="' + s.id + '">+0</span>' +
+            '<span>' + s.label + '</span></div>';
+        }).join('');
+        return '<div class="dnd-ability">' +
+          '<div class="dnd-ability-top"><div><div class="dnd-ability-name">' + a.label + '</div>' +
+          '<input data-dnd-score="' + a.id + '" inputmode="numeric" value="' + (dndState.abilities[a.id].score || 10) + '" /></div>' +
+          '<div class="dnd-mod" data-dnd-mod="' + a.id + '">+0</div></div>' +
+          '<label class="dnd-save"><input type="checkbox" data-dnd-save="' + a.id + '"' + (dndState.abilities[a.id].save ? ' checked' : '') + ' /> Rettungswurf <span data-dnd-save-mod="' + a.id + '">+0</span></label>' +
+          skills + '</div>';
+      }).join('') + '<div class="dnd-passives" id="dndPassivesBox"></div>';
+    }
+
+    function renderDndLists() {
+      const atk = document.getElementById('dndAttackList');
+      if (atk) {
+        atk.innerHTML = dndState.attacks.map(row =>
+          '<div class="dnd-row" data-dnd-row="attacks" data-id="' + row.id + '">' +
+          '<input data-k="name" value="' + escapeAttr(row.name) + '" placeholder="Name" />' +
+          '<input data-k="bonus" value="' + escapeAttr(row.bonus) + '" placeholder="+5" />' +
+          '<input data-k="damage" value="' + escapeAttr(row.damage) + '" placeholder="1W8+3" />' +
+          '<button type="button" class="ghost" data-dnd-del="attacks">×</button></div>'
+        ).join('');
+      }
+      const spells = document.getElementById('dndSpellList');
+      if (spells) {
+        spells.innerHTML = dndState.spells.map(row =>
+          '<div class="dnd-row dnd-row-spell" data-dnd-row="spells" data-id="' + row.id + '">' +
+          '<input data-k="level" value="' + escapeAttr(row.level) + '" placeholder="0" />' +
+          '<input data-k="name" value="' + escapeAttr(row.name) + '" placeholder="Zauber" />' +
+          '<label class="dnd-save"><input class="dnd-check" type="checkbox" data-k="prepared"' + (row.prepared ? ' checked' : '') + ' /> vorb.</label>' +
+          '<input data-k="notes" value="' + escapeAttr(row.notes) + '" placeholder="Notiz" />' +
+          '<button type="button" class="ghost" data-dnd-del="spells">×</button></div>'
+        ).join('');
+      }
+      const items = document.getElementById('dndItemList');
+      if (items) {
+        items.innerHTML = dndState.items.map(row =>
+          '<div class="dnd-row dnd-row-item" data-dnd-row="items" data-id="' + row.id + '">' +
+          '<input data-k="name" value="' + escapeAttr(row.name) + '" placeholder="Gegenstand" />' +
+          '<input data-k="qty" value="' + escapeAttr(row.qty) + '" placeholder="1" />' +
+          '<input data-k="weight" value="' + escapeAttr(row.weight) + '" placeholder="kg" />' +
+          '<label class="dnd-save"><input class="dnd-check" type="checkbox" data-k="equipped"' + (row.equipped ? ' checked' : '') + ' /> an</label>' +
+          '<label class="dnd-save"><input class="dnd-check" type="checkbox" data-k="attuned"' + (row.attuned ? ' checked' : '') + ' /> ein</label>' +
+          '<input data-k="notes" value="' + escapeAttr(row.notes) + '" placeholder="Notiz" />' +
+          '<button type="button" class="ghost" data-dnd-del="items">×</button></div>'
+        ).join('');
+      }
+      const feats = document.getElementById('dndFeatureList');
+      if (feats) {
+        feats.innerHTML = dndState.features.map(row =>
+          '<div class="dnd-row dnd-row-feat" data-dnd-row="features" data-id="' + row.id + '">' +
+          '<input data-k="name" value="' + escapeAttr(row.name) + '" placeholder="Merkmal" />' +
+          '<input data-k="used" value="' + escapeAttr(row.used) + '" placeholder="verbr." />' +
+          '<input data-k="uses" value="' + escapeAttr(row.uses) + '" placeholder="max" />' +
+          '<select data-k="reset"><option value="short"' + (row.reset === 'short' ? ' selected' : '') + '>Kurzrast</option>' +
+          '<option value="long"' + (row.reset === 'long' ? ' selected' : '') + '>Langrast</option>' +
+          '<option value="dawn"' + (row.reset === 'dawn' ? ' selected' : '') + '>Morgengrauen</option></select>' +
+          '<input data-k="text" value="' + escapeAttr(row.text) + '" placeholder="Beschreibung" />' +
+          '<button type="button" class="ghost" data-dnd-del="features">×</button></div>'
+        ).join('');
+      }
+    }
+
+    function escapeAttr(v) {
+      return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    }
+
+    function renderDndPips() {
+      const ok = document.getElementById('dndDeathOk');
+      const fail = document.getElementById('dndDeathFail');
+      if (ok) {
+        ok.innerHTML = [1, 2, 3].map(i =>
+          '<button type="button" class="dnd-pip' + (dndState.deathSuccess >= i ? ' is-on' : '') + '" data-dnd-death="success" data-n="' + i + '"></button>'
+        ).join('');
+      }
+      if (fail) {
+        fail.innerHTML = [1, 2, 3].map(i =>
+          '<button type="button" class="dnd-pip is-fail' + (dndState.deathFail >= i ? ' is-on' : '') + '" data-dnd-death="fail" data-n="' + i + '"></button>'
+        ).join('');
+      }
+    }
+
+    function renderDndSlots() {
+      const box = document.getElementById('dndSpellSlots');
+      if (!box || box.childElementCount) {
+        if (box && box.childElementCount) {
+          for (let i = 1; i <= 9; i++) {
+            const max = box.querySelector('[data-dnd-slot-max="' + i + '"]');
+            const used = box.querySelector('[data-dnd-slot-used="' + i + '"]');
+            if (max) max.value = dndState.spellSlots[i].max;
+            if (used) used.value = dndState.spellSlots[i].used;
+          }
+        }
+        return;
+      }
+      box.innerHTML = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(i =>
+        '<div class="dnd-slot"><label>' + i + '</label>' +
+        '<input data-dnd-slot-max="' + i + '" placeholder="max" />' +
+        '<input data-dnd-slot-used="' + i + '" placeholder="aus" /></div>'
+      ).join('');
+      for (let i = 1; i <= 9; i++) {
+        box.querySelector('[data-dnd-slot-max="' + i + '"]').value = dndState.spellSlots[i].max;
+        box.querySelector('[data-dnd-slot-used="' + i + '"]').value = dndState.spellSlots[i].used;
+      }
+    }
+
+    function setDndTab(tab) {
+      dndState.tab = tab;
+      document.querySelectorAll('#dndTabs [data-dnd-tab]').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-dnd-tab') === tab);
+      });
+      document.querySelectorAll('#charDndBlock [data-dnd-pane]').forEach(pane => {
+        pane.classList.toggle('hidden', pane.getAttribute('data-dnd-pane') !== tab);
+      });
+    }
+
+    function refreshDndCalcs() {
+      const prof = dndProficiency();
+      const setTxt = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+      setTxt('dndProfOut', dndSigned(prof));
+      DND_ABS.forEach(a => {
+        const score = dndState.abilities[a.id].score;
+        const mod = dndMod(score);
+        const save = mod + (dndState.abilities[a.id].save ? prof : 0);
+        const modEl = document.querySelector('#charDndBlock [data-dnd-mod="' + a.id + '"]');
+        const saveEl = document.querySelector('#charDndBlock [data-dnd-save-mod="' + a.id + '"]');
+        if (modEl) modEl.textContent = dndSigned(mod);
+        if (saveEl) saveEl.textContent = dndSigned(save);
+      });
+      DND_SKILLS.forEach(s => {
+        const el = document.querySelector('#charDndBlock [data-skill-mod="' + s.id + '"]');
+        if (el) el.textContent = dndSigned(dndSkillBonus(s.id));
+      });
+      const init = dndMod(dndState.abilities.dex.score) + (Number(String(dndState.initiativeBonus || '').replace(',', '.')) || 0);
+      setTxt('dndInitOut', dndSigned(init));
+      setTxt('dndInitBox', dndSigned(init));
+      const insp = document.getElementById('dndInsp');
+      if (insp) insp.classList.toggle('is-on', !!dndState.inspiration);
+      const senses = document.getElementById('dndSensesOut');
+      if (senses) {
+        senses.innerHTML =
+          '<div>Passive Wahrnehmung <strong>' + (10 + dndSkillBonus('perception')) + '</strong></div>' +
+          '<div>Passive Nachforschung <strong>' + (10 + dndSkillBonus('investigation')) + '</strong></div>' +
+          '<div>Passive Einsicht <strong>' + (10 + dndSkillBonus('insight')) + '</strong></div>';
+      }
+      const spellMod = dndMod(dndState.abilities[dndState.spellAbility] ? dndState.abilities[dndState.spellAbility].score : 10);
+      setTxt('dndSpellDc', String(8 + prof + spellMod));
+      setTxt('dndSpellAtk', dndSigned(prof + spellMod));
+    }
+
+    function fillDndForm(sheet) {
+      const s = normalizeSheet(sheet);
+      dndState = normalizeDndSheet(s.dnd);
+      if (!dndState.name) dndState.name = s.name || 'Udo';
+      if (!dndState.volk) dndState.volk = s.volk || '';
+      if (!dndState.klasse) dndState.klasse = s.klasse || '';
+      if (!dndState.stufe) dndState.stufe = s.stufe || '';
+      if (!dndState.ac) dndState.ac = s.armor || '';
+      if (!dndState.hpCurrent && s.hp) {
+        const hp = parseSheetHp(s.hp);
+        dndState.hpCurrent = hp.hp ? String(hp.hp) : '';
+        dndState.hpMax = hp.hpMax ? String(hp.hpMax) : '';
+      }
+      renderDndAbilityCol();
+      renderDndSlots();
+      renderDndLists();
+      renderDndPips();
+      applyDndFields();
+      setDndTab(dndState.tab || 'actions');
+      refreshDndCalcs();
+    }
+
+    function readDndForm() {
+      collectDndFields();
+      const name = (dndState.name || 'Udo').trim();
+      const stats = DND_ABS.map(a => {
+        const score = dndState.abilities[a.id].score;
+        return a.label.slice(0, 2).toUpperCase() + ' ' + score + ' (' + dndSigned(dndMod(score)) + ')';
+      }).join(' — ');
+      const hp = [dndState.hpCurrent, dndState.hpMax].filter(Boolean).join(' / ');
+      return {
+        name: name,
+        volk: String(dndState.volk || '').trim(),
+        klasse: String(dndState.klasse || '').trim(),
+        stufe: String(dndState.stufe || '').trim(),
+        hp: hp,
+        armor: String(dndState.ac || '').trim(),
+        stats: stats,
+        notes: String(dndState.notesOther || ''),
+        extra: '',
+        portraitId: sheetPortraitId || '',
+        dnd: normalizeDndSheet(dndState)
+      };
+    }
+
+    function addDndRow(kind) {
+      collectDndFields();
+      if (kind === 'attacks') dndState.attacks.push({ id: combatNewId('a'), name: '', bonus: '', damage: '', notes: '' });
+      if (kind === 'spells') dndState.spells.push({ id: combatNewId('s'), level: '0', name: '', prepared: false, notes: '' });
+      if (kind === 'items') dndState.items.push({ id: combatNewId('i'), name: '', qty: '1', weight: '', equipped: false, attuned: false, notes: '' });
+      if (kind === 'features') dndState.features.push({ id: combatNewId('f'), name: '', uses: '', used: '', reset: 'long', text: '' });
+      renderDndLists();
+      sheetDirty = true;
+    }
+
+    function applyDndRest(kind) {
+      collectDndFields();
+      dndState.features.forEach(f => {
+        if (kind === 'short' && f.reset === 'short') f.used = '0';
+        if (kind === 'long' && (f.reset === 'short' || f.reset === 'long')) f.used = '0';
+        if (kind === 'dawn' && f.reset === 'dawn') f.used = '0';
+      });
+      if (kind === 'long') {
+        dndState.hpCurrent = dndState.hpMax || dndState.hpCurrent;
+        dndState.hpTemp = '';
+        dndState.hitDiceUsed = '0';
+        dndState.deathSuccess = 0;
+        dndState.deathFail = 0;
+        for (let i = 1; i <= 9; i++) dndState.spellSlots[i].used = '0';
+      }
+      renderDndLists();
+      renderDndPips();
+      applyDndFields();
+      renderDndSlots();
+      refreshDndCalcs();
+      sheetDirty = true;
+      toast(kind === 'short' ? 'Kurzrast verrechnet.' : kind === 'long' ? 'Langrast verrechnet.' : 'Morgengrauen verrechnet.');
+    }
+
     function normalizeAlts(raw) {
       const out = {};
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
@@ -4405,6 +5287,7 @@
       });
       ensureVeyrAlt(out);
       ensureIllusionAlt(out);
+      ensureUdoAccount(out);
       renameReptileToBjoern(out);
       return out;
     }
@@ -4430,7 +5313,8 @@
       playerAccounts = incoming;
       if (currentPlayerId && !playerAccounts[currentPlayerId]) setPlayer(null);
       syncPlayerCombatNames();
-      if (needsCloudRename && db && !sheetDirty && !veyrEntryEditing) {
+      const hadUdo = !!(data.accounts && (data.accounts.udo || data.accounts.Udo));
+      if ((needsCloudRename || !hadUdo) && db && !sheetDirty && !veyrEntryEditing) {
         persistPlayers().catch(() => {});
       }
       syncChatListeners();
@@ -5930,7 +6814,7 @@
     }
 
     function chatPlayerIds() {
-      return Object.keys(playerAccounts).sort((a, b) =>
+      return Object.keys(playerAccounts).filter(id => id !== UDO_ID).sort((a, b) =>
         playerAccounts[a].name.localeCompare(playerAccounts[b].name, 'de')
       );
     }
@@ -6517,6 +7401,7 @@
       if (!canUse) return;
 
       ensureVeyrAlt(playerAccounts);
+      ensureUdoAccount(playerAccounts);
       const roster = document.getElementById('charRoster');
       const layout = document.getElementById('charLayout');
       const ids = Object.keys(playerAccounts).sort((a, b) =>
@@ -6579,7 +7464,12 @@
       const del = document.getElementById('deletePlayerBtn');
       const isVeyr = currentSheetOwner === VEYR_OWNER;
       const isNotes = isDM && isDmNotesOwner(currentSheetOwner);
-      document.getElementById('charSheetBlock').classList.toggle('hidden', isNotes);
+      const isUdo = isUdoOwner(currentSheetOwner);
+      document.getElementById('charSheetBlock').classList.toggle('hidden', isNotes || isUdo);
+      const dndBlock = document.getElementById('charDndBlock');
+      if (dndBlock) dndBlock.classList.toggle('hidden', isNotes || !isUdo);
+      const sheetActions = document.getElementById('charSheetActions');
+      if (sheetActions) sheetActions.classList.toggle('hidden', isNotes);
       document.getElementById('charEntryBlock').classList.add('hidden');
       const notesBlock = document.getElementById('charDmNotesBlock');
       if (notesBlock) notesBlock.classList.toggle('hidden', !isNotes);
@@ -6587,11 +7477,12 @@
       document.getElementById('charMainCard').classList.remove('is-entry');
       document.getElementById('charMainCard').classList.toggle('is-veyr-sheet', isVeyr && !isNotes);
       document.getElementById('charMainCard').classList.toggle('is-dm-notes', isNotes);
+      document.getElementById('charMainCard').classList.toggle('is-dnd', isUdo && !isNotes);
       const notesField = document.getElementById('sheetNotesField');
       if (notesField) notesField.classList.toggle('hidden', isVeyr || isNotes);
       const extraLabel = document.getElementById('sheetExtraLabel');
       if (extraLabel) extraLabel.textContent = isVeyr ? 'Text' : 'Ausrüstung & mehr';
-      del.classList.toggle('hidden', !isDM || !rec || rec.isAlt || isNotes);
+      del.classList.toggle('hidden', !isDM || !rec || rec.isAlt || isNotes || isUdo);
       if (isNotes) {
         document.getElementById('charHeading').textContent = 'DM-Notizen';
         document.getElementById('charBlurb').textContent = 'Nur für dich. Liegt nicht in Sitzung, Codex oder auf den Spielerblättern.';
@@ -11810,6 +12701,83 @@
         onClick('saveSheetBtn', saveSheet);
         onClick('saveDmNotesBtn', saveDmNotes);
         onClick('deletePlayerBtn', deletePlayerAccount);
+        onClick('dndPortraitBtn', () => {
+          const input = document.getElementById('sheetPortraitInput');
+          if (input) input.click();
+        });
+        onClick('dndInsp', () => {
+          collectDndFields();
+          dndState.inspiration = !dndState.inspiration;
+          refreshDndCalcs();
+          sheetDirty = true;
+        });
+        onClick('dndShortRest', () => applyDndRest('short'));
+        onClick('dndLongRest', () => applyDndRest('long'));
+        onClick('dndDawn', () => applyDndRest('dawn'));
+        const dndBlock = document.getElementById('charDndBlock');
+        if (dndBlock && !dndBlock.dataset.bound) {
+          dndBlock.dataset.bound = '1';
+          const syncDnd = ev => {
+            if (!isUdoOwner(currentSheetOwner)) return;
+            sheetDirty = true;
+            const row = ev.target.closest && ev.target.closest('[data-dnd-row]');
+            if (row) {
+              const kind = row.getAttribute('data-dnd-row');
+              const id = row.getAttribute('data-id');
+              const key = ev.target.getAttribute('data-k');
+              const item = (dndState[kind] || []).find(x => x.id === id);
+              if (item && key) item[key] = ev.target.type === 'checkbox' ? ev.target.checked : ev.target.value;
+            }
+            collectDndFields();
+            refreshDndCalcs();
+          };
+          dndBlock.addEventListener('input', syncDnd);
+          dndBlock.addEventListener('change', syncDnd);
+          dndBlock.addEventListener('click', ev => {
+            if (!isUdoOwner(currentSheetOwner)) return;
+            const tab = ev.target.closest('[data-dnd-tab]');
+            if (tab) {
+              collectDndFields();
+              setDndTab(tab.getAttribute('data-dnd-tab'));
+              return;
+            }
+            const skill = ev.target.closest('[data-skill]');
+            if (skill) {
+              const id = skill.getAttribute('data-skill');
+              dndState.skills[id] = ((Number(dndState.skills[id]) || 0) + 1) % 3;
+              skill.classList.toggle('is-prof', dndState.skills[id] === 1);
+              skill.classList.toggle('is-expert', dndState.skills[id] === 2);
+              refreshDndCalcs();
+              sheetDirty = true;
+              return;
+            }
+            const add = ev.target.closest('[data-dnd-add]');
+            if (add) {
+              addDndRow(add.getAttribute('data-dnd-add'));
+              return;
+            }
+            const del = ev.target.closest('[data-dnd-del]');
+            if (del) {
+              const row = del.closest('[data-dnd-row]');
+              if (!row) return;
+              const kind = row.getAttribute('data-dnd-row');
+              const id = row.getAttribute('data-id');
+              dndState[kind] = (dndState[kind] || []).filter(x => x.id !== id);
+              renderDndLists();
+              sheetDirty = true;
+              return;
+            }
+            const death = ev.target.closest('[data-dnd-death]');
+            if (death) {
+              const n = Number(death.getAttribute('data-n'));
+              const which = death.getAttribute('data-dnd-death');
+              if (which === 'success') dndState.deathSuccess = dndState.deathSuccess === n ? n - 1 : n;
+              else dndState.deathFail = dndState.deathFail === n ? n - 1 : n;
+              renderDndPips();
+              sheetDirty = true;
+            }
+          });
+        }
         onEv('dmNotesContent', 'input', () => { sheetDirty = true; });
         ['sheetName', 'sheetVolk', 'sheetKlasse', 'sheetStufe', 'sheetHp', 'sheetArmor', 'sheetStats', 'sheetNotes'].forEach(id => {
           onEv(id, 'input', () => { sheetDirty = true; });
