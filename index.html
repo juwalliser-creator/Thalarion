@@ -393,6 +393,21 @@
     }
     .dm-only-nav { display: none !important; }
     body.is-dm .dm-only-nav { display: inline-flex !important; }
+    body.is-kampf-app .top-nav,
+    body.is-kampf-app #menuBtn,
+    body.is-kampf-app .header-search,
+    body.is-kampf-app #sidebar,
+    body.is-kampf-app .dm-menu,
+    body.is-kampf-app #kampfAppLink { display: none !important; }
+    body.is-kampf-app #worldAppLink { display: inline-flex; }
+    #worldAppLink { display: none; }
+    body.is-kampf-app #homeView,
+    body.is-kampf-app #viewer,
+    body.is-kampf-app #editorView,
+    body.is-kampf-app #mapView,
+    body.is-kampf-app #entstehungView,
+    body.is-kampf-app #sitzungView,
+    body.is-kampf-app #charView { display: none !important; }
 
     .auth-tabs {
       display: flex;
@@ -2458,6 +2473,8 @@
         </div>
       </div>
       <div class="header-spacer"></div>
+      <a class="ghost" id="kampfAppLink" href="kampf.html">Kampf-App</a>
+      <a class="ghost" id="worldAppLink" href="index.html">Zur Welt</a>
       <button class="ghost chat-btn" id="chatBtn" type="button">Chat <span class="chat-badge hidden" id="chatBadge">0</span></button>
       <span class="player-chip" id="playerChip">Spieler</span>
       <button class="ghost" id="playerButton" type="button">Spieler Login</button>
@@ -3194,6 +3211,9 @@
       oil: { label: 'Öl', fill: 'rgba(42, 32, 12, 0.5)', stroke: '#c4a35a' }
     };
     const DM_USER = 'dm';
+    const KAMPF_ONLY = !!(window.THALARION_KAMPF_ONLY)
+      || new URLSearchParams(window.location.search).get('app') === 'kampf'
+      || /kampf\.html$/i.test(window.location.pathname || '');
     const DM_PASS = 'bWVpbmV3ZWx0';
     const PLAYER_SESSION_KEY = 'thalarion_player';
     const COMBAT_KEY = 'thalarion_combat';
@@ -3379,6 +3399,16 @@
       kampfView: document.getElementById('kampfView'),
       sitzungView: document.getElementById('sitzungView')
     };
+
+    function applyKampfOnlyChrome() {
+      if (!KAMPF_ONLY) return;
+      document.body.classList.add('is-kampf-app', 'no-sidebar');
+      document.title = 'Thalarion – Kampf';
+      const sub = document.querySelector('#homeBtn span');
+      if (sub) sub.textContent = 'Kampf';
+    }
+
+    applyKampfOnlyChrome();
 
     function fillTypeSelect(page) {
       els.type.innerHTML = '';
@@ -3719,6 +3749,7 @@
     }
 
     function persistLocal() {
+      if (KAMPF_ONLY) return;
       writeLocal(LOCAL_KEY, JSON.stringify({
         updatedAt: worldUpdatedAt,
         entries: entries
@@ -9045,6 +9076,7 @@
     }
 
     async function persistWorld() {
+      if (KAMPF_ONLY) return;
       if (!db) throw new Error('Keine Verbindung zur Cloud.');
       const nextAt = Date.now();
       writingRemote = true;
@@ -9061,7 +9093,7 @@
     }
 
     function listenWorld() {
-      if (!db) return;
+      if (KAMPF_ONLY || !db) return;
       worldRef().onSnapshot(snap => {
         if (writingRemote || !snap.exists) return;
         applyRemote(snap.data());
@@ -9079,7 +9111,7 @@
     }
 
     function listenMap() {
-      if (!db) return;
+      if (KAMPF_ONLY || !db) return;
       mapRef().onSnapshot(snap => {
         if (writingMap || !snap.exists) return;
         applyMap(snap.data());
@@ -9160,7 +9192,7 @@
     }
 
     function listenPins() {
-      if (!db) return;
+      if (KAMPF_ONLY || !db) return;
       pinsRef().onSnapshot(snap => {
         if (writingPins || !snap.exists) return;
         applyPins(snap.data());
@@ -9168,6 +9200,7 @@
     }
 
     async function persistPins() {
+      if (KAMPF_ONLY) return;
       if (!db) throw new Error('Keine Verbindung zur Cloud.');
       const nextAt = Date.now();
       writingPins = true;
@@ -10636,6 +10669,7 @@
     }
 
     function persistView() {
+      if (KAMPF_ONLY) return;
       try {
         const wrap = document.getElementById('mapWrap');
         sessionStorage.setItem(VIEW_KEY, JSON.stringify({
@@ -10655,6 +10689,7 @@
     }
 
     function showPage(page) {
+      if (KAMPF_ONLY && page !== 'kampf') page = 'kampf';
       if (currentPage === 'map' && page !== 'map') captureMapView();
       currentPage = page;
       persistView();
@@ -11603,6 +11638,10 @@
     }
 
     function restoreSessionView() {
+      if (KAMPF_ONLY) {
+        showKampf();
+        return;
+      }
       let saved = null;
       try { saved = JSON.parse(sessionStorage.getItem(VIEW_KEY) || 'null'); } catch (err) {}
       if (saved && saved.map) {
@@ -11648,7 +11687,13 @@
 
     function bindAll() {
       safeBind('nav', () => {
-        onClick('homeBtn', showMap);
+        onClick('homeBtn', () => {
+          if (KAMPF_ONLY) {
+            location.href = 'index.html';
+            return;
+          }
+          showMap();
+        });
         onClick('navWorld', showWorld);
         onClick('navEntstehung', showEntstehung);
         onClick('navSitzung', showSitzung);
@@ -12321,16 +12366,65 @@
       loadBattleLocal();
       loadCombat();
       if (!initFirebase()) toast('Keine Verbindung zur Cloud.');
-      const localPack = readLocalPack();
-      let remotePack = null;
+      if (!KAMPF_ONLY) {
+        const localPack = readLocalPack();
+        let remotePack = null;
+        if (db) {
+          try {
+            const snap = await worldRef().get();
+            if (snap.exists) remotePack = parseWorldPayload(snap.data());
+            const mapSnap = await mapRef().get();
+            if (mapSnap.exists) applyMap(mapSnap.data());
+            const pinSnap = await pinsRef().get();
+            if (pinSnap.exists) applyPins(pinSnap.data());
+          } catch (err) {
+            console.warn(err);
+            toast('Keine Verbindung zur Cloud.');
+          }
+        }
+
+        const remoteAt = remotePack ? Number(remotePack.updatedAt) || 0 : 0;
+        const localAt = localPack ? Number(localPack.updatedAt) || 0 : 0;
+        const localHas = !!(localPack && localPack.entries && localPack.entries.length);
+        let chosen = { entries: [], updatedAt: 0 };
+        let upload = false;
+
+        if (remotePack && localPack && localAt > remoteAt) {
+          chosen = localPack;
+          upload = true;
+          toast('Lokaler Codex war neuer und wird in die Cloud übernommen.');
+        } else if (remotePack) {
+          chosen = remotePack;
+        } else if (localHas) {
+          chosen = localPack;
+          upload = true;
+        } else {
+          try {
+            const r = await fetch('world.json');
+            if (r.ok) {
+              const seedPack = parseWorldPayload(await r.json());
+              if (seedPack && seedPack.entries && seedPack.entries.length) {
+                chosen = { entries: seedPack.entries, updatedAt: Date.now() };
+                upload = true;
+              }
+            }
+          } catch (err) {}
+        }
+
+        entries = chosen.entries || [];
+        worldUpdatedAt = chosen.updatedAt || 0;
+        persistLocal();
+        if (db && upload) {
+          try {
+            await persistWorld();
+          } catch (err) {
+            console.warn(err);
+          }
+        }
+      }
+
       if (db) {
         try {
-          const snap = await worldRef().get();
-          if (snap.exists) remotePack = parseWorldPayload(snap.data());
-          const mapSnap = await mapRef().get();
-          if (mapSnap.exists) applyMap(mapSnap.data());
-          const pinSnap = await pinsRef().get();
-          if (pinSnap.exists) applyPins(pinSnap.data());
           const playerSnap = await playersRef().get();
           if (playerSnap.exists) applyPlayers(playerSnap.data());
           const rosterSnap = await rosterRef().get();
@@ -12348,45 +12442,6 @@
         } catch (err) {
           console.warn(err);
           toast('Keine Verbindung zur Cloud.');
-        }
-      }
-
-      const remoteAt = remotePack ? Number(remotePack.updatedAt) || 0 : 0;
-      const localAt = localPack ? Number(localPack.updatedAt) || 0 : 0;
-      const localHas = !!(localPack && localPack.entries && localPack.entries.length);
-      let chosen = { entries: [], updatedAt: 0 };
-      let upload = false;
-
-      if (remotePack && localPack && localAt > remoteAt) {
-        chosen = localPack;
-        upload = true;
-        toast('Lokaler Codex war neuer und wird in die Cloud übernommen.');
-      } else if (remotePack) {
-        chosen = remotePack;
-      } else if (localHas) {
-        chosen = localPack;
-        upload = true;
-      } else {
-        try {
-          const r = await fetch('world.json');
-          if (r.ok) {
-            const seedPack = parseWorldPayload(await r.json());
-            if (seedPack && seedPack.entries && seedPack.entries.length) {
-              chosen = { entries: seedPack.entries, updatedAt: Date.now() };
-              upload = true;
-            }
-          }
-        } catch (err) {}
-      }
-
-      entries = chosen.entries || [];
-      worldUpdatedAt = chosen.updatedAt || 0;
-      persistLocal();
-      if (db && upload) {
-        try {
-          await persistWorld();
-        } catch (err) {
-          console.warn(err);
         }
       }
 
