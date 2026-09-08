@@ -1867,30 +1867,41 @@
     }
     .kampf-init-strip.hidden { display: none; }
     @keyframes kampfTurnPulse {
+      0%, 100% { width: 54px; height: 54px; }
+      50% { width: 64px; height: 64px; }
+    }
+    @keyframes kampfTurnTokenPulse {
       0%, 100% { transform: scale(1); }
       50% { transform: scale(1.08); }
     }
     .kampf-init-item {
       flex: 0 0 auto;
       width: 4.1rem;
-      background: transparent;
-      border: 0;
+      background: transparent !important;
+      background-color: transparent !important;
+      background-image: none;
+      border: 0 !important;
       padding: 0;
       color: var(--ink);
       text-align: center;
       cursor: pointer;
       appearance: none;
       -webkit-appearance: none;
-      box-shadow: none;
+      box-shadow: none !important;
       outline: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .kampf-init-item::-moz-focus-inner {
+      border: 0;
+      padding: 0;
     }
     .kampf-init-item:hover,
     .kampf-init-item:focus,
     .kampf-init-item:focus-visible,
     .kampf-init-item:active {
-      background: transparent;
-      border: 0;
-      box-shadow: none;
+      background: transparent !important;
+      border: 0 !important;
+      box-shadow: none !important;
       outline: none;
     }
     .kampf-init-item .kampf-face {
@@ -1906,6 +1917,7 @@
       place-items: center;
       color: var(--gold);
       overflow: hidden;
+      clip-path: circle(50%);
     }
     .kampf-init-item.is-player .kampf-face { border-color: var(--gold-dim); }
     .kampf-init-item.is-enemy .kampf-face { border-color: var(--blood); }
@@ -1914,11 +1926,11 @@
       height: 58px;
       border-width: 3px;
       border-color: var(--gold);
-      box-shadow: 0 0 14px rgba(212, 179, 106, 0.45);
+      box-shadow: none;
       animation: kampfTurnPulse 1.7s ease-in-out infinite;
     }
     .kampf-init-item.is-down .kampf-face {
-      filter: grayscale(1) brightness(0.65);
+      filter: none;
       opacity: 0.78;
       animation: none;
     }
@@ -2662,6 +2674,7 @@
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      clip-path: circle(50%);
     }
     .battle-token:hover,
     .battle-token:focus-visible { z-index: 8; }
@@ -2709,7 +2722,7 @@
     .battle-token.is-turn .battle-token-face {
       border-color: #f3e6c0;
       box-shadow: 0 0 0 3px var(--gold), 0 0 16px rgba(201, 162, 39, .9);
-      animation: kampfTurnPulse 1.7s ease-in-out infinite;
+      animation: kampfTurnTokenPulse 1.7s ease-in-out infinite;
     }
     .battle-token.is-turn.is-down .battle-token-face,
     .battle-token.is-dragging .battle-token-face {
