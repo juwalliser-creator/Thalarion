@@ -2647,12 +2647,9 @@
     .battle-token:focus-visible { z-index: 8; }
     .battle-token-hp {
       display: none;
-      position: absolute;
-      left: 50%;
-      top: calc(var(--battle-token-face, 48px) + 3px);
-      transform: translateX(-50%);
       width: var(--battle-token-face, 48px);
-      height: 4px;
+      height: 5px;
+      margin: 0.18rem auto 0;
       border-radius: 99px;
       background: rgba(12, 10, 8, 0.72);
       box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
@@ -2713,7 +2710,7 @@
     .battle-stage.is-aiming .battle-overlay { pointer-events: auto; }
     .battle-token span {
       display: block;
-      margin-top: 0.45rem;
+      margin-top: 0.2rem;
       text-align: center;
       font-size: calc(var(--battle-token-face, 48px) * 0.24);
       line-height: 1.15;
@@ -6696,6 +6693,7 @@
         const label = document.createElement('span');
         label.textContent = token.name || '—';
         el.appendChild(face);
+        el.appendChild(label);
         if (row) {
           const hp = Math.max(0, Number(row.hp) || 0);
           const hpMax = Math.max(0, Number(row.hpMax) || 0);
@@ -6709,7 +6707,6 @@
           bar.appendChild(document.createElement('i'));
           el.appendChild(bar);
         }
-        el.appendChild(label);
         el.title = token.name || '';
         el.dataset.id = token.id;
         el.addEventListener('pointerenter', () => setBattleLink(token.id, false));
