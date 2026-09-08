@@ -1867,10 +1867,6 @@
     }
     .kampf-init-strip.hidden { display: none; }
     @keyframes kampfTurnPulse {
-      0%, 100% { width: 54px; height: 54px; }
-      50% { width: 64px; height: 64px; }
-    }
-    @keyframes kampfTurnTokenPulse {
       0%, 100% { transform: scale(1); }
       50% { transform: scale(1.08); }
     }
@@ -1928,6 +1924,7 @@
       border-color: var(--gold);
       box-shadow: none;
       animation: kampfTurnPulse 1.7s ease-in-out infinite;
+      will-change: transform;
     }
     .kampf-init-item.is-down .kampf-face {
       filter: none;
@@ -2722,7 +2719,7 @@
     .battle-token.is-turn .battle-token-face {
       border-color: #f3e6c0;
       box-shadow: 0 0 0 3px var(--gold), 0 0 16px rgba(201, 162, 39, .9);
-      animation: kampfTurnTokenPulse 1.7s ease-in-out infinite;
+      animation: kampfTurnPulse 1.7s ease-in-out infinite;
     }
     .battle-token.is-turn.is-down .battle-token-face,
     .battle-token.is-dragging .battle-token-face {
