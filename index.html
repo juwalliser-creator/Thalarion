@@ -796,17 +796,24 @@
     .dnd-pane.hidden { display: none; }
     .dnd-action-filters {
       display: flex;
-      flex-wrap: wrap;
-      gap: 0.3rem;
-      margin-bottom: 0.7rem;
+      flex-wrap: nowrap;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 0.4rem;
+      margin-bottom: 0.65rem;
+      padding: 0.5rem 0.7rem;
+      overflow-x: auto;
     }
+    .dnd-action-filters.hidden { display: none; }
     .dnd-action-filters button {
+      flex: 0 0 auto;
+      white-space: nowrap;
       background: var(--dnd-well);
       border: 1px solid var(--dnd-line);
       color: var(--dnd-mute);
       border-radius: 999px;
-      padding: 0.22rem 0.65rem;
-      font-size: 0.75rem;
+      padding: 0.38rem 0.9rem;
+      font-size: 0.78rem;
       letter-spacing: 0.05em;
       text-transform: uppercase;
     }
@@ -3450,6 +3457,15 @@
                         </div>
                       </div>
                     </div>
+                    <nav class="dnd-action-filters dnd-card" id="dndActionFilters">
+                      <button type="button" data-dnd-act-filter="all" class="active">Alle</button>
+                      <button type="button" data-dnd-act-filter="attack">Angriff</button>
+                      <button type="button" data-dnd-act-filter="action">Aktion</button>
+                      <button type="button" data-dnd-act-filter="bonus">Bonusaktion</button>
+                      <button type="button" data-dnd-act-filter="reaction">Reaktion</button>
+                      <button type="button" data-dnd-act-filter="other">Weitere</button>
+                      <button type="button" data-dnd-act-filter="limited">Begrenzt</button>
+                    </nav>
                     <div class="dnd-body">
                       <aside class="dnd-col dnd-card">
                         <h3>Rettungswürfe</h3>
@@ -3494,15 +3510,6 @@
                           <button type="button" data-dnd-tab="extras">Extras</button>
                         </nav>
                         <div class="dnd-pane dnd-card" data-dnd-pane="actions">
-                          <div class="dnd-action-filters" id="dndActionFilters">
-                            <button type="button" data-dnd-act-filter="all" class="active">Alle</button>
-                            <button type="button" data-dnd-act-filter="attack">Angriff</button>
-                            <button type="button" data-dnd-act-filter="action">Aktion</button>
-                            <button type="button" data-dnd-act-filter="bonus">Bonusaktion</button>
-                            <button type="button" data-dnd-act-filter="reaction">Reaktion</button>
-                            <button type="button" data-dnd-act-filter="other">Weitere</button>
-                            <button type="button" data-dnd-act-filter="limited">Begrenzt</button>
-                          </div>
                           <div data-dnd-act-sec="attack">
                             <div class="dnd-sec-title">Angriffe</div>
                             <div class="dnd-atk-head"><span>Aktion</span><span>Reichweite</span><span>Treffer / SG</span><span>Schaden</span><span>Notizen</span><span></span></div>
@@ -5709,6 +5716,8 @@
       document.querySelectorAll('#charDndBlock [data-dnd-pane]').forEach(pane => {
         pane.classList.toggle('hidden', pane.getAttribute('data-dnd-pane') !== tab);
       });
+      const filters = document.getElementById('dndActionFilters');
+      if (filters) filters.classList.toggle('hidden', tab !== 'actions');
       if (tab === 'actions' || tab === 'features') renderDndLists();
     }
 
