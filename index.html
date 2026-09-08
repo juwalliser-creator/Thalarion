@@ -2647,9 +2647,12 @@
     .battle-token:focus-visible { z-index: 8; }
     .battle-token-hp {
       display: none;
+      position: relative;
+      left: 50%;
+      transform: translateX(-50%);
       width: calc(var(--battle-token-face, 48px) * 2);
       height: 10px;
-      margin: 0.18rem auto 0;
+      margin: 0.18rem 0 0;
       border-radius: 99px;
       background: rgba(12, 10, 8, 0.72);
       box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
