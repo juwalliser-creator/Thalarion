@@ -482,55 +482,74 @@
       font: inherit;
     }
     .char-main.is-dnd {
-      background: #12101a;
-      border-color: #3a3228;
-      padding: 0.7rem;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      padding: 0;
     }
     .char-main.is-dnd #charHeading,
     .char-main.is-dnd #charBlurb { display: none; }
-    .char-layout:has(.is-dnd) { grid-template-columns: 180px 1fr; }
+    .char-layout:has(.is-dnd) { grid-template-columns: 168px 1fr; gap: 0.85rem; }
+    #charView.is-dnd-wide {
+      max-width: none;
+    }
+    .content:has(#charView.is-dnd-wide:not(.hidden)) {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
     .dnd-sheet {
-      --dnd-card: #1c1a24;
-      --dnd-ink: #f4efe4;
-      --dnd-mute: #a79a86;
-      --dnd-line: #3d362c;
+      --dnd-card: #1b1814;
+      --dnd-ink: #f3ead8;
+      --dnd-mute: #b3a48c;
+      --dnd-line: #3d342a;
       --dnd-gold: #d4b36a;
-      --dnd-red: #c23b3b;
+      --dnd-red: #9a3333;
+      --dnd-well: #14110e;
       color: var(--dnd-ink);
-      font-size: 0.92rem;
+      font-size: 0.9rem;
     }
     .dnd-sheet input,
     .dnd-sheet textarea,
     .dnd-sheet select {
-      background: #14121a;
+      background: var(--dnd-well);
       border: 1px solid var(--dnd-line);
       color: var(--dnd-ink);
       border-radius: 6px;
       padding: 0.28rem 0.4rem;
       width: 100%;
     }
-    .dnd-sheet textarea { min-height: 5.5rem; resize: vertical; }
-    .dnd-sheet label { color: var(--dnd-mute); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
-    .dnd-head {
-      display: grid;
-      grid-template-columns: 88px 1fr auto;
-      gap: 0.8rem;
-      align-items: center;
+    .dnd-sheet textarea { min-height: 5.2rem; resize: vertical; }
+    .dnd-col textarea { min-height: 2.4rem; }
+    .dnd-def-box textarea { min-height: 4.2rem; }
+    .dnd-sheet label {
+      color: var(--dnd-mute);
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .dnd-card {
       background: var(--dnd-card);
       border: 1px solid var(--dnd-line);
       border-radius: 12px;
-      padding: 0.7rem;
+    }
+    .dnd-head {
+      display: grid;
+      grid-template-columns: 92px 1fr auto;
+      gap: 0.9rem;
+      align-items: center;
+      padding: 0.75rem 0.9rem;
       margin-bottom: 0.65rem;
     }
     .dnd-portrait {
       width: 88px;
       height: 88px;
-      border-radius: 10px;
+      border-radius: 50%;
       overflow: hidden;
-      border: 1px solid var(--dnd-gold);
-      background: #0d0b12;
+      border: 2px solid var(--dnd-gold);
+      background: var(--dnd-well);
       position: relative;
       cursor: pointer;
+      box-shadow: 0 0 0 4px rgba(212, 179, 106, 0.12);
     }
     .dnd-portrait img {
       width: 100%;
@@ -551,65 +570,116 @@
     }
     .dnd-id input[data-dnd-field="name"] {
       font-family: Cinzel, serif;
-      font-size: 1.35rem;
+      font-size: 1.7rem;
       letter-spacing: 0.04em;
       color: var(--dnd-gold);
       background: transparent;
       border: 0;
-      border-bottom: 1px solid var(--dnd-line);
       border-radius: 0;
-      padding: 0 0 0.15rem;
+      padding: 0;
+    }
+    .dnd-class-line {
+      color: var(--dnd-mute);
+      font-size: 0.92rem;
+      margin: 0.1rem 0 0.45rem;
+      min-height: 1.2em;
     }
     .dnd-meta {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 0.4rem;
-      margin-top: 0.45rem;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 0.35rem;
     }
-    .dnd-chips {
+    .dnd-rests-head {
       display: flex;
       flex-direction: column;
       gap: 0.4rem;
-      min-width: 7.5rem;
+      min-width: 8.2rem;
     }
-    .dnd-chip {
-      background: #14121a;
-      border: 1px solid var(--dnd-line);
-      border-radius: 10px;
-      padding: 0.35rem 0.5rem;
-      text-align: center;
+    .dnd-rests-head button {
+      background: var(--dnd-well);
+      border: 1px solid var(--dnd-gold);
+      color: var(--dnd-gold);
+      border-radius: 8px;
+      padding: 0.45rem 0.7rem;
+      letter-spacing: 0.04em;
     }
-    .dnd-chip strong { display: block; color: var(--dnd-gold); font-size: 1.1rem; }
-    .dnd-insp {
-      width: 100%;
-      border-radius: 10px;
-      border: 1px solid var(--dnd-line);
-      background: #14121a;
-      color: var(--dnd-mute);
-      padding: 0.4rem 0.5rem;
-    }
-    .dnd-insp.is-on { color: var(--dnd-gold); border-color: var(--dnd-gold); }
-    .dnd-combat {
+    .dnd-rests-head button:hover { background: rgba(212, 179, 106, 0.12); }
+    .dnd-abs {
       display: grid;
       grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 0.5rem;
       margin-bottom: 0.65rem;
     }
-    .dnd-stat {
+    .dnd-ab {
+      text-align: center;
+      padding: 0.55rem 0.4rem 0.5rem;
+    }
+    .dnd-ab-mod {
+      width: 100%;
+      background: transparent;
+      border: 0;
+      color: var(--dnd-gold);
+      font-family: Cinzel, serif;
+      font-size: 1.7rem;
+      line-height: 1;
+      padding: 0;
+    }
+    .dnd-ab input {
+      width: 3.2rem;
+      text-align: center;
+      margin: 0.25rem auto 0.2rem;
+      display: block;
+    }
+    .dnd-ab-name {
+      color: var(--dnd-gold);
+      font-family: Cinzel, serif;
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+    }
+    .dnd-combat {
+      display: grid;
+      grid-template-columns: 7.2rem 8rem 7.4rem 7.4rem 7.4rem minmax(18rem, 1.4fr);
+      gap: 0.5rem;
+      margin-bottom: 0.65rem;
+    }
+    .dnd-stat { padding: 0.5rem 0.55rem; }
+    .dnd-stat .dnd-big,
+    .dnd-chip-btn .dnd-big {
+      font-family: Cinzel, serif;
+      font-size: 1.45rem;
+      color: var(--dnd-gold);
+      line-height: 1.1;
+    }
+    .dnd-chip-btn {
+      width: 100%;
+      text-align: center;
       background: var(--dnd-card);
       border: 1px solid var(--dnd-line);
-      border-radius: 10px;
-      padding: 0.45rem 0.5rem;
+      color: inherit;
+      border-radius: 12px;
+      padding: 0.5rem 0.4rem;
     }
-    .dnd-stat .dnd-big {
-      font-family: Cinzel, serif;
-      font-size: 1.35rem;
+    .dnd-chip-btn.is-on,
+    .dnd-insp.is-on {
       color: var(--dnd-gold);
+      border-color: var(--dnd-gold);
+      box-shadow: 0 0 0 1px rgba(212, 179, 106, 0.25);
     }
-    .dnd-stat.is-hp .dnd-big { color: var(--dnd-red); }
+    .dnd-stat.is-hp { display: grid; gap: 0.35rem; }
     .dnd-hp-row, .dnd-inline { display: flex; gap: 0.35rem; align-items: center; }
     .dnd-hp-row input { text-align: center; }
-    .dnd-pips { display: flex; gap: 0.25rem; margin-top: 0.25rem; }
+    .dnd-hp-tools { display: flex; gap: 0.3rem; align-items: center; }
+    .dnd-hp-tools input { max-width: 4.4rem; text-align: center; }
+    .dnd-hp-tools button {
+      border-radius: 7px;
+      padding: 0.28rem 0.55rem;
+      border: 1px solid var(--dnd-line);
+      background: var(--dnd-well);
+      color: var(--dnd-ink);
+    }
+    .dnd-hp-tools .is-heal { border-color: var(--ok); color: #c5d4a8; }
+    .dnd-hp-tools .is-dmg { border-color: var(--dnd-red); color: #e2b3b3; }
+    .dnd-pips { display: flex; gap: 0.25rem; }
     .dnd-pip {
       width: 14px;
       height: 14px;
@@ -620,34 +690,44 @@
     }
     .dnd-pip.is-on { background: var(--dnd-gold); }
     .dnd-pip.is-fail.is-on { background: var(--dnd-red); border-color: var(--dnd-red); }
+    .dnd-death { display: flex; justify-content: space-between; gap: 0.6rem; font-size: 0.78rem; }
     .dnd-body {
       display: grid;
-      grid-template-columns: 250px 1fr;
+      grid-template-columns: 220px 250px minmax(0, 1fr);
       gap: 0.65rem;
       align-items: start;
     }
-    .dnd-col, .dnd-main, .dnd-pane, .dnd-stat, .dnd-ability {
-      background: var(--dnd-card);
-      border: 1px solid var(--dnd-line);
-      border-radius: 10px;
+    .dnd-col, .dnd-pane { padding: 0.65rem 0.7rem; }
+    .dnd-col h3,
+    .dnd-pane h3,
+    .dnd-sec-title {
+      font-family: Cinzel, serif;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      color: var(--dnd-gold);
+      margin: 0 0 0.45rem;
     }
-    .dnd-col { padding: 0.45rem; }
-    .dnd-main { padding: 0.55rem; background: transparent; border: 0; }
-    .dnd-ability { padding: 0.45rem 0.5rem; margin-bottom: 0.45rem; }
-    .dnd-ability-top {
+    .dnd-save-row,
+    .dnd-skill {
       display: grid;
-      grid-template-columns: 1fr 52px;
+      grid-template-columns: 16px 1fr;
       gap: 0.35rem;
       align-items: center;
+      margin: 0.16rem 0;
+      font-size: 0.84rem;
     }
-    .dnd-ability-name { color: var(--dnd-gold); font-family: Cinzel, serif; font-size: 0.78rem; letter-spacing: 0.08em; }
-    .dnd-mod {
-      text-align: center;
-      font-size: 1.15rem;
-      color: var(--dnd-gold);
-      border: 1px solid var(--dnd-line);
-      border-radius: 8px;
-      padding: 0.2rem 0;
+    .dnd-save-row button.dnd-sk-roll,
+    .dnd-skill button.dnd-sk-roll {
+      display: grid;
+      grid-template-columns: 2.4rem 1fr;
+      gap: 0.35rem;
+      align-items: center;
+      background: none;
+      border: 0;
+      color: inherit;
+      padding: 0;
+      text-align: left;
+      width: 100%;
     }
     .dnd-save {
       display: flex;
@@ -660,14 +740,6 @@
       color: var(--dnd-ink);
     }
     .dnd-save input { width: auto; }
-    .dnd-skill {
-      display: grid;
-      grid-template-columns: 16px 2.2rem 1fr;
-      gap: 0.35rem;
-      align-items: center;
-      margin: 0.18rem 0;
-      font-size: 0.82rem;
-    }
     .dnd-prof {
       width: 14px;
       height: 14px;
@@ -680,34 +752,83 @@
     .dnd-prof.is-expert {
       background: var(--dnd-gold);
       border-color: var(--dnd-gold);
-      box-shadow: 0 0 0 2px #1c1a24, 0 0 0 3px var(--dnd-gold);
+      box-shadow: 0 0 0 2px var(--dnd-card), 0 0 0 3px var(--dnd-gold);
     }
-    .dnd-skill-mod { text-align: right; color: var(--dnd-gold); }
-    .dnd-passives { margin-top: 0.4rem; padding: 0.4rem; }
-    .dnd-passives div { display: flex; justify-content: space-between; margin: 0.15rem 0; }
+    .dnd-skill-mod { text-align: right; color: var(--dnd-gold); font-variant-numeric: tabular-nums; }
+    .dnd-passives div,
+    #dndSensesOut div {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.6rem;
+      margin: 0.18rem 0;
+    }
+    .dnd-passives strong,
+    #dndSensesOut strong { color: var(--dnd-gold); }
+    .dnd-def-box { padding: 0.65rem 0.7rem; margin-bottom: 0.55rem; }
+    .dnd-def-box input { margin-bottom: 0.35rem; }
+    .dnd-def-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.45rem;
+    }
     .dnd-tabs {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.25rem;
-      margin-bottom: 0.5rem;
+      gap: 0.2rem;
+      margin-bottom: 0.45rem;
     }
     .dnd-tabs button {
-      background: #14121a;
+      background: transparent;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      color: var(--dnd-mute);
+      border-radius: 0;
+      padding: 0.4rem 0.7rem;
+      font-size: 0.82rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .dnd-tabs button.active {
+      color: var(--dnd-gold);
+      border-bottom-color: var(--dnd-gold);
+      background: transparent;
+    }
+    .dnd-pane.hidden { display: none; }
+    .dnd-action-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      margin-bottom: 0.7rem;
+    }
+    .dnd-action-filters button {
+      background: var(--dnd-well);
       border: 1px solid var(--dnd-line);
       color: var(--dnd-mute);
       border-radius: 999px;
-      padding: 0.28rem 0.7rem;
-      font-size: 0.82rem;
+      padding: 0.22rem 0.65rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
     }
-    .dnd-tabs button.active { color: #1a140c; background: var(--dnd-gold); border-color: var(--dnd-gold); }
-    .dnd-pane { padding: 0.7rem; }
-    .dnd-pane.hidden { display: none; }
+    .dnd-action-filters button.active {
+      color: #1a140c;
+      background: var(--dnd-gold);
+      border-color: var(--dnd-gold);
+    }
+    .dnd-atk-head,
     .dnd-row {
       display: grid;
-      grid-template-columns: 1.4fr 5.5rem 1fr auto;
+      grid-template-columns: 1.3fr 6.5rem 6.2rem 1fr 1fr auto;
       gap: 0.35rem;
       align-items: center;
       margin-bottom: 0.35rem;
+    }
+    .dnd-atk-head {
+      color: var(--dnd-mute);
+      font-size: 0.68rem;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
     }
     .dnd-row-spell { grid-template-columns: 3.2rem 1.3fr 5.2rem 1fr auto; }
     .dnd-row-item { grid-template-columns: 1.3fr 3.4rem 4rem 5.2rem 5.2rem 1fr auto; }
@@ -730,13 +851,36 @@
     .dnd-add { margin-top: 0.35rem; }
     .dnd-rests { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.6rem; }
     .dnd-check { width: auto !important; }
+    .dnd-mini-roll {
+      background: var(--dnd-well);
+      border: 1px solid var(--dnd-line);
+      color: var(--dnd-gold);
+      border-radius: 6px;
+      padding: 0.2rem 0.4rem;
+      min-width: 2.1rem;
+    }
+    .dnd-combat .dnd-ab-mod {
+      font-size: 1.45rem;
+      width: auto;
+      min-width: 100%;
+    }
+    .dnd-row .dnd-inline input { min-width: 3.6rem; }
+    .dnd-ab-mod:hover,
+    .dnd-sk-roll:hover,
+    .dnd-chip-btn:hover { filter: brightness(1.12); }
+    @media (max-width: 1280px) {
+      .dnd-body { grid-template-columns: 200px 220px 1fr; }
+      .dnd-combat { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .dnd-meta { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
     @media (max-width: 1100px) {
       .char-layout:has(.is-dnd) { grid-template-columns: 1fr; }
-      .dnd-head, .dnd-body, .dnd-combat, .dnd-meta, .dnd-grid-2, .dnd-slots, .dnd-money,
-      .dnd-row, .dnd-row-spell, .dnd-row-item, .dnd-row-feat {
+      .dnd-head, .dnd-body, .dnd-abs, .dnd-combat, .dnd-meta, .dnd-grid-2, .dnd-def-grid,
+      .dnd-slots, .dnd-money, .dnd-atk-head, .dnd-row, .dnd-row-spell, .dnd-row-item, .dnd-row-feat {
         grid-template-columns: 1fr;
       }
-      .dnd-chips { flex-direction: row; }
+      .dnd-rests-head { flex-direction: row; }
+      .dnd-atk-head { display: none; }
     }
 
     #menuBtn { display: none; }
@@ -3225,12 +3369,13 @@
                 </div>
                 <div id="charDndBlock" class="hidden">
                   <div class="dnd-sheet">
-                    <div class="dnd-head">
-                      <div class="dnd-portrait is-empty" id="dndPortraitBtn" title="Portrait">
+                    <div class="dnd-head dnd-card">
+                      <div class="dnd-portrait is-empty" id="dndPortraitBtn" title="Portrait wechseln">
                         <img id="dndPortraitImg" alt="Portrait" class="is-empty" />
                       </div>
                       <div class="dnd-id">
                         <input data-dnd-field="name" placeholder="Charaktername" />
+                        <div class="dnd-class-line" id="dndClassLine">Klasse, Volk und Stufe eintragen</div>
                         <div class="dnd-meta">
                           <div><label>Klasse</label><input data-dnd-field="klasse" /></div>
                           <div><label>Stufe</label><input data-dnd-field="stufe" inputmode="numeric" /></div>
@@ -3242,57 +3387,101 @@
                           <div><label>Übungsbonus</label><input data-dnd-field="profBonus" placeholder="auto" /></div>
                         </div>
                       </div>
-                      <div class="dnd-chips">
-                        <button type="button" class="dnd-insp" id="dndInsp">Inspiration</button>
-                        <div class="dnd-chip"><label>Übung</label><strong id="dndProfOut">+2</strong></div>
-                        <div class="dnd-chip"><label>Init</label><strong id="dndInitOut">+0</strong></div>
+                      <div class="dnd-rests-head">
+                        <button type="button" id="dndShortRest">Kurzrast</button>
+                        <button type="button" id="dndLongRest">Langrast</button>
                       </div>
                     </div>
+                    <div class="dnd-abs" id="dndAbilityRow"></div>
                     <div class="dnd-combat">
-                      <div class="dnd-stat"><label>Rüstungsklasse</label><input data-dnd-field="ac" /></div>
-                      <div class="dnd-stat"><label>Initiative-Bonus</label><input data-dnd-field="initiativeBonus" placeholder="0" /><div class="dnd-big" id="dndInitBox">+0</div></div>
-                      <div class="dnd-stat"><label>Bewegung</label><input data-dnd-field="speed" placeholder="9 m" /></div>
-                      <div class="dnd-stat is-hp">
+                      <div class="dnd-stat dnd-card">
+                        <label>Übungsbonus</label>
+                        <div class="dnd-big" id="dndProfOut">+2</div>
+                      </div>
+                      <div class="dnd-stat dnd-card">
+                        <label>Bewegung</label>
+                        <div class="dnd-big" id="dndSpeedOut">9 m</div>
+                        <input data-dnd-field="speed" placeholder="9 m" />
+                      </div>
+                      <button type="button" class="dnd-chip-btn dnd-insp" id="dndInsp">
+                        <label>Inspiration</label>
+                        <div class="dnd-big" id="dndInspOut">—</div>
+                      </button>
+                      <div class="dnd-stat dnd-card">
+                        <label>Initiative</label>
+                        <button type="button" class="dnd-ab-mod" id="dndInitBtn" data-dnd-roll="init" title="Initiative würfeln">
+                          <span id="dndInitOut">+0</span>
+                        </button>
+                        <input data-dnd-field="initiativeBonus" placeholder="Bonus" />
+                      </div>
+                      <div class="dnd-stat dnd-card">
+                        <label>Rüstungsklasse</label>
+                        <input data-dnd-field="ac" />
+                      </div>
+                      <div class="dnd-stat dnd-card is-hp">
                         <label>Trefferpunkte</label>
                         <div class="dnd-hp-row">
                           <input data-dnd-field="hpCurrent" placeholder="akt" />
                           <span>/</span>
                           <input data-dnd-field="hpMax" placeholder="max" />
                         </div>
-                        <label>Temp. TP</label>
-                        <input data-dnd-field="hpTemp" />
-                      </div>
-                      <div class="dnd-stat">
-                        <label>Trefferwürfel</label>
-                        <div class="dnd-hp-row">
-                          <input data-dnd-field="hitDiceUsed" placeholder="verbraucht" />
-                          <span>/</span>
-                          <input data-dnd-field="hitDice" placeholder="gesamt" />
+                        <div class="dnd-hp-tools">
+                          <input id="dndHpDelta" inputmode="numeric" placeholder="0" />
+                          <button type="button" class="is-heal" id="dndHealBtn">Heilen</button>
+                          <button type="button" class="is-dmg" id="dndDmgBtn">Schaden</button>
                         </div>
-                      </div>
-                      <div class="dnd-stat">
-                        <label>Todesrettung</label>
-                        <div>Erfolg</div>
-                        <div class="dnd-pips" id="dndDeathOk"></div>
-                        <div>Misserfolg</div>
-                        <div class="dnd-pips" id="dndDeathFail"></div>
+                        <div class="dnd-inline">
+                          <label>Temp.</label>
+                          <input data-dnd-field="hpTemp" />
+                          <label>TW</label>
+                          <input data-dnd-field="hitDiceUsed" placeholder="0" />
+                          <span>/</span>
+                          <input data-dnd-field="hitDice" placeholder="ges." />
+                        </div>
+                        <div class="dnd-death">
+                          <div>
+                            <label>Erfolge</label>
+                            <div class="dnd-pips" id="dndDeathOk"></div>
+                          </div>
+                          <div>
+                            <label>Fehlschläge</label>
+                            <div class="dnd-pips" id="dndDeathFail"></div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                     <div class="dnd-body">
-                      <aside class="dnd-col" id="dndAbilityCol"></aside>
+                      <aside class="dnd-col dnd-card">
+                        <h3>Rettungswürfe</h3>
+                        <div id="dndSaveList"></div>
+                        <h3 style="margin-top:0.85rem;">Sinne</h3>
+                        <div id="dndSensesOut"></div>
+                        <textarea data-dnd-field="senses" placeholder="Weitere Sinne"></textarea>
+                        <h3 style="margin-top:0.85rem;">Übungen & Sprachen</h3>
+                        <label>Rüstung</label>
+                        <textarea data-dnd-field="armorProf"></textarea>
+                        <label>Waffen</label>
+                        <textarea data-dnd-field="weaponProf"></textarea>
+                        <label>Werkzeuge</label>
+                        <textarea data-dnd-field="toolProf"></textarea>
+                        <label>Sprachen</label>
+                        <textarea data-dnd-field="languages"></textarea>
+                      </aside>
+                      <aside class="dnd-col dnd-card">
+                        <h3>Fertigkeiten</h3>
+                        <div id="dndSkillList"></div>
+                      </aside>
                       <div class="dnd-main">
-                        <div class="dnd-grid-2" style="margin-bottom:0.55rem;">
-                          <div class="dnd-stat">
-                            <label>Sinne</label>
-                            <div id="dndSensesOut"></div>
-                            <textarea data-dnd-field="senses" placeholder="Weitere Sinne"></textarea>
-                          </div>
-                          <div class="dnd-stat">
-                            <label>Verteidigungen</label>
+                        <div class="dnd-def-grid">
+                          <div class="dnd-def-box dnd-card">
+                            <h3>Verteidigungen</h3>
                             <input data-dnd-field="resistances" placeholder="Resistenzen" />
                             <input data-dnd-field="immunities" placeholder="Immunitäten" />
                             <input data-dnd-field="vulnerabilities" placeholder="Verwundbarkeiten" />
-                            <input data-dnd-field="conditions" placeholder="Zustände" />
+                          </div>
+                          <div class="dnd-def-box dnd-card">
+                            <h3>Zustände</h3>
+                            <textarea data-dnd-field="conditions" placeholder="Keine Zustände"></textarea>
                           </div>
                         </div>
                         <nav class="dnd-tabs" id="dndTabs">
@@ -3300,22 +3489,48 @@
                           <button type="button" data-dnd-tab="spells">Zauber</button>
                           <button type="button" data-dnd-tab="inventory">Inventar</button>
                           <button type="button" data-dnd-tab="features">Merkmale</button>
-                          <button type="button" data-dnd-tab="description">Beschreibung</button>
+                          <button type="button" data-dnd-tab="description">Hintergrund</button>
                           <button type="button" data-dnd-tab="notes">Notizen</button>
                           <button type="button" data-dnd-tab="extras">Extras</button>
                         </nav>
-                        <div class="dnd-pane" data-dnd-pane="actions">
-                          <label>Angriffe</label>
-                          <div id="dndAttackList"></div>
-                          <button class="ghost dnd-add" type="button" data-dnd-add="attacks">Angriff hinzufügen</button>
-                          <div class="dnd-grid-2" style="margin-top:0.7rem;">
-                            <div><label>Bonusaktionen</label><textarea data-dnd-field="bonusActions"></textarea></div>
-                            <div><label>Reaktionen</label><textarea data-dnd-field="reactions"></textarea></div>
+                        <div class="dnd-pane dnd-card" data-dnd-pane="actions">
+                          <div class="dnd-action-filters" id="dndActionFilters">
+                            <button type="button" data-dnd-act-filter="all" class="active">Alle</button>
+                            <button type="button" data-dnd-act-filter="attack">Angriff</button>
+                            <button type="button" data-dnd-act-filter="action">Aktion</button>
+                            <button type="button" data-dnd-act-filter="bonus">Bonusaktion</button>
+                            <button type="button" data-dnd-act-filter="reaction">Reaktion</button>
+                            <button type="button" data-dnd-act-filter="other">Weitere</button>
+                            <button type="button" data-dnd-act-filter="limited">Begrenzt</button>
                           </div>
-                          <label>Weitere Aktionen</label>
-                          <textarea data-dnd-field="otherActions"></textarea>
+                          <div data-dnd-act-sec="attack">
+                            <div class="dnd-sec-title">Angriffe</div>
+                            <div class="dnd-atk-head"><span>Aktion</span><span>Reichweite</span><span>Treffer / SG</span><span>Schaden</span><span>Notizen</span><span></span></div>
+                            <div id="dndAttackList"></div>
+                            <button class="ghost dnd-add" type="button" data-dnd-add="attacks">Angriff hinzufügen</button>
+                          </div>
+                          <div data-dnd-act-sec="action" style="margin-top:0.8rem;">
+                            <div class="dnd-sec-title">Aktionen</div>
+                            <textarea data-dnd-field="otherActions" placeholder="Weitere Aktionen"></textarea>
+                          </div>
+                          <div data-dnd-act-sec="bonus" style="margin-top:0.8rem;">
+                            <div class="dnd-sec-title">Bonusaktionen</div>
+                            <textarea data-dnd-field="bonusActions"></textarea>
+                          </div>
+                          <div data-dnd-act-sec="reaction" style="margin-top:0.8rem;">
+                            <div class="dnd-sec-title">Reaktionen</div>
+                            <textarea data-dnd-field="reactions"></textarea>
+                          </div>
+                          <div data-dnd-act-sec="other" style="margin-top:0.8rem;">
+                            <div class="dnd-sec-title">Weitere</div>
+                            <textarea data-dnd-field="extras" placeholder="Weitere Optionen"></textarea>
+                          </div>
+                          <div data-dnd-act-sec="limited" style="margin-top:0.8rem;">
+                            <div class="dnd-sec-title">Begrenzte Nutzung</div>
+                            <div id="dndLimitedList"></div>
+                          </div>
                         </div>
-                        <div class="dnd-pane hidden" data-dnd-pane="spells">
+                        <div class="dnd-pane dnd-card hidden" data-dnd-pane="spells">
                           <div class="dnd-grid-2">
                             <div>
                               <label>Zauberattribut</label>
@@ -3326,8 +3541,8 @@
                               </select>
                             </div>
                             <div class="dnd-grid-2">
-                              <div class="dnd-chip"><label>Zauber-SG</label><strong id="dndSpellDc">10</strong></div>
-                              <div class="dnd-chip"><label>Zauberangriff</label><strong id="dndSpellAtk">+2</strong></div>
+                              <div class="dnd-stat dnd-card"><label>Zauber-SG</label><strong class="dnd-big" id="dndSpellDc">10</strong></div>
+                              <div class="dnd-stat dnd-card"><label>Zauberangriff</label><strong class="dnd-big" id="dndSpellAtk">+2</strong></div>
                             </div>
                           </div>
                           <label>Zauberplätze (max / verbraucht)</label>
@@ -3336,7 +3551,7 @@
                           <div id="dndSpellList"></div>
                           <button class="ghost dnd-add" type="button" data-dnd-add="spells">Zauber hinzufügen</button>
                         </div>
-                        <div class="dnd-pane hidden" data-dnd-pane="inventory">
+                        <div class="dnd-pane dnd-card hidden" data-dnd-pane="inventory">
                           <label>Währung</label>
                           <div class="dnd-money">
                             <div><label>PM</label><input data-dnd-field="pp" /></div>
@@ -3355,18 +3570,12 @@
                           <div id="dndItemList"></div>
                           <button class="ghost dnd-add" type="button" data-dnd-add="items">Gegenstand hinzufügen</button>
                         </div>
-                        <div class="dnd-pane hidden" data-dnd-pane="features">
+                        <div class="dnd-pane dnd-card hidden" data-dnd-pane="features">
                           <label>Klassenmerkmale, Spezies, Talente</label>
                           <div id="dndFeatureList"></div>
                           <button class="ghost dnd-add" type="button" data-dnd-add="features">Merkmal hinzufügen</button>
-                          <div class="dnd-grid-2" style="margin-top:0.7rem;">
-                            <div><label>Rüstungsübung</label><textarea data-dnd-field="armorProf"></textarea></div>
-                            <div><label>Waffenübung</label><textarea data-dnd-field="weaponProf"></textarea></div>
-                            <div><label>Werkzeuge</label><textarea data-dnd-field="toolProf"></textarea></div>
-                            <div><label>Sprachen</label><textarea data-dnd-field="languages"></textarea></div>
-                          </div>
                         </div>
-                        <div class="dnd-pane hidden" data-dnd-pane="description">
+                        <div class="dnd-pane dnd-card hidden" data-dnd-pane="description">
                           <div class="dnd-grid-2">
                             <div><label>Aussehen</label><textarea data-dnd-field="appearance"></textarea></div>
                             <div><label>Persönlichkeit</label><textarea data-dnd-field="personality"></textarea></div>
@@ -3378,7 +3587,7 @@
                           <label>Hintergrundgeschichte</label>
                           <textarea data-dnd-field="backstory"></textarea>
                         </div>
-                        <div class="dnd-pane hidden" data-dnd-pane="notes">
+                        <div class="dnd-pane dnd-card hidden" data-dnd-pane="notes">
                           <div class="dnd-grid-2">
                             <div><label>Verbündete</label><textarea data-dnd-field="allies"></textarea></div>
                             <div><label>Feinde</label><textarea data-dnd-field="enemies"></textarea></div>
@@ -3386,16 +3595,12 @@
                           <label>Weitere Notizen</label>
                           <textarea data-dnd-field="notesOther"></textarea>
                         </div>
-                        <div class="dnd-pane hidden" data-dnd-pane="extras">
+                        <div class="dnd-pane dnd-card hidden" data-dnd-pane="extras">
                           <div class="dnd-rests">
-                            <button class="ghost" type="button" id="dndShortRest">Kurzrast</button>
-                            <button class="ghost" type="button" id="dndLongRest">Langrast</button>
                             <button class="ghost" type="button" id="dndDawn">Morgengrauen</button>
                           </div>
                           <label class="dnd-save"><input class="dnd-check" type="checkbox" data-dnd-field="jackOfAllTrades" /> Alleskönner</label>
-                          <label>Begrenzte Fähigkeiten / Begleiter</label>
-                          <textarea data-dnd-field="extras"></textarea>
-                          <label>Kreaturen</label>
+                          <label>Begleiter & Kreaturen</label>
                           <textarea data-dnd-field="creatures"></textarea>
                         </div>
                       </div>
@@ -5195,8 +5400,8 @@
       base.deathFail = Math.max(0, Math.min(3, Number(src.deathFail) || 0));
       const list = (arr, shape) => (Array.isArray(arr) ? arr : []).map(shape).filter(Boolean);
       base.attacks = list(src.attacks, x => x && {
-        id: x.id || combatNewId('a'), name: String(x.name || ''), bonus: String(x.bonus || ''),
-        damage: String(x.damage || ''), notes: String(x.notes || '')
+        id: x.id || combatNewId('a'), name: String(x.name || ''), range: String(x.range || ''),
+        bonus: String(x.bonus || ''), damage: String(x.damage || ''), notes: String(x.notes || '')
       });
       base.spells = list(src.spells, x => x && {
         id: x.id || combatNewId('s'), level: String(x.level || '0'), name: String(x.name || ''),
@@ -5216,6 +5421,56 @@
     }
 
     let dndState = emptyDndSheet();
+    let dndActFilter = 'all';
+
+    function dndParseBonus(raw) {
+      const n = Number(String(raw || '').replace(',', '.').replace(/^\+/, ''));
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function dndRoll(label, bonus) {
+      const die = 1 + Math.floor(Math.random() * 20);
+      const add = Number(bonus) || 0;
+      toast(label + ': ' + die + ' (' + dndSigned(add) + ') = ' + (die + add));
+    }
+
+    function applyDndHpChange(kind) {
+      collectDndFields();
+      const n = Math.max(0, Number(document.getElementById('dndHpDelta') && document.getElementById('dndHpDelta').value) || 0);
+      if (!n) {
+        toast('Zuerst eine Zahl eintragen.');
+        return;
+      }
+      let cur = Math.max(0, Number(dndState.hpCurrent) || 0);
+      const max = Math.max(0, Number(dndState.hpMax) || cur);
+      if (kind === 'heal') {
+        dndState.hpCurrent = String(max ? Math.min(max, cur + n) : cur + n);
+      } else {
+        let temp = Math.max(0, Number(dndState.hpTemp) || 0);
+        let dmg = n;
+        if (temp) {
+          const absorb = Math.min(temp, dmg);
+          temp -= absorb;
+          dmg -= absorb;
+          dndState.hpTemp = temp ? String(temp) : '';
+        }
+        dndState.hpCurrent = String(Math.max(0, cur - dmg));
+      }
+      applyDndFields();
+      refreshDndCalcs();
+      sheetDirty = true;
+    }
+
+    function setDndActFilter(filter) {
+      dndActFilter = filter || 'all';
+      document.querySelectorAll('#dndActionFilters [data-dnd-act-filter]').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-dnd-act-filter') === dndActFilter);
+      });
+      document.querySelectorAll('#charDndBlock [data-dnd-act-sec]').forEach(sec => {
+        const id = sec.getAttribute('data-dnd-act-sec');
+        sec.classList.toggle('hidden', dndActFilter !== 'all' && dndActFilter !== id);
+      });
+    }
 
     function ensureUdoAccount(accs) {
       if (!accs) return;
@@ -5303,23 +5558,35 @@
     }
 
     function renderDndAbilityCol() {
-      const col = document.getElementById('dndAbilityCol');
-      if (!col) return;
-      col.innerHTML = DND_ABS.map(a => {
-        const skills = DND_SKILLS.filter(s => s.ability === a.id).map(s => {
+      const row = document.getElementById('dndAbilityRow');
+      if (row) {
+        row.innerHTML = DND_ABS.map(a =>
+          '<div class="dnd-ab dnd-card">' +
+          '<button type="button" class="dnd-ab-mod" data-dnd-mod="' + a.id + '" data-dnd-roll-ab="' + a.id + '" title="Würfeln">+0</button>' +
+          '<input data-dnd-score="' + a.id + '" inputmode="numeric" value="' + (dndState.abilities[a.id].score || 10) + '" />' +
+          '<div class="dnd-ab-name">' + a.label + '</div></div>'
+        ).join('');
+      }
+      const saves = document.getElementById('dndSaveList');
+      if (saves) {
+        saves.innerHTML = DND_ABS.map(a =>
+          '<div class="dnd-save-row">' +
+          '<button type="button" class="dnd-prof' + (dndState.abilities[a.id].save ? ' is-prof' : '') + '" data-dnd-save-toggle="' + a.id + '" title="Rettungswurf-Übung"></button>' +
+          '<button type="button" class="dnd-sk-roll" data-dnd-roll-save="' + a.id + '">' +
+          '<span class="dnd-skill-mod" data-dnd-save-mod="' + a.id + '">+0</span><span>' + a.label + '</span></button>' +
+          '<input class="hidden" type="checkbox" data-dnd-save="' + a.id + '"' + (dndState.abilities[a.id].save ? ' checked' : '') + ' /></div>'
+        ).join('');
+      }
+      const skills = document.getElementById('dndSkillList');
+      if (skills) {
+        skills.innerHTML = DND_SKILLS.map(s => {
           const rank = dndState.skills[s.id] || 0;
           return '<div class="dnd-skill">' +
             '<button type="button" class="dnd-prof' + (rank === 1 ? ' is-prof' : rank === 2 ? ' is-expert' : '') + '" data-skill="' + s.id + '" title="Übung / Expertise"></button>' +
-            '<span class="dnd-skill-mod" data-skill-mod="' + s.id + '">+0</span>' +
-            '<span>' + s.label + '</span></div>';
+            '<button type="button" class="dnd-sk-roll" data-dnd-roll-skill="' + s.id + '">' +
+            '<span class="dnd-skill-mod" data-skill-mod="' + s.id + '">+0</span><span>' + s.label + '</span></button></div>';
         }).join('');
-        return '<div class="dnd-ability">' +
-          '<div class="dnd-ability-top"><div><div class="dnd-ability-name">' + a.label + '</div>' +
-          '<input data-dnd-score="' + a.id + '" inputmode="numeric" value="' + (dndState.abilities[a.id].score || 10) + '" /></div>' +
-          '<div class="dnd-mod" data-dnd-mod="' + a.id + '">+0</div></div>' +
-          '<label class="dnd-save"><input type="checkbox" data-dnd-save="' + a.id + '"' + (dndState.abilities[a.id].save ? ' checked' : '') + ' /> Rettungswurf <span data-dnd-save-mod="' + a.id + '">+0</span></label>' +
-          skills + '</div>';
-      }).join('') + '<div class="dnd-passives" id="dndPassivesBox"></div>';
+      }
     }
 
     function renderDndLists() {
@@ -5327,11 +5594,29 @@
       if (atk) {
         atk.innerHTML = dndState.attacks.map(row =>
           '<div class="dnd-row" data-dnd-row="attacks" data-id="' + row.id + '">' +
-          '<input data-k="name" value="' + escapeAttr(row.name) + '" placeholder="Name" />' +
-          '<input data-k="bonus" value="' + escapeAttr(row.bonus) + '" placeholder="+5" />' +
+          '<input data-k="name" value="' + escapeAttr(row.name) + '" placeholder="Aktion" />' +
+          '<input data-k="range" value="' + escapeAttr(row.range) + '" placeholder="1,50 m" />' +
+          '<span class="dnd-inline"><input data-k="bonus" value="' + escapeAttr(row.bonus) + '" placeholder="+5" />' +
+          '<button type="button" class="dnd-mini-roll" data-dnd-roll="attack" title="Angriff würfeln">W20</button></span>' +
           '<input data-k="damage" value="' + escapeAttr(row.damage) + '" placeholder="1W8+3" />' +
+          '<input data-k="notes" value="' + escapeAttr(row.notes) + '" placeholder="Notiz" />' +
           '<button type="button" class="ghost" data-dnd-del="attacks">×</button></div>'
         ).join('');
+      }
+      const limited = document.getElementById('dndLimitedList');
+      if (limited) {
+        const rows = dndState.features.filter(f => String(f.uses || '').trim());
+        limited.innerHTML = rows.length ? rows.map(row =>
+          '<div class="dnd-row dnd-row-feat" data-dnd-row="features" data-id="' + row.id + '">' +
+          '<input data-k="name" value="' + escapeAttr(row.name) + '" placeholder="Merkmal" />' +
+          '<input data-k="used" value="' + escapeAttr(row.used) + '" placeholder="verbr." />' +
+          '<input data-k="uses" value="' + escapeAttr(row.uses) + '" placeholder="max" />' +
+          '<select data-k="reset"><option value="short"' + (row.reset === 'short' ? ' selected' : '') + '>Kurzrast</option>' +
+          '<option value="long"' + (row.reset === 'long' ? ' selected' : '') + '>Langrast</option>' +
+          '<option value="dawn"' + (row.reset === 'dawn' ? ' selected' : '') + '>Morgengrauen</option></select>' +
+          '<input data-k="text" value="' + escapeAttr(row.text) + '" placeholder="Beschreibung" />' +
+          '<span></span></div>'
+        ).join('') : '<p style="color:var(--dnd-mute);margin:0;">Noch keine begrenzten Merkmale. Lege sie unter Merkmale an.</p>';
       }
       const spells = document.getElementById('dndSpellList');
       if (spells) {
@@ -5424,6 +5709,7 @@
       document.querySelectorAll('#charDndBlock [data-dnd-pane]').forEach(pane => {
         pane.classList.toggle('hidden', pane.getAttribute('data-dnd-pane') !== tab);
       });
+      if (tab === 'actions' || tab === 'features') renderDndLists();
     }
 
     function refreshDndCalcs() {
@@ -5446,6 +5732,13 @@
       const init = dndMod(dndState.abilities.dex.score) + (Number(String(dndState.initiativeBonus || '').replace(',', '.')) || 0);
       setTxt('dndInitOut', dndSigned(init));
       setTxt('dndInitBox', dndSigned(init));
+      setTxt('dndSpeedOut', dndState.speed || '9 m');
+      setTxt('dndInspOut', dndState.inspiration ? 'Ja' : '—');
+      const classLine = document.getElementById('dndClassLine');
+      if (classLine) {
+        const bits = [dndState.klasse, dndState.stufe ? 'Stufe ' + dndState.stufe : '', dndState.volk, dndState.background].filter(Boolean);
+        classLine.textContent = bits.join(' · ') || 'Klasse, Volk und Stufe eintragen';
+      }
       const insp = document.getElementById('dndInsp');
       if (insp) insp.classList.toggle('is-on', !!dndState.inspiration);
       const senses = document.getElementById('dndSensesOut');
@@ -5479,6 +5772,7 @@
       renderDndPips();
       applyDndFields();
       setDndTab(dndState.tab || 'actions');
+      setDndActFilter(dndActFilter || 'all');
       refreshDndCalcs();
     }
 
@@ -5507,7 +5801,7 @@
 
     function addDndRow(kind) {
       collectDndFields();
-      if (kind === 'attacks') dndState.attacks.push({ id: combatNewId('a'), name: '', bonus: '', damage: '', notes: '' });
+      if (kind === 'attacks') dndState.attacks.push({ id: combatNewId('a'), name: '', range: '', bonus: '', damage: '', notes: '' });
       if (kind === 'spells') dndState.spells.push({ id: combatNewId('s'), level: '0', name: '', prepared: false, notes: '' });
       if (kind === 'items') dndState.items.push({ id: combatNewId('i'), name: '', qty: '1', weight: '', equipped: false, attuned: false, notes: '' });
       if (kind === 'features') dndState.features.push({ id: combatNewId('f'), name: '', uses: '', used: '', reset: 'long', text: '' });
@@ -7894,7 +8188,10 @@
       const canUse = isDM || !!currentPlayerId;
       guest.classList.toggle('hidden', canUse);
       app.classList.toggle('hidden', !canUse);
-      if (!canUse) return;
+      if (!canUse) {
+        document.getElementById('charView').classList.remove('is-dnd-wide');
+        return;
+      }
 
       ensureVeyrAlt(playerAccounts);
       ensureUdoAccount(playerAccounts);
@@ -7974,6 +8271,7 @@
       document.getElementById('charMainCard').classList.toggle('is-veyr-sheet', isVeyr && !isNotes);
       document.getElementById('charMainCard').classList.toggle('is-dm-notes', isNotes);
       document.getElementById('charMainCard').classList.toggle('is-dnd', isUdo && !isNotes);
+      document.getElementById('charView').classList.toggle('is-dnd-wide', isUdo && !isNotes);
       const notesField = document.getElementById('sheetNotesField');
       if (notesField) notesField.classList.toggle('hidden', isVeyr || isNotes);
       const extraLabel = document.getElementById('sheetExtraLabel');
@@ -13460,6 +13758,8 @@
         onClick('dndShortRest', () => applyDndRest('short'));
         onClick('dndLongRest', () => applyDndRest('long'));
         onClick('dndDawn', () => applyDndRest('dawn'));
+        onClick('dndHealBtn', () => applyDndHpChange('heal'));
+        onClick('dndDmgBtn', () => applyDndHpChange('dmg'));
         const dndBlock = document.getElementById('charDndBlock');
         if (dndBlock && !dndBlock.dataset.bound) {
           dndBlock.dataset.bound = '1';
@@ -13485,6 +13785,59 @@
             if (tab) {
               collectDndFields();
               setDndTab(tab.getAttribute('data-dnd-tab'));
+              return;
+            }
+            const actFilter = ev.target.closest('[data-dnd-act-filter]');
+            if (actFilter) {
+              setDndActFilter(actFilter.getAttribute('data-dnd-act-filter'));
+              return;
+            }
+            const saveToggle = ev.target.closest('[data-dnd-save-toggle]');
+            if (saveToggle) {
+              const id = saveToggle.getAttribute('data-dnd-save-toggle');
+              dndState.abilities[id].save = !dndState.abilities[id].save;
+              const cb = document.querySelector('#charDndBlock [data-dnd-save="' + id + '"]');
+              if (cb) cb.checked = dndState.abilities[id].save;
+              saveToggle.classList.toggle('is-prof', dndState.abilities[id].save);
+              refreshDndCalcs();
+              sheetDirty = true;
+              return;
+            }
+            const rollAb = ev.target.closest('[data-dnd-roll-ab]');
+            if (rollAb) {
+              const id = rollAb.getAttribute('data-dnd-roll-ab');
+              const ab = DND_ABS.find(a => a.id === id);
+              dndRoll(ab ? ab.label : id, dndMod(dndState.abilities[id].score));
+              return;
+            }
+            const rollSave = ev.target.closest('[data-dnd-roll-save]');
+            if (rollSave) {
+              const id = rollSave.getAttribute('data-dnd-roll-save');
+              const ab = DND_ABS.find(a => a.id === id);
+              const bonus = dndMod(dndState.abilities[id].score) + (dndState.abilities[id].save ? dndProficiency() : 0);
+              dndRoll('Rettung ' + (ab ? ab.label : id), bonus);
+              return;
+            }
+            const rollSkill = ev.target.closest('[data-dnd-roll-skill]');
+            if (rollSkill) {
+              const id = rollSkill.getAttribute('data-dnd-roll-skill');
+              const sk = DND_SKILLS.find(s => s.id === id);
+              dndRoll(sk ? sk.label : id, dndSkillBonus(id));
+              return;
+            }
+            const rollInit = ev.target.closest('[data-dnd-roll="init"]');
+            if (rollInit) {
+              collectDndFields();
+              const bonus = dndMod(dndState.abilities.dex.score) + dndParseBonus(dndState.initiativeBonus);
+              dndRoll('Initiative', bonus);
+              return;
+            }
+            const rollAtk = ev.target.closest('[data-dnd-roll="attack"]');
+            if (rollAtk) {
+              const row = rollAtk.closest('[data-dnd-row]');
+              const name = row && row.querySelector('[data-k="name"]');
+              const bonus = row && row.querySelector('[data-k="bonus"]');
+              dndRoll((name && name.value) || 'Angriff', dndParseBonus(bonus && bonus.value));
               return;
             }
             const skill = ev.target.closest('[data-skill]');
