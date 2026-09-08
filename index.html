@@ -2648,9 +2648,10 @@
     .battle-token-hp {
       display: none;
       position: absolute;
-      left: 6px;
-      right: 6px;
-      bottom: 4px;
+      left: 50%;
+      top: calc(var(--battle-token-face, 48px) + 3px);
+      transform: translateX(-50%);
+      width: var(--battle-token-face, 48px);
       height: 4px;
       border-radius: 99px;
       background: rgba(12, 10, 8, 0.72);
@@ -2712,7 +2713,7 @@
     .battle-stage.is-aiming .battle-overlay { pointer-events: auto; }
     .battle-token span {
       display: block;
-      margin-top: 0.2rem;
+      margin-top: 0.45rem;
       text-align: center;
       font-size: calc(var(--battle-token-face, 48px) * 0.24);
       line-height: 1.15;
@@ -6692,6 +6693,9 @@
         const face = document.createElement('div');
         face.className = 'battle-token-face';
         paintPortraitEl(face, token.portraitId, token.name);
+        const label = document.createElement('span');
+        label.textContent = token.name || '—';
+        el.appendChild(face);
         if (row) {
           const hp = Math.max(0, Number(row.hp) || 0);
           const hpMax = Math.max(0, Number(row.hpMax) || 0);
@@ -6703,11 +6707,8 @@
           else if (pct <= 50) bar.classList.add('is-mid');
           bar.style.setProperty('--hp', pct + '%');
           bar.appendChild(document.createElement('i'));
-          face.appendChild(bar);
+          el.appendChild(bar);
         }
-        const label = document.createElement('span');
-        label.textContent = token.name || '—';
-        el.appendChild(face);
         el.appendChild(label);
         el.title = token.name || '';
         el.dataset.id = token.id;
