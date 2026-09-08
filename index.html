@@ -638,9 +638,10 @@
     }
     .dnd-combat {
       display: grid;
-      grid-template-columns: 7.2rem 8rem 7.4rem 7.4rem 7.4rem minmax(18rem, 1.4fr);
+      grid-template-columns: 7.2rem 8rem 7.4rem 7.4rem 7.4rem minmax(0, 1fr) minmax(0, 1fr);
       gap: 0.5rem;
       margin-bottom: 0.65rem;
+      align-items: stretch;
     }
     .dnd-stat { padding: 0.5rem 0.55rem; }
     .dnd-stat .dnd-big,
@@ -665,10 +666,10 @@
       border-color: var(--dnd-gold);
       box-shadow: 0 0 0 1px rgba(212, 179, 106, 0.25);
     }
-    .dnd-stat.is-hp { display: grid; gap: 0.35rem; }
-    .dnd-hp-row, .dnd-inline { display: flex; gap: 0.35rem; align-items: center; }
-    .dnd-hp-row input { text-align: center; }
-    .dnd-hp-tools { display: flex; gap: 0.3rem; align-items: center; }
+    .dnd-stat.is-hp { display: grid; gap: 0.3rem; min-width: 0; }
+    .dnd-hp-row, .dnd-inline { display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap; }
+    .dnd-hp-row input { text-align: center; min-width: 0; }
+    .dnd-hp-tools { display: flex; gap: 0.3rem; align-items: center; flex-wrap: wrap; }
     .dnd-hp-tools input { max-width: 4.4rem; text-align: center; }
     .dnd-hp-tools button {
       border-radius: 7px;
@@ -700,6 +701,7 @@
     .dnd-col, .dnd-pane { padding: 0.65rem 0.7rem; }
     .dnd-col h3,
     .dnd-pane h3,
+    .dnd-def-box h3,
     .dnd-sec-title {
       font-family: Cinzel, serif;
       font-size: 0.78rem;
@@ -764,13 +766,15 @@
     }
     .dnd-passives strong,
     #dndSensesOut strong { color: var(--dnd-gold); }
-    .dnd-def-box { padding: 0.65rem 0.7rem; margin-bottom: 0.55rem; }
+    .dnd-def-box { padding: 0.5rem 0.55rem; min-width: 0; }
     .dnd-def-box input { margin-bottom: 0.35rem; }
     .dnd-def-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 0.45rem;
+      min-width: 0;
     }
+    .dnd-combat .dnd-def-box textarea { min-height: 3.4rem; }
     .dnd-tabs {
       display: flex;
       flex-wrap: wrap;
@@ -877,7 +881,7 @@
     .dnd-chip-btn:hover { filter: brightness(1.12); }
     @media (max-width: 1280px) {
       .dnd-body { grid-template-columns: 200px 220px 1fr; }
-      .dnd-combat { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .dnd-combat { grid-template-columns: repeat(5, minmax(6rem, 0.7fr)) minmax(0, 1fr) minmax(0, 1fr); }
       .dnd-meta { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
     @media (max-width: 1100px) {
@@ -3456,6 +3460,18 @@
                           </div>
                         </div>
                       </div>
+                      <div class="dnd-def-grid">
+                        <div class="dnd-def-box dnd-card">
+                          <h3>Verteidigungen</h3>
+                          <input data-dnd-field="resistances" placeholder="Resistenzen" />
+                          <input data-dnd-field="immunities" placeholder="Immunitäten" />
+                          <input data-dnd-field="vulnerabilities" placeholder="Verwundbarkeiten" />
+                        </div>
+                        <div class="dnd-def-box dnd-card">
+                          <h3>Zustände</h3>
+                          <textarea data-dnd-field="conditions" placeholder="Keine Zustände"></textarea>
+                        </div>
+                      </div>
                     </div>
                     <nav class="dnd-action-filters dnd-card" id="dndActionFilters">
                       <button type="button" data-dnd-act-filter="all" class="active">Alle</button>
@@ -3488,18 +3504,6 @@
                         <div id="dndSkillList"></div>
                       </aside>
                       <div class="dnd-main">
-                        <div class="dnd-def-grid">
-                          <div class="dnd-def-box dnd-card">
-                            <h3>Verteidigungen</h3>
-                            <input data-dnd-field="resistances" placeholder="Resistenzen" />
-                            <input data-dnd-field="immunities" placeholder="Immunitäten" />
-                            <input data-dnd-field="vulnerabilities" placeholder="Verwundbarkeiten" />
-                          </div>
-                          <div class="dnd-def-box dnd-card">
-                            <h3>Zustände</h3>
-                            <textarea data-dnd-field="conditions" placeholder="Keine Zustände"></textarea>
-                          </div>
-                        </div>
                         <nav class="dnd-tabs" id="dndTabs">
                           <button type="button" data-dnd-tab="actions" class="active">Aktionen</button>
                           <button type="button" data-dnd-tab="spells">Zauber</button>
