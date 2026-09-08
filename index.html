@@ -2057,9 +2057,40 @@
       height: auto;
       border-radius: 8px;
     }
-    .stat-sheet-empty {
+    .kampf-stat-peek {
+      position: fixed;
+      z-index: 41;
+      width: min(300px, 72vw);
+      background: #14110e;
+      border: 1px solid var(--gold-dim);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      padding: 0.4rem 0.45rem 0.5rem;
+      pointer-events: auto;
+    }
+    .kampf-stat-peek.hidden { display: none; }
+    .kampf-stat-peek.is-pinned { width: min(360px, 78vw); }
+    .kampf-stat-peek-name {
+      font-family: Cinzel, serif;
+      color: var(--gold);
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      margin: 0 0 0.35rem;
+    }
+    .kampf-stat-peek img {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: min(48vh, 400px);
+      object-fit: contain;
+      border-radius: 8px;
+      background: #0c0a08;
+    }
+    .kampf-stat-peek img.hidden { display: none; }
+    .kampf-stat-peek-empty {
       color: var(--muted);
-      margin: 0.4rem 0.2rem;
+      margin: 0;
+      font-size: 0.88rem;
     }
     .kampf-chip button {
       border: 0;
@@ -3518,6 +3549,12 @@
     </div>
   </div>
 
+  <div id="kampfStatPeek" class="kampf-stat-peek hidden" role="tooltip">
+    <div class="kampf-stat-peek-name" id="kampfStatPeekName"></div>
+    <img id="kampfStatPeekImg" class="hidden" alt="" />
+    <p class="kampf-stat-peek-empty hidden" id="kampfStatPeekEmpty">Kein Stat-Sheet hinterlegt.</p>
+  </div>
+
   <div id="statSheetOverlay" class="overlay stat-sheet-overlay hidden">
     <div class="stat-sheet-card" role="dialog" aria-modal="true" aria-labelledby="statSheetTitle">
       <div class="stat-sheet-head">
@@ -3890,6 +3927,9 @@
     let kampfAimFrom = '';
     let kampfAimTo = '';
     let kampfAimEffect = '';
+    let kampfStatPeekId = '';
+    let kampfStatPeekPinnedId = '';
+    let kampfStatPeekHideTimer = null;
     let sheetPortraitId = '';
     let pendingSheetPortrait = null;
     let kartePortraitId = '';
@@ -5829,12 +5869,21 @@
     function bindKampfListLink(el, id) {
       if (!el || !id) return;
       el.dataset.id = id;
-      el.addEventListener('pointerenter', () => setBattleLink(id, false));
+      el.addEventListener('pointerenter', () => {
+        setBattleLink(id, false);
+        const row = combatantById(id);
+        if (row) showKampfStatPeek(row, el, false);
+      });
       el.addEventListener('pointerleave', () => {
         if (battleLinkHoverId === id) setBattleLink('', false);
+        scheduleHideKampfStatPeek();
       });
       el.addEventListener('click', ev => {
-        if (ev.target.closest('input, button, select, textarea, label')) return;
+        if (ev.target.closest('input, select, textarea, label')) return;
+        const nestedBtn = ev.target.closest('button');
+        if (nestedBtn && nestedBtn !== el) return;
+        const row = combatantById(id);
+        if (row) showKampfStatPeek(row, el, true);
         if (pickKampfAim(id)) return;
         setBattleLink(id, true);
         const token = document.querySelector('.battle-token[data-id="' + CSS.escape(id) + '"]');
@@ -6379,13 +6428,18 @@
         el.appendChild(label);
         el.title = token.name || '';
         el.dataset.id = token.id;
-        el.addEventListener('pointerenter', () => setBattleLink(token.id, false));
+        el.addEventListener('pointerenter', () => {
+          setBattleLink(token.id, false);
+          if (row) showKampfStatPeek(row, el, false);
+        });
         el.addEventListener('pointerleave', () => {
           if (battleLinkHoverId === token.id) setBattleLink('', false);
+          scheduleHideKampfStatPeek();
         });
         el.addEventListener('click', ev => {
           ev.stopPropagation();
           if (battleTokenDragMoved) return;
+          if (row) showKampfStatPeek(row, el, true);
           if (pickKampfAim(token.id)) return;
           setBattleLink(token.id, true);
         });
@@ -6465,7 +6519,10 @@
       el.classList.add('is-dragging');
       const move = e => {
         if (!battleTokenDrag || e.pointerId !== battleTokenDrag.pointerId) return;
-        if (Math.abs(e.clientX - originX) + Math.abs(e.clientY - originY) > 4) battleTokenDragMoved = true;
+        if (Math.abs(e.clientX - originX) + Math.abs(e.clientY - originY) > 4) {
+          if (!battleTokenDragMoved) hideKampfStatPeek(true);
+          battleTokenDragMoved = true;
+        }
         const pct = snapBattlePct(stage, battlePctFromEvent(stage, e));
         const t = battle.tokens.find(x => x.id === token.id);
         if (!t) return;
@@ -6500,6 +6557,8 @@
           applyBattle(snap, true);
         }
         if (!battleTokenDragMoved) {
+          const row = combatantById(token.id);
+          if (row) showKampfStatPeek(row, el, true);
           if (!pickKampfAim(token.id)) setBattleLink(token.id, true);
           battleTokenDragMoved = true;
         }
@@ -6564,6 +6623,7 @@
         return;
       }
       if (isDM && combat.started && kampfAimFrom) cancelKampfAim();
+      hideKampfStatPeek(true);
     }
 
     async function uploadBattleMap(file) {
@@ -6786,19 +6846,104 @@
     }
 
     function statSheetImageIdForCombatant(row) {
-      if (!row || row.kind === 'player') return '';
+      if (!row) return '';
       const base = combatantBaseName(row.name);
       const want = base.toLowerCase();
       if (want) {
+        const karte = rosterCards.find(c => (c.name || '').toLowerCase() === want && c.portraitId);
+        if (karte) return karte.portraitId;
         const entry = entries.find(e => canEntryBecomeKarte(e) && (e.title || '').trim().toLowerCase() === want && e.imageId);
         if (entry) return entry.imageId;
       }
-      if (row.portraitId) return row.portraitId;
-      if (want) {
-        const karte = rosterCards.find(c => (c.name || '').toLowerCase() === want && c.portraitId);
-        if (karte) return karte.portraitId;
-      }
+      if (row.kind !== 'player' && row.portraitId) return row.portraitId;
       return '';
+    }
+
+    function hideKampfStatPeek(force) {
+      if (!force && kampfStatPeekPinnedId) {
+        const row = combatantById(kampfStatPeekPinnedId);
+        const anchor = kampfStatPeekAnchor(kampfStatPeekPinnedId);
+        if (row && anchor && statSheetImageIdForCombatant(row)) {
+          showKampfStatPeek(row, anchor, true);
+          return;
+        }
+      }
+      clearTimeout(kampfStatPeekHideTimer);
+      kampfStatPeekId = '';
+      if (force) kampfStatPeekPinnedId = '';
+      const peek = document.getElementById('kampfStatPeek');
+      if (peek) peek.classList.add('hidden');
+    }
+
+    function scheduleHideKampfStatPeek() {
+      clearTimeout(kampfStatPeekHideTimer);
+      kampfStatPeekHideTimer = setTimeout(() => hideKampfStatPeek(false), 160);
+    }
+
+    function kampfStatPeekAnchor(id) {
+      if (!id) return null;
+      return document.querySelector('.battle-token[data-id="' + CSS.escape(id) + '"]')
+        || document.querySelector('.kampf-init-item[data-id="' + CSS.escape(id) + '"]');
+    }
+
+    function placeKampfStatPeek(anchor) {
+      const peek = document.getElementById('kampfStatPeek');
+      if (!peek || !anchor || peek.classList.contains('hidden')) return;
+      const r = anchor.getBoundingClientRect();
+      const pad = 10;
+      const pw = peek.offsetWidth || 300;
+      const ph = peek.offsetHeight || 220;
+      let left = r.right + pad;
+      let top = r.top;
+      if (left + pw > window.innerWidth - 8) left = r.left - pw - pad;
+      if (left < 8) left = 8;
+      if (top + ph > window.innerHeight - 8) top = Math.max(8, window.innerHeight - ph - 8);
+      if (top < 8) top = 8;
+      peek.style.left = left + 'px';
+      peek.style.top = top + 'px';
+    }
+
+    function showKampfStatPeek(row, anchor, pinned) {
+      const peek = document.getElementById('kampfStatPeek');
+      const img = document.getElementById('kampfStatPeekImg');
+      const nameEl = document.getElementById('kampfStatPeekName');
+      const empty = document.getElementById('kampfStatPeekEmpty');
+      if (!peek || !img || !row || !anchor) return;
+      const imageId = statSheetImageIdForCombatant(row);
+      clearTimeout(kampfStatPeekHideTimer);
+      if (!imageId) {
+        if (pinned) hideKampfStatPeek(true);
+        else if (!kampfStatPeekPinnedId) peek.classList.add('hidden');
+        return;
+      }
+      kampfStatPeekId = row.id;
+      if (pinned) kampfStatPeekPinnedId = row.id;
+      peek.classList.toggle('is-pinned', !!kampfStatPeekPinnedId);
+      if (nameEl) nameEl.textContent = row.name || '';
+      if (empty) empty.classList.add('hidden');
+      const show = src => {
+        if (kampfStatPeekId !== row.id) return;
+        if (!src) {
+          img.classList.add('hidden');
+          if (empty) empty.classList.remove('hidden');
+          return;
+        }
+        img.src = src;
+        img.classList.remove('hidden');
+        peek.classList.remove('hidden');
+        placeKampfStatPeek(anchor);
+      };
+      peek.classList.remove('hidden');
+      if (imageCache[imageId]) show(imageCache[imageId]);
+      else {
+        img.classList.add('hidden');
+        placeKampfStatPeek(anchor);
+        loadEntryImage(imageId).then(show).catch(() => {
+          if (kampfStatPeekId !== row.id) return;
+          img.classList.add('hidden');
+          if (empty) empty.classList.remove('hidden');
+        });
+      }
     }
 
     function closeStatSheetOverlay() {
@@ -6812,7 +6957,7 @@
     }
 
     function openStatSheetOverlay(row) {
-      if (!isDM || !row || row.kind === 'player') return;
+      if (!isDM || !row) return;
       const imageId = statSheetImageIdForCombatant(row);
       if (!imageId) {
         toast('Kein Stat-Sheet-Bild hinterlegt.');
@@ -6847,7 +6992,7 @@
     }
 
     function bindStatSheetOpen(el, row) {
-      if (!el || !isDM || !row || row.kind === 'player') return;
+      if (!el || !isDM || !row || !statSheetImageIdForCombatant(row)) return;
       el.classList.add('is-sheet');
       el.title = 'Stat-Sheet anzeigen';
       el.addEventListener('click', ev => {
@@ -6857,7 +7002,7 @@
     }
 
     function makeStatSheetBtn(row) {
-      if (!isDM || !row || row.kind === 'player') return null;
+      if (!isDM || !row || !statSheetImageIdForCombatant(row)) return null;
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'ghost kampf-sheet-btn';
@@ -12801,6 +12946,11 @@
         ev.stopPropagation();
         toggleKampfBattleGear();
       });
+      const peek = document.getElementById('kampfStatPeek');
+      if (peek) {
+        peek.addEventListener('pointerenter', () => clearTimeout(kampfStatPeekHideTimer));
+        peek.addEventListener('pointerleave', scheduleHideKampfStatPeek);
+      }
       document.addEventListener('click', ev => {
         const wrap = document.getElementById('kampfBattleGear');
         if (!wrap || wrap.contains(ev.target)) return;
@@ -13581,6 +13731,10 @@
       if (soundPick && !soundPick.classList.contains('hidden')) { closeSoundPicker(); return; }
       const statSheet = document.getElementById('statSheetOverlay');
       if (statSheet && !statSheet.classList.contains('hidden')) { closeStatSheetOverlay(); return; }
+      if (kampfStatPeekPinnedId || (document.getElementById('kampfStatPeek') && !document.getElementById('kampfStatPeek').classList.contains('hidden'))) {
+        hideKampfStatPeek(true);
+        return;
+      }
       const border = document.getElementById('borderOverlay');
       if (border && !border.classList.contains('hidden')) {
         const cancel = document.getElementById('borderCancel');
