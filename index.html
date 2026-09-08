@@ -794,27 +794,45 @@
       background: transparent;
     }
     .dnd-pane.hidden { display: none; }
-    .dnd-action-filters {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.3rem;
-      margin-bottom: 0.7rem;
+    .dnd-main {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.55rem;
+      align-items: start;
     }
-    .dnd-action-filters button {
+    .dnd-main.is-actions {
+      grid-template-columns: 11.2rem minmax(0, 1fr);
+    }
+    .dnd-action-rail {
+      display: none;
+      flex-direction: column;
+      gap: 0.28rem;
+      padding: 0.55rem;
+      align-self: stretch;
+    }
+    .dnd-main.is-actions .dnd-action-rail { display: flex; }
+    .dnd-action-rail button:hover { border-color: var(--dnd-gold); color: var(--dnd-gold); }
+    .dnd-action-rail button {
+      width: 100%;
+      text-align: left;
       background: var(--dnd-well);
       border: 1px solid var(--dnd-line);
       color: var(--dnd-mute);
-      border-radius: 999px;
-      padding: 0.22rem 0.65rem;
-      font-size: 0.75rem;
-      letter-spacing: 0.05em;
+      border-radius: 8px;
+      padding: 0.48rem 0.65rem;
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
     }
-    .dnd-action-filters button.active {
+    .dnd-action-rail button.active {
       color: #1a140c;
       background: var(--dnd-gold);
       border-color: var(--dnd-gold);
     }
+    .dnd-action-stage {
+      min-height: 12rem;
+    }
+    .dnd-action-stage [data-dnd-act-sec] { margin-top: 0; }
     .dnd-atk-head,
     .dnd-row {
       display: grid;
@@ -879,7 +897,8 @@
       .dnd-slots, .dnd-money, .dnd-atk-head, .dnd-row, .dnd-row-spell, .dnd-row-item, .dnd-row-feat {
         grid-template-columns: 1fr;
       }
-      .dnd-rests-head { flex-direction: row; }
+      .dnd-main.is-actions { grid-template-columns: 1fr; }
+      .dnd-main.is-actions .dnd-action-rail { flex-direction: row; flex-wrap: wrap; }
       .dnd-atk-head { display: none; }
     }
 
@@ -3471,7 +3490,17 @@
                         <h3>Fertigkeiten</h3>
                         <div id="dndSkillList"></div>
                       </aside>
-                      <div class="dnd-main">
+                      <div class="dnd-main is-actions">
+                        <nav class="dnd-action-rail dnd-card" id="dndActionFilters">
+                          <button type="button" data-dnd-act-filter="all">Alle</button>
+                          <button type="button" data-dnd-act-filter="attack" class="active">Angriff</button>
+                          <button type="button" data-dnd-act-filter="action">Aktion</button>
+                          <button type="button" data-dnd-act-filter="bonus">Bonusaktion</button>
+                          <button type="button" data-dnd-act-filter="reaction">Reaktion</button>
+                          <button type="button" data-dnd-act-filter="other">Weitere</button>
+                          <button type="button" data-dnd-act-filter="limited">Begrenzt</button>
+                        </nav>
+                        <div class="dnd-main-stage">
                         <div class="dnd-def-grid">
                           <div class="dnd-def-box dnd-card">
                             <h3>Verteidigungen</h3>
@@ -3494,40 +3523,33 @@
                           <button type="button" data-dnd-tab="extras">Extras</button>
                         </nav>
                         <div class="dnd-pane dnd-card" data-dnd-pane="actions">
-                          <div class="dnd-action-filters" id="dndActionFilters">
-                            <button type="button" data-dnd-act-filter="all" class="active">Alle</button>
-                            <button type="button" data-dnd-act-filter="attack">Angriff</button>
-                            <button type="button" data-dnd-act-filter="action">Aktion</button>
-                            <button type="button" data-dnd-act-filter="bonus">Bonusaktion</button>
-                            <button type="button" data-dnd-act-filter="reaction">Reaktion</button>
-                            <button type="button" data-dnd-act-filter="other">Weitere</button>
-                            <button type="button" data-dnd-act-filter="limited">Begrenzt</button>
-                          </div>
+                          <div class="dnd-action-stage">
                           <div data-dnd-act-sec="attack">
                             <div class="dnd-sec-title">Angriffe</div>
                             <div class="dnd-atk-head"><span>Aktion</span><span>Reichweite</span><span>Treffer / SG</span><span>Schaden</span><span>Notizen</span><span></span></div>
                             <div id="dndAttackList"></div>
                             <button class="ghost dnd-add" type="button" data-dnd-add="attacks">Angriff hinzufügen</button>
                           </div>
-                          <div data-dnd-act-sec="action" style="margin-top:0.8rem;">
+                          <div data-dnd-act-sec="action" class="hidden">
                             <div class="dnd-sec-title">Aktionen</div>
                             <textarea data-dnd-field="otherActions" placeholder="Weitere Aktionen"></textarea>
                           </div>
-                          <div data-dnd-act-sec="bonus" style="margin-top:0.8rem;">
+                          <div data-dnd-act-sec="bonus" class="hidden">
                             <div class="dnd-sec-title">Bonusaktionen</div>
                             <textarea data-dnd-field="bonusActions"></textarea>
                           </div>
-                          <div data-dnd-act-sec="reaction" style="margin-top:0.8rem;">
+                          <div data-dnd-act-sec="reaction" class="hidden">
                             <div class="dnd-sec-title">Reaktionen</div>
                             <textarea data-dnd-field="reactions"></textarea>
                           </div>
-                          <div data-dnd-act-sec="other" style="margin-top:0.8rem;">
+                          <div data-dnd-act-sec="other" class="hidden">
                             <div class="dnd-sec-title">Weitere</div>
                             <textarea data-dnd-field="extras" placeholder="Weitere Optionen"></textarea>
                           </div>
-                          <div data-dnd-act-sec="limited" style="margin-top:0.8rem;">
+                          <div data-dnd-act-sec="limited" class="hidden">
                             <div class="dnd-sec-title">Begrenzte Nutzung</div>
                             <div id="dndLimitedList"></div>
+                          </div>
                           </div>
                         </div>
                         <div class="dnd-pane dnd-card hidden" data-dnd-pane="spells">
@@ -3602,6 +3624,7 @@
                           <label class="dnd-save"><input class="dnd-check" type="checkbox" data-dnd-field="jackOfAllTrades" /> Alleskönner</label>
                           <label>Begleiter & Kreaturen</label>
                           <textarea data-dnd-field="creatures"></textarea>
+                        </div>
                         </div>
                       </div>
                     </div>
@@ -5421,7 +5444,7 @@
     }
 
     let dndState = emptyDndSheet();
-    let dndActFilter = 'all';
+    let dndActFilter = 'attack';
 
     function dndParseBonus(raw) {
       const n = Number(String(raw || '').replace(',', '.').replace(/^\+/, ''));
@@ -5709,6 +5732,8 @@
       document.querySelectorAll('#charDndBlock [data-dnd-pane]').forEach(pane => {
         pane.classList.toggle('hidden', pane.getAttribute('data-dnd-pane') !== tab);
       });
+      const main = document.querySelector('#charDndBlock .dnd-main');
+      if (main) main.classList.toggle('is-actions', tab === 'actions');
       if (tab === 'actions' || tab === 'features') renderDndLists();
     }
 
@@ -5772,7 +5797,7 @@
       renderDndPips();
       applyDndFields();
       setDndTab(dndState.tab || 'actions');
-      setDndActFilter(dndActFilter || 'all');
+      setDndActFilter(dndActFilter || 'attack');
       refreshDndCalcs();
     }
 
@@ -13789,6 +13814,8 @@
             }
             const actFilter = ev.target.closest('[data-dnd-act-filter]');
             if (actFilter) {
+              collectDndFields();
+              setDndTab('actions');
               setDndActFilter(actFilter.getAttribute('data-dnd-act-filter'));
               return;
             }
