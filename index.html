@@ -2059,38 +2059,106 @@
     }
     .kampf-stat-peek {
       position: fixed;
-      z-index: 41;
-      width: min(300px, 72vw);
-      background: #14110e;
+      z-index: 90;
+      width: min(280px, calc(100vw - 1.4rem));
+      background: var(--panel);
       border: 1px solid var(--gold-dim);
       border-radius: 12px;
       box-shadow: var(--shadow);
-      padding: 0.4rem 0.45rem 0.5rem;
+      padding: 0.55rem 0.6rem 0.65rem;
       pointer-events: auto;
     }
-    .kampf-stat-peek.hidden { display: none; }
-    .kampf-stat-peek.is-pinned { width: min(360px, 78vw); }
+    .kampf-stat-peek.hidden { display: none !important; }
+    .kampf-stat-peek.is-pinned { width: min(320px, calc(100vw - 1.4rem)); }
+    .kampf-stat-peek-head {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      margin: 0 0 0.5rem;
+    }
+    .kampf-stat-peek-face {
+      flex: 0 0 auto;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid var(--gold-dim);
+      background: #2a241c center top / cover no-repeat;
+      color: var(--gold);
+      font-family: Cinzel, serif;
+      font-size: 0.72rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
     .kampf-stat-peek-name {
       font-family: Cinzel, serif;
       color: var(--gold);
-      font-size: 0.82rem;
+      font-size: 0.95rem;
       letter-spacing: 0.04em;
-      margin: 0 0 0.35rem;
+      margin: 0;
+      line-height: 1.2;
+    }
+    .kampf-stat-peek-sub {
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin: 0.15rem 0 0;
+    }
+    .kampf-stat-peek-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.35rem;
+    }
+    .kampf-stat-peek-stats div {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0.35rem 0.45rem;
+    }
+    .kampf-stat-peek-stats span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .kampf-stat-peek-stats b {
+      display: block;
+      margin-top: 0.1rem;
+      font-family: Cinzel, serif;
+      font-weight: 500;
+      color: var(--ink);
     }
     .kampf-stat-peek img {
       display: block;
       width: 100%;
       height: auto;
-      max-height: min(48vh, 400px);
+      max-height: min(42vh, 360px);
       object-fit: contain;
       border-radius: 8px;
       background: #0c0a08;
+      margin: 0.45rem 0 0;
     }
-    .kampf-stat-peek img.hidden { display: none; }
-    .kampf-stat-peek-empty {
-      color: var(--muted);
-      margin: 0;
+    .kampf-stat-peek img.hidden { display: none !important; }
+    .kampf-stat-peek-note {
+      color: var(--ink);
+      margin: 0.45rem 0 0;
       font-size: 0.88rem;
+      line-height: 1.35;
+    }
+    .kampf-stat-peek-note.hidden { display: none !important; }
+    .kampf-stat-peek-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+      margin: 0.4rem 0 0;
+    }
+    .kampf-stat-peek-tags.hidden { display: none !important; }
+    .kampf-stat-peek-tags span {
+      font-size: 0.72rem;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 0.1rem 0.45rem;
     }
     .kampf-chip button {
       border: 0;
@@ -3550,9 +3618,20 @@
   </div>
 
   <div id="kampfStatPeek" class="kampf-stat-peek hidden" role="tooltip">
-    <div class="kampf-stat-peek-name" id="kampfStatPeekName"></div>
+    <div class="kampf-stat-peek-head">
+      <div id="kampfStatPeekFace" class="kampf-stat-peek-face"></div>
+      <div>
+        <div class="kampf-stat-peek-name" id="kampfStatPeekName"></div>
+        <div class="kampf-stat-peek-sub" id="kampfStatPeekSub"></div>
+      </div>
+    </div>
+    <div class="kampf-stat-peek-stats">
+      <div><span>TP</span><b id="kampfStatPeekHp"></b></div>
+      <div><span>Rüstung</span><b id="kampfStatPeekAc"></b></div>
+    </div>
+    <p class="kampf-stat-peek-note hidden" id="kampfStatPeekNote"></p>
+    <div class="kampf-stat-peek-tags hidden" id="kampfStatPeekTags"></div>
     <img id="kampfStatPeekImg" class="hidden" alt="" />
-    <p class="kampf-stat-peek-empty hidden" id="kampfStatPeekEmpty">Kein Stat-Sheet hinterlegt.</p>
   </div>
 
   <div id="statSheetOverlay" class="overlay stat-sheet-overlay hidden">
@@ -3930,6 +4009,7 @@
     let kampfStatPeekId = '';
     let kampfStatPeekPinnedId = '';
     let kampfStatPeekHideTimer = null;
+    let kampfTokensRendering = false;
     let sheetPortraitId = '';
     let pendingSheetPortrait = null;
     let kartePortraitId = '';
@@ -5871,19 +5951,18 @@
       el.dataset.id = id;
       el.addEventListener('pointerenter', () => {
         setBattleLink(id, false);
-        const row = combatantById(id);
-        if (row) showKampfStatPeek(row, el, false);
+        showKampfStatPeek(id, el, false);
       });
-      el.addEventListener('pointerleave', () => {
+      el.addEventListener('pointerleave', ev => {
         if (battleLinkHoverId === id) setBattleLink('', false);
+        if (ev.relatedTarget && peekContains(ev.relatedTarget)) return;
         scheduleHideKampfStatPeek();
       });
       el.addEventListener('click', ev => {
         if (ev.target.closest('input, select, textarea, label')) return;
         const nestedBtn = ev.target.closest('button');
         if (nestedBtn && nestedBtn !== el) return;
-        const row = combatantById(id);
-        if (row) showKampfStatPeek(row, el, true);
+        showKampfStatPeek(id, el, true);
         if (pickKampfAim(id)) return;
         setBattleLink(id, true);
         const token = document.querySelector('.battle-token[data-id="' + CSS.escape(id) + '"]');
@@ -6085,6 +6164,7 @@
         stage.style.transform = 'translate(' + battlePanX + 'px,' + battlePanY + 'px) scale(' + battleScale + ')';
       }
       if (reset) reset.textContent = Math.round(battleScale * 100) + '%';
+      refreshKampfStatPeek();
     }
 
     function zoomBattleAt(clientX, clientY, nextScale) {
@@ -6404,6 +6484,7 @@
       const box = document.getElementById(boxId);
       const stage = document.getElementById(stageId);
       if (!box || !stage) return;
+      kampfTokensRendering = true;
       box.innerHTML = '';
       battle.tokens.forEach(token => {
         const el = document.createElement('button');
@@ -6426,20 +6507,23 @@
         label.textContent = token.name || '—';
         el.appendChild(face);
         el.appendChild(label);
-        el.title = token.name || '';
+        el.removeAttribute('title');
+        el.setAttribute('aria-label', token.name || 'Figur');
         el.dataset.id = token.id;
         el.addEventListener('pointerenter', () => {
           setBattleLink(token.id, false);
-          if (row) showKampfStatPeek(row, el, false);
+          showKampfStatPeek(token.id, el, false);
         });
-        el.addEventListener('pointerleave', () => {
+        el.addEventListener('pointerleave', ev => {
           if (battleLinkHoverId === token.id) setBattleLink('', false);
+          if (kampfTokensRendering) return;
+          if (ev.relatedTarget && peekContains(ev.relatedTarget)) return;
           scheduleHideKampfStatPeek();
         });
         el.addEventListener('click', ev => {
           ev.stopPropagation();
           if (battleTokenDragMoved) return;
-          if (row) showKampfStatPeek(row, el, true);
+          showKampfStatPeek(token.id, el, true);
           if (pickKampfAim(token.id)) return;
           setBattleLink(token.id, true);
         });
@@ -6451,6 +6535,8 @@
       applyBattleLinkHighlight();
       applyBattleTurnHighlight();
       renderKampfInitStrip();
+      kampfTokensRendering = false;
+      refreshKampfStatPeek();
     }
 
     function battlePctFromEvent(stage, ev) {
@@ -6557,8 +6643,7 @@
           applyBattle(snap, true);
         }
         if (!battleTokenDragMoved) {
-          const row = combatantById(token.id);
-          if (row) showKampfStatPeek(row, el, true);
+          showKampfStatPeek(token.id, el, true);
           if (!pickKampfAim(token.id)) setBattleLink(token.id, true);
           battleTokenDragMoved = true;
         }
@@ -6845,29 +6930,37 @@
       return String(name || '').replace(/\s+\d+$/, '').trim();
     }
 
+    function karteForCombatant(row) {
+      if (!row) return null;
+      const want = combatantBaseName(row.name).toLowerCase();
+      if (!want) return null;
+      return rosterCards.find(c => (c.name || '').toLowerCase() === want) || null;
+    }
+
     function statSheetImageIdForCombatant(row) {
       if (!row) return '';
-      const base = combatantBaseName(row.name);
-      const want = base.toLowerCase();
+      const karte = karteForCombatant(row);
+      if (karte && karte.portraitId) return karte.portraitId;
+      const want = combatantBaseName(row.name).toLowerCase();
       if (want) {
-        const karte = rosterCards.find(c => (c.name || '').toLowerCase() === want && c.portraitId);
-        if (karte) return karte.portraitId;
         const entry = entries.find(e => canEntryBecomeKarte(e) && (e.title || '').trim().toLowerCase() === want && e.imageId);
         if (entry) return entry.imageId;
       }
-      if (row.kind !== 'player' && row.portraitId) return row.portraitId;
+      if (row.portraitId) return row.portraitId;
       return '';
+    }
+
+    function peekContains(node) {
+      const peek = document.getElementById('kampfStatPeek');
+      return !!(peek && node && peek.contains(node));
     }
 
     function hideKampfStatPeek(force) {
       if (!force && kampfStatPeekPinnedId) {
-        const row = combatantById(kampfStatPeekPinnedId);
-        const anchor = kampfStatPeekAnchor(kampfStatPeekPinnedId);
-        if (row && anchor && statSheetImageIdForCombatant(row)) {
-          showKampfStatPeek(row, anchor, true);
-          return;
-        }
+        refreshKampfStatPeek();
+        return;
       }
+      if (kampfTokensRendering && !force) return;
       clearTimeout(kampfStatPeekHideTimer);
       kampfStatPeekId = '';
       if (force) kampfStatPeekPinnedId = '';
@@ -6876,73 +6969,137 @@
     }
 
     function scheduleHideKampfStatPeek() {
+      if (kampfStatPeekPinnedId || kampfTokensRendering) return;
       clearTimeout(kampfStatPeekHideTimer);
-      kampfStatPeekHideTimer = setTimeout(() => hideKampfStatPeek(false), 160);
+      kampfStatPeekHideTimer = setTimeout(() => hideKampfStatPeek(false), 180);
     }
 
     function kampfStatPeekAnchor(id) {
       if (!id) return null;
-      return document.querySelector('.battle-token[data-id="' + CSS.escape(id) + '"]')
+      return document.querySelector('#kampfBattleTokens .battle-token[data-id="' + CSS.escape(id) + '"]')
+        || document.querySelector('.battle-token[data-id="' + CSS.escape(id) + '"]')
         || document.querySelector('.kampf-init-item[data-id="' + CSS.escape(id) + '"]');
     }
 
     function placeKampfStatPeek(anchor) {
       const peek = document.getElementById('kampfStatPeek');
       if (!peek || !anchor || peek.classList.contains('hidden')) return;
-      const r = anchor.getBoundingClientRect();
-      const pad = 10;
-      const pw = peek.offsetWidth || 300;
-      const ph = peek.offsetHeight || 220;
+      const face = anchor.querySelector('.battle-token-face, .kampf-face, .karte-face') || anchor;
+      const r = face.getBoundingClientRect();
+      const pad = 12;
+      const pw = peek.offsetWidth || 280;
+      const ph = peek.offsetHeight || 180;
       let left = r.right + pad;
+      if (left + pw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - pw - 8);
       let top = r.top;
-      if (left + pw > window.innerWidth - 8) left = r.left - pw - pad;
-      if (left < 8) left = 8;
       if (top + ph > window.innerHeight - 8) top = Math.max(8, window.innerHeight - ph - 8);
       if (top < 8) top = 8;
       peek.style.left = left + 'px';
       peek.style.top = top + 'px';
     }
 
-    function showKampfStatPeek(row, anchor, pinned) {
+    function kampfStatPeekPayload(row) {
+      const karte = karteForCombatant(row);
+      const token = row ? battle.tokens.find(t => t.id === row.id) : null;
+      const hp = row ? Number(row.hp) || 0 : (karte ? Number(karte.hp) || 0 : 0);
+      const hpMax = row && row.hpMax ? Number(row.hpMax) || hp : (karte ? Number(karte.hp) || hp : hp);
+      const tempHp = row ? Number(row.tempHp) || 0 : 0;
+      let hpText = String(hp);
+      if (hpMax) hpText += ' / ' + hpMax;
+      if (tempHp) hpText += ' (+' + tempHp + ')';
+      const ac = (row && String(row.ac || '').trim()) || (karte && String(karte.ac || '').trim()) || '—';
+      const note = (row && row.note) || (karte && karte.note) || '';
+      const portraitId = (row && row.portraitId) || (token && token.portraitId) || (karte && karte.portraitId) || '';
+      return {
+        name: (row && row.name) || (token && token.name) || (karte && karte.name) || '—',
+        kind: row && row.kind === 'player' ? 'Spieler' : 'Gegner',
+        hpText: hpText,
+        ac: ac,
+        note: note,
+        portraitId: portraitId,
+        imageId: statSheetImageIdForCombatant(row) || portraitId,
+        debuffs: (row && row.debuffs) || []
+      };
+    }
+
+    function refreshKampfStatPeek() {
+      const id = kampfStatPeekPinnedId || kampfStatPeekId;
+      if (!id) return;
+      const anchor = kampfStatPeekAnchor(id);
+      if (!anchor) {
+        if (kampfStatPeekPinnedId) return;
+        hideKampfStatPeek(true);
+        return;
+      }
+      showKampfStatPeek(id, anchor, !!kampfStatPeekPinnedId);
+    }
+
+    function showKampfStatPeek(idOrRow, anchor, pinned) {
+      const row = typeof idOrRow === 'string' ? combatantById(idOrRow) : idOrRow;
+      const id = row ? row.id : (typeof idOrRow === 'string' ? idOrRow : '');
       const peek = document.getElementById('kampfStatPeek');
       const img = document.getElementById('kampfStatPeekImg');
       const nameEl = document.getElementById('kampfStatPeekName');
-      const empty = document.getElementById('kampfStatPeekEmpty');
-      if (!peek || !img || !row || !anchor) return;
-      const imageId = statSheetImageIdForCombatant(row);
+      const subEl = document.getElementById('kampfStatPeekSub');
+      const hpEl = document.getElementById('kampfStatPeekHp');
+      const acEl = document.getElementById('kampfStatPeekAc');
+      const noteEl = document.getElementById('kampfStatPeekNote');
+      const tagsEl = document.getElementById('kampfStatPeekTags');
+      const faceEl = document.getElementById('kampfStatPeekFace');
+      if (!peek || !id) return;
+      const liveAnchor = anchor || kampfStatPeekAnchor(id);
+      if (!liveAnchor) return;
       clearTimeout(kampfStatPeekHideTimer);
-      if (!imageId) {
-        if (pinned) hideKampfStatPeek(true);
-        else if (!kampfStatPeekPinnedId) peek.classList.add('hidden');
-        return;
-      }
-      kampfStatPeekId = row.id;
-      if (pinned) kampfStatPeekPinnedId = row.id;
+      kampfStatPeekId = id;
+      if (pinned) kampfStatPeekPinnedId = id;
       peek.classList.toggle('is-pinned', !!kampfStatPeekPinnedId);
-      if (nameEl) nameEl.textContent = row.name || '';
-      if (empty) empty.classList.add('hidden');
-      const show = src => {
-        if (kampfStatPeekId !== row.id) return;
+      const data = kampfStatPeekPayload(row || { id: id, name: liveAnchor.title || '' });
+      if (nameEl) nameEl.textContent = data.name;
+      if (subEl) subEl.textContent = data.kind;
+      if (hpEl) hpEl.textContent = data.hpText || '—';
+      if (acEl) acEl.textContent = data.ac || '—';
+      if (noteEl) {
+        noteEl.textContent = data.note;
+        noteEl.classList.toggle('hidden', !data.note);
+      }
+      if (tagsEl) {
+        tagsEl.innerHTML = '';
+        const tags = (data.debuffs || []).filter(d => d && d.text);
+        tags.forEach(d => {
+          const chip = document.createElement('span');
+          chip.textContent = d.text + (d.rounds != null ? ' (' + d.rounds + ')' : '');
+          tagsEl.appendChild(chip);
+        });
+        tagsEl.classList.toggle('hidden', !tags.length);
+      }
+      if (faceEl) paintPortraitEl(faceEl, data.portraitId, data.name);
+      if (document.body && peek.parentNode !== document.body) document.body.appendChild(peek);
+      peek.classList.remove('hidden');
+      placeKampfStatPeek(liveAnchor);
+      requestAnimationFrame(() => placeKampfStatPeek(liveAnchor));
+      const imageId = data.imageId;
+      if (!img) return;
+      const showImg = src => {
+        if (kampfStatPeekId !== id) return;
         if (!src) {
           img.classList.add('hidden');
-          if (empty) empty.classList.remove('hidden');
+          img.removeAttribute('src');
+          placeKampfStatPeek(liveAnchor);
           return;
         }
+        img.onload = () => placeKampfStatPeek(liveAnchor);
         img.src = src;
         img.classList.remove('hidden');
-        peek.classList.remove('hidden');
-        placeKampfStatPeek(anchor);
+        placeKampfStatPeek(liveAnchor);
       };
-      peek.classList.remove('hidden');
-      if (imageCache[imageId]) show(imageCache[imageId]);
+      if (!imageId) {
+        showImg('');
+        return;
+      }
+      if (imageCache[imageId]) showImg(imageCache[imageId]);
       else {
         img.classList.add('hidden');
-        placeKampfStatPeek(anchor);
-        loadEntryImage(imageId).then(show).catch(() => {
-          if (kampfStatPeekId !== row.id) return;
-          img.classList.add('hidden');
-          if (empty) empty.classList.remove('hidden');
-        });
+        loadEntryImage(imageId).then(showImg).catch(() => showImg(''));
       }
     }
 
@@ -9905,6 +10062,8 @@
       if (!strip) return;
       const rows = combat.combatants.length ? sortedCombatants() : [];
       strip.classList.toggle('hidden', !rows.length);
+      const wasRendering = kampfTokensRendering;
+      kampfTokensRendering = true;
       strip.innerHTML = '';
       rows.forEach(row => {
         const btn = document.createElement('button');
@@ -9913,7 +10072,8 @@
         if (isOwnCombatOwner(row.playerId)) btn.classList.add('is-mine');
         if (isCombatantActiveTurn(row.id)) btn.classList.add('is-active');
         if (combatantDown(row)) btn.classList.add('is-down');
-        btn.title = row.name || '';
+        btn.removeAttribute('title');
+        btn.setAttribute('aria-label', row.name || 'Figur');
         const face = document.createElement('div');
         face.className = 'kampf-face';
         paintPortraitEl(face, row.portraitId, row.name);
@@ -9925,6 +10085,10 @@
         strip.appendChild(btn);
       });
       applyKampfAimHighlight();
+      if (!wasRendering) {
+        kampfTokensRendering = false;
+        refreshKampfStatPeek();
+      }
     }
 
     function renderPlayerKampfList() {
@@ -12947,9 +13111,14 @@
         toggleKampfBattleGear();
       });
       const peek = document.getElementById('kampfStatPeek');
-      if (peek) {
+      if (peek && !peek.dataset.peekBound) {
+        peek.dataset.peekBound = '1';
         peek.addEventListener('pointerenter', () => clearTimeout(kampfStatPeekHideTimer));
-        peek.addEventListener('pointerleave', scheduleHideKampfStatPeek);
+        peek.addEventListener('pointerleave', () => {
+          if (kampfStatPeekPinnedId) return;
+          scheduleHideKampfStatPeek();
+        });
+        peek.addEventListener('click', ev => ev.stopPropagation());
       }
       document.addEventListener('click', ev => {
         const wrap = document.getElementById('kampfBattleGear');
