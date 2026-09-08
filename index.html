@@ -3928,7 +3928,7 @@
     let pendingVeyrImage = null;
     let veyrImageToken = 0;
     let playerFormMode = 'login';
-    let combat = { round: 1, started: false, activeId: null, debuffTick: 'turn', turnAt: 0, combatants: [], removed: {}, log: [], updatedAt: 0 };
+    let combat = { round: 1, started: false, activeId: null, debuffTick: 'turn', turnAt: 0, combatants: [], removed: {}, log: [], logResetAt: 0, updatedAt: 0 };
     let writingCombat = false;
     let combatWriteQueued = false;
     let pendingCombatSnap = null;
@@ -5688,12 +5688,14 @@
       return item && item.text ? String(item.text) : '';
     }
 
-    function mergeCombatLogs(a, b) {
+    function mergeCombatLogs(a, b, resetAt) {
       const seen = {};
       const out = [];
+      const cut = stamp(resetAt);
       [].concat(b || [], a || []).forEach(item => {
         const n = normalizeLogItem(item);
         if (!n) return;
+        if (cut && stamp(n.t) < cut) return;
         const key = n.t + '\0' + n.text;
         if (seen[key]) return;
         seen[key] = 1;
@@ -5979,7 +5981,8 @@
         debuffTick: combat.debuffTick,
         combatants: combat.combatants,
         removed: combat.removed,
-        log: combat.log
+        log: combat.log,
+        logResetAt: combat.logResetAt
       });
     }
 
@@ -8017,7 +8020,7 @@
     }
 
     function emptyCombat() {
-      return { round: 1, started: false, activeId: null, debuffTick: 'turn', turnAt: 0, combatants: [], removed: {}, log: [], updatedAt: 0 };
+      return { round: 1, started: false, activeId: null, debuffTick: 'turn', turnAt: 0, combatants: [], removed: {}, log: [], logResetAt: 0, updatedAt: 0 };
     }
 
     function parseSheetHp(str) {
@@ -8104,7 +8107,8 @@
         debuffTick: data.debuffTick === 'round' ? 'round' : 'turn',
         combatants: (Array.isArray(data.combatants) ? data.combatants : []).map(normalizeCombatant),
         removed: Object.assign({}, data.removed && typeof data.removed === 'object' && !Array.isArray(data.removed) ? data.removed : {}),
-        log: mergeCombatLogs(data.log, [])
+        logResetAt: stamp(data.logResetAt),
+        log: mergeCombatLogs(data.log, [], stamp(data.logResetAt))
       };
     }
 
@@ -8119,6 +8123,7 @@
         if (!prev || stamp(c.updatedAt) >= stamp(prev.updatedAt)) byId[c.id] = c;
       });
       const combatants = Object.keys(byId).map(id => byId[id]).filter(c => stamp(c.updatedAt) >= stamp(removed[c.id]));
+      const logResetAt = Math.max(stamp(a.logResetAt), stamp(b.logResetAt));
       return {
         updatedAt: Math.max(stamp(a.updatedAt), stamp(b.updatedAt)),
         turnAt: Math.max(stamp(a.turnAt), stamp(b.turnAt)),
@@ -8128,7 +8133,8 @@
         debuffTick: turnSrc.debuffTick === 'round' ? 'round' : 'turn',
         combatants: combatants,
         removed: removed,
-        log: mergeCombatLogs(a.log, b.log)
+        logResetAt: logResetAt,
+        log: mergeCombatLogs(a.log, b.log, logResetAt)
       };
     }
 
@@ -9902,6 +9908,8 @@
         combat.debuffTick = tick;
         combat.removed = removed;
         combat.turnAt = now;
+        combat.log = [];
+        combat.logResetAt = now;
         cancelKampfAim();
         persistCombat();
         clearBattleTokensAndHazards();
@@ -9913,6 +9921,8 @@
       combat.debuffTick = tick;
       combat.removed = removed;
       combat.turnAt = now;
+      combat.log = [];
+      combat.logResetAt = now;
       cancelKampfAim();
       persistCombat();
       clearBattleTokensAndHazards();
