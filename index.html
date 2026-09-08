@@ -641,8 +641,27 @@
       grid-template-columns: 7.2rem 8rem 7.4rem 7.4rem 7.4rem minmax(0, 1fr) minmax(0, 1fr);
       gap: 0.4rem;
       margin-bottom: 0.5rem;
-      align-items: start;
+      align-items: stretch;
     }
+    .dnd-combat > .dnd-stat:not(.is-hp),
+    .dnd-combat > .dnd-chip-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      min-height: 0;
+    }
+    .dnd-def-grid {
+      height: 100%;
+      align-items: stretch;
+    }
+    .dnd-def-grid .dnd-def-box {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .dnd-def-grid .dnd-def-box textarea { flex: 1; }
     .dnd-stat { padding: 0.32rem 0.4rem; }
     .dnd-stat .dnd-big,
     .dnd-chip-btn .dnd-big {
