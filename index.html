@@ -1861,20 +1861,37 @@
       overflow-x: auto;
       overflow-y: hidden;
       align-items: flex-end;
-      padding: 0.35rem 0.15rem 0.5rem;
+      padding: 0.55rem 0.15rem 0.55rem;
       margin: 0 0 0.45rem;
       border-bottom: 1px solid var(--line);
     }
     .kampf-init-strip.hidden { display: none; }
+    @keyframes kampfTurnPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+    }
     .kampf-init-item {
       flex: 0 0 auto;
       width: 4.1rem;
-      background: none;
+      background: transparent;
       border: 0;
       padding: 0;
       color: var(--ink);
       text-align: center;
       cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      box-shadow: none;
+      outline: none;
+    }
+    .kampf-init-item:hover,
+    .kampf-init-item:focus,
+    .kampf-init-item:focus-visible,
+    .kampf-init-item:active {
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      outline: none;
     }
     .kampf-init-item .kampf-face {
       width: 42px;
@@ -1888,6 +1905,7 @@
       display: grid;
       place-items: center;
       color: var(--gold);
+      overflow: hidden;
     }
     .kampf-init-item.is-player .kampf-face { border-color: var(--gold-dim); }
     .kampf-init-item.is-enemy .kampf-face { border-color: var(--blood); }
@@ -1896,11 +1914,13 @@
       height: 58px;
       border-width: 3px;
       border-color: var(--gold);
-      box-shadow: 0 0 0 2px rgba(212, 179, 106, 0.35), 0 0 14px rgba(212, 179, 106, 0.45);
+      box-shadow: 0 0 14px rgba(212, 179, 106, 0.45);
+      animation: kampfTurnPulse 1.7s ease-in-out infinite;
     }
     .kampf-init-item.is-down .kampf-face {
       filter: grayscale(1) brightness(0.65);
       opacity: 0.78;
+      animation: none;
     }
     .kampf-init-item.is-aim-from .kampf-face {
       box-shadow: 0 0 0 3px #7eb6e8, 0 0 12px rgba(80, 140, 200, .75);
@@ -2689,6 +2709,11 @@
     .battle-token.is-turn .battle-token-face {
       border-color: #f3e6c0;
       box-shadow: 0 0 0 3px var(--gold), 0 0 16px rgba(201, 162, 39, .9);
+      animation: kampfTurnPulse 1.7s ease-in-out infinite;
+    }
+    .battle-token.is-turn.is-down .battle-token-face,
+    .battle-token.is-dragging .battle-token-face {
+      animation: none;
     }
     .battle-token.is-turn.is-linked .battle-token-face {
       box-shadow: 0 0 0 3px #f3e6c0, 0 0 0 6px var(--gold), 0 0 16px rgba(201, 162, 39, .9);
