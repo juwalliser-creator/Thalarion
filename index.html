@@ -1737,6 +1737,39 @@
       overflow: auto;
       margin: 0.65rem 0 0.9rem;
     }
+    .battle-gallery-card {
+      width: min(440px, 100%);
+      max-height: min(82vh, 680px);
+      display: flex;
+      flex-direction: column;
+    }
+    .battle-gallery-add {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin: 0 0 0.75rem;
+    }
+    .battle-gallery-add input {
+      flex: 1 1 10rem;
+      min-width: 0;
+    }
+    .battle-gallery-list {
+      overflow: auto;
+      display: grid;
+      gap: 0.35rem;
+      margin: 0 0 0.9rem;
+      min-height: 3.5rem;
+    }
+    .battle-gallery-item {
+      display: flex;
+      gap: 0.35rem;
+      align-items: stretch;
+    }
+    .battle-gallery-item .battle-gallery-name {
+      flex: 1 1 auto;
+      text-align: left;
+      min-width: 0;
+    }
     .kampf-karte-row {
       display: flex;
       gap: 0.35rem;
@@ -3530,6 +3563,7 @@
                       </div>
                       <div class="dm-only-tools">
                         <button class="ghost" id="kampfBattleUploadBtn" type="button">Karte hochladen</button>
+                        <button class="ghost" id="kampfBattleGalleryBtn" type="button">Kartengalerie</button>
                         <div class="battle-gear-hazards">
                           <button class="ghost" id="kampfBattleFireBtn" type="button">Feuer</button>
                           <button class="ghost" id="kampfBattleWaterBtn" type="button">Wasser</button>
@@ -3705,6 +3739,22 @@
   <input id="veyrImageInput" class="hidden" type="file" accept="image/*" />
   <input id="kampfKartePortraitInput" class="hidden" type="file" accept="image/*" />
   <input id="battleMapInput" class="hidden" type="file" accept="image/*" />
+  <input id="battleGalleryInput" class="hidden" type="file" accept="image/*" />
+
+  <div id="battleGalleryOverlay" class="overlay hidden">
+    <div class="login-card battle-gallery-card" role="dialog" aria-modal="true" aria-labelledby="battleGalleryTitle">
+      <h2 id="battleGalleryTitle">Kartengalerie</h2>
+      <p>Karten mit Namen ablegen. Antippen fragt, ob sie das aktuelle Schlachtfeld ersetzen soll.</p>
+      <div class="battle-gallery-add">
+        <input id="battleGalleryName" type="text" maxlength="80" placeholder="Name, z. B. Taverne" autocomplete="off" />
+        <button class="primary" id="battleGalleryAddBtn" type="button">Hinzufügen</button>
+      </div>
+      <div class="battle-gallery-list" id="battleGalleryList"></div>
+      <div class="editor-actions">
+        <button class="ghost" id="battleGalleryCloseBtn" type="button">Schließen</button>
+      </div>
+    </div>
+  </div>
   <div id="pinOverlay" class="overlay hidden">
     <div class="pin-card">
       <h2 id="pinOverlayTitle">Ort setzen</h2>
@@ -3867,8 +3917,10 @@
     const ROSTER_LOCAL_KEY = 'thalarion_kampf_karten';
     const BATTLE_DOC = 'kampfFeld';
     const BATTLE_MAP_DOC = 'kampfFeldMap';
+    const BATTLE_GALLERY_DOC = 'kampfFeldGalerie';
     const COMBAT_DOC = 'kampfStand';
     const BATTLE_LOCAL_KEY = 'thalarion_kampf_feld';
+    const BATTLE_GALLERY_LOCAL_KEY = 'thalarion_kampf_galerie';
     const BATTLE_HAZARDS = {
       fire: { label: 'Feuer', fill: 'rgba(180, 48, 22, 0.42)', stroke: '#e07040' },
       water: { label: 'Wasser', fill: 'rgba(46, 92, 170, 0.38)', stroke: '#6aa8e0' },
@@ -4019,6 +4071,9 @@
     let battleWriteQueued = false;
     let pendingBattleSnap = null;
     let writingBattleMap = false;
+    let battleGalleryMaps = [];
+    let battleGalleryUpdatedAt = 0;
+    let writingBattleGallery = false;
     let battlePersistTimer = null;
     let battleHazardMode = null;
     let battleDraft = [];
@@ -4576,6 +4631,10 @@
 
     function battleMapRef() {
       return db.collection('world').doc(BATTLE_MAP_DOC);
+    }
+
+    function battleGalleryRef() {
+      return db.collection('world').doc(BATTLE_GALLERY_DOC);
     }
 
     function combatRef() {
@@ -6254,6 +6313,199 @@
         battle.mapUpdatedAt = nextAt;
       } finally {
         writingBattleMap = false;
+      }
+    }
+
+    function normalizeGalleryMap(m) {
+      if (!m || typeof m !== 'object') return null;
+      const name = String(m.name || '').trim();
+      const imageId = String(m.imageId || '').trim();
+      if (!name || !imageId) return null;
+      return {
+        id: m.id || combatNewId('bm'),
+        name: name,
+        imageId: imageId
+      };
+    }
+
+    function persistBattleGalleryLocal() {
+      writeLocal(BATTLE_GALLERY_LOCAL_KEY, JSON.stringify({
+        updatedAt: battleGalleryUpdatedAt,
+        maps: battleGalleryMaps
+      }));
+    }
+
+    function loadBattleGalleryLocal() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(BATTLE_GALLERY_LOCAL_KEY) || 'null');
+        if (!raw || typeof raw !== 'object') return;
+        battleGalleryUpdatedAt = Number(raw.updatedAt) || 0;
+        battleGalleryMaps = (Array.isArray(raw.maps) ? raw.maps : []).map(normalizeGalleryMap).filter(Boolean);
+      } catch (err) {}
+    }
+
+    function applyBattleGallery(data) {
+      if (!data) return;
+      const at = Number(data.updatedAt) || 0;
+      if (at && at <= battleGalleryUpdatedAt) return;
+      battleGalleryUpdatedAt = at;
+      battleGalleryMaps = (Array.isArray(data.maps) ? data.maps : []).map(normalizeGalleryMap).filter(Boolean);
+      persistBattleGalleryLocal();
+      renderBattleGalleryList();
+    }
+
+    function listenBattleGallery() {
+      if (!db) return;
+      battleGalleryRef().onSnapshot(snap => {
+        if (writingBattleGallery || !snap.exists) return;
+        applyBattleGallery(snap.data());
+      });
+    }
+
+    async function persistBattleGallery() {
+      if (db) {
+        const nextAt = Date.now();
+        writingBattleGallery = true;
+        try {
+          await battleGalleryRef().set({
+            updatedAt: nextAt,
+            maps: battleGalleryMaps
+          });
+          battleGalleryUpdatedAt = nextAt;
+        } finally {
+          writingBattleGallery = false;
+        }
+      } else {
+        battleGalleryUpdatedAt = Date.now();
+      }
+      persistBattleGalleryLocal();
+    }
+
+    function sortedBattleGalleryMaps() {
+      return battleGalleryMaps.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de'));
+    }
+
+    function renderBattleGalleryList() {
+      const box = document.getElementById('battleGalleryList');
+      if (!box) return;
+      box.innerHTML = '';
+      const list = sortedBattleGalleryMaps();
+      if (!list.length) {
+        const empty = document.createElement('p');
+        empty.className = 'kampf-empty';
+        empty.style.margin = '0';
+        empty.textContent = 'Noch keine Karten. Oben einen Namen eingeben, dann Hinzufügen.';
+        box.appendChild(empty);
+        return;
+      }
+      list.forEach(map => {
+        const row = document.createElement('div');
+        row.className = 'battle-gallery-item';
+        const pick = document.createElement('button');
+        pick.type = 'button';
+        pick.className = 'ghost battle-gallery-name';
+        pick.textContent = map.name;
+        pick.title = 'Als Schlachtfeld nutzen';
+        pick.onclick = () => useBattleGalleryMap(map.id);
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'ghost';
+        del.textContent = 'Löschen';
+        del.title = 'Aus der Galerie entfernen';
+        del.onclick = () => deleteBattleGalleryMap(map.id);
+        row.appendChild(pick);
+        row.appendChild(del);
+        box.appendChild(row);
+      });
+    }
+
+    function openBattleGallery() {
+      if (!isDM) return;
+      closeKampfBattleGear();
+      const overlay = document.getElementById('battleGalleryOverlay');
+      if (!overlay) return;
+      renderBattleGalleryList();
+      overlay.classList.remove('hidden');
+      const nameEl = document.getElementById('battleGalleryName');
+      if (nameEl) nameEl.focus();
+    }
+
+    function closeBattleGallery() {
+      const overlay = document.getElementById('battleGalleryOverlay');
+      if (overlay) overlay.classList.add('hidden');
+    }
+
+    function startBattleGalleryAdd() {
+      if (!isDM) return;
+      const nameEl = document.getElementById('battleGalleryName');
+      const name = ((nameEl && nameEl.value) || '').trim();
+      if (!name) return toast('Bitte zuerst einen Namen eingeben.');
+      const taken = battleGalleryMaps.some(m => (m.name || '').toLowerCase() === name.toLowerCase());
+      if (taken) return toast('Diesen Namen gibt es schon in der Galerie.');
+      const input = document.getElementById('battleGalleryInput');
+      if (input) input.click();
+    }
+
+    async function addBattleGalleryMap(file) {
+      if (!isDM || !file) return;
+      const nameEl = document.getElementById('battleGalleryName');
+      const name = ((nameEl && nameEl.value) || '').trim();
+      if (!name) return toast('Bitte zuerst einen Namen eingeben.');
+      if (battleGalleryMaps.some(m => (m.name || '').toLowerCase() === name.toLowerCase())) {
+        return toast('Diesen Namen gibt es schon in der Galerie.');
+      }
+      toast('Karte wird in die Galerie gelegt…');
+      try {
+        const image = await fileToMapImage(file);
+        const id = combatNewId('bm');
+        const imageId = 'img_gal_' + id;
+        await persistEntryImage(imageId, image);
+        battleGalleryMaps = battleGalleryMaps.concat([{ id: id, name: name, imageId: imageId }]);
+        await persistBattleGallery();
+        if (nameEl) nameEl.value = '';
+        renderBattleGalleryList();
+        toast('„' + name + '“ liegt in der Galerie.');
+      } catch (err) {
+        toast(err.message || 'Karte konnte nicht gespeichert werden.');
+      }
+    }
+
+    async function useBattleGalleryMap(id) {
+      if (!isDM) return;
+      const map = battleGalleryMaps.find(m => m.id === id);
+      if (!map) return;
+      if (!confirm('„' + map.name + '“ als aktuelles Schlachtfeld nutzen? Die bisherige Karte wird ersetzt. Figuren bleiben.')) return;
+      toast('Schlachtfeld wird gewechselt…');
+      try {
+        const src = imageCache[map.imageId] || await loadEntryImage(map.imageId);
+        if (!src) throw new Error('Das Bild dieser Karte fehlt.');
+        battle.image = src;
+        await persistBattleMap();
+        renderBattleBoards();
+        resetBattleView();
+        closeBattleGallery();
+        toast('Schlachtfeld ist jetzt „' + map.name + '“.');
+      } catch (err) {
+        toast(err.message || 'Die Karte konnte nicht gesetzt werden.');
+      }
+    }
+
+    async function deleteBattleGalleryMap(id) {
+      if (!isDM) return;
+      const map = battleGalleryMaps.find(m => m.id === id);
+      if (!map) return;
+      if (!confirm('„' + map.name + '“ aus der Galerie löschen?')) return;
+      const src = imageCache[map.imageId] || '';
+      battleGalleryMaps = battleGalleryMaps.filter(m => m.id !== id);
+      try {
+        await persistBattleGallery();
+        if (src !== battle.image) {
+          try { await deleteEntryImage(map.imageId); } catch (err) {}
+        }
+        renderBattleGalleryList();
+        toast('„' + map.name + '“ ist aus der Galerie.');
+      } catch (err) {
+        toast(err.message || 'Löschen fehlgeschlagen.');
       }
     }
 
@@ -13047,6 +13299,10 @@
         const input = document.getElementById('battleMapInput');
         if (input) input.click();
       });
+      onClick(prefix + 'BattleGalleryBtn', () => {
+        if (!isDM) return;
+        openBattleGallery();
+      });
       onClick(prefix + 'BattleFireBtn', () => setBattleHazardMode('fire'));
       onClick(prefix + 'BattleWaterBtn', () => setBattleHazardMode('water'));
       onClick(prefix + 'BattleOilBtn', () => setBattleHazardMode('oil'));
@@ -13307,6 +13563,21 @@
           const file = ev.target.files[0];
           ev.target.value = '';
           uploadBattleMap(file);
+        });
+        onClick('battleGalleryAddBtn', startBattleGalleryAdd);
+        onClick('battleGalleryCloseBtn', closeBattleGallery);
+        onEv('battleGalleryOverlay', 'click', ev => {
+          if (ev.target === document.getElementById('battleGalleryOverlay')) closeBattleGallery();
+        });
+        onEv('battleGalleryName', 'keydown', ev => {
+          if (ev.key !== 'Enter') return;
+          ev.preventDefault();
+          startBattleGalleryAdd();
+        });
+        onEv('battleGalleryInput', 'change', ev => {
+          const file = ev.target.files[0];
+          ev.target.value = '';
+          addBattleGalleryMap(file);
         });
       });
 
@@ -13898,6 +14169,8 @@
       if (pin && !pin.classList.contains('hidden')) { closePinPicker(); return; }
       const soundPick = document.getElementById('soundPickOverlay');
       if (soundPick && !soundPick.classList.contains('hidden')) { closeSoundPicker(); return; }
+      const gallery = document.getElementById('battleGalleryOverlay');
+      if (gallery && !gallery.classList.contains('hidden')) { closeBattleGallery(); return; }
       const statSheet = document.getElementById('statSheetOverlay');
       if (statSheet && !statSheet.classList.contains('hidden')) { closeStatSheetOverlay(); return; }
       if (kampfStatPeekPinnedId || (document.getElementById('kampfStatPeek') && !document.getElementById('kampfStatPeek').classList.contains('hidden'))) {
@@ -13934,6 +14207,7 @@
       loadRosterLocal();
       loadCombatTemplatesLocal();
       loadBattleLocal();
+      loadBattleGalleryLocal();
       loadCombat();
       if (!initFirebase()) toast('Keine Verbindung zur Cloud.');
       const localPack = readLocalPack();
@@ -13957,6 +14231,8 @@
           if (battleSnap.exists) applyBattle(battleSnap.data());
           const battleMapSnap = await battleMapRef().get();
           if (battleMapSnap.exists) applyBattleMap(battleMapSnap.data());
+          const gallerySnap = await battleGalleryRef().get();
+          if (gallerySnap.exists) applyBattleGallery(gallerySnap.data());
           const combatSnap = await combatRef().get();
           if (combatSnap.exists) applyCombat(combatSnap.data());
           else if (combat.combatants.length) persistCombat();
@@ -14019,6 +14295,7 @@
       listenRoster();
       listenCombatTemplates();
       listenBattle();
+      listenBattleGallery();
       listenCombat();
     })().catch(err => {
       console.warn(err);
