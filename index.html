@@ -2627,6 +2627,7 @@
     }
     .battle-token.is-dragging { cursor: grabbing; z-index: 5; }
     .battle-token-face {
+      position: relative;
       width: var(--battle-token-face, 48px);
       height: var(--battle-token-face, 48px);
       margin: 0 auto;
@@ -2640,7 +2641,36 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      overflow: hidden;
     }
+    .battle-token:hover,
+    .battle-token:focus-visible { z-index: 8; }
+    .battle-token-hp {
+      display: none;
+      position: absolute;
+      left: 6px;
+      right: 6px;
+      bottom: 4px;
+      height: 4px;
+      border-radius: 99px;
+      background: rgba(12, 10, 8, 0.72);
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .battle-token:hover .battle-token-hp,
+    .battle-token:focus-visible .battle-token-hp { display: block; }
+    .battle-token.is-dragging .battle-token-hp { display: none; }
+    .battle-token-hp i {
+      display: block;
+      height: 100%;
+      width: var(--hp, 0%);
+      border-radius: inherit;
+      background: var(--ok);
+    }
+    .battle-token-hp.is-mid i { background: var(--gold); }
+    .battle-token-hp.is-low i { background: var(--blood); }
+    .battle-token-hp.is-down i { background: #6a645c; width: 0; }
     .battle-token.is-player .battle-token-face { border-color: var(--gold); }
     .battle-token.is-enemy .battle-token-face { border-color: #b14a4a; }
     .battle-token.is-mine .battle-token-face {
@@ -6662,6 +6692,19 @@
         const face = document.createElement('div');
         face.className = 'battle-token-face';
         paintPortraitEl(face, token.portraitId, token.name);
+        if (row) {
+          const hp = Math.max(0, Number(row.hp) || 0);
+          const hpMax = Math.max(0, Number(row.hpMax) || 0);
+          const pct = hpMax ? Math.max(0, Math.min(100, (hp / hpMax) * 100)) : 0;
+          const bar = document.createElement('div');
+          bar.className = 'battle-token-hp';
+          if (combatantDown(row) || pct <= 0) bar.classList.add('is-down');
+          else if (pct <= 25) bar.classList.add('is-low');
+          else if (pct <= 50) bar.classList.add('is-mid');
+          bar.style.setProperty('--hp', pct + '%');
+          bar.appendChild(document.createElement('i'));
+          face.appendChild(bar);
+        }
         const label = document.createElement('span');
         label.textContent = token.name || '—';
         el.appendChild(face);
