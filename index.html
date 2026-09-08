@@ -3528,7 +3528,7 @@
                           <button class="ghost" id="kampfBattleOilBtn" type="button">Öl</button>
                         </div>
                         <label class="battle-size" for="kampfBattleSize">Portraits
-                          <input id="kampfBattleSize" type="range" min="28" max="96" step="2" value="48" title="Portraitgröße" />
+                          <input id="kampfBattleSize" type="range" min="16" max="96" step="2" value="48" title="Portraitgröße" />
                         </label>
                         <label class="battle-size" for="kampfBattleGrid">Netz
                           <input id="kampfBattleGrid" type="range" min="5" max="40" step="1" value="10" title="Maschenweite" />
@@ -5855,7 +5855,7 @@
     function clampBattleTokenSize(n) {
       const v = Number(n);
       if (!Number.isFinite(v)) return 48;
-      return Math.max(28, Math.min(96, Math.round(v)));
+      return Math.max(16, Math.min(96, Math.round(v)));
     }
 
     function clampBattleGridSize(n) {
