@@ -770,8 +770,14 @@
       gap: 0.4rem;
       align-items: start;
     }
+    .dnd-skills-col {
+      grid-column: 1 / 5;
+      grid-row: 1;
+      min-width: 0;
+    }
     .dnd-lower-right {
       grid-column: 5 / -1;
+      grid-row: 1 / 3;
       min-width: 0;
       display: flex;
       flex-direction: column;
@@ -779,8 +785,9 @@
     }
     .dnd-body {
       grid-column: 1 / 5;
+      grid-row: 2;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr);
       gap: 0.4rem;
       align-items: start;
       min-width: 0;
@@ -796,8 +803,7 @@
       color: var(--dnd-gold);
       margin: 0 0 0.45rem;
     }
-    .dnd-save-row,
-    .dnd-skill {
+    .dnd-save-row {
       display: grid;
       grid-template-columns: 16px 1fr;
       gap: 0.35rem;
@@ -805,11 +811,45 @@
       margin: 0.16rem 0;
       font-size: 0.84rem;
     }
-    .dnd-save-row button.dnd-sk-roll,
-    .dnd-skill button.dnd-sk-roll {
+    .dnd-skill-head,
+    .dnd-skill {
+      display: grid;
+      grid-template-columns: 16px 2.4rem minmax(0, 1fr) 2.6rem;
+      gap: 0.3rem;
+      align-items: center;
+      margin: 0.1rem 0;
+      font-size: 0.82rem;
+    }
+    .dnd-skill-head {
+      color: var(--dnd-gold);
+      font-size: 0.62rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin: 0 0 0.28rem;
+    }
+    .dnd-skill-ab {
+      color: var(--dnd-mute);
+      font-size: 0.68rem;
+      letter-spacing: 0.04em;
+    }
+    .dnd-skill-name { min-width: 0; }
+    .dnd-save-row button.dnd-sk-roll {
       display: grid;
       grid-template-columns: 2.4rem 1fr;
       gap: 0.35rem;
+      align-items: center;
+      background: none;
+      border: 0;
+      color: inherit;
+      padding: 0;
+      text-align: left;
+      width: 100%;
+    }
+    .dnd-skill button.dnd-sk-roll {
+      grid-column: 3 / 5;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 2.6rem;
+      gap: 0.3rem;
       align-items: center;
       background: none;
       border: 0;
@@ -1101,7 +1141,6 @@
     .dnd-sk-roll:hover,
     .dnd-chip-btn:hover { filter: brightness(1.12); }
     @media (max-width: 1280px) {
-      .dnd-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
       .dnd-combat,
       .dnd-lower { grid-template-columns: repeat(5, minmax(6rem, 0.7fr)) minmax(0, 1fr) minmax(0, 1fr); }
       .dnd-meta { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -1115,8 +1154,9 @@
       .dnd-rests-head { flex-direction: row; }
       .dnd-atk-head { display: none; }
       .dnd-lower { grid-template-columns: 1fr; }
+      .dnd-skills-col,
       .dnd-body,
-      .dnd-lower-right { grid-column: auto; }
+      .dnd-lower-right { grid-column: auto; grid-row: auto; }
       .dnd-action-filters { width: 100%; margin-left: 0; }
     }
 
@@ -3700,27 +3740,12 @@
                       </div>
                     </div>
                     <div class="dnd-lower">
-                    <div class="dnd-body">
-                      <aside class="dnd-col dnd-card">
-                        <h3>Rettungswürfe</h3>
-                        <div id="dndSaveList"></div>
-                        <h3 style="margin-top:0.85rem;">Sinne</h3>
-                        <div id="dndSensesOut"></div>
-                        <textarea data-dnd-field="senses" placeholder="Weitere Sinne"></textarea>
-                        <h3 style="margin-top:0.85rem;">Übungen & Sprachen</h3>
-                        <label>Rüstung</label>
-                        <textarea data-dnd-field="armorProf"></textarea>
-                        <label>Waffen</label>
-                        <textarea data-dnd-field="weaponProf"></textarea>
-                        <label>Werkzeuge</label>
-                        <textarea data-dnd-field="toolProf"></textarea>
-                        <label>Sprachen</label>
-                        <textarea data-dnd-field="languages"></textarea>
-                      </aside>
-                      <aside class="dnd-col dnd-card">
-                        <h3>Fertigkeiten</h3>
-                        <div id="dndSkillList"></div>
-                      </aside>
+                    <div class="dnd-col dnd-card dnd-skills-col">
+                      <h3>Fertigkeiten</h3>
+                      <div class="dnd-skill-head" aria-hidden="true">
+                        <span></span><span>Wert</span><span>Fertigkeit</span><span>Bonus</span>
+                      </div>
+                      <div id="dndSkillList"></div>
                     </div>
                     <div class="dnd-lower-right">
                     <nav class="dnd-action-filters dnd-card" id="dndActionFilters">
@@ -3839,6 +3864,24 @@
                           <label>Begleiter & Kreaturen</label>
                           <textarea data-dnd-field="creatures"></textarea>
                         </div>
+                      </div>
+                    </div>
+                    <div class="dnd-body">
+                      <div class="dnd-col dnd-card">
+                        <h3>Rettungswürfe</h3>
+                        <div id="dndSaveList"></div>
+                        <h3 style="margin-top:0.85rem;">Sinne</h3>
+                        <div id="dndSensesOut"></div>
+                        <textarea data-dnd-field="senses" placeholder="Weitere Sinne"></textarea>
+                        <h3 style="margin-top:0.85rem;">Übungen & Sprachen</h3>
+                        <label>Rüstung</label>
+                        <textarea data-dnd-field="armorProf"></textarea>
+                        <label>Waffen</label>
+                        <textarea data-dnd-field="weaponProf"></textarea>
+                        <label>Werkzeuge</label>
+                        <textarea data-dnd-field="toolProf"></textarea>
+                        <label>Sprachen</label>
+                        <textarea data-dnd-field="languages"></textarea>
                       </div>
                     </div>
                     </div>
@@ -5569,12 +5612,12 @@
     }
 
     const DND_ABS = [
-      { id: 'str', label: 'Stärke' },
-      { id: 'dex', label: 'Geschicklichkeit' },
-      { id: 'con', label: 'Konstitution' },
-      { id: 'int', label: 'Intelligenz' },
-      { id: 'wis', label: 'Weisheit' },
-      { id: 'cha', label: 'Charisma' }
+      { id: 'str', label: 'Stärke', short: 'STÄ' },
+      { id: 'dex', label: 'Geschicklichkeit', short: 'GES' },
+      { id: 'con', label: 'Konstitution', short: 'KON' },
+      { id: 'int', label: 'Intelligenz', short: 'INT' },
+      { id: 'wis', label: 'Weisheit', short: 'WEI' },
+      { id: 'cha', label: 'Charisma', short: 'CHA' }
     ];
     const DND_SKILLS = [
       { id: 'athletics', ability: 'str', label: 'Athletik' },
@@ -5861,10 +5904,13 @@
       if (skills) {
         skills.innerHTML = DND_SKILLS.map(s => {
           const rank = dndState.skills[s.id] || 0;
+          const ab = DND_ABS.find(a => a.id === s.ability);
           return '<div class="dnd-skill">' +
             '<button type="button" class="dnd-prof' + (rank === 1 ? ' is-prof' : rank === 2 ? ' is-expert' : '') + '" data-skill="' + s.id + '" title="Übung / Expertise"></button>' +
+            '<span class="dnd-skill-ab">' + (ab ? ab.short : '') + '</span>' +
             '<button type="button" class="dnd-sk-roll" data-dnd-roll-skill="' + s.id + '">' +
-            '<span class="dnd-skill-mod" data-skill-mod="' + s.id + '">+0</span><span>' + s.label + '</span></button></div>';
+            '<span class="dnd-skill-name">' + s.label + '</span>' +
+            '<span class="dnd-skill-mod" data-skill-mod="' + s.id + '">+0</span></button></div>';
         }).join('');
       }
     }
