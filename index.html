@@ -1951,11 +1951,225 @@
       color: var(--ink);
       padding: 0.7rem 0.9rem;
       border-radius: 10px;
-      z-index: 50;
+      z-index: 90;
       box-shadow: var(--shadow);
     }
     body.is-dm .toast { bottom: 1rem; }
     body.is-dm.sound-dock-open .toast { bottom: 8.6rem; }
+
+    .dice-stage {
+      position: fixed;
+      inset: 0;
+      z-index: 120;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.15rem;
+      pointer-events: none;
+      overflow: visible;
+      background:
+        radial-gradient(ellipse at 50% 58%, rgba(16, 14, 12, 0.62), rgba(8, 6, 4, 0.22) 54%, transparent 78%);
+    }
+    .dice-rack {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1.6rem;
+      perspective: 1400px;
+      perspective-origin: 50% 38%;
+    }
+    .dice-scene {
+      width: 6.2rem;
+      height: 6.2rem;
+      position: relative;
+      transform-style: preserve-3d;
+    }
+    .dice-cube {
+      width: 6.2rem;
+      height: 6.2rem;
+      position: relative;
+      transform-style: preserve-3d;
+      transform: translate3d(var(--from-x), var(--from-y), 0) rotateX(18deg) rotateY(-28deg);
+    }
+    .dice-shadow {
+      position: absolute;
+      left: 50%;
+      bottom: -1.35rem;
+      width: 4.8rem;
+      height: 0.85rem;
+      margin-left: -2.4rem;
+      border-radius: 50%;
+      background: radial-gradient(ellipse, rgba(0, 0, 0, 0.55), transparent 72%);
+      filter: blur(3px);
+      transform: translateZ(-3.1rem) scale(0.7);
+      opacity: 0.35;
+    }
+    .dice-cube.is-rolling {
+      animation: dice-tumble 1.28s cubic-bezier(.12, .78, .22, 1.02) forwards;
+    }
+    .dice-cube.is-rolling + .dice-shadow,
+    .dice-scene.is-rolling .dice-shadow {
+      animation: dice-shadow 1.28s cubic-bezier(.12, .78, .22, 1.02) forwards;
+    }
+    .dice-face {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.85rem;
+      background:
+        radial-gradient(circle at 28% 22%, rgba(243, 234, 216, 0.2), transparent 46%),
+        linear-gradient(155deg, #4a4034 0%, #241f19 42%, #100e0c 100%);
+      box-shadow:
+        inset 0 2px 0 rgba(243, 234, 216, 0.28),
+        inset 0 -14px 22px rgba(0, 0, 0, 0.48),
+        inset 0 0 0 1px rgba(16, 14, 12, 0.85),
+        0 0 0 2px #d4b36a,
+        0 0 0 3px #8d7340,
+        0 10px 22px rgba(0, 0, 0, 0.28);
+      color: #f3ead8;
+      font-family: Cinzel, serif;
+      font-size: 2.15rem;
+      font-weight: 700;
+      backface-visibility: hidden;
+    }
+    .dice-face::before {
+      content: "";
+      position: absolute;
+      inset: 0.42rem;
+      border-radius: 0.52rem;
+      border: 1px solid rgba(212, 179, 106, 0.42);
+      box-shadow: inset 0 0 0 1px rgba(16, 14, 12, 0.72);
+      pointer-events: none;
+    }
+    .dice-face::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(128deg, rgba(255, 248, 230, 0.26) 0%, transparent 38%, rgba(0, 0, 0, 0.22) 100%);
+      pointer-events: none;
+    }
+    .dice-face span {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 3.55rem;
+      height: 3.55rem;
+      border-radius: 50%;
+      border: 1px solid rgba(212, 179, 106, 0.55);
+      background:
+        radial-gradient(circle at 34% 30%, rgba(243, 234, 216, 0.16), transparent 58%),
+        radial-gradient(circle at 50% 58%, #1a1612, #0c0a08 78%);
+      box-shadow:
+        inset 0 2px 5px rgba(0, 0, 0, 0.55),
+        0 0 0 3px rgba(16, 14, 12, 0.92),
+        0 0 0 4px rgba(212, 179, 106, 0.32);
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7), 0 0 12px rgba(212, 179, 106, 0.4);
+    }
+    .dice-face[data-side="front"] { transform: rotateY(0deg) translateZ(3.1rem); }
+    .dice-face[data-side="back"] {
+      transform: rotateY(180deg) translateZ(3.1rem);
+      background:
+        radial-gradient(circle at 70% 30%, rgba(243, 234, 216, 0.08), transparent 42%),
+        linear-gradient(155deg, #2c261f 0%, #161310 55%, #0a0908 100%);
+    }
+    .dice-face[data-side="right"] {
+      transform: rotateY(90deg) translateZ(3.1rem);
+      background:
+        radial-gradient(circle at 30% 20%, rgba(243, 234, 216, 0.16), transparent 44%),
+        linear-gradient(180deg, #534736 0%, #241f19 58%, #0e0c0a 100%);
+    }
+    .dice-face[data-side="left"] {
+      transform: rotateY(-90deg) translateZ(3.1rem);
+      background:
+        linear-gradient(180deg, #2a241c 0%, #141210 62%, #090807 100%);
+    }
+    .dice-face[data-side="top"] {
+      transform: rotateX(90deg) translateZ(3.1rem);
+      background:
+        radial-gradient(circle at 40% 35%, rgba(243, 234, 216, 0.28), transparent 50%),
+        linear-gradient(180deg, #6a5a42 0%, #3a3228 55%, #1c1814 100%);
+    }
+    .dice-face[data-side="bottom"] {
+      transform: rotateX(-90deg) translateZ(3.1rem);
+      background: linear-gradient(180deg, #1a1612 0%, #0c0a08 100%);
+    }
+    .dice-cube.is-crit .dice-face {
+      box-shadow:
+        inset 0 2px 0 rgba(243, 234, 216, 0.42),
+        0 0 0 2px #e8c57a,
+        0 0 0 4px rgba(212, 179, 106, 0.35),
+        0 0 34px rgba(212, 179, 106, 0.72);
+      color: #ffe7a8;
+    }
+    .dice-cube.is-crit .dice-face span {
+      border-color: #e8c57a;
+      box-shadow:
+        inset 0 2px 5px rgba(0, 0, 0, 0.4),
+        0 0 0 3px rgba(16, 14, 12, 0.9),
+        0 0 16px rgba(232, 197, 122, 0.55);
+    }
+    .dice-cube.is-fumble .dice-face {
+      box-shadow:
+        inset 0 1px 0 rgba(226, 179, 179, 0.22),
+        0 0 0 2px #9a3333,
+        0 0 0 4px rgba(110, 34, 34, 0.4),
+        0 0 26px rgba(154, 51, 51, 0.55);
+      color: #e2b3b3;
+    }
+    .dice-cube.is-fumble .dice-face span {
+      border-color: rgba(226, 179, 179, 0.55);
+    }
+    .dice-caption {
+      font-family: Cinzel, serif;
+      color: #d4b36a;
+      letter-spacing: 0.06em;
+      font-size: 1.05rem;
+      text-shadow: 0 1px 10px rgba(0, 0, 0, 0.75);
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    .dice-stage.is-landed .dice-caption {
+      opacity: 1;
+      transform: none;
+      transition: opacity 0.28s ease, transform 0.28s ease;
+    }
+    @keyframes dice-tumble {
+      0% {
+        transform: translate3d(var(--from-x), var(--from-y), -80px) rotateX(-28deg) rotateY(36deg) rotateZ(-40deg) scale(0.42);
+      }
+      32% {
+        transform: translate3d(calc(var(--from-x) * 0.42), calc(var(--from-y) * 0.18 - 7vh), 90px) rotateX(var(--spin-x)) rotateY(var(--spin-y)) rotateZ(var(--spin-z)) scale(1.14);
+      }
+      58% {
+        transform: translate3d(calc(var(--from-x) * 0.12), 22px, 18px) rotateX(calc(var(--spin-x) + 110deg)) rotateY(calc(var(--spin-y) + 70deg)) rotateZ(calc(var(--spin-z) + 40deg)) scale(0.92);
+      }
+      78% {
+        transform: translate3d(0, -10px, 8px) rotateX(22deg) rotateY(-16deg) rotateZ(8deg) scale(1.06);
+      }
+      100% {
+        transform: translate3d(0, 0, 0) rotateX(-12deg) rotateY(24deg) rotateZ(-4deg) scale(1);
+      }
+    }
+    @keyframes dice-shadow {
+      0% { opacity: 0.08; transform: translateZ(-3.1rem) scale(0.32); }
+      32% { opacity: 0.58; transform: translateZ(-3.1rem) scale(1.18); }
+      58% { opacity: 0.38; transform: translateZ(-3.1rem) scale(0.82); }
+      100% { opacity: 0.52; transform: translateZ(-3.1rem) scale(1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .dice-cube.is-rolling,
+      .dice-scene.is-rolling .dice-shadow { animation: none; }
+      .dice-cube {
+        transform: rotateX(-12deg) rotateY(24deg);
+      }
+      .dice-caption { opacity: 1; transform: none; }
+    }
 
     .sound-dock-wrap {
       display: flex;
@@ -4320,6 +4534,10 @@
     </div>
   </div>
 
+  <div id="diceStage" class="dice-stage hidden" aria-hidden="true">
+    <div class="dice-rack" id="diceRack"></div>
+    <div class="dice-caption" id="diceCaption"></div>
+  </div>
   <div id="toast" class="toast hidden"></div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -5726,12 +5944,80 @@
       return { n: Math.max(1, Number(m[1] || 1)), sides: Number(m[2]), add: Number(m[3] || 0) };
     }
 
-    function dndRollDice(raw) {
+    function dndRollDiceParts(raw) {
       const p = dndParseDice(raw);
       if (!p) return null;
+      const rolls = [];
+      for (let i = 0; i < p.n; i++) rolls.push(1 + Math.floor(Math.random() * p.sides));
       let total = p.add;
-      for (let i = 0; i < p.n; i++) total += 1 + Math.floor(Math.random() * p.sides);
-      return total;
+      rolls.forEach(v => { total += v; });
+      return { total: total, rolls: rolls, sides: p.sides, add: p.add };
+    }
+
+    function dndRollDice(raw) {
+      const r = dndRollDiceParts(raw);
+      return r ? r.total : null;
+    }
+
+    function playTableDie(opts) {
+      const values = (opts && opts.values || []).filter(v => v != null).slice(0, 3);
+      const caption = String(opts && opts.caption || '');
+      const sides = Math.max(2, Number(opts && opts.sides) || 20);
+      if (!values.length) {
+        toast(caption);
+        return;
+      }
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        toast(caption);
+        return;
+      }
+      const stage = document.getElementById('diceStage');
+      const rack = document.getElementById('diceRack');
+      const cap = document.getElementById('diceCaption');
+      if (!stage || !rack) {
+        toast(caption);
+        return;
+      }
+      const fromLeft = Math.random() < 0.5;
+      const fromX = (fromLeft ? -1 : 1) * (28 + Math.random() * 12) + 'vw';
+      const fromY = (6 + Math.random() * 10) + 'vh';
+      rack.innerHTML = values.map((value, i) => {
+        const spinX = 720 + Math.floor(Math.random() * 480);
+        const spinY = 780 + Math.floor(Math.random() * 520);
+        const spinZ = 220 + Math.floor(Math.random() * 280);
+        const faces = ['front', 'back', 'right', 'left', 'top', 'bottom'].map(side => {
+          const n = side === 'front' ? value : (1 + Math.floor(Math.random() * sides));
+          return '<div class="dice-face" data-side="' + side + '"><span>' + n + '</span></div>';
+        }).join('');
+        const kind = value === 20 && sides === 20 ? ' is-crit' : (value === 1 && sides === 20 ? ' is-fumble' : '');
+        return '<div class="dice-scene">' +
+          '<div class="dice-cube' + kind + '" style="--from-x:' + fromX + ';--from-y:' + fromY + ';--spin-x:' + spinX + 'deg;--spin-y:' + spinY + 'deg;--spin-z:' + spinZ + 'deg;animation-delay:' + (i * 0.08) + 's">' +
+          faces + '</div><div class="dice-shadow"></div></div>';
+      }).join('');
+      if (cap) cap.textContent = caption;
+      stage.classList.remove('hidden', 'is-landed');
+      stage.setAttribute('aria-hidden', 'false');
+      requestAnimationFrame(() => {
+        rack.querySelectorAll('.dice-cube').forEach(cube => {
+          cube.classList.remove('is-rolling');
+          void cube.offsetWidth;
+          cube.classList.add('is-rolling');
+        });
+        rack.querySelectorAll('.dice-scene').forEach(sc => sc.classList.add('is-rolling'));
+      });
+      clearTimeout(playTableDie._land);
+      clearTimeout(playTableDie._hide);
+      const duration = 1280 + Math.max(0, values.length - 1) * 80;
+      playTableDie._land = setTimeout(() => {
+        stage.classList.add('is-landed');
+        toast(caption, 3200);
+      }, duration);
+      playTableDie._hide = setTimeout(() => {
+        stage.classList.add('hidden');
+        stage.classList.remove('is-landed');
+        stage.setAttribute('aria-hidden', 'true');
+        rack.innerHTML = '';
+      }, duration + 1600);
     }
 
     function dndParseBonus(raw) {
@@ -5742,7 +6028,11 @@
     function dndRoll(label, bonus) {
       const die = 1 + Math.floor(Math.random() * 20);
       const add = Number(bonus) || 0;
-      toast(label + ': ' + die + ' (' + dndSigned(add) + ') = ' + (die + add));
+      playTableDie({
+        sides: 20,
+        values: [die],
+        caption: label + ': ' + die + ' (' + dndSigned(add) + ') = ' + (die + add)
+      });
     }
 
     function applyDndHpChange(kind) {
@@ -14282,17 +14572,25 @@
                 item.hitRoll = String(total);
                 const el = wrap.querySelector('[data-k="hitRoll"]');
                 if (el) el.value = item.hitRoll;
-                toast((item.name || 'Angriff') + ': W20 ' + die + ' (' + dndSigned(bonus) + ') = ' + total);
+                playTableDie({
+                  sides: 20,
+                  values: [die],
+                  caption: (item.name || 'Angriff') + ': W20 ' + die + ' (' + dndSigned(bonus) + ') = ' + total
+                });
               } else {
-                const total = dndRollDice(item.damage);
-                if (total == null) {
+                const rolled = dndRollDiceParts(item.damage);
+                if (!rolled) {
                   toast('Schaden als Würfel eintragen, z. B. 1W8+3.');
                   return;
                 }
-                item.dmgRoll = String(total);
+                item.dmgRoll = String(rolled.total);
                 const el = wrap.querySelector('[data-k="dmgRoll"]');
                 if (el) el.value = item.dmgRoll;
-                toast((item.name || 'Schaden') + ': ' + total);
+                playTableDie({
+                  sides: rolled.sides,
+                  values: rolled.rolls,
+                  caption: (item.name || 'Schaden') + ': ' + rolled.total
+                });
               }
               sheetDirty = true;
               if (!dndAttackIsOpen(item)) renderDndLists();
