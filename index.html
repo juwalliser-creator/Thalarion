@@ -932,6 +932,49 @@
       align-items: center;
       margin-bottom: 0.35rem;
     }
+    .dnd-atk-edit {
+      display: grid;
+      gap: 0.35rem;
+      margin-bottom: 0.55rem;
+    }
+    .dnd-atk-edit-top {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(5.5rem, 8rem);
+      gap: 0.35rem;
+    }
+    .dnd-atk-roll-row {
+      display: grid;
+      grid-template-columns: 5.4rem minmax(7rem, 1fr);
+      gap: 0.35rem;
+      align-items: stretch;
+    }
+    .dnd-atk-roll-wrap {
+      position: relative;
+      min-width: 0;
+    }
+    .dnd-atk-roll-wrap .dnd-atk-result {
+      width: 100%;
+      min-height: 2.2rem;
+      text-align: center;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--dnd-gold);
+      padding-right: 3.4rem;
+    }
+    .dnd-atk-roll-wrap .dnd-mini-roll {
+      position: absolute;
+      right: 0.28rem;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    .dnd-atk-edit-foot {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 0.35rem;
+    }
+    .dnd-atk-item .dnd-mini-roll {
+      align-self: stretch;
+    }
     .dnd-atk-item {
       display: flex;
       gap: 0.3rem;
@@ -5536,7 +5579,8 @@
       const list = (arr, shape) => (Array.isArray(arr) ? arr : []).map(shape).filter(Boolean);
       base.attacks = list(src.attacks, x => x && {
         id: x.id || combatNewId('a'), name: String(x.name || ''), range: String(x.range || ''),
-        bonus: String(x.bonus || ''), damage: String(x.damage || ''), notes: String(x.notes || '')
+        bonus: String(x.bonus || ''), hitRoll: String(x.hitRoll || ''),
+        damage: String(x.damage || ''), dmgRoll: String(x.dmgRoll || ''), notes: String(x.notes || '')
       });
       base.spells = list(src.spells, x => x && {
         id: x.id || combatNewId('s'), level: String(x.level || '0'), name: String(x.name || ''),
@@ -5558,6 +5602,21 @@
     let dndState = emptyDndSheet();
     let dndActFilter = 'all';
     let dndAttackEditId = '';
+
+    function dndParseDice(raw) {
+      const s = String(raw || '').replace(/\s/g, '').replace(',', '.');
+      const m = s.match(/^(\d*)[wWdD](\d+)([+-]\d+)?$/i);
+      if (!m) return null;
+      return { n: Math.max(1, Number(m[1] || 1)), sides: Number(m[2]), add: Number(m[3] || 0) };
+    }
+
+    function dndRollDice(raw) {
+      const p = dndParseDice(raw);
+      if (!p) return null;
+      let total = p.add;
+      for (let i = 0; i < p.n; i++) total += 1 + Math.floor(Math.random() * p.sides);
+      return total;
+    }
 
     function dndParseBonus(raw) {
       const n = Number(String(raw || '').replace(',', '.').replace(/^\+/, ''));
@@ -5741,7 +5800,10 @@
     }
 
     function dndAttackSummary(row) {
-      return [row.bonus, row.damage, row.range].map(v => String(v || '').trim()).filter(Boolean).join(' · ');
+      const bits = [row.bonus, row.damage, row.range].map(v => String(v || '').trim()).filter(Boolean);
+      if (row.hitRoll) bits.push('Treffer ' + row.hitRoll);
+      if (row.dmgRoll) bits.push('Schaden ' + row.dmgRoll);
+      return bits.join(' · ');
     }
 
     function commitDndAttack(id) {
@@ -5770,23 +5832,33 @@
         if (head) head.classList.toggle('hidden', !anyOpen);
         atk.innerHTML = dndState.attacks.map(row => {
           if (dndAttackIsOpen(row)) {
-            return '<div class="dnd-row" data-dnd-row="attacks" data-id="' + row.id + '">' +
+            return '<div class="dnd-atk-edit" data-dnd-row="attacks" data-id="' + row.id + '">' +
+              '<div class="dnd-atk-edit-top">' +
               '<input data-k="name" value="' + escapeAttr(row.name) + '" placeholder="Aktion" />' +
-              '<input data-k="range" value="' + escapeAttr(row.range) + '" placeholder="1,50 m" />' +
-              '<span class="dnd-inline"><input data-k="bonus" value="' + escapeAttr(row.bonus) + '" placeholder="+5" />' +
-              '<button type="button" class="dnd-mini-roll" data-dnd-roll="attack" title="Angriff würfeln">W20</button></span>' +
+              '<input data-k="range" value="' + escapeAttr(row.range) + '" placeholder="1,50 m" /></div>' +
+              '<div class="dnd-atk-roll-row">' +
+              '<input data-k="bonus" value="' + escapeAttr(row.bonus) + '" placeholder="+5" />' +
+              '<span class="dnd-atk-roll-wrap">' +
+              '<input class="dnd-atk-result" data-k="hitRoll" value="' + escapeAttr(row.hitRoll) + '" placeholder="Trefferwurf" readonly />' +
+              '<button type="button" class="dnd-mini-roll" data-dnd-roll="attack" title="Treffer würfeln">W20</button></span></div>' +
+              '<div class="dnd-atk-roll-row">' +
               '<input data-k="damage" value="' + escapeAttr(row.damage) + '" placeholder="1W8+3" />' +
+              '<span class="dnd-atk-roll-wrap">' +
+              '<input class="dnd-atk-result" data-k="dmgRoll" value="' + escapeAttr(row.dmgRoll) + '" placeholder="Schaden" readonly />' +
+              '<button type="button" class="dnd-mini-roll" data-dnd-roll="damage" title="Schaden würfeln">W</button></span></div>' +
+              '<div class="dnd-atk-edit-foot">' +
               '<input data-k="notes" value="' + escapeAttr(row.notes) + '" placeholder="Notiz" />' +
               '<button type="button" class="primary" data-dnd-atk-save="' + row.id + '">Speichern</button>' +
-              '<button type="button" class="ghost" data-dnd-del="attacks">×</button></div>';
+              '<button type="button" class="ghost" data-dnd-del="attacks">×</button></div></div>';
           }
           const meta = dndAttackSummary(row);
           return '<div class="dnd-atk-item" data-dnd-row="attacks" data-id="' + row.id + '">' +
-            '<button type="button" class="dnd-atk-btn" data-dnd-roll="attack" title="Angriff würfeln">' +
+            '<button type="button" class="dnd-atk-btn" data-dnd-roll="attack" title="Treffer würfeln">' +
             '<span class="dnd-atk-btn-name">' + escapeAttr(row.name || 'Angriff') + '</span>' +
             (meta ? '<span class="dnd-atk-btn-meta">' + escapeAttr(meta) + '</span>' : '') +
             (row.notes ? '<span class="dnd-atk-btn-meta">' + escapeAttr(row.notes) + '</span>' : '') +
             '</button>' +
+            '<button type="button" class="dnd-mini-roll" data-dnd-roll="damage" title="Schaden würfeln">W</button>' +
             '<button type="button" class="ghost" data-dnd-atk-edit="' + row.id + '" title="Bearbeiten">Ändern</button>' +
             '<button type="button" class="ghost" data-dnd-del="attacks">×</button></div>';
         }).join('');
@@ -5994,7 +6066,9 @@
       collectDndFields();
       if (kind === 'attacks') {
         const id = combatNewId('a');
-        dndState.attacks.push({ id: id, name: '', range: '', bonus: '', damage: '', notes: '' });
+        dndState.attacks.push({
+          id: id, name: '', range: '', bonus: '', hitRoll: '', damage: '', dmgRoll: '', notes: ''
+        });
         dndAttackEditId = id;
       }
       if (kind === 'spells') dndState.spells.push({ id: combatNewId('s'), level: '0', name: '', prepared: false, notes: '' });
@@ -14031,18 +14105,35 @@
               dndRoll('Initiative', bonus);
               return;
             }
-            const rollAtk = ev.target.closest('[data-dnd-roll="attack"]');
+            const rollAtk = ev.target.closest('[data-dnd-roll="attack"], [data-dnd-roll="damage"]');
             if (rollAtk) {
               const wrap = rollAtk.closest('[data-dnd-row]');
               const id = wrap && wrap.getAttribute('data-id');
+              collectDndFields();
               const item = (dndState.attacks || []).find(x => x.id === id);
-              const nameEl = wrap && wrap.querySelector('[data-k="name"]');
-              const bonusEl = wrap && wrap.querySelector('[data-k="bonus"]');
-              const name = (nameEl && nameEl.value) || (item && item.name) || 'Angriff';
-              const bonus = dndParseBonus((bonusEl && bonusEl.value) || (item && item.bonus));
-              const dmg = (item && item.damage) || '';
-              const die = 1 + Math.floor(Math.random() * 20);
-              toast(name + ': ' + die + ' (' + dndSigned(bonus) + ') = ' + (die + bonus) + (dmg ? ' · ' + dmg : ''));
+              if (!item) return;
+              const kind = rollAtk.getAttribute('data-dnd-roll');
+              if (kind === 'attack') {
+                const bonus = dndParseBonus(item.bonus);
+                const die = 1 + Math.floor(Math.random() * 20);
+                const total = die + bonus;
+                item.hitRoll = String(total);
+                const el = wrap.querySelector('[data-k="hitRoll"]');
+                if (el) el.value = item.hitRoll;
+                toast((item.name || 'Angriff') + ': W20 ' + die + ' (' + dndSigned(bonus) + ') = ' + total);
+              } else {
+                const total = dndRollDice(item.damage);
+                if (total == null) {
+                  toast('Schaden als Würfel eintragen, z. B. 1W8+3.');
+                  return;
+                }
+                item.dmgRoll = String(total);
+                const el = wrap.querySelector('[data-k="dmgRoll"]');
+                if (el) el.value = item.dmgRoll;
+                toast((item.name || 'Schaden') + ': ' + total);
+              }
+              sheetDirty = true;
+              if (!dndAttackIsOpen(item)) renderDndLists();
               return;
             }
             const atkSave = ev.target.closest('[data-dnd-atk-save]');
