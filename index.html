@@ -1114,9 +1114,13 @@
     .dnd-slot input { text-align: center; }
     .dnd-money {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 0.4rem;
-      margin-bottom: 0.6rem;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.55rem;
+      margin-bottom: 0.7rem;
+    }
+    .dnd-inv-gear {
+      min-height: 16rem;
+      line-height: 1.45;
     }
     .dnd-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
     .dnd-add { margin-top: 0.35rem; }
@@ -1148,9 +1152,10 @@
     @media (max-width: 1100px) {
       .char-layout:has(.is-dnd) { grid-template-columns: 1fr; }
       .dnd-head, .dnd-body, .dnd-abs, .dnd-combat, .dnd-meta, .dnd-grid-2, .dnd-def-grid,
-      .dnd-slots, .dnd-money, .dnd-atk-head, .dnd-row, .dnd-row-spell, .dnd-row-item, .dnd-row-feat {
+      .dnd-slots, .dnd-atk-head, .dnd-row, .dnd-row-spell, .dnd-row-item, .dnd-row-feat {
         grid-template-columns: 1fr;
       }
+      .dnd-money { grid-template-columns: 1fr 1fr; }
       .dnd-rests-head { flex-direction: row; }
       .dnd-atk-head { display: none; }
       .dnd-lower { grid-template-columns: 1fr; }
@@ -4027,23 +4032,12 @@
                           <button class="ghost dnd-add" type="button" data-dnd-add="spells">Zauber hinzufügen</button>
                         </div>
                         <div class="dnd-pane dnd-card hidden" data-dnd-pane="inventory">
-                          <label>Währung</label>
                           <div class="dnd-money">
-                            <div><label>PM</label><input data-dnd-field="pp" /></div>
-                            <div><label>GM</label><input data-dnd-field="gp" /></div>
-                            <div><label>EM</label><input data-dnd-field="ep" /></div>
-                            <div><label>SM</label><input data-dnd-field="sp" /></div>
-                            <div><label>KM</label><input data-dnd-field="cp" /></div>
-                          </div>
-                          <label>Einstimmung</label>
-                          <div class="dnd-grid-2" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:0.55rem;">
-                            <input data-dnd-attune="0" placeholder="Platz 1" />
-                            <input data-dnd-attune="1" placeholder="Platz 2" />
-                            <input data-dnd-attune="2" placeholder="Platz 3" />
+                            <div><label>Goldmünzen</label><input data-dnd-field="gp" inputmode="numeric" /></div>
+                            <div><label>Silbermünzen</label><input data-dnd-field="sp" inputmode="numeric" /></div>
                           </div>
                           <label>Ausrüstung</label>
-                          <div id="dndItemList"></div>
-                          <button class="ghost dnd-add" type="button" data-dnd-add="items">Gegenstand hinzufügen</button>
+                          <textarea data-dnd-field="gear" class="dnd-inv-gear" placeholder="Schreibe hier deine Sachen hinein…"></textarea>
                         </div>
                         <div class="dnd-pane dnd-card hidden" data-dnd-pane="features">
                           <label>Klassenmerkmale, Spezies, Talente</label>
@@ -5876,7 +5870,7 @@
         armorProf: '', weaponProf: '', toolProf: '', languages: '',
         attacks: [], bonusActions: '', reactions: '', otherActions: '',
         spellAbility: 'int', spellSlots: spellSlots, spells: [],
-        pp: '', gp: '', ep: '', sp: '', cp: '', attunement: ['', '', ''], items: [],
+        pp: '', gp: '', ep: '', sp: '', cp: '', attunement: ['', '', ''], items: [], gear: '',
         features: [], appearance: '', personality: '', ideals: '', bonds: '', flaws: '',
         backstory: '', allies: '', enemies: '', organizations: '', notesOther: '',
         extras: '', creatures: '', tab: 'actions'
@@ -5906,6 +5900,27 @@
         base.spellSlots[i] = { max: s && s.max != null ? String(s.max) : '', used: s && s.used != null ? String(s.used) : '' };
       }
       base.attunement = [0, 1, 2].map(i => String((src.attunement && src.attunement[i]) || ''));
+      base.gear = String(src.gear != null ? src.gear : '');
+      if (!base.gear.trim()) {
+        const lines = [];
+        (Array.isArray(src.items) ? src.items : []).forEach(x => {
+          if (!x) return;
+          const name = String(x.name || '').trim();
+          const qty = String(x.qty || '').trim();
+          const notes = String(x.notes || '').trim();
+          if (!name && !notes) return;
+          let line = name;
+          if (qty && qty !== '1') line += ' ×' + qty;
+          if (notes) line += (line ? ' — ' : '') + notes;
+          if (line) lines.push(line);
+        });
+        const attune = base.attunement.map(s => String(s || '').trim()).filter(Boolean);
+        if (attune.length) {
+          if (lines.length) lines.push('');
+          attune.forEach(s => lines.push(s));
+        }
+        base.gear = lines.join('\n');
+      }
       base.inspiration = !!src.inspiration;
       base.jackOfAllTrades = !!src.jackOfAllTrades;
       base.deathSuccess = Math.max(0, Math.min(3, Number(src.deathSuccess) || 0));
