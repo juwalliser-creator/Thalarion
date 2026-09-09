@@ -876,11 +876,12 @@
     .dnd-action-filters {
       display: flex;
       flex-wrap: nowrap;
-      justify-content: flex-start;
+      justify-content: center;
       align-items: center;
       gap: 0.4rem;
-      margin-bottom: 0.65rem;
-      padding: 0.5rem 0.7rem;
+      width: calc(50% - 0.2rem);
+      margin: 0 0 0.5rem auto;
+      padding: 0.45rem 0.6rem;
       overflow-x: auto;
     }
     .dnd-action-filters.hidden { display: none; }
@@ -968,6 +969,7 @@
       }
       .dnd-rests-head { flex-direction: row; }
       .dnd-atk-head { display: none; }
+      .dnd-action-filters { width: 100%; margin-left: 0; }
     }
 
     #menuBtn { display: none; }
