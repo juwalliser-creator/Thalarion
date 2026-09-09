@@ -927,7 +927,7 @@
     .dnd-atk-head,
     .dnd-row {
       display: grid;
-      grid-template-columns: 1.3fr 6.5rem 6.2rem 1fr 1fr auto;
+      grid-template-columns: 1.3fr 6.5rem 6.2rem 1fr 1fr auto auto;
       gap: 0.35rem;
       align-items: center;
       margin-bottom: 0.35rem;
@@ -5678,6 +5678,17 @@
         if (max) dndState.spellSlots[i].max = max.value;
         if (used) dndState.spellSlots[i].used = used.value;
       }
+      document.querySelectorAll('#charDndBlock [data-dnd-row]').forEach(row => {
+        const kind = row.getAttribute('data-dnd-row');
+        const id = row.getAttribute('data-id');
+        const item = (dndState[kind] || []).find(x => x.id === id);
+        if (!item) return;
+        row.querySelectorAll('[data-k]').forEach(el => {
+          const key = el.getAttribute('data-k');
+          if (!key) return;
+          item[key] = el.type === 'checkbox' ? el.checked : el.value;
+        });
+      });
     }
 
     function applyDndFields() {
@@ -5733,6 +5744,19 @@
       return [row.bonus, row.damage, row.range].map(v => String(v || '').trim()).filter(Boolean).join(' · ');
     }
 
+    function commitDndAttack(id) {
+      collectDndFields();
+      const item = (dndState.attacks || []).find(x => x.id === id);
+      if (!item || !String(item.name || '').trim()) {
+        toast('Zuerst einen Namen für den Angriff eintragen.');
+        return;
+      }
+      dndAttackEditId = '';
+      renderDndLists();
+      sheetDirty = true;
+      saveSheet();
+    }
+
     function collapseDndAttacks() {
       dndAttackEditId = '';
       dndState.attacks = (dndState.attacks || []).filter(row => String(row.name || '').trim());
@@ -5753,6 +5777,7 @@
               '<button type="button" class="dnd-mini-roll" data-dnd-roll="attack" title="Angriff würfeln">W20</button></span>' +
               '<input data-k="damage" value="' + escapeAttr(row.damage) + '" placeholder="1W8+3" />' +
               '<input data-k="notes" value="' + escapeAttr(row.notes) + '" placeholder="Notiz" />' +
+              '<button type="button" class="primary" data-dnd-atk-save="' + row.id + '">Speichern</button>' +
               '<button type="button" class="ghost" data-dnd-del="attacks">×</button></div>';
           }
           const meta = dndAttackSummary(row);
@@ -14018,6 +14043,11 @@
               const dmg = (item && item.damage) || '';
               const die = 1 + Math.floor(Math.random() * 20);
               toast(name + ': ' + die + ' (' + dndSigned(bonus) + ') = ' + (die + bonus) + (dmg ? ' · ' + dmg : ''));
+              return;
+            }
+            const atkSave = ev.target.closest('[data-dnd-atk-save]');
+            if (atkSave) {
+              commitDndAttack(atkSave.getAttribute('data-dnd-atk-save'));
               return;
             }
             const atkEdit = ev.target.closest('[data-dnd-atk-edit]');
