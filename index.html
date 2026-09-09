@@ -493,6 +493,7 @@
       justify-content: flex-end;
     }
     .char-layout:has(.is-dnd) { grid-template-columns: 168px 1fr; gap: 0.85rem; }
+    .char-layout.solo:has(.is-dnd) { grid-template-columns: 1fr; }
     #charView.is-dnd-wide {
       max-width: none;
     }
@@ -972,36 +973,94 @@
       grid-template-columns: minmax(0, 1fr) auto auto;
       gap: 0.35rem;
     }
-    .dnd-atk-item .dnd-mini-roll {
-      align-self: stretch;
+    #dndAttackList { min-width: 0; overflow-x: auto; }
+    .dnd-atk-cols,
+    .dnd-atk-item {
+      display: grid;
+      grid-template-columns: minmax(7rem, 1.35fr) minmax(3.8rem, 5.6rem) minmax(4.6rem, 5.6rem) minmax(5.4rem, 7.2rem) minmax(6rem, 1.5fr) auto auto;
+      gap: 0.4rem 0.55rem;
+      align-items: center;
+    }
+    .dnd-atk-cols {
+      color: var(--dnd-gold);
+      font-size: 0.68rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0 0.1rem 0.4rem;
+      border-bottom: 1px solid var(--dnd-line);
+      margin-bottom: 0.05rem;
     }
     .dnd-atk-item {
-      display: flex;
-      gap: 0.3rem;
-      align-items: stretch;
-      margin-bottom: 0.4rem;
+      padding: 0.62rem 0.1rem;
+      border-bottom: 1px solid var(--dnd-line);
+      margin-bottom: 0;
     }
-    .dnd-atk-btn {
-      flex: 1;
+    .dnd-atk-item:last-of-type { border-bottom: 0; }
+    .dnd-atk-id {
       display: flex;
-      flex-direction: column;
       align-items: flex-start;
-      gap: 0.1rem;
-      text-align: left;
-      background: var(--dnd-well);
-      border: 1px solid var(--dnd-gold);
+      gap: 0.5rem;
+      min-width: 0;
+    }
+    .dnd-atk-ico {
+      width: 1.2rem;
+      height: 1.2rem;
+      flex: 0 0 auto;
+      margin-top: 0.12rem;
       color: var(--dnd-ink);
-      border-radius: 10px;
-      padding: 0.48rem 0.7rem;
     }
-    .dnd-atk-btn:hover { background: rgba(212, 179, 106, 0.1); }
-    .dnd-atk-btn-name {
-      font-family: Cinzel, serif;
-      color: var(--dnd-gold);
-      font-size: 0.95rem;
-      letter-spacing: 0.04em;
+    .dnd-atk-id-text { min-width: 0; }
+    .dnd-atk-name {
+      display: block;
+      font-weight: 700;
+      color: var(--dnd-ink);
+      font-size: 0.98rem;
+      line-height: 1.2;
     }
-    .dnd-atk-btn-meta { color: var(--dnd-mute); font-size: 0.8rem; }
+    .dnd-atk-kind {
+      display: block;
+      color: var(--dnd-mute);
+      font-size: 0.72rem;
+      margin-top: 0.12rem;
+    }
+    .dnd-atk-range {
+      font-size: 1.12rem;
+      font-weight: 700;
+      color: var(--dnd-ink);
+      line-height: 1.15;
+      white-space: nowrap;
+    }
+    .dnd-atk-range-far {
+      color: var(--dnd-mute);
+      font-weight: 500;
+      font-size: 0.82rem;
+    }
+    .dnd-atk-stat {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 2.35rem;
+      padding: 0.28rem 0.4rem;
+      border: 1px solid var(--dnd-gold);
+      border-radius: 6px;
+      background: var(--dnd-well);
+      color: var(--dnd-ink);
+      font-weight: 700;
+      font-size: 0.92rem;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+    }
+    .dnd-atk-stat:hover { background: rgba(212, 179, 106, 0.12); }
+    .dnd-atk-notes {
+      color: var(--dnd-mute);
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+    .dnd-atk-item .ghost {
+      padding: 0.28rem 0.45rem;
+      font-size: 0.75rem;
+    }
     .dnd-row-spell { grid-template-columns: 3.2rem 1.3fr 5.2rem 1fr auto; }
     .dnd-row-item { grid-template-columns: 1.3fr 3.4rem 4rem 5.2rem 5.2rem 1fr auto; }
     .dnd-row-feat { grid-template-columns: 1.2fr 4rem 4rem 7rem 1fr auto; }
@@ -5799,11 +5858,36 @@
       return !String(row && row.name || '').trim() || (row && row.id) === dndAttackEditId;
     }
 
-    function dndAttackSummary(row) {
-      const bits = [row.bonus, row.damage, row.range].map(v => String(v || '').trim()).filter(Boolean);
-      if (row.hitRoll) bits.push('Treffer ' + row.hitRoll);
-      if (row.dmgRoll) bits.push('Schaden ' + row.dmgRoll);
-      return bits.join(' · ');
+    function dndFormatRange(raw) {
+      const s = String(raw || '').trim();
+      if (!s) return { main: '—', extra: '' };
+      const m = s.match(/(\d+(?:[.,]\d+)?)\s*(ft\.?|m)?\s*(?:[\/(]\s*(\d+(?:[.,]\d+)?)\)?)?/i);
+      if (!m) return { main: s, extra: '' };
+      if (m[3]) return { main: m[1], extra: m[3] };
+      const unit = m[2] ? (/m/i.test(m[2]) ? ' m' : ' ft.') : '';
+      return { main: m[1] + unit, extra: '' };
+    }
+
+    function dndAttackKind(row) {
+      const blob = [row.name, row.range, row.notes].map(v => String(v || '').toLowerCase()).join(' ');
+      if (/unarmed|waffenlos|faust/.test(blob)) return { label: 'Waffenloser Schlag', icon: 'unarmed' };
+      if (/fern|ranged|longbow|shortbow|crossbow|bogen|armbrust|\//.test(blob)) {
+        return { label: 'Fernkampfwaffe', icon: 'ranged' };
+      }
+      if (/nahkampf|melee|shortsword|schwert|dolch|axt|5\s*ft|1[,.]50?\s*m/.test(blob)) {
+        return { label: 'Nahkampfwaffe', icon: 'melee' };
+      }
+      return { label: 'Angriff', icon: 'melee' };
+    }
+
+    function dndAtkIcon(kind) {
+      if (kind === 'ranged') {
+        return '<svg class="dnd-atk-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 12a8 8 0 0 1 8-8V2a10 10 0 0 0 0 20v-2a8 8 0 0 1-8-8zm16.7-9.7L19.3 3.7 12 11l-2 1 1-2 7.3-7.3 2.4-1.4zM13 14l-4 2 2-4 2 2z"/></svg>';
+      }
+      if (kind === 'unarmed') {
+        return '<svg class="dnd-atk-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 10V6.5A1.5 1.5 0 0 1 11 6.5V10h1V5.5A1.5 1.5 0 0 1 15 5.5V10h1V7.5A1.5 1.5 0 0 1 19 7.5V14c0 3.3-2.2 6-6 6H9c-2.8 0-5-2.2-5-5v-3.5A1.5 1.5 0 0 1 7 10h1z"/></svg>';
+      }
+      return '<svg class="dnd-atk-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 21l6-6 2 2-6 6H3v-2zm9.5-8.5l8.5-8.5V2h-2l-8.5 8.5 2 2zM8 14l2 2 1.5-1.5-2-2L8 14zm7.8-9.2l2.4 2.4 1.4-1.4-2.4-2.4-1.4 1.4z"/></svg>';
     }
 
     function commitDndAttack(id) {
@@ -5830,7 +5914,11 @@
         const anyOpen = dndState.attacks.some(dndAttackIsOpen);
         const head = document.querySelector('#charDndBlock .dnd-atk-head');
         if (head) head.classList.toggle('hidden', !anyOpen);
-        atk.innerHTML = dndState.attacks.map(row => {
+        const hasSaved = dndState.attacks.some(row => !dndAttackIsOpen(row));
+        const cols = hasSaved
+          ? '<div class="dnd-atk-cols"><span>Angriff</span><span>Reichweite</span><span>Treffer</span><span>Schaden</span><span>Notizen</span><span></span><span></span></div>'
+          : '';
+        atk.innerHTML = cols + dndState.attacks.map(row => {
           if (dndAttackIsOpen(row)) {
             return '<div class="dnd-atk-edit" data-dnd-row="attacks" data-id="' + row.id + '">' +
               '<div class="dnd-atk-edit-top">' +
@@ -5851,14 +5939,20 @@
               '<button type="button" class="primary" data-dnd-atk-save="' + row.id + '">Speichern</button>' +
               '<button type="button" class="ghost" data-dnd-del="attacks">×</button></div></div>';
           }
-          const meta = dndAttackSummary(row);
+          const kind = dndAttackKind(row);
+          const range = dndFormatRange(row.range);
+          const bonus = String(row.bonus || '').trim() || '—';
+          const dmg = String(row.damage || '').trim() || '—';
           return '<div class="dnd-atk-item" data-dnd-row="attacks" data-id="' + row.id + '">' +
-            '<button type="button" class="dnd-atk-btn" data-dnd-roll="attack" title="Treffer würfeln">' +
-            '<span class="dnd-atk-btn-name">' + escapeAttr(row.name || 'Angriff') + '</span>' +
-            (meta ? '<span class="dnd-atk-btn-meta">' + escapeAttr(meta) + '</span>' : '') +
-            (row.notes ? '<span class="dnd-atk-btn-meta">' + escapeAttr(row.notes) + '</span>' : '') +
-            '</button>' +
-            '<button type="button" class="dnd-mini-roll" data-dnd-roll="damage" title="Schaden würfeln">W</button>' +
+            '<div class="dnd-atk-id">' + dndAtkIcon(kind.icon) +
+            '<span class="dnd-atk-id-text"><span class="dnd-atk-name">' + escapeAttr(row.name || 'Angriff') + '</span>' +
+            '<span class="dnd-atk-kind">' + escapeAttr(kind.label) + '</span></span></div>' +
+            '<div class="dnd-atk-range">' + escapeAttr(range.main) +
+            (range.extra ? ' <span class="dnd-atk-range-far">(' + escapeAttr(range.extra) + ')</span>' : '') +
+            '</div>' +
+            '<button type="button" class="dnd-atk-stat" data-dnd-roll="attack" title="Treffer würfeln">' + escapeAttr(bonus) + '</button>' +
+            '<button type="button" class="dnd-atk-stat" data-dnd-roll="damage" title="Schaden würfeln">' + escapeAttr(dmg) + '</button>' +
+            '<div class="dnd-atk-notes">' + escapeAttr(row.notes || '') + '</div>' +
             '<button type="button" class="ghost" data-dnd-atk-edit="' + row.id + '" title="Bearbeiten">Ändern</button>' +
             '<button type="button" class="ghost" data-dnd-del="attacks">×</button></div>';
         }).join('');
