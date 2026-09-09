@@ -932,13 +932,33 @@
       align-items: center;
       margin-bottom: 0.35rem;
     }
-    .dnd-atk-head {
-      color: var(--dnd-mute);
-      font-size: 0.68rem;
-      letter-spacing: 0.07em;
-      text-transform: uppercase;
+    .dnd-atk-item {
+      display: flex;
+      gap: 0.3rem;
+      align-items: stretch;
       margin-bottom: 0.4rem;
     }
+    .dnd-atk-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.1rem;
+      text-align: left;
+      background: var(--dnd-well);
+      border: 1px solid var(--dnd-gold);
+      color: var(--dnd-ink);
+      border-radius: 10px;
+      padding: 0.48rem 0.7rem;
+    }
+    .dnd-atk-btn:hover { background: rgba(212, 179, 106, 0.1); }
+    .dnd-atk-btn-name {
+      font-family: Cinzel, serif;
+      color: var(--dnd-gold);
+      font-size: 0.95rem;
+      letter-spacing: 0.04em;
+    }
+    .dnd-atk-btn-meta { color: var(--dnd-mute); font-size: 0.8rem; }
     .dnd-row-spell { grid-template-columns: 3.2rem 1.3fr 5.2rem 1fr auto; }
     .dnd-row-item { grid-template-columns: 1.3fr 3.4rem 4rem 5.2rem 5.2rem 1fr auto; }
     .dnd-row-feat { grid-template-columns: 1.2fr 4rem 4rem 7rem 1fr auto; }
@@ -5538,6 +5558,7 @@
 
     let dndState = emptyDndSheet();
     let dndActFilter = 'all';
+    let dndAttackEditId = '';
 
     function dndParseBonus(raw) {
       const n = Number(String(raw || '').replace(',', '.').replace(/^\+/, ''));
@@ -5705,19 +5726,46 @@
       }
     }
 
+    function dndAttackIsOpen(row) {
+      return !String(row && row.name || '').trim() || (row && row.id) === dndAttackEditId;
+    }
+
+    function dndAttackSummary(row) {
+      return [row.bonus, row.damage, row.range].map(v => String(v || '').trim()).filter(Boolean).join(' · ');
+    }
+
+    function collapseDndAttacks() {
+      dndAttackEditId = '';
+      dndState.attacks = (dndState.attacks || []).filter(row => String(row.name || '').trim());
+    }
+
     function renderDndLists() {
       const atk = document.getElementById('dndAttackList');
       if (atk) {
-        atk.innerHTML = dndState.attacks.map(row =>
-          '<div class="dnd-row" data-dnd-row="attacks" data-id="' + row.id + '">' +
-          '<input data-k="name" value="' + escapeAttr(row.name) + '" placeholder="Aktion" />' +
-          '<input data-k="range" value="' + escapeAttr(row.range) + '" placeholder="1,50 m" />' +
-          '<span class="dnd-inline"><input data-k="bonus" value="' + escapeAttr(row.bonus) + '" placeholder="+5" />' +
-          '<button type="button" class="dnd-mini-roll" data-dnd-roll="attack" title="Angriff würfeln">W20</button></span>' +
-          '<input data-k="damage" value="' + escapeAttr(row.damage) + '" placeholder="1W8+3" />' +
-          '<input data-k="notes" value="' + escapeAttr(row.notes) + '" placeholder="Notiz" />' +
-          '<button type="button" class="ghost" data-dnd-del="attacks">×</button></div>'
-        ).join('');
+        const anyOpen = dndState.attacks.some(dndAttackIsOpen);
+        const head = document.querySelector('#charDndBlock .dnd-atk-head');
+        if (head) head.classList.toggle('hidden', !anyOpen);
+        atk.innerHTML = dndState.attacks.map(row => {
+          if (dndAttackIsOpen(row)) {
+            return '<div class="dnd-row" data-dnd-row="attacks" data-id="' + row.id + '">' +
+              '<input data-k="name" value="' + escapeAttr(row.name) + '" placeholder="Aktion" />' +
+              '<input data-k="range" value="' + escapeAttr(row.range) + '" placeholder="1,50 m" />' +
+              '<span class="dnd-inline"><input data-k="bonus" value="' + escapeAttr(row.bonus) + '" placeholder="+5" />' +
+              '<button type="button" class="dnd-mini-roll" data-dnd-roll="attack" title="Angriff würfeln">W20</button></span>' +
+              '<input data-k="damage" value="' + escapeAttr(row.damage) + '" placeholder="1W8+3" />' +
+              '<input data-k="notes" value="' + escapeAttr(row.notes) + '" placeholder="Notiz" />' +
+              '<button type="button" class="ghost" data-dnd-del="attacks">×</button></div>';
+          }
+          const meta = dndAttackSummary(row);
+          return '<div class="dnd-atk-item" data-dnd-row="attacks" data-id="' + row.id + '">' +
+            '<button type="button" class="dnd-atk-btn" data-dnd-roll="attack" title="Angriff würfeln">' +
+            '<span class="dnd-atk-btn-name">' + escapeAttr(row.name || 'Angriff') + '</span>' +
+            (meta ? '<span class="dnd-atk-btn-meta">' + escapeAttr(meta) + '</span>' : '') +
+            (row.notes ? '<span class="dnd-atk-btn-meta">' + escapeAttr(row.notes) + '</span>' : '') +
+            '</button>' +
+            '<button type="button" class="ghost" data-dnd-atk-edit="' + row.id + '" title="Bearbeiten">Ändern</button>' +
+            '<button type="button" class="ghost" data-dnd-del="attacks">×</button></div>';
+        }).join('');
       }
       const limited = document.getElementById('dndLimitedList');
       if (limited) {
@@ -5886,6 +5934,7 @@
       }
       renderDndAbilityCol();
       renderDndSlots();
+      collapseDndAttacks();
       renderDndLists();
       renderDndPips();
       applyDndFields();
@@ -5919,7 +5968,11 @@
 
     function addDndRow(kind) {
       collectDndFields();
-      if (kind === 'attacks') dndState.attacks.push({ id: combatNewId('a'), name: '', range: '', bonus: '', damage: '', notes: '' });
+      if (kind === 'attacks') {
+        const id = combatNewId('a');
+        dndState.attacks.push({ id: id, name: '', range: '', bonus: '', damage: '', notes: '' });
+        dndAttackEditId = id;
+      }
       if (kind === 'spells') dndState.spells.push({ id: combatNewId('s'), level: '0', name: '', prepared: false, notes: '' });
       if (kind === 'items') dndState.items.push({ id: combatNewId('i'), name: '', qty: '1', weight: '', equipped: false, attuned: false, notes: '' });
       if (kind === 'features') dndState.features.push({ id: combatNewId('f'), name: '', uses: '', used: '', reset: 'long', text: '' });
@@ -8481,6 +8534,10 @@
           }
         });
         persistCombat();
+        if (isUdoOwner(currentSheetOwner)) {
+          collapseDndAttacks();
+          renderDndLists();
+        }
         sheetDirty = false;
         toast('Charakterblatt gespeichert.');
       } catch (err) {
@@ -13952,10 +14009,23 @@
             }
             const rollAtk = ev.target.closest('[data-dnd-roll="attack"]');
             if (rollAtk) {
-              const row = rollAtk.closest('[data-dnd-row]');
-              const name = row && row.querySelector('[data-k="name"]');
-              const bonus = row && row.querySelector('[data-k="bonus"]');
-              dndRoll((name && name.value) || 'Angriff', dndParseBonus(bonus && bonus.value));
+              const wrap = rollAtk.closest('[data-dnd-row]');
+              const id = wrap && wrap.getAttribute('data-id');
+              const item = (dndState.attacks || []).find(x => x.id === id);
+              const nameEl = wrap && wrap.querySelector('[data-k="name"]');
+              const bonusEl = wrap && wrap.querySelector('[data-k="bonus"]');
+              const name = (nameEl && nameEl.value) || (item && item.name) || 'Angriff';
+              const bonus = dndParseBonus((bonusEl && bonusEl.value) || (item && item.bonus));
+              const dmg = (item && item.damage) || '';
+              const die = 1 + Math.floor(Math.random() * 20);
+              toast(name + ': ' + die + ' (' + dndSigned(bonus) + ') = ' + (die + bonus) + (dmg ? ' · ' + dmg : ''));
+              return;
+            }
+            const atkEdit = ev.target.closest('[data-dnd-atk-edit]');
+            if (atkEdit) {
+              collectDndFields();
+              dndAttackEditId = atkEdit.getAttribute('data-dnd-atk-edit') || '';
+              renderDndLists();
               return;
             }
             const skill = ev.target.closest('[data-skill]');
