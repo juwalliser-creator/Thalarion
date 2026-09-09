@@ -488,9 +488,9 @@
       padding: 0;
     }
     .char-main.is-dnd #charSheetActions {
-      width: calc(50% - 0.325rem);
-      margin-left: auto;
-      justify-content: center;
+      width: auto;
+      margin-left: 0;
+      justify-content: flex-end;
     }
     .char-layout:has(.is-dnd) { grid-template-columns: 168px 1fr; gap: 0.85rem; }
     #charView.is-dnd-wide {
@@ -765,21 +765,24 @@
     }
     .dnd-lower {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: 0.65rem;
+      grid-template-columns: 7.2rem 8rem 7.4rem 7.4rem 7.4rem minmax(0, 1fr) minmax(0, 1fr);
+      gap: 0.4rem;
       align-items: start;
     }
     .dnd-lower-right {
+      grid-column: 5 / -1;
       min-width: 0;
       display: flex;
       flex-direction: column;
       align-items: stretch;
     }
     .dnd-body {
+      grid-column: 1 / 5;
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: 0.65rem;
+      gap: 0.4rem;
       align-items: start;
+      min-width: 0;
     }
     .dnd-col, .dnd-pane { padding: 0.65rem 0.7rem; }
     .dnd-col h3,
@@ -892,27 +895,29 @@
     .dnd-action-filters {
       display: flex;
       flex-wrap: nowrap;
-      justify-content: center;
+      justify-content: stretch;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.28rem;
       width: 100%;
-      max-width: none;
+      max-width: 100%;
       margin: 0 0 0.45rem 0;
-      padding: 0.45rem 0.7rem;
-      overflow: visible;
+      padding: 0.35rem 0.4rem;
+      overflow: hidden;
     }
     .dnd-action-filters.hidden { display: none; }
     .dnd-action-filters button {
-      flex: 0 0 auto;
+      flex: 1 1 0;
+      min-width: 0;
       white-space: nowrap;
       background: var(--dnd-well);
       border: 1px solid var(--dnd-line);
       color: var(--dnd-mute);
       border-radius: 999px;
-      padding: 0.38rem 0.9rem;
-      font-size: 0.78rem;
-      letter-spacing: 0.05em;
+      padding: 0.32rem 0.2rem;
+      font-size: 0.7rem;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
+      text-align: center;
     }
     .dnd-action-filters button.active {
       color: #1a140c;
@@ -975,7 +980,8 @@
     .dnd-chip-btn:hover { filter: brightness(1.12); }
     @media (max-width: 1280px) {
       .dnd-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-      .dnd-combat { grid-template-columns: repeat(5, minmax(6rem, 0.7fr)) minmax(0, 1fr) minmax(0, 1fr); }
+      .dnd-combat,
+      .dnd-lower { grid-template-columns: repeat(5, minmax(6rem, 0.7fr)) minmax(0, 1fr) minmax(0, 1fr); }
       .dnd-meta { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
     @media (max-width: 1100px) {
@@ -987,6 +993,8 @@
       .dnd-rests-head { flex-direction: row; }
       .dnd-atk-head { display: none; }
       .dnd-lower { grid-template-columns: 1fr; }
+      .dnd-body,
+      .dnd-lower-right { grid-column: auto; }
       .dnd-action-filters { width: 100%; margin-left: 0; }
     }
 
