@@ -5270,7 +5270,7 @@
 
     function fillSheetForm(sheet) {
       const s = normalizeSheet(sheet);
-      if (isUdoOwner(currentSheetOwner)) fillDndForm(s);
+      if (usesDndSheet(currentSheetOwner)) fillDndForm(s);
       document.getElementById('sheetName').value = s.name || '';
       document.getElementById('sheetVolk').value = s.volk || '';
       document.getElementById('sheetKlasse').value = s.klasse || '';
@@ -5324,7 +5324,7 @@
     }
 
     function readSheetForm() {
-      if (isUdoOwner(currentSheetOwner)) return readDndForm();
+      if (usesDndSheet(currentSheetOwner)) return readDndForm();
       return {
         name: document.getElementById('sheetName').value.trim(),
         volk: document.getElementById('sheetVolk').value.trim(),
@@ -5418,6 +5418,20 @@
 
     function isUdoOwner(owner) {
       return owner === UDO_ID;
+    }
+
+    function usesDndSheet(owner) {
+      if (!owner || isDmNotesOwner(owner)) return false;
+      if (owner === VEYR_OWNER || owner === ILLUSION_OWNER) return false;
+      return String(owner).indexOf(':') < 0;
+    }
+
+    function dndOwnerName() {
+      const rec = sheetOwnerRecord(currentSheetOwner);
+      if (rec && rec.sheet && String(rec.sheet.name || '').trim()) return rec.sheet.name;
+      if (rec && rec.name) return rec.name;
+      if (isUdoOwner(currentSheetOwner)) return 'Udo';
+      return '';
     }
 
     function sheetAccountId(owner) {
@@ -5591,7 +5605,7 @@
       const spellSlots = {};
       for (let i = 1; i <= 9; i++) spellSlots[i] = { max: '', used: '' };
       return {
-        name: 'Udo', volk: '', klasse: '', stufe: '',
+        name: '', volk: '', klasse: '', stufe: '',
         background: '', alignment: '', xp: '', playerName: '', inspiration: false, profBonus: '',
         abilities: abilities, skills: skills, jackOfAllTrades: false,
         ac: '', initiativeBonus: '', speed: '9 m',
@@ -5742,6 +5756,7 @@
       if (!accs[UDO_ID].sheet) accs[UDO_ID].sheet = Object.assign({}, EMPTY_SHEET, { name: 'Udo' });
       if (!accs[UDO_ID].sheet.name) accs[UDO_ID].sheet.name = 'Udo';
       accs[UDO_ID].sheet.dnd = normalizeDndSheet(accs[UDO_ID].sheet.dnd);
+      if (!accs[UDO_ID].sheet.dnd.name) accs[UDO_ID].sheet.dnd.name = 'Udo';
     }
 
     function dndMod(score) {
@@ -5819,7 +5834,7 @@
         el.value = dndState.attunement[Number(el.getAttribute('data-dnd-attune'))] || '';
       });
       const nameEl = document.querySelector('#charDndBlock [data-dnd-field="name"]');
-      if (nameEl && !nameEl.value) nameEl.value = 'Udo';
+      if (nameEl && !nameEl.value) nameEl.value = dndOwnerName();
     }
 
     function renderDndAbilityCol() {
@@ -6112,7 +6127,7 @@
     function fillDndForm(sheet) {
       const s = normalizeSheet(sheet);
       dndState = normalizeDndSheet(s.dnd);
-      if (!dndState.name) dndState.name = s.name || 'Udo';
+      if (!dndState.name) dndState.name = s.name || dndOwnerName();
       if (!dndState.volk) dndState.volk = s.volk || '';
       if (!dndState.klasse) dndState.klasse = s.klasse || '';
       if (!dndState.stufe) dndState.stufe = s.stufe || '';
@@ -6135,7 +6150,7 @@
 
     function readDndForm() {
       collectDndFields();
-      const name = (dndState.name || 'Udo').trim();
+      const name = (dndState.name || dndOwnerName()).trim();
       const stats = DND_ABS.map(a => {
         const score = dndState.abilities[a.id].score;
         return a.label.slice(0, 2).toUpperCase() + ' ' + score + ' (' + dndSigned(dndMod(score)) + ')';
@@ -6232,6 +6247,12 @@
       ensureIllusionAlt(out);
       ensureUdoAccount(out);
       renameReptileToBjoern(out);
+      Object.keys(out).forEach(id => {
+        if (!usesDndSheet(id) || !out[id] || !out[id].sheet) return;
+        const dnd = normalizeDndSheet(out[id].sheet.dnd);
+        if (!dnd.name) dnd.name = out[id].sheet.name || out[id].name || '';
+        out[id].sheet.dnd = dnd;
+      });
       return out;
     }
 
@@ -8621,9 +8642,10 @@
       const isVeyr = currentSheetOwner === VEYR_OWNER;
       const isNotes = isDM && isDmNotesOwner(currentSheetOwner);
       const isUdo = isUdoOwner(currentSheetOwner);
-      document.getElementById('charSheetBlock').classList.toggle('hidden', isNotes || isUdo);
+      const isDnd = usesDndSheet(currentSheetOwner);
+      document.getElementById('charSheetBlock').classList.toggle('hidden', isNotes || isDnd);
       const dndBlock = document.getElementById('charDndBlock');
-      if (dndBlock) dndBlock.classList.toggle('hidden', isNotes || !isUdo);
+      if (dndBlock) dndBlock.classList.toggle('hidden', isNotes || !isDnd);
       const sheetActions = document.getElementById('charSheetActions');
       if (sheetActions) sheetActions.classList.toggle('hidden', isNotes);
       document.getElementById('charEntryBlock').classList.add('hidden');
@@ -8633,8 +8655,8 @@
       document.getElementById('charMainCard').classList.remove('is-entry');
       document.getElementById('charMainCard').classList.toggle('is-veyr-sheet', isVeyr && !isNotes);
       document.getElementById('charMainCard').classList.toggle('is-dm-notes', isNotes);
-      document.getElementById('charMainCard').classList.toggle('is-dnd', isUdo && !isNotes);
-      document.getElementById('charView').classList.toggle('is-dnd-wide', isUdo && !isNotes);
+      document.getElementById('charMainCard').classList.toggle('is-dnd', isDnd && !isNotes);
+      document.getElementById('charView').classList.toggle('is-dnd-wide', isDnd && !isNotes);
       const notesField = document.getElementById('sheetNotesField');
       if (notesField) notesField.classList.toggle('hidden', isVeyr || isNotes);
       const extraLabel = document.getElementById('sheetExtraLabel');
@@ -8726,7 +8748,7 @@
           }
         });
         persistCombat();
-        if (isUdoOwner(currentSheetOwner)) {
+        if (usesDndSheet(currentSheetOwner)) {
           collapseDndAttacks();
           renderDndLists();
         }
@@ -14131,7 +14153,7 @@
         if (dndBlock && !dndBlock.dataset.bound) {
           dndBlock.dataset.bound = '1';
           const syncDnd = ev => {
-            if (!isUdoOwner(currentSheetOwner)) return;
+            if (!usesDndSheet(currentSheetOwner)) return;
             sheetDirty = true;
             const row = ev.target.closest && ev.target.closest('[data-dnd-row]');
             if (row) {
@@ -14147,7 +14169,7 @@
           dndBlock.addEventListener('input', syncDnd);
           dndBlock.addEventListener('change', syncDnd);
           dndBlock.addEventListener('click', ev => {
-            if (!isUdoOwner(currentSheetOwner)) return;
+            if (!usesDndSheet(currentSheetOwner)) return;
             const tab = ev.target.closest('[data-dnd-tab]');
             if (tab) {
               collectDndFields();
