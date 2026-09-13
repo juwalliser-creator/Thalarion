@@ -1966,56 +1966,42 @@
       position: fixed;
       inset: 0;
       z-index: 120;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 1.15rem;
       pointer-events: none;
       overflow: visible;
-      background:
-        radial-gradient(ellipse at 50% 58%, rgba(16, 14, 12, 0.62), rgba(8, 6, 4, 0.22) 54%, transparent 78%);
+      background: none;
     }
     .dice-rack {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 1.6rem;
-      perspective: 1400px;
-      perspective-origin: 50% 38%;
+      position: absolute;
+      inset: 0;
+      perspective: 1200px;
+      perspective-origin: 50% 40%;
     }
     .dice-scene {
-      width: 6.2rem;
-      height: 6.2rem;
-      position: relative;
+      position: absolute;
+      left: 50%;
+      top: 48%;
+      width: 5.6rem;
+      height: 5.6rem;
+      margin: -2.8rem 0 0 -2.8rem;
       transform-style: preserve-3d;
     }
-    .dice-cube {
-      width: 6.2rem;
-      height: 6.2rem;
+    .dice-scene.is-d6 { width: 4.2rem; height: 4.2rem; margin: -2.1rem 0 0 -2.1rem; }
+    .dice-mesh {
+      width: 100%;
+      height: 100%;
       position: relative;
       transform-style: preserve-3d;
-      transform: translate3d(var(--from-x), var(--from-y), -220px) rotateX(-50deg) rotateY(40deg) rotateZ(-24deg) scale(0.32);
     }
     .dice-shadow {
       position: absolute;
       left: 50%;
-      bottom: -1.35rem;
-      width: 4.8rem;
-      height: 0.85rem;
-      margin-left: -2.4rem;
+      top: 50%;
+      width: 3.6rem;
+      height: 0.7rem;
+      margin: 1.4rem 0 0 -1.8rem;
       border-radius: 50%;
-      background: radial-gradient(ellipse, rgba(0, 0, 0, 0.55), transparent 72%);
-      filter: blur(3px);
-      transform: translateZ(-3.1rem) scale(0.7);
-      opacity: 0.35;
-    }
-    .dice-cube.is-rolling {
-      animation: dice-tumble 1.72s cubic-bezier(.18, .7, .22, 1) forwards;
-    }
-    .dice-cube.is-rolling + .dice-shadow,
-    .dice-scene.is-rolling .dice-shadow {
-      animation: dice-shadow 1.72s cubic-bezier(.18, .7, .22, 1) forwards;
+      background: radial-gradient(ellipse, rgba(0, 0, 0, 0.5), transparent 72%);
+      opacity: 0.28;
     }
     .dice-face {
       position: absolute;
@@ -2023,38 +2009,29 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 0.85rem;
+      border-radius: 0.55rem;
       background:
         radial-gradient(circle at 28% 22%, rgba(243, 234, 216, 0.2), transparent 46%),
         linear-gradient(155deg, #4a4034 0%, #241f19 42%, #100e0c 100%);
       box-shadow:
         inset 0 2px 0 rgba(243, 234, 216, 0.28),
-        inset 0 -14px 22px rgba(0, 0, 0, 0.48),
+        inset 0 -10px 16px rgba(0, 0, 0, 0.48),
         inset 0 0 0 1px rgba(16, 14, 12, 0.85),
         0 0 0 2px #d4b36a,
         0 0 0 3px #8d7340,
-        0 10px 22px rgba(0, 0, 0, 0.28);
+        0 8px 16px rgba(0, 0, 0, 0.35);
       color: #f3ead8;
       font-family: Cinzel, serif;
-      font-size: 2.15rem;
+      font-size: 1.55rem;
       font-weight: 700;
       backface-visibility: hidden;
     }
     .dice-face::before {
       content: "";
       position: absolute;
-      inset: 0.42rem;
-      border-radius: 0.52rem;
+      inset: 0.28rem;
+      border-radius: 0.34rem;
       border: 1px solid rgba(212, 179, 106, 0.42);
-      box-shadow: inset 0 0 0 1px rgba(16, 14, 12, 0.72);
-      pointer-events: none;
-    }
-    .dice-face::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      background: linear-gradient(128deg, rgba(255, 248, 230, 0.26) 0%, transparent 38%, rgba(0, 0, 0, 0.22) 100%);
       pointer-events: none;
     }
     .dice-face span {
@@ -2063,126 +2040,114 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 3.55rem;
-      height: 3.55rem;
+      width: 2.35rem;
+      height: 2.35rem;
       border-radius: 50%;
-      border: 1px solid rgba(212, 179, 106, 0.55);
-      background:
-        radial-gradient(circle at 34% 30%, rgba(243, 234, 216, 0.16), transparent 58%),
-        radial-gradient(circle at 50% 58%, #1a1612, #0c0a08 78%);
-      box-shadow:
-        inset 0 2px 5px rgba(0, 0, 0, 0.55),
-        0 0 0 3px rgba(16, 14, 12, 0.92),
-        0 0 0 4px rgba(212, 179, 106, 0.32);
-      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7), 0 0 12px rgba(212, 179, 106, 0.4);
+      border: 1px solid rgba(212, 179, 106, 0.5);
+      background: radial-gradient(circle at 50% 58%, #1a1612, #0c0a08 78%);
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7), 0 0 10px rgba(212, 179, 106, 0.35);
     }
-    .dice-face[data-side="front"] { transform: rotateY(0deg) translateZ(3.1rem); }
-    .dice-face[data-side="back"] {
-      transform: rotateY(180deg) translateZ(3.1rem);
-      background:
-        radial-gradient(circle at 70% 30%, rgba(243, 234, 216, 0.08), transparent 42%),
-        linear-gradient(155deg, #2c261f 0%, #161310 55%, #0a0908 100%);
-    }
-    .dice-face[data-side="right"] {
-      transform: rotateY(90deg) translateZ(3.1rem);
-      background:
-        radial-gradient(circle at 30% 20%, rgba(243, 234, 216, 0.16), transparent 44%),
-        linear-gradient(180deg, #534736 0%, #241f19 58%, #0e0c0a 100%);
-    }
-    .dice-face[data-side="left"] {
-      transform: rotateY(-90deg) translateZ(3.1rem);
-      background:
-        linear-gradient(180deg, #2a241c 0%, #141210 62%, #090807 100%);
-    }
+    .dice-scene.is-d6 .dice-face span { width: 1.85rem; height: 1.85rem; }
+    .dice-face[data-side="front"] { transform: rotateY(0deg) translateZ(2.1rem); }
+    .dice-face[data-side="back"] { transform: rotateY(180deg) translateZ(2.1rem); }
+    .dice-face[data-side="right"] { transform: rotateY(90deg) translateZ(2.1rem); }
+    .dice-face[data-side="left"] { transform: rotateY(-90deg) translateZ(2.1rem); }
     .dice-face[data-side="top"] {
-      transform: rotateX(90deg) translateZ(3.1rem);
+      transform: rotateX(90deg) translateZ(2.1rem);
       background:
         radial-gradient(circle at 40% 35%, rgba(243, 234, 216, 0.28), transparent 50%),
         linear-gradient(180deg, #6a5a42 0%, #3a3228 55%, #1c1814 100%);
     }
-    .dice-face[data-side="bottom"] {
-      transform: rotateX(-90deg) translateZ(3.1rem);
-      background: linear-gradient(180deg, #1a1612 0%, #0c0a08 100%);
-    }
-    .dice-cube.is-crit .dice-face {
+    .dice-face[data-side="bottom"] { transform: rotateX(-90deg) translateZ(2.1rem); }
+    .dice-scene.is-crit .dice-face {
       box-shadow:
         inset 0 2px 0 rgba(243, 234, 216, 0.42),
         0 0 0 2px #e8c57a,
         0 0 0 4px rgba(212, 179, 106, 0.35),
-        0 0 34px rgba(212, 179, 106, 0.72);
+        0 0 28px rgba(212, 179, 106, 0.7);
       color: #ffe7a8;
     }
-    .dice-cube.is-crit .dice-face span {
-      border-color: #e8c57a;
-      box-shadow:
-        inset 0 2px 5px rgba(0, 0, 0, 0.4),
-        0 0 0 3px rgba(16, 14, 12, 0.9),
-        0 0 16px rgba(232, 197, 122, 0.55);
-    }
-    .dice-cube.is-fumble .dice-face {
+    .dice-scene.is-fumble .dice-face {
       box-shadow:
         inset 0 1px 0 rgba(226, 179, 179, 0.22),
         0 0 0 2px #9a3333,
         0 0 0 4px rgba(110, 34, 34, 0.4),
-        0 0 26px rgba(154, 51, 51, 0.55);
+        0 0 22px rgba(154, 51, 51, 0.5);
       color: #e2b3b3;
     }
-    .dice-cube.is-fumble .dice-face span {
-      border-color: rgba(226, 179, 179, 0.55);
+    .dice-sparks {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .dice-sparks i {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 7px;
+      height: 7px;
+      margin: -3px 0 0 -3px;
+      border-radius: 50%;
+      background: #e8c57a;
+      box-shadow: 0 0 8px #d4b36a, 0 0 16px rgba(232, 197, 122, 0.7);
+      opacity: 0;
+    }
+    .dice-scene.is-dissolving .dice-mesh {
+      opacity: 0;
+      transition: opacity 0.35s ease;
+    }
+    .dice-scene.is-dissolving .dice-shadow {
+      opacity: 0 !important;
+      transition: opacity 0.3s ease;
+    }
+    .dice-scene.is-dissolving .dice-sparks i {
+      animation: diceSpark 0.72s ease-out forwards;
+    }
+    @keyframes diceSpark {
+      0% { opacity: 1; transform: translate(0, 0) scale(1); }
+      100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.15); }
     }
     .dice-caption {
+      position: absolute;
+      top: 0.85rem;
+      right: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      max-width: min(34rem, calc(100vw - 2rem));
+      padding: 0.38rem 0.85rem 0.38rem 0.42rem;
+      border-radius: 999px;
+      background: #f4efe4;
+      color: #1a1612;
       font-family: Cinzel, serif;
-      color: #d4b36a;
-      letter-spacing: 0.06em;
-      font-size: 1.05rem;
-      text-shadow: 0 1px 10px rgba(0, 0, 0, 0.75);
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
       opacity: 0;
-      transform: translateY(8px);
+      transform: translateY(-6px);
+    }
+    .dice-caption i {
+      width: 1.45rem;
+      height: 1.45rem;
+      flex: 0 0 auto;
+      background:
+        radial-gradient(circle at 50% 46%, #1a1612 0 38%, transparent 40%),
+        conic-gradient(from 18deg, #d4b36a, #8d7340, #d4b36a);
+      clip-path: polygon(50% 0, 82% 20%, 100% 48%, 78% 86%, 50% 100%, 22% 86%, 0 48%, 18% 20%);
+    }
+    .dice-caption span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .dice-stage.is-landed .dice-caption {
       opacity: 1;
       transform: none;
-      transition: opacity 0.28s ease, transform 0.28s ease;
-    }
-    @keyframes dice-tumble {
-      0% {
-        transform: translate3d(var(--from-x), var(--from-y), -240px) rotateX(-56deg) rotateY(48deg) rotateZ(-36deg) scale(0.3);
-      }
-      22% {
-        transform: translate3d(calc(var(--from-x) * 0.62), calc(var(--from-y) * 0.42 - 6vh), 40px) rotateX(calc(var(--spin-x) * 0.38)) rotateY(calc(var(--spin-y) * 0.34)) rotateZ(calc(var(--spin-z) * 0.45)) scale(0.78);
-      }
-      44% {
-        transform: translate3d(calc(var(--from-x) * 0.22), calc(var(--from-y) * 0.08 + 4vh), 110px) rotateX(var(--spin-x)) rotateY(var(--spin-y)) rotateZ(var(--spin-z)) scale(1.16);
-      }
-      62% {
-        transform: translate3d(calc(var(--from-x) * 0.05), 26px, 12px) rotateX(calc(var(--spin-x) + 90deg)) rotateY(calc(var(--spin-y) + 55deg)) rotateZ(calc(var(--spin-z) + 28deg)) scale(0.9);
-      }
-      76% {
-        transform: translate3d(0, -20px, 18px) rotateX(38deg) rotateY(-28deg) rotateZ(14deg) scale(1.08);
-      }
-      88% {
-        transform: translate3d(0, 8px, 4px) rotateX(-6deg) rotateY(12deg) rotateZ(-3deg) scale(0.97);
-      }
-      100% {
-        transform: translate3d(0, 0, 0) rotateX(-18deg) rotateY(20deg) rotateZ(0deg) scale(1);
-      }
-    }
-    @keyframes dice-shadow {
-      0% { opacity: 0.04; transform: translateZ(-3.1rem) scale(0.18); }
-      22% { opacity: 0.18; transform: translateZ(-3.1rem) scale(0.45); }
-      44% { opacity: 0.42; transform: translateZ(-3.1rem) scale(1.2); }
-      62% { opacity: 0.62; transform: translateZ(-3.1rem) scale(1.08); }
-      76% { opacity: 0.28; transform: translateZ(-3.1rem) scale(0.7); }
-      88% { opacity: 0.48; transform: translateZ(-3.1rem) scale(0.92); }
-      100% { opacity: 0.55; transform: translateZ(-3.1rem) scale(1); }
+      transition: opacity 0.22s ease, transform 0.22s ease;
     }
     @media (prefers-reduced-motion: reduce) {
-      .dice-cube.is-rolling,
-      .dice-scene.is-rolling .dice-shadow { animation: none; }
-      .dice-cube {
-        transform: rotateX(-18deg) rotateY(20deg);
-      }
       .dice-caption { opacity: 1; transform: none; }
+      .dice-scene.is-dissolving .dice-sparks i { animation: none; }
     }
 
     .sound-dock-wrap {
@@ -4539,7 +4504,7 @@
 
   <div id="diceStage" class="dice-stage hidden" aria-hidden="true">
     <div class="dice-rack" id="diceRack"></div>
-    <div class="dice-caption" id="diceCaption"></div>
+    <div class="dice-caption" id="diceCaption"><i></i><span></span></div>
   </div>
   <div id="toast" class="toast hidden"></div>
 
@@ -6002,46 +5967,204 @@
         toast(caption);
         return;
       }
-      const fromLeft = Math.random() < 0.5;
-      const fromX = (fromLeft ? -1 : 1) * (44 + Math.random() * 8) + 'vw';
-      const fromY = (-46 - Math.random() * 8) + 'vh';
-      rack.innerHTML = values.map((value, i) => {
-        const spinX = 820 + Math.floor(Math.random() * 420);
-        const spinY = 900 + Math.floor(Math.random() * 480);
-        const spinZ = 260 + Math.floor(Math.random() * 240);
+
+      const vw = Math.max(320, window.innerWidth || 800);
+      const vh = Math.max(320, window.innerHeight || 600);
+      const isCube = sides <= 6;
+      const rest = { rx: -58, ry: 22, rz: 6 };
+      const pt = playTableDie._pt || { x: vw * (0.32 + Math.random() * 0.36), y: vh * (0.28 + Math.random() * 0.3) };
+      const ox = pt.x - vw / 2;
+      const oy = pt.y - vh / 2;
+
+      const sparkHtml = () => {
+        let out = '';
+        for (let i = 0; i < 16; i++) {
+          const a = (i / 16) * Math.PI * 2 + Math.random() * 0.3;
+          const dist = 38 + (i % 4) * 16 + Math.random() * 12;
+          out += '<i style="--dx:' + Math.round(Math.cos(a) * dist) + 'px;--dy:' + Math.round(Math.sin(a) * dist) + 'px"></i>';
+        }
+        return out;
+      };
+
+      const dieHtml = (value) => {
+        const kind = value === 20 && sides === 20 ? ' is-crit' : (value === 1 && sides === 20 ? ' is-fumble' : '');
+        const size = isCube ? ' is-d6' : '';
         const faces = ['front', 'back', 'right', 'left', 'top', 'bottom'].map(side => {
-          const n = side === 'front' ? value : (1 + Math.floor(Math.random() * sides));
+          const n = side === 'top' ? value : (1 + Math.floor(Math.random() * sides));
           return '<div class="dice-face" data-side="' + side + '"><span>' + n + '</span></div>';
         }).join('');
-        const kind = value === 20 && sides === 20 ? ' is-crit' : (value === 1 && sides === 20 ? ' is-fumble' : '');
-        return '<div class="dice-scene">' +
-          '<div class="dice-cube' + kind + '" style="--from-x:' + fromX + ';--from-y:' + fromY + ';--spin-x:' + spinX + 'deg;--spin-y:' + spinY + 'deg;--spin-z:' + spinZ + 'deg;animation-delay:' + (i * 0.08) + 's">' +
-          faces + '</div><div class="dice-shadow"></div></div>';
-      }).join('');
-      if (cap) cap.textContent = caption;
-      stage.classList.remove('hidden', 'is-landed');
+        return '<div class="dice-scene' + size + kind + '"><div class="dice-mesh">' + faces + '</div><div class="dice-shadow"></div><div class="dice-sparks">' + sparkHtml() + '</div></div>';
+      };
+
+      if (!playTableDie._items) playTableDie._items = [];
+      while (playTableDie._items.length + values.length > 8) {
+        const old = playTableDie._items.shift();
+        if (old && old.life) clearTimeout(old.life);
+        if (old && old.scene && old.scene.parentNode) old.scene.parentNode.removeChild(old.scene);
+      }
+
+      const wrap = document.createElement('div');
+      wrap.innerHTML = values.map(dieHtml).join('');
+      const scenes = Array.prototype.slice.call(wrap.children);
+      scenes.forEach(scene => rack.appendChild(scene));
+
+      if (cap) {
+        const text = cap.querySelector('span');
+        if (text) text.textContent = caption;
+        else cap.textContent = caption;
+      }
+      stage.classList.remove('hidden');
+      stage.classList.add('is-landed');
       stage.setAttribute('aria-hidden', 'false');
-      requestAnimationFrame(() => {
-        rack.querySelectorAll('.dice-cube').forEach(cube => {
-          cube.classList.remove('is-rolling');
-          void cube.offsetWidth;
-          cube.classList.add('is-rolling');
-        });
-        rack.querySelectorAll('.dice-scene').forEach(sc => sc.classList.add('is-rolling'));
+
+      const pose = (d) => {
+        const lift = d.h * 0.42;
+        if (d.mesh) {
+          d.mesh.style.transform = 'translate3d(' + d.x + 'px,' + (d.y - lift) + 'px,' + d.h + 'px) rotateX(' + d.rx + 'deg) rotateY(' + d.ry + 'deg) rotateZ(' + d.rz + 'deg)';
+        }
+        if (d.shadow) {
+          const grounded = 1 - Math.min(1, d.h / 220);
+          d.shadow.style.opacity = String(0.08 + 0.38 * grounded);
+          d.shadow.style.transform = 'translate3d(' + d.x + 'px,' + (d.y + 26) + 'px,0) scale(' + (0.42 + 0.58 * grounded) + ')';
+        }
+      };
+
+      const dissolveDie = (d) => {
+        if (!d || d.phase === 'gone') return;
+        d.phase = 'gone';
+        if (d.life) clearTimeout(d.life);
+        if (d.scene) d.scene.classList.add('is-dissolving');
+        setTimeout(() => {
+          if (d.scene && d.scene.parentNode) d.scene.parentNode.removeChild(d.scene);
+          playTableDie._items = (playTableDie._items || []).filter(x => x !== d);
+          if (rack && !rack.children.length) {
+            stage.classList.add('hidden');
+            stage.classList.remove('is-landed');
+            stage.setAttribute('aria-hidden', 'true');
+          }
+        }, 760);
+      };
+
+      values.forEach((_, i) => {
+        const scene = scenes[i];
+        const d = {
+          scene: scene,
+          mesh: scene.querySelector('.dice-mesh'),
+          shadow: scene.querySelector('.dice-shadow'),
+          phase: 'fly',
+          delay: i * 0.07,
+          born: performance.now(),
+          x: ox + (Math.random() - 0.5) * 36 + i * 22,
+          y: oy + (Math.random() - 0.5) * 28,
+          h: 70 + Math.random() * 50,
+          vx: (Math.random() - 0.5) * 980,
+          vy: (Math.random() - 0.5) * 760,
+          vz: 380 + Math.random() * 260,
+          rx: Math.random() * 360,
+          ry: Math.random() * 360,
+          rz: Math.random() * 360,
+          wx: 420 + Math.random() * 520,
+          wy: 380 + Math.random() * 480,
+          wz: (Math.random() - 0.5) * 520,
+          rest: rest,
+          settle: 0
+        };
+        pose(d);
+        d.life = setTimeout(() => dissolveDie(d), 3800 + Math.random() * 900 + i * 180);
+        playTableDie._items.push(d);
       });
-      clearTimeout(playTableDie._land);
-      clearTimeout(playTableDie._hide);
-      const duration = 1720 + Math.max(0, values.length - 1) * 80;
-      playTableDie._land = setTimeout(() => {
-        stage.classList.add('is-landed');
-        toast(caption, 3200);
-      }, duration);
-      playTableDie._hide = setTimeout(() => {
-        stage.classList.add('hidden');
-        stage.classList.remove('is-landed');
-        stage.setAttribute('aria-hidden', 'true');
-        rack.innerHTML = '';
-      }, duration + 1600);
+
+      if (playTableDie._raf) return;
+
+      let last = performance.now();
+      const wallX = vw * 0.42;
+      const wallY = vh * 0.38;
+      const g = 2460;
+
+      const frame = now => {
+        const dt = Math.min(0.033, (now - last) / 1000);
+        last = now;
+        let moving = false;
+
+        (playTableDie._items || []).forEach(d => {
+          if (d.phase !== 'fly') return;
+          const local = (now - d.born) / 1000 - d.delay;
+          if (local < 0) {
+            moving = true;
+            return;
+          }
+
+          d.vz -= g * dt;
+          d.x += d.vx * dt;
+          d.y += d.vy * dt;
+          d.h += d.vz * dt;
+          d.rx += d.wx * dt;
+          d.ry += d.wy * dt;
+          d.rz += d.wz * dt;
+          d.vx *= 1 - 0.28 * dt;
+          d.vy *= 1 - 0.28 * dt;
+
+          if (d.x > wallX) { d.x = wallX; d.vx = -Math.abs(d.vx) * 0.62; }
+          if (d.x < -wallX) { d.x = -wallX; d.vx = Math.abs(d.vx) * 0.62; }
+          if (d.y > wallY) { d.y = wallY; d.vy = -Math.abs(d.vy) * 0.62; }
+          if (d.y < -vh * 0.24) { d.y = -vh * 0.24; d.vy = Math.abs(d.vy) * 0.62; }
+
+          if (d.h <= 0) {
+            d.h = 0;
+            if (Math.abs(d.vz) > 70) {
+              d.vz = -d.vz * 0.42;
+              d.vx *= 0.7;
+              d.vy *= 0.7;
+              d.wx = d.wx * 0.5 + (Math.random() - 0.5) * 280;
+              d.wy = d.wy * 0.48 + (Math.random() - 0.5) * 240;
+              d.wz = d.wz * 0.55 + d.vx * 0.12;
+            } else {
+              d.vz = 0;
+              d.vx *= 0.86;
+              d.vy *= 0.86;
+              d.wx *= 0.78;
+              d.wy *= 0.78;
+              d.wz *= 0.74;
+            }
+          }
+
+          const still = d.h <= 0.4 && Math.hypot(d.vx, d.vy) < 36 && Math.abs(d.vz) < 40 && Math.hypot(d.wx, d.wy, d.wz) < 90;
+          if (still || local > 2.1) {
+            d.settle = Math.min(1, d.settle + dt / 0.22);
+            const t = d.settle * d.settle * (3 - 2 * d.settle);
+            d.rx += (d.rest.rx - d.rx) * t;
+            d.ry += (d.rest.ry - d.ry) * t;
+            d.rz += (d.rest.rz - d.rz) * t;
+            d.h *= 1 - t;
+            if (d.settle >= 1) {
+              d.h = 0;
+              d.rx = d.rest.rx;
+              d.ry = d.rest.ry;
+              d.rz = d.rest.rz;
+              d.phase = 'rest';
+            } else {
+              moving = true;
+            }
+          } else {
+            moving = true;
+          }
+          pose(d);
+        });
+
+        if (moving) {
+          playTableDie._raf = requestAnimationFrame(frame);
+        } else {
+          playTableDie._raf = 0;
+        }
+      };
+      playTableDie._raf = requestAnimationFrame(frame);
+    }
+
+    if (!playTableDie._ptBound) {
+      playTableDie._ptBound = true;
+      document.addEventListener('pointerdown', ev => {
+        playTableDie._pt = { x: ev.clientX, y: ev.clientY };
+      }, true);
     }
 
     function dndParseBonus(raw) {
