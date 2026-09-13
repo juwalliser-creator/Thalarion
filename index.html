@@ -5982,7 +5982,6 @@
       const pt = playTableDie._pt || { x: vw * (0.32 + Math.random() * 0.36), y: vh * (0.28 + Math.random() * 0.3) };
       const ox = pt.x - vw / 2;
       const oy = pt.y - vh / 2;
-      const radius = Math.min(170, Math.min(vw, vh) * 0.14);
 
       const sparkHtml = () => {
         let out = '';
@@ -6020,13 +6019,7 @@
       const scenes = Array.prototype.slice.call(wrap.children);
       scenes.forEach(scene => rack.appendChild(scene));
 
-      if (cap) {
-        const text = cap.querySelector('span');
-        if (text) text.textContent = caption;
-        else cap.textContent = caption;
-      }
-      stage.classList.remove('hidden');
-      stage.classList.add('is-landed');
+      stage.classList.remove('hidden', 'is-landed');
       stage.setAttribute('aria-hidden', 'false');
 
       const pose = (d) => {
@@ -6061,31 +6054,27 @@
       const wallY = vh * 0.42;
       const wallTop = vh * 0.3;
 
-      const keepInRadius = (d) => {
-        const dx = d.x - ox;
-        const dy = d.y - oy;
-        const dist = Math.hypot(dx, dy);
-        if (dist <= radius || dist < 0.001) return;
-        const k = radius / dist;
-        d.x = ox + dx * k;
-        d.y = oy + dy * k;
-        const nx = dx / dist;
-        const ny = dy / dist;
-        const push = d.vx * nx + d.vy * ny;
-        if (push > 0) {
-          d.vx -= 1.7 * push * nx;
-          d.vy -= 1.7 * push * ny;
+      const batch = (playTableDie._batch = (playTableDie._batch || 0) + 1);
+      const revealCaption = () => {
+        const same = (playTableDie._items || []).filter(x => x.batch === batch && x.phase !== 'gone');
+        if (!same.length || same.some(x => x.phase !== 'rest')) return;
+        if (cap) {
+          const text = cap.querySelector('span');
+          if (text) text.textContent = caption;
+          else cap.textContent = caption;
         }
+        stage.classList.add('is-landed');
       };
 
       values.forEach((value, i) => {
         const scene = scenes[i];
         const throwA = Math.random() * Math.PI * 2;
         const throwDist = 18 + Math.random() * 36 + i * 12;
-        const aimA = throwA + Math.PI + (Math.random() - 0.5) * 0.8;
-        const speed = 420 + Math.random() * 260;
         const startX = Math.max(-wallX, Math.min(wallX, ox + Math.cos(throwA) * throwDist));
         const startY = Math.max(-wallTop, Math.min(wallY, oy + Math.sin(throwA) * throwDist));
+        const toMid = Math.hypot(startX, startY) || 1;
+        const speed = 420 + Math.random() * 260;
+        const homeX = (i - (values.length - 1) / 2) * 78;
         const d = {
           scene: scene,
           mesh: scene.querySelector('.dice-mesh'),
@@ -6096,8 +6085,8 @@
           x: startX,
           y: startY,
           h: 90 + Math.random() * 50,
-          vx: Math.cos(aimA) * speed,
-          vy: Math.sin(aimA) * speed,
+          vx: -startX / toMid * speed + (Math.random() - 0.5) * 80,
+          vy: -startY / toMid * speed + (Math.random() - 0.5) * 80,
           vz: 280 + Math.random() * 160,
           rx: Math.random() * 360,
           ry: Math.random() * 360,
@@ -6107,7 +6096,9 @@
           wz: (Math.random() - 0.5) * 360,
           rest: rest,
           settle: 0,
-          value: value
+          value: value,
+          batch: batch,
+          homeX: homeX
         };
         pose(d);
         d.life = setTimeout(() => dissolveDie(d), 4600 + Math.random() * 900 + i * 180);
@@ -6139,14 +6130,15 @@
           d.rx += d.wx * dt;
           d.ry += d.wy * dt;
           d.rz += d.wz * dt;
-          d.vx *= 1 - 0.12 * dt;
-          d.vy *= 1 - 0.12 * dt;
+          d.vx += -(d.x - (d.homeX || 0)) * 3.4 * dt;
+          d.vy += -d.y * 3.4 * dt;
+          d.vx *= 1 - 0.18 * dt;
+          d.vy *= 1 - 0.18 * dt;
 
           if (d.x > wallX) { d.x = wallX; d.vx = -Math.abs(d.vx) * 0.74; }
           if (d.x < -wallX) { d.x = -wallX; d.vx = Math.abs(d.vx) * 0.74; }
           if (d.y > wallY) { d.y = wallY; d.vy = -Math.abs(d.vy) * 0.74; }
           if (d.y < -wallTop) { d.y = -wallTop; d.vy = Math.abs(d.vy) * 0.74; }
-          keepInRadius(d);
 
           if (d.h <= 0) {
             d.h = 0;
@@ -6176,12 +6168,15 @@
             d.wx = 0;
             d.wy = 0;
             d.wz = 0;
+            d.x = d.homeX || 0;
+            d.y = 0;
             d.rx = d.rest.rx;
             d.ry = d.rest.ry;
             d.rz = d.rest.rz;
             d.phase = 'rest';
             const face = d.mesh && d.mesh.querySelector('.dice-face[data-side="top"] span');
             if (face && d.value != null) face.textContent = String(d.value);
+            revealCaption();
           } else {
             moving = true;
           }
