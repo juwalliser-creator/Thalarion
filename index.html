@@ -1980,17 +1980,44 @@
       position: absolute;
       left: 50%;
       top: 48%;
-      width: 5.6rem;
-      height: 5.6rem;
-      margin: -2.8rem 0 0 -2.8rem;
+      width: 5.4rem;
+      height: 5.4rem;
+      margin: -2.7rem 0 0 -2.7rem;
       transform-style: preserve-3d;
     }
-    .dice-scene.is-d6 { width: 4.2rem; height: 4.2rem; margin: -2.1rem 0 0 -2.1rem; }
+    .dice-scene.is-d6 { width: 4rem; height: 4rem; margin: -2rem 0 0 -2rem; }
     .dice-mesh {
       width: 100%;
       height: 100%;
       position: relative;
       transform-style: preserve-3d;
+    }
+    .dice-core {
+      position: absolute;
+      inset: 0.62rem;
+      border-radius: 1.25rem;
+      background:
+        radial-gradient(circle at 30% 24%, #5a4c3a 0%, #2a241c 42%, #14110e 100%);
+      box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.35);
+    }
+    .dice-scene.is-d6 .dice-core {
+      inset: 0.48rem;
+      border-radius: 1rem;
+    }
+    .dice-knob {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 1.42rem;
+      height: 1.42rem;
+      margin: -0.71rem 0 0 -0.71rem;
+      border-radius: 50%;
+      background: radial-gradient(circle at 32% 28%, #6a5a44, #221c16 68%);
+    }
+    .dice-scene.is-d6 .dice-knob {
+      width: 1.12rem;
+      height: 1.12rem;
+      margin: -0.56rem 0 0 -0.56rem;
     }
     .dice-shadow {
       position: absolute;
@@ -2005,74 +2032,54 @@
     }
     .dice-face {
       position: absolute;
-      inset: 0;
+      inset: 0.38rem;
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 0.55rem;
+      border-radius: 1.05rem;
       background:
-        radial-gradient(circle at 28% 22%, rgba(243, 234, 216, 0.2), transparent 46%),
-        linear-gradient(155deg, #4a4034 0%, #241f19 42%, #100e0c 100%);
+        radial-gradient(circle at 28% 20%, rgba(243, 234, 216, 0.22), transparent 42%),
+        linear-gradient(160deg, #534636 0%, #2a241c 48%, #14110e 100%);
       box-shadow:
-        inset 0 2px 0 rgba(243, 234, 216, 0.28),
-        inset 0 -10px 16px rgba(0, 0, 0, 0.48),
-        inset 0 0 0 1px rgba(16, 14, 12, 0.85),
-        0 0 0 2px #d4b36a,
-        0 0 0 3px #8d7340,
-        0 8px 16px rgba(0, 0, 0, 0.35);
+        inset 0 2px 0 rgba(243, 234, 216, 0.2),
+        inset 0 -10px 14px rgba(0, 0, 0, 0.38),
+        inset 0 0 0 1px rgba(212, 179, 106, 0.38);
       color: #f3ead8;
       font-family: Cinzel, serif;
       font-size: 1.55rem;
       font-weight: 700;
       backface-visibility: hidden;
     }
-    .dice-face::before {
-      content: "";
-      position: absolute;
-      inset: 0.28rem;
-      border-radius: 0.34rem;
-      border: 1px solid rgba(212, 179, 106, 0.42);
-      pointer-events: none;
-    }
+    .dice-scene.is-d6 .dice-face { border-radius: 0.85rem; }
     .dice-face span {
       position: relative;
       z-index: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 2.35rem;
-      height: 2.35rem;
-      border-radius: 50%;
-      border: 1px solid rgba(212, 179, 106, 0.5);
-      background: radial-gradient(circle at 50% 58%, #1a1612, #0c0a08 78%);
-      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7), 0 0 10px rgba(212, 179, 106, 0.35);
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.65), 0 0 8px rgba(212, 179, 106, 0.28);
     }
-    .dice-scene.is-d6 .dice-face span { width: 1.85rem; height: 1.85rem; }
-    .dice-face[data-side="front"] { transform: rotateY(0deg) translateZ(2.1rem); }
-    .dice-face[data-side="back"] { transform: rotateY(180deg) translateZ(2.1rem); }
-    .dice-face[data-side="right"] { transform: rotateY(90deg) translateZ(2.1rem); }
-    .dice-face[data-side="left"] { transform: rotateY(-90deg) translateZ(2.1rem); }
-    .dice-face[data-side="top"] {
-      transform: rotateX(90deg) translateZ(2.1rem);
-      background:
-        radial-gradient(circle at 40% 35%, rgba(243, 234, 216, 0.28), transparent 50%),
-        linear-gradient(180deg, #6a5a42 0%, #3a3228 55%, #1c1814 100%);
-    }
-    .dice-face[data-side="bottom"] { transform: rotateX(-90deg) translateZ(2.1rem); }
+    .dice-face[data-side="front"] { transform: rotateY(0deg) translateZ(2.32rem); }
+    .dice-face[data-side="back"] { transform: rotateY(180deg) translateZ(2.32rem); }
+    .dice-face[data-side="right"] { transform: rotateY(90deg) translateZ(2.32rem); }
+    .dice-face[data-side="left"] { transform: rotateY(-90deg) translateZ(2.32rem); }
+    .dice-face[data-side="top"] { transform: rotateX(90deg) translateZ(2.32rem); }
+    .dice-face[data-side="bottom"] { transform: rotateX(-90deg) translateZ(2.32rem); }
+    .dice-scene.is-d6 .dice-face[data-side="front"] { transform: rotateY(0deg) translateZ(1.72rem); }
+    .dice-scene.is-d6 .dice-face[data-side="back"] { transform: rotateY(180deg) translateZ(1.72rem); }
+    .dice-scene.is-d6 .dice-face[data-side="right"] { transform: rotateY(90deg) translateZ(1.72rem); }
+    .dice-scene.is-d6 .dice-face[data-side="left"] { transform: rotateY(-90deg) translateZ(1.72rem); }
+    .dice-scene.is-d6 .dice-face[data-side="top"] { transform: rotateX(90deg) translateZ(1.72rem); }
+    .dice-scene.is-d6 .dice-face[data-side="bottom"] { transform: rotateX(-90deg) translateZ(1.72rem); }
     .dice-scene.is-crit .dice-face {
       box-shadow:
-        inset 0 2px 0 rgba(243, 234, 216, 0.42),
-        0 0 0 2px #e8c57a,
-        0 0 0 4px rgba(212, 179, 106, 0.35),
-        0 0 28px rgba(212, 179, 106, 0.7);
+        inset 0 2px 0 rgba(243, 234, 216, 0.36),
+        inset 0 0 0 1px rgba(232, 197, 122, 0.7),
+        0 0 22px rgba(212, 179, 106, 0.55);
       color: #ffe7a8;
     }
     .dice-scene.is-fumble .dice-face {
       box-shadow:
-        inset 0 1px 0 rgba(226, 179, 179, 0.22),
-        0 0 0 2px #9a3333,
-        0 0 0 4px rgba(110, 34, 34, 0.4),
-        0 0 22px rgba(154, 51, 51, 0.5);
+        inset 0 1px 0 rgba(226, 179, 179, 0.2),
+        inset 0 0 0 1px rgba(154, 51, 51, 0.55),
+        0 0 18px rgba(154, 51, 51, 0.42);
       color: #e2b3b3;
     }
     .dice-sparks {
@@ -5989,11 +5996,15 @@
       const dieHtml = (value) => {
         const kind = value === 20 && sides === 20 ? ' is-crit' : (value === 1 && sides === 20 ? ' is-fumble' : '');
         const size = isCube ? ' is-d6' : '';
+        const reach = isCube ? 1.42 : 1.88;
+        const knobs = [[1,1,1],[1,1,-1],[1,-1,1],[1,-1,-1],[-1,1,1],[-1,1,-1],[-1,-1,1],[-1,-1,-1]].map(p => {
+          return '<b class="dice-knob" style="transform:translate3d(' + (p[0] * reach) + 'rem,' + (p[1] * reach) + 'rem,' + (p[2] * reach) + 'rem)"></b>';
+        }).join('');
         const faces = ['front', 'back', 'right', 'left', 'top', 'bottom'].map(side => {
           const n = side === 'top' ? value : (1 + Math.floor(Math.random() * sides));
           return '<div class="dice-face" data-side="' + side + '"><span>' + n + '</span></div>';
         }).join('');
-        return '<div class="dice-scene' + size + kind + '"><div class="dice-mesh">' + faces + '</div><div class="dice-shadow"></div><div class="dice-sparks">' + sparkHtml() + '</div></div>';
+        return '<div class="dice-scene' + size + kind + '"><div class="dice-mesh"><div class="dice-core"></div>' + knobs + faces + '</div><div class="dice-shadow"></div><div class="dice-sparks">' + sparkHtml() + '</div></div>';
       };
 
       if (!playTableDie._items) playTableDie._items = [];
@@ -6045,41 +6056,49 @@
         }, 760);
       };
 
+      const wallX = vw * 0.46;
+      const wallY = vh * 0.42;
+      const wallTop = vh * 0.3;
+
       values.forEach((_, i) => {
         const scene = scenes[i];
+        const throwA = Math.random() * Math.PI * 2;
+        const throwDist = Math.min(vw, vh) * (0.28 + Math.random() * 0.22);
+        const aimA = throwA + Math.PI + (Math.random() - 0.5) * 1.6;
+        const speed = 1280 + Math.random() * 920;
+        const startX = Math.max(-wallX, Math.min(wallX, ox + Math.cos(throwA) * throwDist + i * 30));
+        const startY = Math.max(-wallTop, Math.min(wallY, oy + Math.sin(throwA) * throwDist));
         const d = {
           scene: scene,
           mesh: scene.querySelector('.dice-mesh'),
           shadow: scene.querySelector('.dice-shadow'),
           phase: 'fly',
-          delay: i * 0.07,
+          delay: i * 0.09,
           born: performance.now(),
-          x: ox + (Math.random() - 0.5) * 36 + i * 22,
-          y: oy + (Math.random() - 0.5) * 28,
-          h: 70 + Math.random() * 50,
-          vx: (Math.random() - 0.5) * 980,
-          vy: (Math.random() - 0.5) * 760,
-          vz: 380 + Math.random() * 260,
+          x: startX,
+          y: startY,
+          h: 160 + Math.random() * 120,
+          vx: Math.cos(aimA) * speed,
+          vy: Math.sin(aimA) * speed,
+          vz: 560 + Math.random() * 420,
           rx: Math.random() * 360,
           ry: Math.random() * 360,
           rz: Math.random() * 360,
-          wx: 420 + Math.random() * 520,
-          wy: 380 + Math.random() * 480,
-          wz: (Math.random() - 0.5) * 520,
+          wx: 620 + Math.random() * 640,
+          wy: 540 + Math.random() * 600,
+          wz: (Math.random() - 0.5) * 720,
           rest: rest,
           settle: 0
         };
         pose(d);
-        d.life = setTimeout(() => dissolveDie(d), 3800 + Math.random() * 900 + i * 180);
+        d.life = setTimeout(() => dissolveDie(d), 4600 + Math.random() * 900 + i * 180);
         playTableDie._items.push(d);
       });
 
       if (playTableDie._raf) return;
 
       let last = performance.now();
-      const wallX = vw * 0.42;
-      const wallY = vh * 0.38;
-      const g = 2460;
+      const g = 2180;
 
       const frame = now => {
         const dt = Math.min(0.033, (now - last) / 1000);
@@ -6101,35 +6120,35 @@
           d.rx += d.wx * dt;
           d.ry += d.wy * dt;
           d.rz += d.wz * dt;
-          d.vx *= 1 - 0.28 * dt;
-          d.vy *= 1 - 0.28 * dt;
+          d.vx *= 1 - 0.12 * dt;
+          d.vy *= 1 - 0.12 * dt;
 
-          if (d.x > wallX) { d.x = wallX; d.vx = -Math.abs(d.vx) * 0.62; }
-          if (d.x < -wallX) { d.x = -wallX; d.vx = Math.abs(d.vx) * 0.62; }
-          if (d.y > wallY) { d.y = wallY; d.vy = -Math.abs(d.vy) * 0.62; }
-          if (d.y < -vh * 0.24) { d.y = -vh * 0.24; d.vy = Math.abs(d.vy) * 0.62; }
+          if (d.x > wallX) { d.x = wallX; d.vx = -Math.abs(d.vx) * 0.74; }
+          if (d.x < -wallX) { d.x = -wallX; d.vx = Math.abs(d.vx) * 0.74; }
+          if (d.y > wallY) { d.y = wallY; d.vy = -Math.abs(d.vy) * 0.74; }
+          if (d.y < -wallTop) { d.y = -wallTop; d.vy = Math.abs(d.vy) * 0.74; }
 
           if (d.h <= 0) {
             d.h = 0;
-            if (Math.abs(d.vz) > 70) {
-              d.vz = -d.vz * 0.42;
-              d.vx *= 0.7;
-              d.vy *= 0.7;
-              d.wx = d.wx * 0.5 + (Math.random() - 0.5) * 280;
-              d.wy = d.wy * 0.48 + (Math.random() - 0.5) * 240;
-              d.wz = d.wz * 0.55 + d.vx * 0.12;
-            } else {
-              d.vz = 0;
+            if (Math.abs(d.vz) > 55) {
+              d.vz = -d.vz * 0.56;
               d.vx *= 0.86;
               d.vy *= 0.86;
-              d.wx *= 0.78;
-              d.wy *= 0.78;
-              d.wz *= 0.74;
+              d.wx = d.wx * 0.62 + (Math.random() - 0.5) * 360;
+              d.wy = d.wy * 0.6 + (Math.random() - 0.5) * 300;
+              d.wz = d.wz * 0.64 + d.vx * 0.16;
+            } else {
+              d.vz = 0;
+              d.vx *= 0.94;
+              d.vy *= 0.94;
+              d.wx *= 0.86;
+              d.wy *= 0.86;
+              d.wz *= 0.84;
             }
           }
 
-          const still = d.h <= 0.4 && Math.hypot(d.vx, d.vy) < 36 && Math.abs(d.vz) < 40 && Math.hypot(d.wx, d.wy, d.wz) < 90;
-          if (still || local > 2.1) {
+          const still = d.h <= 0.4 && Math.hypot(d.vx, d.vy) < 22 && Math.abs(d.vz) < 28 && Math.hypot(d.wx, d.wy, d.wz) < 55;
+          if (still || local > 3.4) {
             d.settle = Math.min(1, d.settle + dt / 0.22);
             const t = d.settle * d.settle * (3 - 2 * d.settle);
             d.rx += (d.rest.rx - d.rx) * t;
