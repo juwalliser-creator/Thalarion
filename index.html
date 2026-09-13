@@ -6060,7 +6060,35 @@
       const wallY = vh * 0.42;
       const wallTop = vh * 0.3;
 
-      values.forEach((_, i) => {
+      const showResult = (d) => {
+        if (!d.mesh || d.value == null) return;
+        const rad = a => a * Math.PI / 180;
+        const rotX = (v, a) => { const c = Math.cos(rad(a)), s = Math.sin(rad(a)); return { x: v.x, y: v.y * c - v.z * s, z: v.y * s + v.z * c }; };
+        const rotY = (v, a) => { const c = Math.cos(rad(a)), s = Math.sin(rad(a)); return { x: v.x * c + v.z * s, y: v.y, z: -v.x * s + v.z * c }; };
+        const rotZ = (v, a) => { const c = Math.cos(rad(a)), s = Math.sin(rad(a)); return { x: v.x * c - v.y * s, y: v.x * s + v.y * c, z: v.z }; };
+        const world = v => rotX(rotY(rotZ(v, d.rz), d.ry), d.rx);
+        const faces = [
+          { side: 'front', n: { x: 0, y: 0, z: 1 } },
+          { side: 'back', n: { x: 0, y: 0, z: -1 } },
+          { side: 'right', n: { x: 1, y: 0, z: 0 } },
+          { side: 'left', n: { x: -1, y: 0, z: 0 } },
+          { side: 'top', n: { x: 0, y: 1, z: 0 } },
+          { side: 'bottom', n: { x: 0, y: -1, z: 0 } }
+        ];
+        let best = 'top';
+        let bestZ = -1e9;
+        faces.forEach(f => {
+          const z = world(f.n).z;
+          if (z > bestZ) {
+            bestZ = z;
+            best = f.side;
+          }
+        });
+        const el = d.mesh.querySelector('.dice-face[data-side="' + best + '"] span');
+        if (el) el.textContent = String(d.value);
+      };
+
+      values.forEach((value, i) => {
         const scene = scenes[i];
         const throwA = Math.random() * Math.PI * 2;
         const throwDist = Math.min(vw, vh) * (0.28 + Math.random() * 0.22);
@@ -6088,7 +6116,8 @@
           wy: 540 + Math.random() * 600,
           wz: (Math.random() - 0.5) * 720,
           rest: rest,
-          settle: 0
+          settle: 0,
+          value: value
         };
         pose(d);
         d.life = setTimeout(() => dissolveDie(d), 4600 + Math.random() * 900 + i * 180);
@@ -6149,21 +6178,15 @@
 
           const still = d.h <= 0.4 && Math.hypot(d.vx, d.vy) < 22 && Math.abs(d.vz) < 28 && Math.hypot(d.wx, d.wy, d.wz) < 55;
           if (still || local > 3.4) {
-            d.settle = Math.min(1, d.settle + dt / 0.22);
-            const t = d.settle * d.settle * (3 - 2 * d.settle);
-            d.rx += (d.rest.rx - d.rx) * t;
-            d.ry += (d.rest.ry - d.ry) * t;
-            d.rz += (d.rest.rz - d.rz) * t;
-            d.h *= 1 - t;
-            if (d.settle >= 1) {
-              d.h = 0;
-              d.rx = d.rest.rx;
-              d.ry = d.rest.ry;
-              d.rz = d.rest.rz;
-              d.phase = 'rest';
-            } else {
-              moving = true;
-            }
+            d.h = 0;
+            d.vx = 0;
+            d.vy = 0;
+            d.vz = 0;
+            d.wx = 0;
+            d.wy = 0;
+            d.wz = 0;
+            d.phase = 'rest';
+            showResult(d);
           } else {
             moving = true;
           }
