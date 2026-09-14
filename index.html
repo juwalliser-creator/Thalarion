@@ -3846,6 +3846,15 @@
       border-color: var(--gold);
       color: var(--gold);
     }
+    .battle-power-act.is-off {
+      opacity: 0.45;
+      cursor: default;
+    }
+    .battle-power-act.is-off:hover {
+      border-color: var(--line);
+      color: var(--ink);
+    }
+    .battle-power-act.is-off .battle-power-name { cursor: pointer; }
     .battle-power-act b {
       font-weight: 600;
       font-size: 0.86rem;
@@ -8036,6 +8045,13 @@
         if (item.damage) bits.push(item.damage);
         if (item.concentration) bits.push('Konzentration');
         if (item.ritual) bits.push('Ritual');
+      } else if (kind === 'features') {
+        const max = Number(String(item.uses || '').replace(',', '.'));
+        const used = Math.max(0, Number(String(item.used || '').replace(',', '.')) || 0);
+        if (Number.isFinite(max) && max > 0) bits.push(used + '/' + max);
+        if (item.reset === 'short') bits.push('Kurzrast');
+        else if (item.reset === 'dawn') bits.push('Morgengrauen');
+        else if (item.reset === 'long' || (Number.isFinite(max) && max > 0)) bits.push('Langrast');
       } else {
         if (item.range) bits.push(item.range);
         if (item.bonus) bits.push(item.bonus);
@@ -8058,7 +8074,7 @@
     }
 
     function openDndActionInfo(kind, id, owner) {
-      if (kind !== 'spells' && kind !== 'attacks') return;
+      if (kind !== 'spells' && kind !== 'attacks' && kind !== 'features') return;
       if ((!owner || owner === currentSheetOwner) && usesDndSheet(currentSheetOwner)) collectDndFields();
       const found = findDndAction(kind, id, owner);
       if (!found.item) {
@@ -8071,7 +8087,7 @@
       const meta = document.getElementById('dndActionMeta');
       const ta = document.getElementById('dndActionText');
       const save = document.getElementById('dndActionSave');
-      if (title) title.textContent = found.item.name || (kind === 'spells' ? 'Zauber' : 'Angriff');
+      if (title) title.textContent = found.item.name || (kind === 'spells' ? 'Zauber' : kind === 'features' ? 'Merkmal' : 'Angriff');
       if (meta) meta.textContent = dndActionMetaLine(kind, found.item);
       const canEdit = canEditOwnerSheet(found.owner);
       if (ta) {
@@ -12074,15 +12090,97 @@
 
     function combatantDndSheet(row) {
       if (!row || !row.playerId) return null;
+      if (row.playerId === currentSheetOwner) return dndState;
       const rec = sheetOwnerRecord(row.playerId);
       return rec && rec.sheet && rec.sheet.dnd ? rec.sheet.dnd : null;
+    }
+
+    function kampfFeatureUseMax(item) {
+      const n = Number(String((item && item.uses) || '').replace(',', '.'));
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    }
+
+    function kampfFeatureUsed(item) {
+      return Math.max(0, Number(String((item && item.used) || '').replace(',', '.')) || 0);
+    }
+
+    function kampfSlotLevel(action) {
+      const raw = String((action && action.level) || '').trim();
+      if (!raw || raw === '0' || /^k/i.test(raw)) return 0;
+      const n = Number(raw.replace(/[^\d]/g, ''));
+      return Number.isFinite(n) && n >= 1 && n <= 9 ? n : 0;
+    }
+
+    function kampfSpellSkipsSlot(action) {
+      const notes = String((action && action.notes) || '');
+      return /ohne\s*slot|\d+\s*\/\s*(lr|kr)/i.test(notes);
+    }
+
+    function kampfResetShort(reset) {
+      if (reset === 'short') return 'KR';
+      if (reset === 'dawn') return 'MG';
+      return 'LR';
+    }
+
+    function kampfActionDepleted(row, action) {
+      const dnd = combatantDndSheet(row);
+      if (!dnd || !action) return false;
+      if (action.kind === 'feature') {
+        const f = (dnd.features || []).find(x => x.id === action.id) || action;
+        const max = kampfFeatureUseMax(f);
+        return max > 0 && kampfFeatureUsed(f) >= max;
+      }
+      if (action.kind === 'spell') {
+        if (kampfSpellSkipsSlot(action)) return false;
+        const lvl = kampfSlotLevel(action);
+        if (!lvl || !dnd.spellSlots || !dnd.spellSlots[lvl]) return false;
+        const max = Number(String(dnd.spellSlots[lvl].max || '').replace(',', '.'));
+        if (!Number.isFinite(max) || max <= 0) return false;
+        const used = Math.max(0, Number(String(dnd.spellSlots[lvl].used || '').replace(',', '.')) || 0);
+        return used >= max;
+      }
+      return false;
+    }
+
+    function kampfConsumeAction(row, action) {
+      if (!row || !action) return { ok: true };
+      if (row.playerId === currentSheetOwner && usesDndSheet(currentSheetOwner)) collectDndFields();
+      const dnd = combatantDndSheet(row);
+      if (!dnd) return { ok: true };
+      if (action.kind === 'feature') {
+        const f = (dnd.features || []).find(x => x.id === action.id);
+        if (!f) return { ok: true };
+        const max = kampfFeatureUseMax(f);
+        if (!max) return { ok: true };
+        const used = kampfFeatureUsed(f);
+        if (used >= max) return { ok: false, msg: 'Keine Nutzungen mehr.' };
+        f.used = String(used + 1);
+        persistKampfPowerSheet(row);
+        return { ok: true };
+      }
+      if (action.kind === 'spell') {
+        if (kampfSpellSkipsSlot(action)) return { ok: true };
+        const lvl = kampfSlotLevel(action);
+        if (!lvl) return { ok: true };
+        const slot = dnd.spellSlots && dnd.spellSlots[lvl];
+        if (!slot) return { ok: true };
+        const max = Number(String(slot.max || '').replace(',', '.'));
+        if (!Number.isFinite(max) || max <= 0) return { ok: true };
+        const used = Math.max(0, Number(String(slot.used || '').replace(',', '.')) || 0);
+        if (used >= max) return { ok: false, msg: 'Keine Zauberplätze Grad ' + lvl + ' mehr.' };
+        slot.used = String(used + 1);
+        persistKampfPowerSheet(row);
+        return { ok: true };
+      }
+      return { ok: true };
     }
 
     function combatantPowerList(row) {
       const dnd = combatantDndSheet(row);
       const attacks = [];
       const spells = [];
-      if (!dnd) return { attacks: attacks, spells: spells };
+      const features = [];
+      if (!dnd) return { attacks: attacks, spells: spells, features: features };
       (dnd.attacks || []).forEach(a => {
         const name = String(a.name || '').trim();
         if (!name) return;
@@ -12115,17 +12213,30 @@
           level: lvl
         });
       });
-      return { attacks: attacks, spells: spells };
+      (dnd.features || []).forEach(f => {
+        const name = String(f.name || '').trim();
+        if (!name) return;
+        features.push({
+          kind: 'feature',
+          id: f.id,
+          name: name,
+          uses: f.uses,
+          used: f.used,
+          reset: f.reset,
+          notes: ''
+        });
+      });
+      return { attacks: attacks, spells: spells, features: features };
     }
 
     function combatantHasPowers(row) {
       const list = combatantPowerList(row);
-      return !!(list.attacks.length || list.spells.length);
+      return !!(list.attacks.length || list.spells.length || list.features.length);
     }
 
     function kampfPowerLiveItem(action) {
       if (!action) return action;
-      const key = action.kind === 'spell' ? 'spells' : 'attacks';
+      const key = action.kind === 'spell' ? 'spells' : action.kind === 'feature' ? 'features' : 'attacks';
       const from = combatantById(kampfAimFrom);
       if (from && from.playerId && from.playerId === currentSheetOwner) {
         const item = (dndState[key] || []).find(x => x.id === action.id);
@@ -12148,8 +12259,11 @@
     function persistKampfPowerSheet(row) {
       if (!row || !row.playerId) return;
       if (currentSheetOwner === row.playerId) {
+        const rec = sheetOwnerRecord(row.playerId);
+        if (rec && rec.sheet) rec.sheet.dnd = normalizeDndSheet(dndState);
         sheetDirty = true;
         if (!dndAttackEditId && !dndSpellEditId) renderDndLists();
+        renderDndSlots();
       }
       persistPlayersSoon();
     }
@@ -12175,6 +12289,11 @@
     }
 
     function pickKampfPowerAction(action) {
+      const from = combatantById(kampfAimFrom);
+      if (kampfActionDepleted(from, action)) {
+        toast(action && action.kind === 'spell' ? 'Keine Zauberplätze mehr.' : 'Keine Nutzungen mehr.');
+        return;
+      }
       kampfPowerAction = action;
       kampfAimTo = '';
       kampfAimEffect = '';
@@ -12207,7 +12326,7 @@
           openKampfPowerOverlay(id);
           return true;
         }
-        toast('Erst Angriff oder Zauber wählen.');
+        toast('Erst Aktion wählen.');
         return true;
       }
       if (!canControlCombatant(row) || !combatantHasPowers(row)) return false;
@@ -12250,12 +12369,28 @@
     function applyKampfPowerOutcome(heal) {
       const fromRow = combatantById(kampfAimFrom);
       if (!fromRow || !canControlCombatant(fromRow) || !kampfPowerAction || !kampfAimTo) return;
+      const spent = kampfConsumeAction(fromRow, kampfPowerAction);
+      if (!spent.ok) {
+        toast(spent.msg || 'Nicht verfügbar.');
+        return;
+      }
       const toId = kampfAimTo;
       const fromId = kampfAimFrom;
       const action = kampfPowerAction;
       const typed = kampfPowerAmtValue();
       const diceRaw = kampfPowerDice(action);
       const live = kampfPowerLiveItem(action) || action;
+      const bonusRaw = dndItemAttackBonus(live) || dndItemAttackBonus(action);
+      const noCombatRoll = action.kind === 'feature' && !typed && !diceRaw && !bonusRaw;
+      if (noCombatRoll) {
+        combatLog((fromRow.name || 'Figur') + ' · ' + (action.name || 'Merkmal'));
+        persistCombat();
+        toast((action.name || 'Merkmal') + ' eingesetzt.');
+        clearKampfAimState();
+        renderKampfPowerOverlay();
+        syncKampfAimUi();
+        return;
+      }
       if (heal) {
         let n = typed;
         if (!n && diceRaw) {
@@ -12275,7 +12410,6 @@
         applyCombatDamage(toId, n, true, fromId);
         return;
       }
-      const bonusRaw = dndItemAttackBonus(live) || dndItemAttackBonus(action);
       const doDamage = crit => {
         if (typed) {
           appendTableDieCaption(typed + ' Schaden');
@@ -12340,12 +12474,58 @@
         toast(kampfAimEffect === 'buff' ? 'Buff benennen.' : 'Debuff benennen.');
         return;
       }
+      if (kampfPowerAction) {
+        const spent = kampfConsumeAction(fromRow, kampfPowerAction);
+        if (!spent.ok) {
+          toast(spent.msg || 'Nicht verfügbar.');
+          return;
+        }
+      }
       const rounds = roundEl && roundEl.value;
       const fromId = kampfAimFrom;
       const toId = kampfAimTo;
       clearKampfAimState();
       renderKampfPowerOverlay();
       addCombatDebuff(toId, text, rounds, kind, fromId);
+    }
+
+    function appendKampfPowerAct(box, act, infoKind) {
+      const from = combatantById(kampfAimFrom);
+      const depleted = kampfActionDepleted(from, act);
+      const selected = kampfPowerAction && kampfPowerAction.id === act.id && kampfPowerAction.kind === act.kind;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'battle-power-act' + (selected ? ' is-on' : '') + (depleted ? ' is-off' : '');
+      const name = document.createElement('b');
+      name.className = 'battle-power-name';
+      name.textContent = act.name;
+      name.title = 'Beschreibung';
+      name.onclick = ev => {
+        ev.stopPropagation();
+        openDndActionInfo(infoKind, act.id, from && from.playerId);
+      };
+      const meta = document.createElement('span');
+      const bits = [];
+      if (act.kind === 'spell') bits.push(act.level && act.level !== '0' ? 'G' + act.level : 'G0');
+      if (act.kind === 'feature') {
+        const max = kampfFeatureUseMax(act);
+        if (max) bits.push(kampfFeatureUsed(act) + '/' + max + ' · ' + kampfResetShort(act.reset));
+      } else {
+        if (String(act.hit || act.bonus || '').trim()) bits.push(String(act.hit || act.bonus).trim());
+        if (String(act.damage || '').trim()) bits.push(String(act.damage).trim());
+      }
+      meta.textContent = bits.join(' · ');
+      btn.appendChild(name);
+      btn.appendChild(meta);
+      btn.onclick = ev => {
+        ev.stopPropagation();
+        if (depleted) {
+          toast(act.kind === 'spell' ? 'Keine Zauberplätze mehr.' : 'Keine Nutzungen mehr.');
+          return;
+        }
+        pickKampfPowerAction(act);
+      };
+      box.appendChild(btn);
     }
 
     function renderKampfPowerOverlay() {
@@ -12390,64 +12570,21 @@
             sec.className = 'battle-power-sec';
             sec.textContent = 'Angriffe';
             box.appendChild(sec);
-            list.attacks.forEach(act => {
-              const btn = document.createElement('button');
-              btn.type = 'button';
-              btn.className = 'battle-power-act' + (kampfPowerAction && kampfPowerAction.id === act.id ? ' is-on' : '');
-              const name = document.createElement('b');
-              name.className = 'battle-power-name';
-              name.textContent = act.name;
-              name.title = 'Beschreibung';
-              name.onclick = ev => {
-                ev.stopPropagation();
-                const who = combatantById(kampfAimFrom);
-                openDndActionInfo('attacks', act.id, who && who.playerId);
-              };
-              const meta = document.createElement('span');
-              const bits = [];
-              if (String(act.bonus || '').trim()) bits.push(String(act.bonus).trim());
-              if (String(act.damage || '').trim()) bits.push(String(act.damage).trim());
-              meta.textContent = bits.join(' · ');
-              btn.appendChild(name);
-              btn.appendChild(meta);
-              btn.onclick = ev => {
-                ev.stopPropagation();
-                pickKampfPowerAction(act);
-              };
-              box.appendChild(btn);
-            });
+            list.attacks.forEach(act => appendKampfPowerAct(box, act, 'attacks'));
           }
           if (list.spells.length) {
             const sec = document.createElement('div');
             sec.className = 'battle-power-sec';
             sec.textContent = 'Zauber';
             box.appendChild(sec);
-            list.spells.forEach(act => {
-              const btn = document.createElement('button');
-              btn.type = 'button';
-              btn.className = 'battle-power-act' + (kampfPowerAction && kampfPowerAction.id === act.id ? ' is-on' : '');
-              const name = document.createElement('b');
-              name.className = 'battle-power-name';
-              name.textContent = act.name;
-              name.title = 'Beschreibung';
-              name.onclick = ev => {
-                ev.stopPropagation();
-                const who = combatantById(kampfAimFrom);
-                openDndActionInfo('spells', act.id, who && who.playerId);
-              };
-              const meta = document.createElement('span');
-              const bits = [act.level && act.level !== '0' ? 'G' + act.level : 'G0'];
-              if (String(act.hit || act.bonus || '').trim()) bits.push(String(act.hit || act.bonus).trim());
-              if (String(act.damage || '').trim()) bits.push(String(act.damage).trim());
-              meta.textContent = bits.join(' · ');
-              btn.appendChild(name);
-              btn.appendChild(meta);
-              btn.onclick = ev => {
-                ev.stopPropagation();
-                pickKampfPowerAction(act);
-              };
-              box.appendChild(btn);
-            });
+            list.spells.forEach(act => appendKampfPowerAct(box, act, 'spells'));
+          }
+          if (list.features.length) {
+            const sec = document.createElement('div');
+            sec.className = 'battle-power-sec';
+            sec.textContent = 'Merkmale';
+            box.appendChild(sec);
+            list.features.forEach(act => appendKampfPowerAct(box, act, 'features'));
           }
           const hint = document.createElement('p');
           hint.className = 'battle-power-hint';
@@ -12469,7 +12606,9 @@
           amt.type = 'number';
           amt.min = '0';
           amt.placeholder = 'TP';
-          amt.title = 'Leer = Würfel der Aktion, sonst 1';
+          amt.title = kampfPowerAction && kampfPowerAction.kind === 'feature'
+            ? 'Leer = Merkmal nur einsetzen, ohne Schaden'
+            : 'Leer = Würfel der Aktion, sonst 1';
           amtRow.appendChild(amt);
           const row = document.createElement('div');
           row.className = 'battle-power-row';
@@ -12614,7 +12753,7 @@
         if (panel) panel.classList.remove('is-open');
         if (effects) effects.classList.add('hidden');
         if (hint && from) {
-          if (kampfPowerPhase === 'pick') hint.textContent = from.name + ': Angriff oder Zauber wählen.';
+          if (kampfPowerPhase === 'pick') hint.textContent = from.name + ': Angriff, Zauber oder Merkmal wählen.';
           else if (!to) hint.textContent = from.name + ' · ' + ((kampfPowerAction && kampfPowerAction.name) || 'Aktion') + ' → Ziel antippen.';
           else hint.textContent = kampfAimLabel() + (kampfPowerAction ? ' · ' + kampfPowerAction.name : '');
         }
