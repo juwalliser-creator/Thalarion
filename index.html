@@ -3250,6 +3250,11 @@
     .karte-face { width: 34px; height: 34px; }
     .dm-only-tools { display: none; }
     body.is-dm .dm-only-tools { display: flex; }
+    .battle-tools > .dm-only-tools {
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem;
+    }
 
     .battle-card {
       background: var(--panel);
@@ -3473,11 +3478,11 @@
     .battle-token:hover,
     .battle-token:focus-visible { z-index: 8; }
     .battle-token-hp {
-      display: none;
+      display: block;
       position: relative;
       left: 50%;
       transform: translateX(-50%);
-      width: calc(var(--battle-token-face, 48px) * 2);
+      width: calc(var(--battle-token-face, 48px) * 1.35);
       height: 5px;
       margin: 0.18rem 0 0;
       border-radius: 99px;
@@ -3486,9 +3491,7 @@
       overflow: hidden;
       pointer-events: none;
     }
-    .battle-token:hover .battle-token-hp,
-    .battle-token:focus-visible .battle-token-hp { display: block; }
-    .battle-token.is-dragging .battle-token-hp { display: none; }
+    .battle-token.is-dragging .battle-token-hp { opacity: 0.35; }
     .battle-token-hp i {
       display: block;
       height: 100%;
@@ -3499,6 +3502,98 @@
     .battle-token-hp.is-mid i { background: var(--gold); }
     .battle-token-hp.is-low i { background: var(--blood); }
     .battle-token-hp.is-down i { background: #6a645c; width: 0; }
+    .battle-token-hp.is-bloodied i { background: var(--blood); }
+    .battle-token-hp-txt {
+      display: block;
+      margin: 0.08rem 0 0;
+      text-align: center;
+      font-size: calc(var(--battle-token-face, 48px) * 0.2);
+      line-height: 1;
+      color: var(--ink);
+      text-shadow: 0 1px 2px #000;
+      font-style: normal;
+      pointer-events: none;
+    }
+    .battle-token.is-bloodied .battle-token-face {
+      box-shadow: 0 0 0 2px rgba(177, 74, 74, 0.85), 0 6px 16px rgba(0, 0, 0, 0.45);
+    }
+    .battle-token-conc {
+      position: absolute;
+      top: -0.15rem;
+      right: calc(50% - var(--battle-token-face, 48px) / 2 - 0.15rem);
+      width: 1.05rem;
+      height: 1.05rem;
+      border-radius: 50%;
+      background: var(--gold);
+      color: #1a140c;
+      font-size: 0.62rem;
+      font-weight: 700;
+      font-family: Cinzel, serif;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+      z-index: 3;
+      box-shadow: 0 0 0 1px #1a140c;
+    }
+    .battle-fog {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .battle-ruler {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      pointer-events: none;
+      z-index: 4;
+    }
+    .battle-ruler-label {
+      position: absolute;
+      z-index: 5;
+      transform: translate(-50%, -120%);
+      padding: 0.12rem 0.4rem;
+      border-radius: 999px;
+      background: rgba(16, 14, 12, 0.88);
+      border: 1px solid var(--gold-dim);
+      color: var(--gold);
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .battle-pings {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .battle-pings i {
+      position: absolute;
+      width: 1.2rem;
+      height: 1.2rem;
+      margin: -0.6rem 0 0 -0.6rem;
+      border-radius: 50%;
+      border: 2px solid #f3e6c0;
+      box-shadow: 0 0 12px rgba(201, 162, 39, 0.8);
+      animation: battlePing 1.5s ease-out forwards;
+    }
+    @keyframes battlePing {
+      0% { transform: scale(0.3); opacity: 1; }
+      100% { transform: scale(3.4); opacity: 0; }
+    }
+    .battle-stage.is-tooling { cursor: crosshair; }
+    .battle-stage.is-tooling .battle-overlay { pointer-events: auto; }
+    .kampf-init-item.is-ready .kampf-face {
+      box-shadow: 0 0 0 2px var(--gold);
+    }
+    .kampf-init-item.is-delay .kampf-face {
+      box-shadow: 0 0 0 2px #7eb6e8;
+    }
     .battle-token.is-player .battle-token-face { border-color: var(--gold); }
     .battle-token.is-enemy .battle-token-face { border-color: #b14a4a; }
     .battle-token.is-mine .battle-token-face {
@@ -4361,13 +4456,18 @@
           </div>
           <div class="kampf-bar">
             <span class="kampf-round" id="kampfRound">Aufbau</span>
-            <div class="battle-tools dm-only-tools">
-              <button class="primary" id="kampfStartBtn" type="button">Kampf starten</button>
-              <button class="ghost hidden" id="kampfPrevBtn" type="button">Zurück</button>
-              <button class="ghost hidden" id="kampfSkipBtn" type="button">Überspringen</button>
+            <div class="battle-tools">
+              <span class="dm-only-tools">
+                <button class="primary" id="kampfStartBtn" type="button">Kampf starten</button>
+                <button class="ghost hidden" id="kampfInitAllBtn" type="button">Initiative würfeln</button>
+                <button class="ghost hidden" id="kampfPrevBtn" type="button">Zurück</button>
+                <button class="ghost hidden" id="kampfSkipBtn" type="button">Überspringen</button>
+                <button class="ghost hidden" id="kampfAddToggleBtn" type="button">Figur dazu</button>
+                <button class="ghost" id="kampfEndBtn" type="button">Kampf beenden</button>
+              </span>
+              <button class="ghost hidden" id="kampfReadyBtn" type="button">Bereit</button>
+              <button class="ghost hidden" id="kampfDelayBtn" type="button">Aufschieben</button>
               <button class="primary hidden" id="kampfNextBtn" type="button">Zug beenden</button>
-              <button class="ghost hidden" id="kampfAddToggleBtn" type="button">Figur dazu</button>
-              <button class="ghost" id="kampfEndBtn" type="button">Kampf beenden</button>
             </div>
           </div>
           <div class="kampf-act" id="kampfActBar">
@@ -4384,6 +4484,7 @@
             <div class="kampf-action-row">
               <button class="ghost" id="kampfActBuff" type="button">Buff</button>
               <button class="ghost" id="kampfActDebuff" type="button">Debuff</button>
+              <button class="ghost" id="kampfActConcentrate" type="button">Konzentration</button>
               <button class="ghost" id="kampfActKill" type="button">Einer tot</button>
             </div>
             <div class="kampf-action-effects hidden" id="kampfActionEffects">
@@ -4415,6 +4516,13 @@
                           <button class="ghost" id="kampfBattleZoomIn" type="button" title="Vergrößern">+</button>
                         </span>
                       </div>
+                      <div class="battle-gear-row">
+                        <span>Tisch</span>
+                        <div class="battle-gear-hazards">
+                          <button class="ghost" id="kampfBattleRulerBtn" type="button">Maßband</button>
+                          <button class="ghost" id="kampfBattlePingBtn" type="button">Ping</button>
+                        </div>
+                      </div>
                       <div class="dm-only-tools">
                         <button class="ghost" id="kampfBattleUploadBtn" type="button">Karte hochladen</button>
                         <button class="ghost" id="kampfBattleGalleryBtn" type="button">Kartengalerie</button>
@@ -4422,6 +4530,11 @@
                           <button class="ghost" id="kampfBattleFireBtn" type="button">Feuer</button>
                           <button class="ghost" id="kampfBattleWaterBtn" type="button">Wasser</button>
                           <button class="ghost" id="kampfBattleOilBtn" type="button">Öl</button>
+                        </div>
+                        <div class="battle-gear-hazards">
+                          <button class="ghost" id="kampfBattleFogBtn" type="button">Nebel</button>
+                          <button class="ghost" id="kampfBattleFogRevealBtn" type="button">Aufdecken</button>
+                          <button class="ghost" id="kampfBattleFogHideBtn" type="button">Verdecken</button>
                         </div>
                         <label class="battle-size" for="kampfBattleSize">Portraits
                           <input id="kampfBattleSize" type="range" min="16" max="96" step="2" value="48" title="Portraitgröße" />
@@ -4444,7 +4557,11 @@
                   <img class="battle-map" id="kampfBattleImg" alt="Schlachtfeld" draggable="false" />
                   <svg class="battle-overlay" id="kampfBattleOverlay" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
                   <div class="battle-grid" id="kampfBattleGridOverlay" aria-hidden="true"></div>
+                  <canvas class="battle-fog hidden" id="kampfBattleFog" aria-hidden="true"></canvas>
                   <div class="battle-tokens" id="kampfBattleTokens"></div>
+                  <svg class="battle-ruler" id="kampfBattleRuler" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+                  <div class="battle-ruler-label hidden" id="kampfBattleRulerLabel"></div>
+                  <div class="battle-pings" id="kampfBattlePings"></div>
                 </div>
               </div>
             </div>
@@ -4457,7 +4574,7 @@
             </div>
             <div class="kampf-add-card">
               <h3>Karten</h3>
-              <p class="kampf-karten-hint">Antippen setzt die Kreatur in den Kampf. Initiative würfelt ihr am Tisch.</p>
+              <p class="kampf-karten-hint">Antippen setzt die Kreatur in den Kampf. Initiative: Button oben oder von Hand eintragen.</p>
               <div class="kampf-add-row">
                 <input id="kampfKartenSearch" type="search" placeholder="Suchen…" autocomplete="off" />
                 <input id="kampfKartenUseCount" class="kampf-num" type="number" min="1" placeholder="Anzahl" title="Leer = Standard der Karte" />
@@ -4817,7 +4934,7 @@
     const COMBAT_KEY = 'thalarion_combat';
     const COMBAT_TEMPLATES_KEY = 'thalarion_combat_templates';
     const COMBAT_DEBUFF_SUGGEST = ['Liegend', 'Vergiftet', 'Verängstigt', 'Festgehalten'];
-    const COMBAT_BUFF_SUGGEST = ['Gesegnet', 'Unsichtbar', 'Vorteil', 'Schild'];
+    const COMBAT_BUFF_SUGGEST = ['Gesegnet', 'Unsichtbar', 'Vorteil', 'Schild', 'Konzentration'];
     const EMPTY_SHEET = {
       name: '',
       volk: '',
@@ -4952,7 +5069,7 @@
     let pendingSheetPortrait = null;
     let kartePortraitId = '';
     let pendingKartePortrait = null;
-    let battle = { image: '', tokens: [], hazards: [], tokenSize: 48, gridSize: 1, gridFrac: 0, updatedAt: 0, mapUpdatedAt: 0, layoutAt: 0, removedTokens: {}, removedHazards: {} };
+    let battle = { image: '', tokens: [], hazards: [], fogOn: false, fogReveals: [], ping: null, tokenSize: 48, gridSize: 1, gridFrac: 0, updatedAt: 0, mapUpdatedAt: 0, layoutAt: 0, removedTokens: {}, removedHazards: {}, removedFog: {} };
     let writingBattle = false;
     let battleWriteQueued = false;
     let pendingBattleSnap = null;
@@ -4962,7 +5079,13 @@
     let writingBattleGallery = false;
     let battlePersistTimer = null;
     let battleHazardMode = null;
+    let battleMapTool = null;
     let battleDraft = [];
+    let battleRulerFrom = null;
+    let battleRulerTo = null;
+    let battleRulerHover = null;
+    let lastBattlePingAt = 0;
+    let playersPersistTimer = null;
     let battleTokenDrag = null;
     let battleTokenDragMoved = false;
     let battleScale = 1;
@@ -7394,8 +7517,8 @@
             '<div class="dnd-atk-range">' + escapeAttr(range.main) +
             (range.extra ? ' <span class="dnd-atk-range-far">(' + escapeAttr(range.extra) + ')</span>' : '') +
             '</div>' +
-            '<button type="button" class="dnd-atk-stat" data-dnd-roll="attack" title="Treffer würfeln">' + escapeAttr(bonus) + '</button>' +
-            '<button type="button" class="dnd-atk-stat" data-dnd-roll="damage" title="Schaden würfeln">' + escapeAttr(dmg) + '</button>' +
+            '<button type="button" class="dnd-atk-stat" data-dnd-roll="attack" title="Treffer würfeln, bei Treffer Schaden">' + escapeAttr(bonus) + '</button>' +
+            '<button type="button" class="dnd-atk-stat" data-dnd-roll="damage" title="Nur Schaden würfeln">' + escapeAttr(dmg) + '</button>' +
             '<div class="dnd-atk-notes">' + escapeAttr(row.notes || '') + '</div>' +
             '<button type="button" class="ghost" data-dnd-atk-edit="' + row.id + '" title="Bearbeiten">Ändern</button>' +
             '<button type="button" class="ghost" data-dnd-del="attacks">×</button></div>';
@@ -7725,6 +7848,13 @@
       });
     }
 
+    function persistPlayersSoon() {
+      clearTimeout(playersPersistTimer);
+      playersPersistTimer = setTimeout(() => {
+        persistPlayers().catch(() => {});
+      }, 420);
+    }
+
     async function persistPlayers() {
       if (!db) throw new Error('Keine Verbindung zur Cloud.');
       renameReptileToBjoern(playerAccounts);
@@ -7901,17 +8031,36 @@
       return { id: h.id || combatNewId('h'), type: type, points: points, updatedAt: stamp(h.updatedAt) };
     }
 
+    function normalizeFogReveal(r) {
+      const raw = r && typeof r === 'object' ? r : {};
+      return {
+        id: raw.id || combatNewId('fog'),
+        x: Math.max(0, Math.min(100, Number(raw.x) || 0)),
+        y: Math.max(0, Math.min(100, Number(raw.y) || 0)),
+        r: Math.max(2, Math.min(28, Number(raw.r) || 8)),
+        updatedAt: stamp(raw.updatedAt)
+      };
+    }
+
     function battlePayload() {
       return {
         updatedAt: stamp(battle.updatedAt),
         layoutAt: stamp(battle.layoutAt),
         tokens: (battle.tokens || []).map(normalizeBattleToken),
         hazards: (battle.hazards || []).map(normalizeBattleHazard),
+        fogOn: !!battle.fogOn,
+        fogReveals: (battle.fogReveals || []).map(normalizeFogReveal),
+        ping: battle.ping && Number.isFinite(Number(battle.ping.at)) ? {
+          x: Math.max(0, Math.min(100, Number(battle.ping.x) || 0)),
+          y: Math.max(0, Math.min(100, Number(battle.ping.y) || 0)),
+          at: stamp(battle.ping.at)
+        } : null,
         tokenSize: clampBattleTokenSize(battle.tokenSize),
         gridSize: clampBattleGridSize(battle.gridSize),
         gridFrac: clampBattleGridFrac(battle.gridFrac),
         removedTokens: Object.assign({}, battle.removedTokens || {}),
-        removedHazards: Object.assign({}, battle.removedHazards || {})
+        removedHazards: Object.assign({}, battle.removedHazards || {}),
+        removedFog: Object.assign({}, battle.removedFog || {})
       };
     }
 
@@ -7930,9 +8079,13 @@
       b = b || {};
       const removedTokens = mergeStampMap(a.removedTokens, b.removedTokens);
       const removedHazards = mergeStampMap(a.removedHazards, b.removedHazards);
+      const removedFog = mergeStampMap(a.removedFog, b.removedFog);
       const aLay = stamp(a.layoutAt);
       const bLay = stamp(b.layoutAt);
       const layoutSrc = bLay >= aLay ? b : a;
+      const aPing = a.ping && stamp(a.ping.at);
+      const bPing = b.ping && stamp(b.ping.at);
+      const ping = (bPing || 0) >= (aPing || 0) ? (b.ping || null) : (a.ping || null);
       return {
         updatedAt: Math.max(stamp(a.updatedAt), stamp(b.updatedAt)),
         layoutAt: Math.max(aLay, bLay),
@@ -7948,11 +8101,20 @@
           'updatedAt',
           removedHazards
         ),
+        fogOn: !!layoutSrc.fogOn,
+        fogReveals: mergeByStamp(
+          (Array.isArray(a.fogReveals) ? a.fogReveals : []).map(normalizeFogReveal),
+          (Array.isArray(b.fogReveals) ? b.fogReveals : []).map(normalizeFogReveal),
+          'updatedAt',
+          removedFog
+        ),
+        ping: ping,
         tokenSize: clampBattleTokenSize(layoutSrc.tokenSize),
         gridSize: clampBattleGridSize(layoutSrc.gridSize),
         gridFrac: clampBattleGridFrac(layoutSrc.gridFrac) || clampBattleGridFrac(a.gridFrac) || clampBattleGridFrac(b.gridFrac),
         removedTokens: removedTokens,
-        removedHazards: removedHazards
+        removedHazards: removedHazards,
+        removedFog: removedFog
       };
     }
 
@@ -7962,12 +8124,20 @@
       battle.layoutAt = stamp(next.layoutAt);
       battle.tokens = next.tokens;
       battle.hazards = next.hazards;
+      battle.fogOn = !!next.fogOn;
+      battle.fogReveals = next.fogReveals || [];
+      battle.removedFog = next.removedFog || {};
+      battle.ping = next.ping || null;
       battle.tokenSize = next.tokenSize;
       battle.gridSize = next.gridSize;
       battle.gridFrac = next.gridFrac;
       battle.removedTokens = next.removedTokens;
       battle.removedHazards = next.removedHazards;
       persistBattleLocal();
+      if (battle.ping && stamp(battle.ping.at) > lastBattlePingAt) {
+        lastBattlePingAt = stamp(battle.ping.at);
+        spawnBattlePing(battle.ping.x, battle.ping.y, false);
+      }
       if (doRender !== false) {
         renderBattleBoards();
         if (currentPage === 'kampf' && !isDM) renderPlayerKampfList();
@@ -7986,6 +8156,10 @@
         battle.layoutAt = stamp(raw.layoutAt);
         battle.tokens = (Array.isArray(raw.tokens) ? raw.tokens : []).map(normalizeBattleToken);
         battle.hazards = (Array.isArray(raw.hazards) ? raw.hazards : []).map(normalizeBattleHazard);
+        battle.fogOn = !!raw.fogOn;
+        battle.fogReveals = (Array.isArray(raw.fogReveals) ? raw.fogReveals : []).map(normalizeFogReveal);
+        battle.removedFog = Object.assign({}, raw.removedFog || {});
+        battle.ping = raw.ping || null;
         battle.tokenSize = clampBattleTokenSize(raw.tokenSize);
         battle.gridSize = clampBattleGridSize(raw.gridSize);
         battle.gridFrac = clampBattleGridFrac(raw.gridFrac);
@@ -8104,6 +8278,14 @@
         const nestedBtn = ev.target.closest('button');
         if (nestedBtn && nestedBtn !== el) return;
         if (pickKampfAim(id)) return;
+        const row = combatantById(id);
+        if (isDM && combat.started && row && row.delayed) {
+          row.delayed = false;
+          row.ready = false;
+          touchCombatant(row);
+          setCombatActive(id);
+          return;
+        }
         setBattleLink(id, true);
         const token = document.querySelector('.battle-token[data-id="' + CSS.escape(id) + '"]');
         if (token) token.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -8348,7 +8530,7 @@
       }, { passive: false });
       board.addEventListener('pointerdown', ev => {
         if (ev.button && ev.button !== 0) return;
-        if (battleTokenDrag || battleHazardMode) return;
+        if (battleTokenDrag || battleHazardMode || battleMapTool) return;
         if (ev.target.closest('.battle-token')) return;
         if (battleScale <= 1) return;
         ev.preventDefault();
@@ -8672,6 +8854,11 @@
         const label = BATTLE_HAZARDS[battleHazardMode].label;
         return label + ' zeichnen: auf die Karte tippen. Ersten Punkt nochmal antippen oder „Fläche schließen“.';
       }
+      if (battleMapTool === 'ruler') return 'Maßband: ersten Punkt antippen, dann den zweiten. Felder nach 5e (Diagonal zählt 1).';
+      if (battleMapTool === 'ping') return 'Ping: auf die Karte oder ein Portrait tippen.';
+      if (battleMapTool === 'fog-reveal') return 'Nebel aufdecken: auf die Karte tippen.';
+      if (battleMapTool === 'fog-hide') return 'Nebel verdecken: aufgedeckte Stelle antippen.';
+      if (battle.fogOn && isDM) return 'Nebel aktiv. Aufdecken/Verdecken im Zahnrad, oder Figuren ziehen.';
       if (isDM && combat.started && !battleHazardMode) return 'Kurz antippen: erst wer handelt, dann das Ziel. Ziehen setzt die Figur um.';
       if (isDM) return 'Figuren ziehen. Feuer, Wasser oder Öl wählen, dann die Fläche auf die Karte legen. Eine Fläche antippen löscht sie.';
       if (currentPlayerId && isMyCombatTurn()) return combatPlayerTurnHint();
@@ -8701,6 +8888,7 @@
         stage.classList.toggle('hidden', !hasMap);
         stage.classList.toggle('is-drawing', !!battleHazardMode);
         stage.classList.toggle('is-aiming', canStartKampfAim());
+        stage.classList.toggle('is-tooling', !!battleMapTool);
         if (hasMap) {
           if (img.getAttribute('data-src') !== battle.image) {
             img.src = battle.image;
@@ -8722,6 +8910,9 @@
         if (cancelBtn) cancelBtn.classList.toggle('hidden', !battleHazardMode);
         renderBattleOverlay(ids.overlay);
         renderBattleTokens(ids.tokens, ids.stage);
+        renderBattleFog();
+        renderBattleRuler();
+        syncBattleToolButtons();
       });
     }
 
@@ -8828,6 +9019,10 @@
         if (kampfAimTo && token.id === kampfAimTo) el.classList.add('is-aim-to');
         const row = combatantById(token.id);
         if (row && combatantDown(row)) el.classList.add('is-down');
+        if (row && combatantBloodied(row)) el.classList.add('is-bloodied');
+        if (row && combatantIsConcentrating(row)) el.classList.add('is-conc');
+        const hiddenByFog = battle.fogOn && !isDM && row && row.kind !== 'player' && !isOwnCombatOwner(token.playerId) && !battlePointRevealed(token.x, token.y);
+        if (hiddenByFog) return;
         const movable = canMoveBattleToken(token);
         if (!movable) el.classList.add('is-locked');
         el.style.left = token.x + '%';
@@ -8838,6 +9033,13 @@
         const label = document.createElement('span');
         label.textContent = token.name || '—';
         el.appendChild(face);
+        if (row && combatantIsConcentrating(row)) {
+          const conc = document.createElement('b');
+          conc.className = 'battle-token-conc';
+          conc.textContent = 'K';
+          conc.title = 'Konzentration';
+          el.appendChild(conc);
+        }
         el.appendChild(label);
         if (row) {
           const hp = Math.max(0, Number(row.hp) || 0);
@@ -8846,13 +9048,18 @@
           const bar = document.createElement('div');
           bar.className = 'battle-token-hp';
           if (combatantDown(row) || pct <= 0) bar.classList.add('is-down');
+          else if (combatantBloodied(row) || pct <= 50) bar.classList.add('is-bloodied', 'is-mid');
           else if (pct <= 25) bar.classList.add('is-low');
-          else if (pct <= 50) bar.classList.add('is-mid');
           bar.style.setProperty('--hp', pct + '%');
           bar.appendChild(document.createElement('i'));
           el.appendChild(bar);
+          const hpTxt = document.createElement('em');
+          hpTxt.className = 'battle-token-hp-txt';
+          hpTxt.textContent = hpMax ? (hp + '/' + hpMax) : String(hp);
+          if (row.tempHp) hpTxt.textContent += ' +' + row.tempHp;
+          el.appendChild(hpTxt);
+          el.title = (token.name || '') + ' · ' + hpTxt.textContent + (row.ac ? ' · RK ' + row.ac : '');
         }
-        el.title = token.name || '';
         el.dataset.id = token.id;
         el.addEventListener('pointerenter', () => setBattleLink(token.id, false));
         el.addEventListener('pointerleave', () => {
@@ -8861,10 +9068,11 @@
         el.addEventListener('click', ev => {
           ev.stopPropagation();
           if (battleTokenDragMoved) return;
+          if (handleBattleToolAt(token.x, token.y, ev)) return;
           if (pickKampfAim(token.id)) return;
           setBattleLink(token.id, true);
         });
-        if (movable && !battleHazardMode) {
+        if (movable && !battleHazardMode && !battleMapTool) {
           el.addEventListener('pointerdown', ev => startBattleTokenDrag(ev, token, stage, el));
         }
         box.appendChild(el);
@@ -8989,6 +9197,7 @@
     function setBattleHazardMode(type) {
       if (!isDM) return;
       battleHazardMode = battleHazardMode === type ? null : type;
+      if (battleHazardMode) battleMapTool = null;
       if (!battleHazardMode) battleDraft = [];
       closeKampfBattleGear();
       renderBattleBoards();
@@ -9040,7 +9249,220 @@
         renderBattleBoards();
         return;
       }
+      const pct = battlePctFromEvent(stage, ev);
+      if (handleBattleToolAt(pct.x, pct.y, ev)) return;
       if (isDM && combat.started && kampfAimFrom) cancelKampfAim();
+    }
+
+    function battlePointRevealed(x, y) {
+      if (!battle.fogOn) return true;
+      return (battle.fogReveals || []).some(c => {
+        const dx = x - c.x;
+        const dy = y - c.y;
+        return (dx * dx + dy * dy) <= (c.r * c.r);
+      });
+    }
+
+    function battleFogRadiusPct(stage) {
+      const m = battleGridMetrics(stage || document.getElementById('kampfBattleStage'));
+      if (!m.width || !m.cellW) return 8;
+      return Math.max(4, Math.min(18, (m.cellW * 1.55 / m.width) * 100));
+    }
+
+    function syncBattleToolButtons() {
+      const map = {
+        kampfBattleRulerBtn: 'ruler',
+        kampfBattlePingBtn: 'ping',
+        kampfBattleFogRevealBtn: 'fog-reveal',
+        kampfBattleFogHideBtn: 'fog-hide'
+      };
+      Object.keys(map).forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        const on = battleMapTool === map[id];
+        btn.classList.toggle('primary', on);
+        btn.classList.toggle('ghost', !on);
+      });
+      const fogBtn = document.getElementById('kampfBattleFogBtn');
+      if (fogBtn) {
+        fogBtn.classList.toggle('primary', !!battle.fogOn);
+        fogBtn.classList.toggle('ghost', !battle.fogOn);
+      }
+      const reveal = document.getElementById('kampfBattleFogRevealBtn');
+      const hide = document.getElementById('kampfBattleFogHideBtn');
+      if (reveal) reveal.classList.toggle('hidden', !isDM || !battle.fogOn);
+      if (hide) hide.classList.toggle('hidden', !isDM || !battle.fogOn);
+    }
+
+    function setBattleMapTool(tool) {
+      battleMapTool = battleMapTool === tool ? null : tool;
+      if (battleMapTool) {
+        battleHazardMode = null;
+        battleDraft = [];
+      }
+      if (battleMapTool !== 'ruler') {
+        battleRulerFrom = null;
+        battleRulerTo = null;
+        battleRulerHover = null;
+      }
+      closeKampfBattleGear();
+      renderBattleBoards();
+    }
+
+    function toggleBattleFog() {
+      if (!isDM) return;
+      battle.fogOn = !battle.fogOn;
+      battle.layoutAt = stampNow();
+      if (battle.fogOn) battleMapTool = 'fog-reveal';
+      else if (battleMapTool === 'fog-reveal' || battleMapTool === 'fog-hide') battleMapTool = null;
+      persistBattleSoon();
+      closeKampfBattleGear();
+      renderBattleBoards();
+    }
+
+    function handleBattleToolAt(x, y, ev) {
+      if (!battleMapTool) return false;
+      if (ev) ev.preventDefault && ev.preventDefault();
+      if (battleMapTool === 'ping') {
+        spawnBattlePing(x, y, true);
+        return true;
+      }
+      if (battleMapTool === 'ruler') {
+        if (!battleRulerFrom || battleRulerTo) {
+          battleRulerFrom = { x: x, y: y };
+          battleRulerTo = null;
+        } else {
+          battleRulerTo = { x: x, y: y };
+        }
+        renderBattleRuler();
+        return true;
+      }
+      if (battleMapTool === 'fog-reveal' && isDM) {
+        const stage = document.getElementById('kampfBattleStage');
+        const reveal = normalizeFogReveal({
+          id: combatNewId('fog'),
+          x: x,
+          y: y,
+          r: battleFogRadiusPct(stage),
+          updatedAt: stampNow()
+        });
+        if (!battle.fogReveals) battle.fogReveals = [];
+        if (!battle.removedFog) battle.removedFog = {};
+        battle.fogReveals.push(reveal);
+        delete battle.removedFog[reveal.id];
+        persistBattleSoon();
+        renderBattleFog();
+        return true;
+      }
+      if (battleMapTool === 'fog-hide' && isDM) {
+        let best = -1;
+        let bestD = Infinity;
+        (battle.fogReveals || []).forEach((c, i) => {
+          const d = Math.hypot(c.x - x, c.y - y);
+          if (d < bestD) {
+            bestD = d;
+            best = i;
+          }
+        });
+        if (best >= 0 && bestD <= 12) {
+          const gone = battle.fogReveals[best];
+          battle.fogReveals.splice(best, 1);
+          if (!battle.removedFog) battle.removedFog = {};
+          battle.removedFog[gone.id] = stampNow();
+          persistBattleSoon();
+          renderBattleFog();
+        }
+        return true;
+      }
+      return false;
+    }
+
+    function spawnBattlePing(x, y, persist) {
+      const box = document.getElementById('kampfBattlePings');
+      if (box) {
+        const el = document.createElement('i');
+        el.style.left = x + '%';
+        el.style.top = y + '%';
+        box.appendChild(el);
+        setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 1600);
+      }
+      if (persist) {
+        lastBattlePingAt = stampNow();
+        battle.ping = { x: x, y: y, at: lastBattlePingAt };
+        persistBattleSoon();
+      }
+    }
+
+    function battleGridDistance(a, b) {
+      const stage = document.getElementById('kampfBattleStage');
+      const m = battleGridMetrics(stage);
+      if (!a || !b || !m.cellW) return { cells: 0 };
+      const dx = Math.abs(a.x - b.x) / 100 * m.width;
+      const dy = Math.abs(a.y - b.y) / 100 * m.height;
+      const cells = Math.max(dx / m.cellW, dy / m.cellH);
+      return { cells: Math.round(cells * 10) / 10 };
+    }
+
+    function renderBattleRuler() {
+      const svg = document.getElementById('kampfBattleRuler');
+      const label = document.getElementById('kampfBattleRulerLabel');
+      if (!svg) return;
+      svg.innerHTML = '';
+      if (!battleRulerFrom) {
+        if (label) label.classList.add('hidden');
+        return;
+      }
+      const to = battleRulerTo || battleRulerHover || battleRulerFrom;
+      const ns = 'http://www.w3.org/2000/svg';
+      const line = document.createElementNS(ns, 'line');
+      line.setAttribute('x1', battleRulerFrom.x);
+      line.setAttribute('y1', battleRulerFrom.y);
+      line.setAttribute('x2', to.x);
+      line.setAttribute('y2', to.y);
+      line.setAttribute('stroke', '#f3e6c0');
+      line.setAttribute('stroke-width', '0.7');
+      line.setAttribute('stroke-linecap', 'round');
+      svg.appendChild(line);
+      [battleRulerFrom, to].forEach(p => {
+        const c = document.createElementNS(ns, 'circle');
+        c.setAttribute('cx', p.x);
+        c.setAttribute('cy', p.y);
+        c.setAttribute('r', '1.1');
+        c.setAttribute('fill', '#f3e6c0');
+        svg.appendChild(c);
+      });
+      if (label) {
+        const dist = battleGridDistance(battleRulerFrom, to);
+        label.textContent = dist.cells + ' Feld' + (dist.cells === 1 ? '' : 'er');
+        label.style.left = ((battleRulerFrom.x + to.x) / 2) + '%';
+        label.style.top = ((battleRulerFrom.y + to.y) / 2) + '%';
+        label.classList.toggle('hidden', !(battleRulerTo || battleRulerHover) || dist.cells < 0.15);
+      }
+    }
+
+    function renderBattleFog() {
+      const canvas = document.getElementById('kampfBattleFog');
+      const stage = document.getElementById('kampfBattleStage');
+      if (!canvas || !stage) return;
+      const on = !!battle.fogOn && !!battle.image;
+      canvas.classList.toggle('hidden', !on);
+      if (!on) return;
+      const w = stage.clientWidth;
+      const h = stage.clientHeight;
+      if (!w || !h) return;
+      if (canvas.width !== w) canvas.width = w;
+      if (canvas.height !== h) canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = isDM ? 'rgba(8,6,4,0.46)' : 'rgba(6,5,4,0.92)';
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalCompositeOperation = 'destination-out';
+      (battle.fogReveals || []).forEach(c => {
+        ctx.beginPath();
+        ctx.arc(c.x / 100 * w, c.y / 100 * h, c.r / 100 * w, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalCompositeOperation = 'source-over';
     }
 
     async function uploadBattleMap(file) {
@@ -10173,6 +10595,11 @@
             const now = sheetOwnerRecord(currentSheetOwner);
             c.portraitId = (now && now.sheet && now.sheet.portraitId) || '';
             if (now) c.name = (now.sheet && now.sheet.name) || now.name;
+            const hp = combatHpFromOwner(currentSheetOwner);
+            c.hp = hp.hp;
+            c.hpMax = hp.hpMax;
+            c.tempHp = hp.tempHp;
+            if (hp.ac) c.ac = hp.ac;
             touchCombatant(c);
             upsertBattleToken(c);
           }
@@ -10272,6 +10699,9 @@
         note: c.note || '',
         count: Math.max(0, count),
         countMax: countMax,
+        concentrating: !!c.concentrating,
+        ready: !!c.ready,
+        delayed: !!c.delayed,
         debuffs: normalizeCombatDebuffs(c.debuffs),
         portraitId: typeof c.portraitId === 'string' ? c.portraitId : '',
         updatedAt: stamp(c.updatedAt)
@@ -10441,6 +10871,156 @@
 
     function combatantDown(row) {
       return !row || row.hp <= 0 || row.count <= 0;
+    }
+
+    function combatantBloodied(row) {
+      if (!row || combatantDown(row)) return false;
+      const max = Number(row.hpMax) || 0;
+      if (!max) return false;
+      return (Number(row.hp) || 0) <= max / 2;
+    }
+
+    function combatantIsConcentrating(row) {
+      if (!row) return false;
+      if (row.concentrating) return true;
+      return (row.debuffs || []).some(d => /konzentration/i.test(String(d.text || '')));
+    }
+
+    function setCombatantConcentrating(row, on) {
+      if (!row) return;
+      row.concentrating = !!on;
+      row.debuffs = (row.debuffs || []).filter(d => !/konzentration/i.test(String(d.text || '')));
+      if (on) {
+        row.debuffs.push({ id: combatNewId('d'), text: 'Konzentration', rounds: null, kind: 'buff' });
+      }
+      touchCombatant(row);
+    }
+
+    function combatHpFromOwner(playerId) {
+      const rec = sheetOwnerRecord(playerId);
+      const sheet = rec && rec.sheet || {};
+      const dnd = sheet.dnd || {};
+      const ac = String(dnd.ac || sheet.armor || '').trim();
+      const cur = Number(dnd.hpCurrent);
+      const max = Number(dnd.hpMax);
+      if (Number.isFinite(cur) || Number.isFinite(max)) {
+        return {
+          hp: Number.isFinite(cur) ? Math.max(0, cur) : (Number.isFinite(max) ? max : 0),
+          hpMax: Number.isFinite(max) ? Math.max(0, max) : (Number.isFinite(cur) ? cur : 0),
+          tempHp: Math.max(0, Number(dnd.hpTemp) || 0),
+          ac: ac
+        };
+      }
+      const hp = parseSheetHp(sheet.hp);
+      return { hp: hp.hp, hpMax: hp.hpMax, tempHp: 0, ac: ac || String(sheet.armor || '') };
+    }
+
+    function syncCombatantHpToSheet(row) {
+      if (!row || row.kind !== 'player' || !row.playerId || row.playerId === ILLUSION_OWNER) return;
+      const rec = sheetOwnerRecord(row.playerId);
+      if (!rec || !rec.sheet) return;
+      rec.sheet.hp = row.hpMax ? (row.hp + '/' + row.hpMax) : String(row.hp || '');
+      if (row.ac) rec.sheet.armor = row.ac;
+      rec.sheet.dnd = normalizeDndSheet(rec.sheet.dnd);
+      rec.sheet.dnd.hpCurrent = String(row.hp || 0);
+      rec.sheet.dnd.hpMax = String(row.hpMax || 0);
+      rec.sheet.dnd.hpTemp = row.tempHp ? String(row.tempHp) : '';
+      if (row.ac) rec.sheet.dnd.ac = row.ac;
+      if (currentSheetOwner === row.playerId) {
+        dndState.hpCurrent = rec.sheet.dnd.hpCurrent;
+        dndState.hpMax = rec.sheet.dnd.hpMax;
+        dndState.hpTemp = rec.sheet.dnd.hpTemp;
+        if (row.ac) dndState.ac = row.ac;
+        applyDndFields();
+        refreshDndCalcs();
+      }
+      persistPlayersSoon();
+    }
+
+    function dndProficiencyFor(dnd) {
+      if (!dnd) return 2;
+      const custom = String(dnd.profBonus || '').trim();
+      if (custom) {
+        const n = Number(String(custom).replace(',', '.'));
+        if (Number.isFinite(n)) return n;
+      }
+      const lvl = Math.max(1, Number(dnd.stufe) || 1);
+      return 2 + Math.floor((Math.min(20, lvl) - 1) / 4);
+    }
+
+    function combatantInitBonus(row) {
+      if (!row || row.kind !== 'player' || !row.playerId || row.playerId === ILLUSION_OWNER) return 0;
+      const rec = sheetOwnerRecord(row.playerId);
+      const dnd = rec && rec.sheet && rec.sheet.dnd;
+      if (!dnd || !dnd.abilities || !dnd.abilities.dex) return 0;
+      return dndMod(dnd.abilities.dex.score) + dndParseBonus(dnd.initiativeBonus);
+    }
+
+    function combatTargetAc() {
+      const row = combatantById(kampfAimTo);
+      if (!row) return null;
+      const n = Number(String(row.ac || '').replace(',', '.').replace(/[^\d.\-]/g, ''));
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
+
+    function dndRollDicePartsCrit(raw, crit) {
+      const p = dndParseDice(raw);
+      if (!p) return null;
+      const n = crit ? p.n * 2 : p.n;
+      const rolls = [];
+      for (let i = 0; i < n; i++) rolls.push(1 + Math.floor(Math.random() * p.sides));
+      let total = p.add;
+      rolls.forEach(v => { total += v; });
+      return { total: total, rolls: rolls, sides: p.sides, add: p.add, n: n };
+    }
+
+    function rollDndAttack(item, wrap, chainDamage) {
+      const bonus = dndParseBonus(item.bonus);
+      const die = 1 + Math.floor(Math.random() * 20);
+      const total = die + bonus;
+      item.hitRoll = String(total);
+      const hitEl = wrap && wrap.querySelector('[data-k="hitRoll"]');
+      if (hitEl) hitEl.value = item.hitRoll;
+      const target = combatantById(kampfAimTo);
+      const ac = combatTargetAc();
+      const crit = die === 20;
+      const fumble = die === 1;
+      let hit = true;
+      if (fumble) hit = false;
+      else if (crit) hit = true;
+      else if (ac != null) hit = total >= ac;
+      let caption = (item.name || 'Angriff') + ': W20 ' + die + ' (' + dndSigned(bonus) + ') = ' + total;
+      if (target) caption += ' gegen ' + target.name;
+      if (ac != null) caption += hit ? (crit ? ' · kritischer Treffer RK ' + ac : ' · trifft RK ' + ac) : ' · verfehlt RK ' + ac;
+      else if (crit) caption += ' · kritischer Treffer';
+      else if (fumble) caption += ' · Fehlschlag';
+      playTableDie({ sides: 20, values: [die], caption: caption });
+      if (chainDamage && hit && String(item.damage || '').trim()) {
+        const toId = kampfAimTo;
+        const fromId = kampfAimFrom;
+        setTimeout(() => {
+          rollDndDamageOnly(item, wrap, crit, { toId: toId, fromId: fromId, apply: !!(toId && combat.started) });
+        }, 720);
+      }
+    }
+
+    function rollDndDamageOnly(item, wrap, crit, opts) {
+      const rolled = dndRollDicePartsCrit(item.damage, !!crit);
+      if (!rolled) {
+        toast('Schaden als Würfel eintragen, z. B. 1W8+3.');
+        return;
+      }
+      item.dmgRoll = String(rolled.total);
+      const el = wrap && wrap.querySelector('[data-k="dmgRoll"]');
+      if (el) el.value = item.dmgRoll;
+      const amtEl = document.getElementById('kampfDmgAmt');
+      if (amtEl) amtEl.value = String(rolled.total);
+      playTableDie({
+        sides: rolled.sides,
+        values: rolled.rolls,
+        caption: (item.name || 'Schaden') + ': ' + rolled.total + (crit ? ' (Krit)' : '')
+      });
+      if (opts && opts.apply && opts.toId) applyCombatDamage(opts.toId, rolled.total, false, opts.fromId);
     }
 
     function ensureCombatTurn() {
@@ -10613,7 +11193,7 @@
         return;
       }
       const sheet = rec.sheet || {};
-      const hp = parseSheetHp(sheet.hp);
+      const hp = combatHpFromOwner(playerId);
       addCombatant({
         name: sheet.name || rec.name,
         kind: 'player',
@@ -10621,10 +11201,11 @@
         init: 0,
         hp: hp.hp,
         hpMax: hp.hpMax,
-        ac: sheet.armor || '',
+        tempHp: hp.tempHp,
+        ac: hp.ac,
         portraitId: sheet.portraitId || ''
       }, quiet);
-      if (!quiet) toast(rec.name + ' übernommen. Initiative noch eintragen.');
+      if (!quiet) toast(rec.name + ' übernommen. Initiative noch eintragen oder oben würfeln.');
     }
 
     function addEnemyToCombat() {
@@ -10725,10 +11306,39 @@
         }
         if (n > 0) row.hp = Math.max(0, row.hp - n);
         combatLog(prefix + row.name + ' · ' + Math.abs(Number(amount) || 0) + ' Schaden');
+        if (n > 0) checkCombatConcentration(row, n);
       }
       touchCombatant(row);
+      syncCombatantHpToSheet(row);
       persistCombat();
       renderKampf();
+      renderBattleBoards();
+    }
+
+    function checkCombatConcentration(row, damage) {
+      if (!combatantIsConcentrating(row) || !(Number(damage) > 0)) return;
+      const dc = Math.max(10, Math.floor(Number(damage) / 2));
+      const rec = row.kind === 'player' && row.playerId ? sheetOwnerRecord(row.playerId) : null;
+      const dnd = rec && rec.sheet && rec.sheet.dnd;
+      if (dnd && dnd.abilities && dnd.abilities.con) {
+        const bonus = dndMod(dnd.abilities.con.score) + (dnd.abilities.con.save ? dndProficiencyFor(dnd) : 0);
+        const die = 1 + Math.floor(Math.random() * 20);
+        const total = die + bonus;
+        const ok = die === 20 || (die !== 1 && total >= dc);
+        playTableDie({
+          sides: 20,
+          values: [die],
+          caption: row.name + ' · Konzentration SG ' + dc + ': W20 ' + die + ' (' + dndSigned(bonus) + ') = ' + total + (ok ? ' · gehalten' : ' · verloren')
+        });
+        combatLog(row.name + ' · Konzentration SG ' + dc + ' → ' + total + (ok ? ' gehalten' : ' verloren'));
+        if (!ok) {
+          setCombatantConcentrating(row, false);
+          toast(row.name + ': Konzentration verloren.');
+        }
+        return;
+      }
+      combatLog(row.name + ' · Konzentration prüfen, SG ' + dc);
+      toast(row.name + ': Konzentration SG ' + dc);
     }
 
     function combatDamageAmount(fromEl) {
@@ -11010,10 +11620,16 @@
       if (add) add.classList.remove('hidden');
       const startBtn = document.getElementById('kampfStartBtn');
       if (startBtn) startBtn.classList.toggle('hidden', !isDM || combat.started);
+      const initAll = document.getElementById('kampfInitAllBtn');
+      if (initAll) initAll.classList.toggle('hidden', !isDM || combat.started || !combat.combatants.length);
       const addToggle = document.getElementById('kampfAddToggleBtn');
       if (addToggle) addToggle.classList.toggle('hidden', !isDM || !combat.started);
       const nextBtn = document.getElementById('kampfNextBtn');
       if (nextBtn) nextBtn.classList.toggle('hidden', !canEndCombatTurn());
+      const readyBtn = document.getElementById('kampfReadyBtn');
+      if (readyBtn) readyBtn.classList.toggle('hidden', !canEndCombatTurn());
+      const delayBtn = document.getElementById('kampfDelayBtn');
+      if (delayBtn) delayBtn.classList.toggle('hidden', !canEndCombatTurn());
       ['kampfPrevBtn', 'kampfSkipBtn'].forEach(id => {
         const btn = document.getElementById(id);
         if (btn) btn.classList.toggle('hidden', !isDM || !combat.started);
@@ -11035,6 +11651,15 @@
       const label = (text || '').trim();
       if (!row || !label) return;
       const type = kind === 'buff' ? 'buff' : 'debuff';
+      if (/^konzentration$/i.test(label)) {
+        setCombatantConcentrating(row, true);
+        const src = fromId ? combatantById(fromId) : null;
+        combatLog((src ? src.name + ' → ' : '') + row.name + ' · Konzentration');
+        persistCombat();
+        renderKampf();
+        renderBattleBoards();
+        return;
+      }
       const roundsNum = String(roundsRaw == null ? '' : roundsRaw).trim();
       const rounds = roundsNum === '' ? null : Math.max(1, Number(roundsNum) || 1);
       const existing = row.debuffs.find(d => d.text.toLowerCase() === label.toLowerCase());
@@ -11054,10 +11679,13 @@
     function removeCombatDebuff(cid, did) {
       const row = combatantById(cid);
       if (!row) return;
+      const gone = row.debuffs.find(d => d.id === did);
       row.debuffs = row.debuffs.filter(d => d.id !== did);
+      if (gone && /konzentration/i.test(String(gone.text || ''))) row.concentrating = false;
       touchCombatant(row);
       persistCombat();
       renderKampf();
+      renderBattleBoards();
     }
 
     function tickCombatDebuffs(row) {
@@ -12009,6 +12637,82 @@
       toast('Kampf läuft' + (who ? ' · ' + who + (who.indexOf(' + ') >= 0 ? ' sind' : ' ist') + ' dran' : '') + '.');
     }
 
+    function rollAllKampfInit() {
+      if (!isDM) return;
+      if (combat.started) {
+        toast('Initiative nur vor Kampfbeginn.');
+        return;
+      }
+      if (!combat.combatants.length) {
+        toast('Erst Figuren setzen.');
+        return;
+      }
+      const dice = [];
+      const lines = [];
+      combat.combatants.forEach(row => {
+        if (row.playerId === ILLUSION_OWNER) {
+          row.init = 0;
+          touchCombatant(row);
+          return;
+        }
+        const die = 1 + Math.floor(Math.random() * 20);
+        const bonus = combatantInitBonus(row);
+        row.init = die + bonus;
+        touchCombatant(row);
+        lines.push(row.name + ' ' + die + (bonus ? ' (' + dndSigned(bonus) + ')' : '') + ' = ' + row.init);
+        if (dice.length < 8) dice.push({ sides: 20, value: die });
+      });
+      persistCombat();
+      renderKampf();
+      renderBattleBoards();
+      playTableDie({
+        dice: dice,
+        caption: 'Initiative: ' + lines.join(', ')
+      });
+    }
+
+    function markActiveKampfTurn(kind) {
+      if (!canEndCombatTurn()) return;
+      const key = activeCombatGroupKey();
+      combatGroupMembers(key).forEach(row => {
+        row.ready = kind === 'ready';
+        row.delayed = kind === 'delay';
+        touchCombatant(row);
+      });
+      if (kind === 'ready') {
+        nextCombatTurn();
+        toast('Aktion bereit.');
+        return;
+      }
+      ensureCombatTurn();
+      const order = combatTurnOrder();
+      if (!order.length) return;
+      const cur = activeCombatGroupKey() || order[0];
+      const i = Math.max(0, order.indexOf(cur));
+      const next = firstInCombatGroup(order[(i + 1) % order.length]);
+      combat.activeId = next ? next.id : null;
+      cancelKampfAim();
+      touchCombatTurn();
+      persistCombat();
+      renderKampf();
+      renderBattleBoards();
+      toast('Zug aufgeschoben.');
+    }
+
+    function toggleKampfConcentrate() {
+      const fromRow = combatantById(kampfAimFrom);
+      if (!fromRow || !canControlCombatant(fromRow)) return;
+      const row = combatantById(kampfAimTo || kampfAimFrom);
+      if (!row) return;
+      const on = !combatantIsConcentrating(row);
+      setCombatantConcentrating(row, on);
+      combatLog((fromRow.name === row.name ? row.name : fromRow.name + ' → ' + row.name) + ' · Konzentration ' + (on ? 'an' : 'aus'));
+      persistCombat();
+      renderKampf();
+      renderBattleBoards();
+      toast(row.name + (on ? ' konzentriert sich.' : ': Konzentration beendet.'));
+    }
+
     function setCombatActive(id) {
       if (!combatantById(id) || !combat.started) return;
       combat.activeId = id;
@@ -12040,6 +12744,11 @@
       }
       const next = firstInCombatGroup(nextKey);
       combat.activeId = next ? next.id : null;
+      combatGroupMembers(nextKey).forEach(row => {
+        row.ready = false;
+        row.delayed = false;
+        touchCombatant(row);
+      });
       cancelKampfAim();
       touchCombatTurn();
       persistCombat();
@@ -12245,6 +12954,8 @@
         }
       });
       applyBattleTurnHighlight();
+      syncCombatantHpToSheet(row);
+      renderBattleBoards();
     }
 
     function kampfNumberInput(value, onChange, extra) {
@@ -12280,6 +12991,8 @@
         if (isOwnCombatOwner(row.playerId)) btn.classList.add('is-mine');
         if (isCombatantActiveTurn(row.id)) btn.classList.add('is-active');
         if (combatantDown(row)) btn.classList.add('is-down');
+        if (row.ready) btn.classList.add('is-ready');
+        if (row.delayed) btn.classList.add('is-delay');
         btn.title = row.name || '';
         const face = document.createElement('div');
         face.className = 'kampf-face';
@@ -15258,6 +15971,11 @@
       onClick(prefix + 'BattleFireBtn', () => setBattleHazardMode('fire'));
       onClick(prefix + 'BattleWaterBtn', () => setBattleHazardMode('water'));
       onClick(prefix + 'BattleOilBtn', () => setBattleHazardMode('oil'));
+      onClick(prefix + 'BattleRulerBtn', () => setBattleMapTool('ruler'));
+      onClick(prefix + 'BattlePingBtn', () => setBattleMapTool('ping'));
+      onClick(prefix + 'BattleFogBtn', toggleBattleFog);
+      onClick(prefix + 'BattleFogRevealBtn', () => setBattleMapTool('fog-reveal'));
+      onClick(prefix + 'BattleFogHideBtn', () => setBattleMapTool('fog-hide'));
       onClick(prefix + 'BattleCloseBtn', closeBattleDraft);
       onClick(prefix + 'BattleCancelDrawBtn', cancelBattleDraw);
       onClick(prefix + 'BattleClearBtn', clearBattleMap);
@@ -15296,6 +16014,13 @@
       const img = document.getElementById(prefix + 'BattleImg');
       const board = document.getElementById(prefix + 'BattleBoard');
       if (overlay && stage) overlay.addEventListener('click', ev => onBattleStageClick(ev, stage));
+      if (stage) {
+        stage.addEventListener('pointermove', ev => {
+          if (battleMapTool !== 'ruler' || !battleRulerFrom || battleRulerTo) return;
+          battleRulerHover = battlePctFromEvent(stage, ev);
+          renderBattleRuler();
+        });
+      }
       if (img) {
         img.addEventListener('load', () => {
           applyBattleGridSize();
@@ -15307,6 +16032,7 @@
           if (battleTokenDrag) return;
           applyBattleGridSize();
           applyBattleTransform();
+          renderBattleFog();
         });
         ro.observe(stage);
       }
@@ -15483,6 +16209,7 @@
 
       safeBind('kampf', () => {
         onClick('kampfStartBtn', startKampf);
+        onClick('kampfInitAllBtn', rollAllKampfInit);
         onClick('kampfAddToggleBtn', () => {
           const add = document.getElementById('kampfAdd');
           if (!add) return;
@@ -15492,12 +16219,15 @@
         onClick('kampfNextBtn', nextCombatTurn);
         onClick('kampfPrevBtn', prevCombatTurn);
         onClick('kampfSkipBtn', skipCombatTurn);
+        onClick('kampfReadyBtn', () => markActiveKampfTurn('ready'));
+        onClick('kampfDelayBtn', () => markActiveKampfTurn('delay'));
         onClick('kampfEndBtn', endCombat);
         onClick('kampfAimCancel', cancelKampfAim);
         onClick('kampfActDmg', () => applyKampfAimDamage(false));
         onClick('kampfActHeal', () => applyKampfAimDamage(true));
         onClick('kampfActBuff', () => showKampfEffectPicker('buff'));
         onClick('kampfActDebuff', () => showKampfEffectPicker('debuff'));
+        onClick('kampfActConcentrate', toggleKampfConcentrate);
         onClick('kampfActKill', applyKampfAimKill);
         onClick('kampfEffectAdd', () => applyKampfEffect(''));
         onEv('kampfDmgAmt', 'keydown', ev => {
@@ -15702,33 +16432,8 @@
               const item = (dndState.attacks || []).find(x => x.id === id);
               if (!item) return;
               const kind = rollAtk.getAttribute('data-dnd-roll');
-              if (kind === 'attack') {
-                const bonus = dndParseBonus(item.bonus);
-                const die = 1 + Math.floor(Math.random() * 20);
-                const total = die + bonus;
-                item.hitRoll = String(total);
-                const el = wrap.querySelector('[data-k="hitRoll"]');
-                if (el) el.value = item.hitRoll;
-                playTableDie({
-                  sides: 20,
-                  values: [die],
-                  caption: (item.name || 'Angriff') + ': W20 ' + die + ' (' + dndSigned(bonus) + ') = ' + total
-                });
-              } else {
-                const rolled = dndRollDiceParts(item.damage);
-                if (!rolled) {
-                  toast('Schaden als Würfel eintragen, z. B. 1W8+3.');
-                  return;
-                }
-                item.dmgRoll = String(rolled.total);
-                const el = wrap.querySelector('[data-k="dmgRoll"]');
-                if (el) el.value = item.dmgRoll;
-                playTableDie({
-                  sides: rolled.sides,
-                  values: rolled.rolls,
-                  caption: (item.name || 'Schaden') + ': ' + rolled.total
-                });
-              }
+              if (kind === 'attack') rollDndAttack(item, wrap, true);
+              else rollDndDamageOnly(item, wrap, false);
               sheetDirty = true;
               if (!dndAttackIsOpen(item)) renderDndLists();
               return;
