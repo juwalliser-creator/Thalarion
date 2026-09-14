@@ -1989,10 +1989,11 @@
       margin: calc(var(--dice-s) / -2) 0 0 calc(var(--dice-s) / -2);
       transform-style: preserve-3d;
     }
+    .dice-scene.is-d6 { --dice-s: 4.8rem; }
     .dice-scene.is-d4 { --dice-s: 4.6rem; }
     .dice-scene.is-d8 { --dice-s: 4.5rem; }
     .dice-scene.is-d10,
-    .dice-scene.is-d100 { --dice-s: 4.7rem; }
+    .dice-scene.is-d100 { --dice-s: 5.4rem; }
     .dice-scene.is-d12 { --dice-s: 5rem; }
     .dice-scene.is-d20 { --dice-s: 5.2rem; }
     .dice-gold,
@@ -2013,13 +2014,16 @@
     .dice-scene.is-poly .dice-face {
       left: 50%;
       top: 50%;
+      width: auto;
+      height: auto;
       box-shadow: none;
       backface-visibility: hidden;
     }
     .dice-scene.is-d4 .dice-face { font-size: 1.45rem; }
+    .dice-scene.is-d6 .dice-face { font-size: 1.22rem; }
     .dice-scene.is-d8 .dice-face { font-size: 1.15rem; }
-    .dice-scene.is-d10 .dice-face,
-    .dice-scene.is-d100 .dice-face { font-size: 1rem; }
+    .dice-scene.is-d10 .dice-face { font-size: 0.95rem; }
+    .dice-scene.is-d100 .dice-face { font-size: 0.78rem; }
     .dice-scene.is-d12 .dice-face { font-size: 0.92rem; }
     .dice-scene.is-d20 .dice-face { font-size: 0.78rem; }
     .dice-mesh {
@@ -2104,7 +2108,6 @@
       font-weight: 700;
       backface-visibility: hidden;
     }
-    .dice-scene.is-d6 .dice-face { font-size: 1.35rem; }
     .dice-face span {
       position: relative;
       z-index: 1;
@@ -6351,6 +6354,24 @@
 
     function dieSolidSpec(shape) {
       const p = (1 + Math.sqrt(5)) / 2;
+      if (shape === 'd6') {
+        return {
+          verts: [
+            [1, 1, 1], [1, 1, -1], [1, -1, 1], [1, -1, -1],
+            [-1, 1, 1], [-1, 1, -1], [-1, -1, 1], [-1, -1, -1]
+          ],
+          faces: [
+            [0, 2, 3, 1],
+            [0, 1, 5, 4],
+            [0, 4, 6, 2],
+            [4, 5, 7, 6],
+            [2, 6, 7, 3],
+            [1, 3, 7, 5]
+          ],
+          kind: 'quad',
+          radius: 2.15
+        };
+      }
       if (shape === 'd4') {
         return {
           verts: [[1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]],
@@ -6388,21 +6409,39 @@
          [p, 0, ip], [p, 0, -ip], [-p, 0, ip], [-p, 0, -ip]].forEach(v => verts.push(v));
         return { verts: verts, faces: null, kind: 'pent', radius: 2.4 };
       }
-      const verts = [[0, 1.45, 0], [0, -1.45, 0]];
-      for (let i = 0; i < 5; i++) {
-        const a = i * 72 * Math.PI / 180;
-        verts.push([Math.cos(a), 0.12, Math.sin(a)]);
+      const n = 5;
+      const ringR = 1;
+      const h = ringR * 0.68;
+      const top = [];
+      const bot = [];
+      for (let i = 0; i < n; i++) {
+        const a = i * 2 * Math.PI / n;
+        const b = a + Math.PI / n;
+        top.push([Math.cos(a) * ringR, h, Math.sin(a) * ringR]);
+        bot.push([Math.cos(b) * ringR, -h, Math.sin(b) * ringR]);
       }
-      for (let i = 0; i < 5; i++) {
-        const a = (i * 72 + 36) * Math.PI / 180;
-        verts.push([Math.cos(a), -0.12, Math.sin(a)]);
+      const dualOf = pts => {
+        const c = pts.reduce((acc, p) => dieAdd(acc, p), [0, 0, 0]).map(x => x / pts.length);
+        let nrm = dieNorm(dieCross(dieVec(pts[1], pts[0]), dieVec(pts[2], pts[0])));
+        if (dieDot(nrm, c) < 0) nrm = [-nrm[0], -nrm[1], -nrm[2]];
+        const k = dieDot(nrm, pts[0]);
+        return [nrm[0] / k, nrm[1] / k, nrm[2] / k];
+      };
+      const triA = [];
+      const triB = [];
+      for (let i = 0; i < n; i++) {
+        const i1 = (i + 1) % n;
+        triA.push(dualOf([top[i], top[i1], bot[i]]));
+        triB.push(dualOf([bot[i], bot[i1], top[i1]]));
       }
+      const verts = [dualOf(top), dualOf(bot)].concat(triA, triB);
       const faces = [];
-      for (let i = 0; i < 5; i++) {
-        faces.push([0, 2 + i, 7 + i, 2 + ((i + 1) % 5)]);
-        faces.push([1, 7 + i, 2 + ((i + 1) % 5), 7 + ((i + 1) % 5)]);
+      for (let i = 0; i < n; i++) {
+        const im = (i + n - 1) % n;
+        faces.push([0, 2 + i, 7 + im, 2 + im]);
+        faces.push([1, 7 + i, 2 + i, 7 + im]);
       }
-      return { verts: verts, faces: faces, kind: 'kite', radius: 2.3 };
+      return { verts: verts, faces: faces, kind: 'kite', radius: 2.52 };
     }
 
     function dieClipForKind(kind) {
@@ -6414,17 +6453,62 @@
     function dieFaceBox(kind, side, pts) {
       if (kind === 'tri') {
         const h = side * 0.8660254;
-        return { w: side, h: h, ox: '50% 66.666%', ml: side / -2, mt: h * -0.666 };
+        return { w: side, h: h, ox: '50% 66.666%', ml: side / -2, mt: h * -0.666, clip: dieClipForKind(kind) };
       }
       if (kind === 'pent') {
         const r = side / (2 * Math.sin(Math.PI / 5));
         const w = 2 * r * Math.sin(Math.PI * 72 / 180);
         const h = r * (1 + Math.cos(Math.PI * 36 / 180));
-        return { w: w, h: h, ox: '50% 55.28%', ml: w / -2, mt: h * -0.5528 };
+        return { w: w, h: h, ox: '50% 55.28%', ml: w / -2, mt: h * -0.5528, clip: dieClipForKind(kind) };
       }
       const w = dieDist(pts[1], pts[3]);
       const h = dieDist(pts[0], pts[2]);
-      return { w: w, h: h, ox: '50% 42%', ml: w / -2, mt: h * -0.42 };
+      return { w: w, h: h, ox: '50% 42%', ml: w / -2, mt: h * -0.42, clip: dieClipForKind(kind) };
+    }
+
+    function dieFacePointsCss(pts, n, c, twistDeg) {
+      const rad = -(twistDeg || 0) * Math.PI / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      return pts.map(p => {
+        const r = dieRotToZ([p[0] - c[0], p[1] - c[1], p[2] - c[2]], n);
+        const x0 = r[0];
+        const y0 = r[1];
+        return [x0 * cos - y0 * sin, x0 * sin + y0 * cos];
+      });
+    }
+
+    function diePlateFromPoints(pts2d) {
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      pts2d.forEach(p => {
+        if (p[0] < minX) minX = p[0];
+        if (p[1] < minY) minY = p[1];
+        if (p[0] > maxX) maxX = p[0];
+        if (p[1] > maxY) maxY = p[1];
+      });
+      const pad = 0.03;
+      minX -= pad;
+      minY -= pad;
+      maxX += pad;
+      maxY += pad;
+      const w = Math.max(0.2, maxX - minX);
+      const h = Math.max(0.2, maxY - minY);
+      const clip = 'polygon(' + pts2d.map(p => {
+        const x = ((p[0] - minX) / w) * 100;
+        const y = ((p[1] - minY) / h) * 100;
+        return x.toFixed(2) + '% ' + y.toFixed(2) + '%';
+      }).join(',') + ')';
+      return {
+        w: w,
+        h: h,
+        ox: ((-minX / w) * 100).toFixed(2) + '% ' + ((-minY / h) * 100).toFixed(2) + '%',
+        ml: minX,
+        mt: minY,
+        clip: clip
+      };
     }
 
     function dieRotToZ(v, n) {
@@ -6452,7 +6536,6 @@
       let verts = dieScaleVerts(spec.verts, spec.radius);
       let idx = spec.faces;
       if (!idx) idx = spec.kind === 'pent' ? diePentFaces(verts) : dieTriFaces(verts);
-      const clip = dieClipForKind(spec.kind);
       const normals = idx.map(face => {
         const pts = face.map(i => verts[i]);
         const c = pts.reduce((acc, p) => dieAdd(acc, p), [0, 0, 0]).map(x => x / pts.length);
@@ -6470,14 +6553,22 @@
         let n = dieNorm(dieCross(dieVec(pts[1], pts[0]), dieVec(pts[2], pts[0])));
         if (dieDot(n, c) < 0) n = [-n[0], -n[1], -n[2]];
         const R = Math.abs(dieDot(c, n));
-        const apex = dieVec(pts[0], c);
-        const twist = dieTwistToApex(n, apex);
-        const side = dieDist(pts[0], pts[1]);
-        const box = dieFaceBox(spec.kind, side, pts);
+        const up = spec.kind === 'quad'
+          ? [
+              (pts[0][0] + pts[1][0]) * 0.5 - c[0],
+              (pts[0][1] + pts[1][1]) * 0.5 - c[1],
+              (pts[0][2] + pts[1][2]) * 0.5 - c[2]
+            ]
+          : dieVec(pts[0], c);
+        const twist = dieTwistToApex(n, up);
+        const box = (spec.kind === 'kite' || spec.kind === 'quad')
+          ? diePlateFromPoints(dieFacePointsCss(pts, n, c, twist))
+          : dieFaceBox(spec.kind, dieDist(pts[0], pts[1]), pts);
+        const inset = spec.kind === 'kite' ? 0.76 : 0.84;
         const tGold = dieOrientFace(n[0], n[1], n[2], R, twist, 1);
-        const t = dieOrientFace(n[0], n[1], n[2], R + 0.018, twist, 0.84);
+        const t = dieOrientFace(n[0], n[1], n[2], R + 0.018, twist, inset);
         const tCore = dieOrientFace(n[0], n[1], n[2], R * 0.7, twist, 0.9);
-        const boxStyle = 'width:' + box.w.toFixed(3) + 'rem;height:' + box.h.toFixed(3) + 'rem;margin:' + box.mt.toFixed(3) + 'rem 0 0 ' + box.ml.toFixed(3) + 'rem;transform-origin:' + box.ox + ';clip-path:' + clip + ';';
+        const boxStyle = 'width:' + box.w.toFixed(3) + 'rem;height:' + box.h.toFixed(3) + 'rem;margin:' + box.mt.toFixed(3) + 'rem 0 0 ' + box.ml.toFixed(3) + 'rem;transform-origin:' + box.ox + ';clip-path:' + box.clip + ';';
         plates.push({
           t: t,
           tGold: tGold,
@@ -6725,38 +6816,10 @@
 
       const dieHtml = (value, sides) => {
         const shape = dieShapeForSides(sides);
-        const isCube = shape === 'd6';
         const kind = value === 20 && sides === 20 ? ' is-crit' : (value === 1 && sides === 20 ? ' is-fumble' : '');
-        if (!isCube) {
-          const built = diePolyParts(shape, value);
-          const rz = (-(built.twist || 0)).toFixed(3);
-          return '<div class="dice-scene is-poly is-' + shape + kind + '" data-rest-rz="' + rz + '"><div class="dice-mesh">' + built.html + '</div><div class="dice-shadow"></div><div class="dice-sparks">' + sparkHtml() + '</div></div>';
-        }
-        const size = ' is-d6';
-        const s = 3.9;
-        const r = 0.52;
-        const e = s / 2 - r;
-        const knobs = [[1,1,1],[1,1,-1],[1,-1,1],[1,-1,-1],[-1,1,1],[-1,1,-1],[-1,-1,1],[-1,-1,-1]].map(p => {
-          const t = 'translate3d(' + (p[0] * e) + 'rem,' + (p[1] * e) + 'rem,' + (p[2] * e) + 'rem)';
-          return '<b class="dice-knob" style="transform:' + t + '"></b>';
-        }).join('');
-        let edges = '';
-        [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(p => {
-          const alongX = 'translate3d(0,' + (p[0] * e) + 'rem,' + (p[1] * e) + 'rem)';
-          const alongY = 'translate3d(' + (p[0] * e) + 'rem,0,' + (p[1] * e) + 'rem) rotateZ(90deg)';
-          const alongZ = 'translate3d(' + (p[0] * e) + 'rem,' + (p[1] * e) + 'rem,0) rotateY(90deg)';
-          edges += '<b class="dice-edge" style="transform:' + alongX + '"></b>';
-          edges += '<b class="dice-edge" style="transform:' + alongY + '"></b>';
-          edges += '<b class="dice-edge" style="transform:' + alongZ + '"></b>';
-        });
-        const core = ['front', 'back', 'right', 'left', 'top', 'bottom'].map(side => {
-          return '<i data-side="' + side + '"></i>';
-        }).join('');
-        const faces = ['front', 'back', 'right', 'left', 'top', 'bottom'].map(side => {
-          const n = side === 'top' ? value : (1 + Math.floor(Math.random() * sides));
-          return '<div class="dice-face" data-side="' + side + '"><span>' + n + '</span></div>';
-        }).join('');
-        return '<div class="dice-scene' + size + kind + '"><div class="dice-mesh"><div class="dice-core">' + core + '</div>' + knobs + edges + faces + '</div><div class="dice-shadow"></div><div class="dice-sparks">' + sparkHtml() + '</div></div>';
+        const built = diePolyParts(shape, value);
+        const rz = (-(built.twist || 0)).toFixed(3);
+        return '<div class="dice-scene is-poly is-' + shape + kind + '" data-rest-rz="' + rz + '"><div class="dice-mesh">' + built.html + '</div><div class="dice-shadow"></div><div class="dice-sparks">' + sparkHtml() + '</div></div>';
       };
 
       if (!playTableDie._items) playTableDie._items = [];
@@ -6842,7 +6905,6 @@
       dice.forEach((spec, i) => {
         const scene = scenes[i];
         const inward = fromLeft ? 1 : -1;
-        const isCube = dieShapeForSides(spec.sides) === 'd6';
         const d = {
           scene: scene,
           mesh: scene.querySelector('.dice-mesh'),
@@ -6861,11 +6923,7 @@
           wx: 140 + Math.random() * 160,
           wy: 120 + Math.random() * 150,
           wz: inward * (90 + Math.random() * 120),
-          rest: isCube ? {
-            rx: -90,
-            ry: 0,
-            rz: 0
-          } : {
+          rest: {
             rx: 0,
             ry: 0,
             rz: Number(scene.getAttribute('data-rest-rz')) || 0
