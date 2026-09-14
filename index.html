@@ -3854,18 +3854,10 @@
       border-color: var(--line);
       color: var(--ink);
     }
-    .battle-power-act.is-off .battle-power-name { cursor: pointer; }
     .battle-power-act b {
       font-weight: 600;
       font-size: 0.86rem;
     }
-    .battle-power-act .battle-power-name {
-      cursor: pointer;
-      text-decoration: underline;
-      text-underline-offset: 0.14em;
-      text-decoration-color: rgba(212, 179, 106, 0.4);
-    }
-    .battle-power-act .battle-power-name:hover { color: var(--gold); }
     .battle-power-act em,
     .battle-power-act span {
       font-style: normal;
@@ -12489,7 +12481,7 @@
       addCombatDebuff(toId, text, rounds, kind, fromId);
     }
 
-    function appendKampfPowerAct(box, act, infoKind) {
+    function appendKampfPowerAct(box, act) {
       const from = combatantById(kampfAimFrom);
       const depleted = kampfActionDepleted(from, act);
       const selected = kampfPowerAction && kampfPowerAction.id === act.id && kampfPowerAction.kind === act.kind;
@@ -12497,13 +12489,7 @@
       btn.type = 'button';
       btn.className = 'battle-power-act' + (selected ? ' is-on' : '') + (depleted ? ' is-off' : '');
       const name = document.createElement('b');
-      name.className = 'battle-power-name';
       name.textContent = act.name;
-      name.title = 'Beschreibung';
-      name.onclick = ev => {
-        ev.stopPropagation();
-        openDndActionInfo(infoKind, act.id, from && from.playerId);
-      };
       const meta = document.createElement('span');
       const bits = [];
       if (act.kind === 'spell') bits.push(act.level && act.level !== '0' ? 'G' + act.level : 'G0');
@@ -12570,21 +12556,21 @@
             sec.className = 'battle-power-sec';
             sec.textContent = 'Angriffe';
             box.appendChild(sec);
-            list.attacks.forEach(act => appendKampfPowerAct(box, act, 'attacks'));
+            list.attacks.forEach(act => appendKampfPowerAct(box, act));
           }
           if (list.spells.length) {
             const sec = document.createElement('div');
             sec.className = 'battle-power-sec';
             sec.textContent = 'Zauber';
             box.appendChild(sec);
-            list.spells.forEach(act => appendKampfPowerAct(box, act, 'spells'));
+            list.spells.forEach(act => appendKampfPowerAct(box, act));
           }
           if (list.features.length) {
             const sec = document.createElement('div');
             sec.className = 'battle-power-sec';
             sec.textContent = 'Merkmale';
             box.appendChild(sec);
-            list.features.forEach(act => appendKampfPowerAct(box, act, 'features'));
+            list.features.forEach(act => appendKampfPowerAct(box, act));
           }
           const hint = document.createElement('p');
           hint.className = 'battle-power-hint';
