@@ -1977,47 +1977,49 @@
       perspective-origin: 50% 78%;
     }
     .dice-scene {
+      --dice-s: 5.2rem;
+      --dice-r: 0.68rem;
+      --dice-h: 2.6rem;
+      --dice-mat: #322a22;
       position: absolute;
       left: 50%;
       top: 50%;
-      width: 5.4rem;
-      height: 5.4rem;
-      margin: -2.7rem 0 0 -2.7rem;
+      width: var(--dice-s);
+      height: var(--dice-s);
+      margin: calc(var(--dice-s) / -2) 0 0 calc(var(--dice-s) / -2);
       transform-style: preserve-3d;
     }
-    .dice-scene.is-d6 { width: 4rem; height: 4rem; margin: -2rem 0 0 -2rem; }
+    .dice-scene.is-d6 {
+      --dice-s: 3.9rem;
+      --dice-r: 0.52rem;
+      --dice-h: 1.95rem;
+    }
     .dice-mesh {
       width: 100%;
       height: 100%;
       position: relative;
       transform-style: preserve-3d;
     }
-    .dice-core {
-      position: absolute;
-      inset: 0.62rem;
-      border-radius: 1.25rem;
-      background:
-        radial-gradient(circle at 30% 24%, #5a4c3a 0%, #2a241c 42%, #14110e 100%);
-      box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.35);
-    }
-    .dice-scene.is-d6 .dice-core {
-      inset: 0.48rem;
-      border-radius: 1rem;
-    }
-    .dice-knob {
+    .dice-knob,
+    .dice-edge {
       position: absolute;
       left: 50%;
       top: 50%;
-      width: 1.42rem;
-      height: 1.42rem;
-      margin: -0.71rem 0 0 -0.71rem;
-      border-radius: 50%;
-      background: radial-gradient(circle at 32% 28%, #6a5a44, #221c16 68%);
+      background:
+        radial-gradient(circle at 32% 28%, #5c4e3c, var(--dice-mat) 62%);
     }
-    .dice-scene.is-d6 .dice-knob {
-      width: 1.12rem;
-      height: 1.12rem;
-      margin: -0.56rem 0 0 -0.56rem;
+    .dice-knob {
+      width: calc(var(--dice-r) * 2);
+      height: calc(var(--dice-r) * 2);
+      margin: calc(var(--dice-r) * -1) 0 0 calc(var(--dice-r) * -1);
+      border-radius: 50%;
+    }
+    .dice-edge {
+      width: calc(var(--dice-s) - var(--dice-r) * 2);
+      height: calc(var(--dice-r) * 2);
+      margin-left: calc(var(--dice-r) - var(--dice-s) / 2);
+      margin-top: calc(var(--dice-r) * -1);
+      border-radius: var(--dice-r);
     }
     .dice-shadow {
       position: absolute;
@@ -2032,54 +2034,50 @@
     }
     .dice-face {
       position: absolute;
-      inset: 0.38rem;
+      left: var(--dice-r);
+      top: var(--dice-r);
+      width: calc(var(--dice-s) - var(--dice-r) * 2);
+      height: calc(var(--dice-s) - var(--dice-r) * 2);
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 1.05rem;
       background:
-        radial-gradient(circle at 28% 20%, rgba(243, 234, 216, 0.22), transparent 42%),
-        linear-gradient(160deg, #534636 0%, #2a241c 48%, #14110e 100%);
-      box-shadow:
-        inset 0 2px 0 rgba(243, 234, 216, 0.2),
-        inset 0 -10px 14px rgba(0, 0, 0, 0.38),
-        inset 0 0 0 1px rgba(212, 179, 106, 0.38);
+        radial-gradient(circle at 30% 22%, rgba(243, 234, 216, 0.16), transparent 46%),
+        linear-gradient(165deg, #4e4336 0%, #2a241c 52%, #161310 100%);
+      box-shadow: inset 0 1px 0 rgba(243, 234, 216, 0.16), inset 0 -8px 12px rgba(0, 0, 0, 0.32);
       color: #f3ead8;
       font-family: Cinzel, serif;
-      font-size: 1.55rem;
+      font-size: 1.7rem;
       font-weight: 700;
       backface-visibility: hidden;
     }
-    .dice-scene.is-d6 .dice-face { border-radius: 0.85rem; }
+    .dice-scene.is-d6 .dice-face { font-size: 1.35rem; }
     .dice-face span {
       position: relative;
       z-index: 1;
-      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.65), 0 0 8px rgba(212, 179, 106, 0.28);
+      line-height: 1;
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7);
     }
-    .dice-face[data-side="front"] { transform: rotateY(0deg) translateZ(2.32rem); }
-    .dice-face[data-side="back"] { transform: rotateY(180deg) translateZ(2.32rem); }
-    .dice-face[data-side="right"] { transform: rotateY(90deg) translateZ(2.32rem); }
-    .dice-face[data-side="left"] { transform: rotateY(-90deg) translateZ(2.32rem); }
-    .dice-face[data-side="top"] { transform: rotateX(90deg) translateZ(2.32rem); }
-    .dice-face[data-side="bottom"] { transform: rotateX(-90deg) translateZ(2.32rem); }
-    .dice-scene.is-d6 .dice-face[data-side="front"] { transform: rotateY(0deg) translateZ(1.72rem); }
-    .dice-scene.is-d6 .dice-face[data-side="back"] { transform: rotateY(180deg) translateZ(1.72rem); }
-    .dice-scene.is-d6 .dice-face[data-side="right"] { transform: rotateY(90deg) translateZ(1.72rem); }
-    .dice-scene.is-d6 .dice-face[data-side="left"] { transform: rotateY(-90deg) translateZ(1.72rem); }
-    .dice-scene.is-d6 .dice-face[data-side="top"] { transform: rotateX(90deg) translateZ(1.72rem); }
-    .dice-scene.is-d6 .dice-face[data-side="bottom"] { transform: rotateX(-90deg) translateZ(1.72rem); }
+    .dice-face[data-side="front"] { transform: rotateY(0deg) translateZ(var(--dice-h)); }
+    .dice-face[data-side="back"] { transform: rotateY(180deg) translateZ(var(--dice-h)); }
+    .dice-face[data-side="right"] { transform: rotateY(90deg) translateZ(var(--dice-h)); }
+    .dice-face[data-side="left"] { transform: rotateY(-90deg) translateZ(var(--dice-h)); }
+    .dice-face[data-side="top"] {
+      transform: rotateX(90deg) translateZ(var(--dice-h));
+      background:
+        radial-gradient(circle at 36% 30%, rgba(243, 234, 216, 0.22), transparent 48%),
+        linear-gradient(180deg, #6a5a44 0%, #3a3228 58%, #1c1814 100%);
+    }
+    .dice-face[data-side="bottom"] {
+      transform: rotateX(-90deg) translateZ(var(--dice-h));
+      background: linear-gradient(180deg, #241f19 0%, #100e0c 100%);
+    }
     .dice-scene.is-crit .dice-face {
-      box-shadow:
-        inset 0 2px 0 rgba(243, 234, 216, 0.36),
-        inset 0 0 0 1px rgba(232, 197, 122, 0.7),
-        0 0 22px rgba(212, 179, 106, 0.55);
+      box-shadow: inset 0 1px 0 rgba(243, 234, 216, 0.28), 0 0 18px rgba(212, 179, 106, 0.5);
       color: #ffe7a8;
     }
     .dice-scene.is-fumble .dice-face {
-      box-shadow:
-        inset 0 1px 0 rgba(226, 179, 179, 0.2),
-        inset 0 0 0 1px rgba(154, 51, 51, 0.55),
-        0 0 18px rgba(154, 51, 51, 0.42);
+      box-shadow: inset 0 1px 0 rgba(226, 179, 179, 0.18), 0 0 16px rgba(154, 51, 51, 0.4);
       color: #e2b3b3;
     }
     .dice-sparks {
@@ -5998,15 +5996,23 @@
       const dieHtml = (value) => {
         const kind = value === 20 && sides === 20 ? ' is-crit' : (value === 1 && sides === 20 ? ' is-fumble' : '');
         const size = isCube ? ' is-d6' : '';
-        const reach = isCube ? 1.42 : 1.88;
+        const s = isCube ? 3.9 : 5.2;
+        const r = isCube ? 0.52 : 0.68;
+        const e = s / 2 - r;
         const knobs = [[1,1,1],[1,1,-1],[1,-1,1],[1,-1,-1],[-1,1,1],[-1,1,-1],[-1,-1,1],[-1,-1,-1]].map(p => {
-          return '<b class="dice-knob" style="transform:translate3d(' + (p[0] * reach) + 'rem,' + (p[1] * reach) + 'rem,' + (p[2] * reach) + 'rem)"></b>';
+          return '<b class="dice-knob" style="transform:translate3d(' + (p[0] * e) + 'rem,' + (p[1] * e) + 'rem,' + (p[2] * e) + 'rem)"></b>';
         }).join('');
+        let edges = '';
+        [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(p => {
+          edges += '<b class="dice-edge" style="transform:translate3d(0,' + (p[0] * e) + 'rem,' + (p[1] * e) + 'rem)"></b>';
+          edges += '<b class="dice-edge" style="transform:translate3d(' + (p[0] * e) + 'rem,0,' + (p[1] * e) + 'rem) rotateZ(90deg)"></b>';
+          edges += '<b class="dice-edge" style="transform:translate3d(' + (p[0] * e) + 'rem,' + (p[1] * e) + 'rem,0) rotateY(90deg)"></b>';
+        });
         const faces = ['front', 'back', 'right', 'left', 'top', 'bottom'].map(side => {
           const n = side === 'top' ? value : (1 + Math.floor(Math.random() * sides));
           return '<div class="dice-face" data-side="' + side + '"><span>' + n + '</span></div>';
         }).join('');
-        return '<div class="dice-scene' + size + kind + '"><div class="dice-mesh"><div class="dice-core"></div>' + knobs + faces + '</div><div class="dice-shadow"></div><div class="dice-sparks">' + sparkHtml() + '</div></div>';
+        return '<div class="dice-scene' + size + kind + '"><div class="dice-mesh">' + knobs + edges + faces + '</div><div class="dice-shadow"></div><div class="dice-sparks">' + sparkHtml() + '</div></div>';
       };
 
       if (!playTableDie._items) playTableDie._items = [];
