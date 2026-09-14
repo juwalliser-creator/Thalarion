@@ -2000,13 +2000,34 @@
       position: relative;
       transform-style: preserve-3d;
     }
+    .dice-core {
+      position: absolute;
+      inset: 0;
+      transform-style: preserve-3d;
+    }
+    .dice-core i {
+      position: absolute;
+      left: calc(var(--dice-r) * 0.38);
+      top: calc(var(--dice-r) * 0.38);
+      width: calc(var(--dice-s) - var(--dice-r) * 0.76);
+      height: calc(var(--dice-s) - var(--dice-r) * 0.76);
+      background: #2c251e;
+      backface-visibility: hidden;
+    }
+    .dice-core i[data-side="front"] { transform: rotateY(0deg) translateZ(calc(var(--dice-h) - var(--dice-r) * 0.38)); }
+    .dice-core i[data-side="back"] { transform: rotateY(180deg) translateZ(calc(var(--dice-h) - var(--dice-r) * 0.38)); }
+    .dice-core i[data-side="right"] { transform: rotateY(90deg) translateZ(calc(var(--dice-h) - var(--dice-r) * 0.38)); }
+    .dice-core i[data-side="left"] { transform: rotateY(-90deg) translateZ(calc(var(--dice-h) - var(--dice-r) * 0.38)); }
+    .dice-core i[data-side="top"] { transform: rotateX(90deg) translateZ(calc(var(--dice-h) - var(--dice-r) * 0.38)); }
+    .dice-core i[data-side="bottom"] { transform: rotateX(-90deg) translateZ(calc(var(--dice-h) - var(--dice-r) * 0.38)); }
     .dice-knob,
     .dice-edge {
       position: absolute;
       left: 50%;
       top: 50%;
+      transform-style: preserve-3d;
       background:
-        radial-gradient(circle at 32% 28%, #5c4e3c, var(--dice-mat) 62%);
+        radial-gradient(circle at 32% 28%, #5c4e3c 0%, #322a22 62%, #241e18 100%);
     }
     .dice-knob {
       width: calc(var(--dice-r) * 2);
@@ -2034,14 +2055,15 @@
     }
     .dice-face {
       position: absolute;
-      left: var(--dice-r);
-      top: var(--dice-r);
-      width: calc(var(--dice-s) - var(--dice-r) * 2);
-      height: calc(var(--dice-s) - var(--dice-r) * 2);
+      left: calc(var(--dice-r) - 1px);
+      top: calc(var(--dice-r) - 1px);
+      width: calc(var(--dice-s) - var(--dice-r) * 2 + 2px);
+      height: calc(var(--dice-s) - var(--dice-r) * 2 + 2px);
       display: flex;
       align-items: center;
       justify-content: center;
-      background:
+      background-color: #2a241c;
+      background-image:
         radial-gradient(circle at 30% 22%, rgba(243, 234, 216, 0.16), transparent 46%),
         linear-gradient(165deg, #4e4336 0%, #2a241c 52%, #161310 100%);
       box-shadow: inset 0 1px 0 rgba(243, 234, 216, 0.16), inset 0 -8px 12px rgba(0, 0, 0, 0.32);
@@ -2058,18 +2080,19 @@
       line-height: 1;
       text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7);
     }
-    .dice-face[data-side="front"] { transform: rotateY(0deg) translateZ(var(--dice-h)); }
-    .dice-face[data-side="back"] { transform: rotateY(180deg) translateZ(var(--dice-h)); }
-    .dice-face[data-side="right"] { transform: rotateY(90deg) translateZ(var(--dice-h)); }
-    .dice-face[data-side="left"] { transform: rotateY(-90deg) translateZ(var(--dice-h)); }
+    .dice-face[data-side="front"] { transform: rotateY(0deg) translateZ(calc(var(--dice-h) + 0.5px)); }
+    .dice-face[data-side="back"] { transform: rotateY(180deg) translateZ(calc(var(--dice-h) + 0.5px)); }
+    .dice-face[data-side="right"] { transform: rotateY(90deg) translateZ(calc(var(--dice-h) + 0.5px)); }
+    .dice-face[data-side="left"] { transform: rotateY(-90deg) translateZ(calc(var(--dice-h) + 0.5px)); }
     .dice-face[data-side="top"] {
-      transform: rotateX(90deg) translateZ(var(--dice-h));
-      background:
+      transform: rotateX(90deg) translateZ(calc(var(--dice-h) + 0.5px));
+      background-color: #3a3228;
+      background-image:
         radial-gradient(circle at 36% 30%, rgba(243, 234, 216, 0.22), transparent 48%),
         linear-gradient(180deg, #6a5a44 0%, #3a3228 58%, #1c1814 100%);
     }
     .dice-face[data-side="bottom"] {
-      transform: rotateX(-90deg) translateZ(var(--dice-h));
+      transform: rotateX(-90deg) translateZ(calc(var(--dice-h) + 0.5px));
       background: linear-gradient(180deg, #241f19 0%, #100e0c 100%);
     }
     .dice-scene.is-crit .dice-face {
@@ -5976,12 +5999,18 @@
       const vw = Math.max(320, window.innerWidth || 800);
       const vh = Math.max(320, window.innerHeight || 600);
       const isCube = sides <= 6;
-      const rest = { rx: -84, ry: 8, rz: 0 };
       const floorY = vh / 2 - 88;
       const wallL = -vw / 2 + 56;
       const wallR = vw / 2 - 56;
       const wallT = -vh / 2 + 48;
       const fromLeft = Math.random() < 0.5;
+      const shortestDeg = (from, to) => {
+        let d = (to - from) % 360;
+        if (d > 180) d -= 360;
+        if (d < -180) d += 360;
+        return d;
+      };
+      const unwrapTowards = (from, to) => to - shortestDeg(from, to);
 
       const sparkHtml = () => {
         let out = '';
@@ -6000,19 +6029,31 @@
         const r = isCube ? 0.52 : 0.68;
         const e = s / 2 - r;
         const knobs = [[1,1,1],[1,1,-1],[1,-1,1],[1,-1,-1],[-1,1,1],[-1,1,-1],[-1,-1,1],[-1,-1,-1]].map(p => {
-          return '<b class="dice-knob" style="transform:translate3d(' + (p[0] * e) + 'rem,' + (p[1] * e) + 'rem,' + (p[2] * e) + 'rem)"></b>';
+          const t = 'translate3d(' + (p[0] * e) + 'rem,' + (p[1] * e) + 'rem,' + (p[2] * e) + 'rem)';
+          return '<b class="dice-knob" style="transform:' + t + '"></b>' +
+            '<b class="dice-knob" style="transform:' + t + ' rotateX(90deg)"></b>' +
+            '<b class="dice-knob" style="transform:' + t + ' rotateY(90deg)"></b>';
         }).join('');
         let edges = '';
         [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(p => {
-          edges += '<b class="dice-edge" style="transform:translate3d(0,' + (p[0] * e) + 'rem,' + (p[1] * e) + 'rem)"></b>';
-          edges += '<b class="dice-edge" style="transform:translate3d(' + (p[0] * e) + 'rem,0,' + (p[1] * e) + 'rem) rotateZ(90deg)"></b>';
-          edges += '<b class="dice-edge" style="transform:translate3d(' + (p[0] * e) + 'rem,' + (p[1] * e) + 'rem,0) rotateY(90deg)"></b>';
+          const alongX = 'translate3d(0,' + (p[0] * e) + 'rem,' + (p[1] * e) + 'rem)';
+          const alongY = 'translate3d(' + (p[0] * e) + 'rem,0,' + (p[1] * e) + 'rem) rotateZ(90deg)';
+          const alongZ = 'translate3d(' + (p[0] * e) + 'rem,' + (p[1] * e) + 'rem,0) rotateY(90deg)';
+          edges += '<b class="dice-edge" style="transform:' + alongX + '"></b>';
+          edges += '<b class="dice-edge" style="transform:' + alongX + ' rotateX(90deg)"></b>';
+          edges += '<b class="dice-edge" style="transform:' + alongY + '"></b>';
+          edges += '<b class="dice-edge" style="transform:' + alongY + ' rotateX(90deg)"></b>';
+          edges += '<b class="dice-edge" style="transform:' + alongZ + '"></b>';
+          edges += '<b class="dice-edge" style="transform:' + alongZ + ' rotateX(90deg)"></b>';
         });
+        const core = ['front', 'back', 'right', 'left', 'top', 'bottom'].map(side => {
+          return '<i data-side="' + side + '"></i>';
+        }).join('');
         const faces = ['front', 'back', 'right', 'left', 'top', 'bottom'].map(side => {
           const n = side === 'top' ? value : (1 + Math.floor(Math.random() * sides));
           return '<div class="dice-face" data-side="' + side + '"><span>' + n + '</span></div>';
         }).join('');
-        return '<div class="dice-scene' + size + kind + '"><div class="dice-mesh">' + knobs + edges + faces + '</div><div class="dice-shadow"></div><div class="dice-sparks">' + sparkHtml() + '</div></div>';
+        return '<div class="dice-scene' + size + kind + '"><div class="dice-mesh"><div class="dice-core">' + core + '</div>' + knobs + edges + faces + '</div><div class="dice-shadow"></div><div class="dice-sparks">' + sparkHtml() + '</div></div>';
       };
 
       if (!playTableDie._items) playTableDie._items = [];
@@ -6080,6 +6121,7 @@
           phase: 'fly',
           delay: i * 0.1,
           born: performance.now(),
+          hits: 0,
           x: (fromLeft ? wallL : wallR) + inward * i * 18,
           y: wallT - i * 16,
           vx: inward * (520 + Math.random() * 340),
@@ -6090,7 +6132,11 @@
           wx: 420 + Math.random() * 380,
           wy: 380 + Math.random() * 340,
           wz: inward * (280 + Math.random() * 260),
-          rest: rest,
+          rest: {
+            rx: -40 + (Math.random() - 0.5) * 6,
+            ry: 28 + (Math.random() - 0.5) * 10,
+            rz: (Math.random() - 0.5) * 8
+          },
           value: value,
           batch: batch
         };
@@ -6104,66 +6150,126 @@
       let last = performance.now();
       const g = 2680;
 
+      const pullToRest = (d, dt, stiffness, damp, maxW) => {
+        d.rx = unwrapTowards(d.rx, d.rest.rx);
+        d.ry = unwrapTowards(d.ry, d.rest.ry);
+        d.rz = unwrapTowards(d.rz, d.rest.rz);
+        d.wx += shortestDeg(d.rx, d.rest.rx) * stiffness * dt;
+        d.wy += shortestDeg(d.ry, d.rest.ry) * stiffness * dt;
+        d.wz += shortestDeg(d.rz, d.rest.rz) * stiffness * dt;
+        const drag = Math.max(0, 1 - damp * dt);
+        d.wx *= drag;
+        d.wy *= drag;
+        d.wz *= drag;
+        const spin = Math.hypot(d.wx, d.wy, d.wz) || 1;
+        if (spin > maxW) {
+          const s = maxW / spin;
+          d.wx *= s;
+          d.wy *= s;
+          d.wz *= s;
+        }
+      };
+
+      const lockRest = (d) => {
+        d.y = floorY;
+        d.vx = 0;
+        d.vy = 0;
+        d.wx = 0;
+        d.wy = 0;
+        d.wz = 0;
+        d.rx = d.rest.rx;
+        d.ry = d.rest.ry;
+        d.rz = d.rest.rz;
+        d.phase = 'rest';
+        const face = d.mesh && d.mesh.querySelector('.dice-face[data-side="top"] span');
+        if (face && d.value != null) face.textContent = String(d.value);
+        revealCaption();
+      };
+
       const frame = now => {
         const dt = Math.min(0.033, (now - last) / 1000);
         last = now;
         let moving = false;
 
         (playTableDie._items || []).forEach(d => {
-          if (d.phase !== 'fly') return;
+          if (d.phase === 'rest' || d.phase === 'gone') return;
           const local = (now - d.born) / 1000 - d.delay;
           if (local < 0) {
             moving = true;
             return;
           }
 
-          d.vy += g * dt;
-          d.x += d.vx * dt;
-          d.y += d.vy * dt;
-          d.rx += d.wx * dt;
-          d.ry += d.wy * dt;
-          d.rz += d.wz * dt;
-          d.vx *= 1 - 0.14 * dt;
+          if (d.phase === 'fly') {
+            d.vy += g * dt;
+            d.x += d.vx * dt;
+            d.y += d.vy * dt;
+            d.rx += d.wx * dt;
+            d.ry += d.wy * dt;
+            d.rz += d.wz * dt;
+            d.vx *= 1 - 0.14 * dt;
 
-          if (d.x > wallR) { d.x = wallR; d.vx = -Math.abs(d.vx) * 0.68; }
-          if (d.x < wallL) { d.x = wallL; d.vx = Math.abs(d.vx) * 0.68; }
-          if (d.y < wallT) { d.y = wallT; d.vy = Math.abs(d.vy) * 0.4; }
+            if (d.x > wallR) { d.x = wallR; d.vx = -Math.abs(d.vx) * 0.68; }
+            if (d.x < wallL) { d.x = wallL; d.vx = Math.abs(d.vx) * 0.68; }
+            if (d.y < wallT) { d.y = wallT; d.vy = Math.abs(d.vy) * 0.4; }
 
-          if (d.y >= floorY) {
-            d.y = floorY;
-            if (d.vy > 80) {
-              d.vy = -d.vy * 0.42;
-              d.vx *= 0.72;
-              d.wx = d.wx * 0.55 + (Math.random() - 0.5) * 240;
-              d.wy = d.wy * 0.52 + (Math.random() - 0.5) * 200;
-              d.wz = d.wz * 0.58 + d.vx * 0.18;
-            } else {
+            if (d.y >= floorY) {
+              d.y = floorY;
+              if (d.vy > 90) {
+                d.hits += 1;
+                d.vy = -d.vy * 0.38;
+                d.vx *= 0.7;
+                d.rx = unwrapTowards(d.rx, d.rest.rx);
+                d.ry = unwrapTowards(d.ry, d.rest.ry);
+                d.rz = unwrapTowards(d.rz, d.rest.rz);
+                const bias = Math.min(1, d.hits / 3);
+                d.wx = d.wx * (0.34 - 0.12 * bias) + shortestDeg(d.rx, d.rest.rx) * (2.2 + bias * 2.8);
+                d.wy = d.wy * (0.32 - 0.1 * bias) + shortestDeg(d.ry, d.rest.ry) * (2 + bias * 2.6);
+                d.wz = d.wz * (0.36 - 0.1 * bias) + shortestDeg(d.rz, d.rest.rz) * (1.8 + bias * 2.2) + d.vx * 0.05;
+              } else {
+                d.vy = 0;
+                d.vx *= 0.86;
+                const calm = 1 / (1 + Math.hypot(d.wx, d.wy, d.wz) / 220 + Math.abs(d.vx) / 140);
+                pullToRest(d, dt, 28 + 80 * calm, 4.2 + 6 * calm, 300);
+              }
+            }
+
+            const spin = Math.hypot(d.wx, d.wy, d.wz);
+            const tilt = Math.hypot(
+              shortestDeg(d.rx, d.rest.rx),
+              shortestDeg(d.ry, d.rest.ry),
+              shortestDeg(d.rz, d.rest.rz)
+            );
+            const grounded = d.y >= floorY - 0.5 && Math.abs(d.vy) < 36;
+            if (grounded && tilt < 3 && Math.abs(d.vx) < 12 && spin < 18) {
+              lockRest(d);
+            } else if ((grounded && d.hits >= 1 && tilt < 34 && Math.abs(d.vx) < 42 && spin < 80) || (grounded && local > 2.5)) {
+              d.phase = 'settle';
+              d.y = floorY;
               d.vy = 0;
-              d.vx *= 0.9;
-              d.wx *= 0.82;
-              d.wy *= 0.82;
-              d.wz *= 0.8;
+              moving = true;
+            } else {
+              moving = true;
+            }
+          } else if (d.phase === 'settle') {
+            d.y = floorY;
+            d.vy = 0;
+            d.vx *= 1 - 6.5 * dt;
+            pullToRest(d, dt, 70, 9.5, 240);
+            d.rx += d.wx * dt;
+            d.ry += d.wy * dt;
+            d.rz += d.wz * dt;
+            const tilt = Math.hypot(
+              shortestDeg(d.rx, d.rest.rx),
+              shortestDeg(d.ry, d.rest.ry),
+              shortestDeg(d.rz, d.rest.rz)
+            );
+            if (tilt < 2.2 && Math.abs(d.vx) < 8 && Math.hypot(d.wx, d.wy, d.wz) < 16) {
+              lockRest(d);
+            } else {
+              moving = true;
             }
           }
 
-          const still = d.y >= floorY - 0.5 && Math.abs(d.vy) < 28 && Math.abs(d.vx) < 26 && Math.hypot(d.wx, d.wy, d.wz) < 50;
-          if (still || local > 2.4) {
-            d.y = floorY;
-            d.vx = 0;
-            d.vy = 0;
-            d.wx = 0;
-            d.wy = 0;
-            d.wz = 0;
-            d.rx = d.rest.rx;
-            d.ry = d.rest.ry;
-            d.rz = d.rest.rz;
-            d.phase = 'rest';
-            const face = d.mesh && d.mesh.querySelector('.dice-face[data-side="top"] span');
-            if (face && d.value != null) face.textContent = String(d.value);
-            revealCaption();
-          } else {
-            moving = true;
-          }
           pose(d);
         });
 
