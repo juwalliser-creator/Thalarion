@@ -7225,7 +7225,7 @@
       if (wrap) wrap.classList.toggle('hidden', !show);
       if (tray) tray.classList.toggle('hidden', !diceTrayOpen);
       if (log) log.classList.toggle('hidden', !diceLogOpen);
-      if (prefPanel) prefPanel.classList.toggle('hidden', !currentPlayerId);
+      if (prefPanel) prefPanel.classList.toggle('hidden', !show);
       if (trayBtn) trayBtn.setAttribute('aria-expanded', diceTrayOpen ? 'true' : 'false');
       if (logBtn) logBtn.setAttribute('aria-expanded', diceLogOpen ? 'true' : 'false');
       if (prefPanel) {
@@ -12517,7 +12517,7 @@
     function renderKampfPowerOverlay() {
       const box = document.getElementById('kampfPowerOverlay');
       if (!box) return;
-      if (!combat.started || !kampfPowerPhase || !kampfAimFrom) {
+      if (!combat.started || !kampfPowerPhase || !kampfAimFrom || kampfPowerPhase === 'aim') {
         box.classList.add('hidden');
         box.innerHTML = '';
         kampfPowerRenderKey = '';
@@ -12549,7 +12549,7 @@
         head.appendChild(close);
         box.innerHTML = '';
         box.appendChild(head);
-        if (kampfPowerPhase === 'pick' || kampfPowerPhase === 'aim') {
+        if (kampfPowerPhase === 'pick') {
           const list = combatantPowerList(from);
           if (list.attacks.length) {
             const sec = document.createElement('div');
@@ -12574,9 +12574,7 @@
           }
           const hint = document.createElement('p');
           hint.className = 'battle-power-hint';
-          hint.textContent = kampfPowerPhase === 'aim'
-            ? ((kampfPowerAction && kampfPowerAction.name) || 'Aktion') + ' · Ziel antippen'
-            : 'Aktion wählen';
+          hint.textContent = 'Aktion wählen';
           box.appendChild(hint);
         } else if (kampfPowerPhase === 'intent') {
           const ask = document.createElement('div');
