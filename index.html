@@ -2235,14 +2235,12 @@
     }
     .dice-tool-row > * { pointer-events: auto; }
     .dice-tray-btn[aria-expanded="true"],
-    .dice-log-btn[aria-expanded="true"],
-    .dice-pref-btn[aria-expanded="true"] {
+    .dice-log-btn[aria-expanded="true"] {
       border-color: var(--gold);
       color: var(--gold);
     }
     .dice-tray,
-    .dice-log,
-    .dice-pref {
+    .dice-log {
       position: absolute;
       left: calc(100% + 0.45rem);
       bottom: 0;
@@ -2340,16 +2338,10 @@
     .dice-pref {
       display: grid;
       gap: 0.32rem;
-      width: 12.4rem;
-      max-width: calc(100vw - 4.4rem);
-      padding: 0.55rem 0.65rem 0.6rem;
+      margin-top: 0.1rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid var(--line);
     }
-    .dice-pref-btn.is-muted {
-      border-color: var(--gold);
-      color: var(--gold);
-    }
-    .dice-pref-slash { display: none; }
-    .dice-pref-btn.is-muted .dice-pref-slash { display: block; }
     .dice-pref button.is-on {
       border-color: var(--gold);
       color: var(--gold);
@@ -4930,6 +4922,12 @@
           <button class="primary" id="diceTrayRollBtn" type="button" disabled>Würfeln</button>
         </div>
         <button class="ghost" id="diceTrayClearBtn" type="button">Leeren</button>
+        <div class="dice-pref hidden" id="dicePrefPanel">
+          <span class="sound-dock-label">Würfel am Tisch</span>
+          <button class="ghost" type="button" data-dice-anim="on">Immer an</button>
+          <button class="ghost" type="button" data-dice-anim="combat">Nicht im Kampf</button>
+          <button class="ghost" type="button" data-dice-anim="off">Aus</button>
+        </div>
       </div>
     </div>
     <div class="dice-tool-row">
@@ -4942,20 +4940,6 @@
           <button class="ghost" id="diceLogClearBtn" type="button">Leeren</button>
         </div>
         <div class="dice-log-list" id="diceLogList"></div>
-      </div>
-    </div>
-    <div class="dice-tool-row hidden" id="dicePrefRow">
-      <button class="ghost battle-gear-btn dice-pref-btn" id="dicePrefBtn" type="button" title="Würfel am Tisch" aria-label="Würfel am Tisch" aria-expanded="false" aria-controls="dicePrefPanel">
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-          <path fill="currentColor" d="M12 2.1L3.8 6.9v10.2L12 21.9l8.2-4.8V6.9L12 2.1zm0 1.9l6.4 3.7-2.6 1.5L12 7.4 8.2 9.2 5.6 7.7 12 4zm-7.1 5.1l2.5 1.5L5 15.8V9.1zm1.4 8L9.2 13h.1l2.7 5.1-5.7-1zm7 2.1L10.5 13h3l-2.7 6.2zm1.2-2.1L19 16.1 16.6 12 14 13.1zm2.8-6.4l2.4-1.4v6.6L16.9 11zM9.3 12.9L7.1 8.9l3.1-1.5L12 8.6l1.8 1-1.8 3.3H9.3z"/>
-          <path class="dice-pref-slash" fill="currentColor" d="M5 4.4l15.4 14.2-.9 1L4.1 5.4z"/>
-        </svg>
-      </button>
-      <div id="dicePrefPanel" class="dice-pref hidden" role="menu">
-        <span class="sound-dock-label">Würfel am Tisch</span>
-        <button class="ghost" type="button" data-dice-anim="on">Immer an</button>
-        <button class="ghost" type="button" data-dice-anim="combat">Nicht im Kampf</button>
-        <button class="ghost" type="button" data-dice-anim="off">Aus</button>
       </div>
     </div>
   </div>
@@ -5188,7 +5172,6 @@
     let soundDockOpen = false;
     let diceTrayOpen = false;
     let diceLogOpen = false;
-    let dicePrefOpen = false;
     let diceAnimMode = 'on';
     let diceLog = [];
     let diceQueue = { 4: 0, 6: 0, 8: 0, 10: 0, 12: 0, 20: 0, 100: 0 };
@@ -6903,26 +6886,9 @@
     function setDiceAnimMode(mode) {
       diceAnimMode = mode === 'off' || mode === 'combat' ? mode : 'on';
       saveDicePrefs();
-      dicePrefOpen = false;
       applyDiceToolsUi();
       if (diceAnimBlocked()) clearTableDice();
       toast('Würfel am Tisch: ' + diceAnimLabel(diceAnimMode));
-    }
-
-    function closeDicePrefPanel() {
-      if (!dicePrefOpen) return;
-      dicePrefOpen = false;
-      applyDiceToolsUi();
-    }
-
-    function toggleDicePrefPanel() {
-      if (!currentPlayerId) return;
-      dicePrefOpen = !dicePrefOpen;
-      if (dicePrefOpen) {
-        diceTrayOpen = false;
-        diceLogOpen = false;
-      }
-      applyDiceToolsUi();
     }
 
     function diceQueueTotal() {
@@ -6995,28 +6961,18 @@
       const log = document.getElementById('diceLog');
       const trayBtn = document.getElementById('diceTrayBtn');
       const logBtn = document.getElementById('diceLogBtn');
-      const prefRow = document.getElementById('dicePrefRow');
-      const prefBtn = document.getElementById('dicePrefBtn');
       const prefPanel = document.getElementById('dicePrefPanel');
       const show = canUseDiceTools();
       if (!show) {
         diceTrayOpen = false;
         diceLogOpen = false;
-        dicePrefOpen = false;
       }
-      if (!currentPlayerId) dicePrefOpen = false;
       if (wrap) wrap.classList.toggle('hidden', !show);
       if (tray) tray.classList.toggle('hidden', !diceTrayOpen);
       if (log) log.classList.toggle('hidden', !diceLogOpen);
-      if (prefRow) prefRow.classList.toggle('hidden', !currentPlayerId);
-      if (prefPanel) prefPanel.classList.toggle('hidden', !dicePrefOpen);
+      if (prefPanel) prefPanel.classList.toggle('hidden', !currentPlayerId);
       if (trayBtn) trayBtn.setAttribute('aria-expanded', diceTrayOpen ? 'true' : 'false');
       if (logBtn) logBtn.setAttribute('aria-expanded', diceLogOpen ? 'true' : 'false');
-      if (prefBtn) {
-        prefBtn.setAttribute('aria-expanded', dicePrefOpen ? 'true' : 'false');
-        prefBtn.classList.toggle('is-muted', diceAnimMode !== 'on');
-        prefBtn.title = 'Würfel am Tisch: ' + diceAnimLabel(diceAnimMode);
-      }
       if (prefPanel) {
         prefPanel.querySelectorAll('[data-dice-anim]').forEach(btn => {
           btn.classList.toggle('is-on', btn.getAttribute('data-dice-anim') === diceAnimMode);
@@ -7040,20 +6996,14 @@
     function toggleDiceTray() {
       if (!canUseDiceTools()) return;
       diceTrayOpen = !diceTrayOpen;
-      if (diceTrayOpen) {
-        diceLogOpen = false;
-        dicePrefOpen = false;
-      }
+      if (diceTrayOpen) diceLogOpen = false;
       applyDiceToolsUi();
     }
 
     function toggleDiceLog() {
       if (!canUseDiceTools()) return;
       diceLogOpen = !diceLogOpen;
-      if (diceLogOpen) {
-        diceTrayOpen = false;
-        dicePrefOpen = false;
-      }
+      if (diceLogOpen) diceTrayOpen = false;
       applyDiceToolsUi();
     }
 
@@ -16930,10 +16880,6 @@
           ev.stopPropagation();
           toggleDiceLog();
         });
-        onClick('dicePrefBtn', ev => {
-          ev.stopPropagation();
-          toggleDicePrefPanel();
-        });
         const prefPanel = document.getElementById('dicePrefPanel');
         if (prefPanel) prefPanel.addEventListener('click', ev => {
           const btn = ev.target.closest('[data-dice-anim]');
@@ -16964,7 +16910,6 @@
           const wrap = document.getElementById('diceToolsWrap');
           if (wrap && wrap.contains(ev.target)) return;
           closeDiceTray();
-          closeDicePrefPanel();
         });
       });
 
@@ -17737,7 +17682,6 @@
       if (soundPick && !soundPick.classList.contains('hidden')) { closeSoundPicker(); return; }
       if (diceTrayOpen) { closeDiceTray(); return; }
       if (diceLogOpen) { closeDiceLog(); return; }
-      if (dicePrefOpen) { closeDicePrefPanel(); return; }
       if (soundDockOpen) { closeSoundDock(); return; }
       const gallery = document.getElementById('battleGalleryOverlay');
       if (gallery && !gallery.classList.contains('hidden')) { closeBattleGallery(); return; }
