@@ -2130,8 +2130,9 @@
       box-shadow: inset 0 1px 0 rgba(226, 179, 179, 0.18), 0 0 16px rgba(154, 51, 51, 0.4);
       color: #e2b3b3;
     }
-    .dice-scene.is-rest .dice-face:not([data-side="top"]) span {
-      opacity: 0;
+    .dice-face[data-side="top"] span {
+      display: inline-block;
+      transform: none;
     }
     .dice-sparks {
       position: absolute;
@@ -6306,12 +6307,19 @@
           t: t,
           tGold: tGold,
           tCore: tCore,
-          boxStyle: boxStyle,
-          nz: n[2]
+          nx: n[0],
+          ny: n[1],
+          nz: n[2],
+          R: R,
+          boxStyle: boxStyle
         });
       });
       topAt = 0;
       plates.forEach((p, i) => { if (p.nz > plates[topAt].nz) topAt = i; });
+      const top = plates[topAt];
+      top.t = dieOrientFace(top.nx, top.ny, top.nz, top.R, 0, 1.05);
+      top.tGold = dieOrientFace(top.nx, top.ny, top.nz, top.R, 0, 1.18);
+      top.tCore = dieOrientFace(top.nx, top.ny, top.nz, top.R * 0.9, 0, 1);
       let labels;
       if (shape === 'd100') labels = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
       else {
@@ -6493,11 +6501,11 @@
           rest: isCube ? {
             rx: -90,
             ry: 0,
-            rz: (Math.random() - 0.5) * 8
+            rz: 0
           } : {
             rx: 0,
             ry: 0,
-            rz: (Math.random() - 0.5) * 8
+            rz: 0
           },
           value: value,
           batch: batch
@@ -6543,7 +6551,6 @@
         d.ry = d.rest.ry;
         d.rz = d.rest.rz;
         d.phase = 'rest';
-        if (d.scene) d.scene.classList.add('is-rest');
         const face = d.mesh && d.mesh.querySelector('.dice-face[data-side="top"] span');
         if (face && d.value != null) face.textContent = String(d.value);
         revealCaption();
