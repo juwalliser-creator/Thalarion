@@ -1215,7 +1215,12 @@
       flex: 1 1 auto;
       line-height: 1.5;
       resize: vertical;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      color: var(--ink);
+      color-scheme: dark;
     }
+    .dnd-action-text::placeholder { color: var(--muted); opacity: 0.9; }
     .dnd-action-text[readonly] { opacity: 0.92; }
     .dnd-row-item { grid-template-columns: 1.3fr 3.4rem 4rem 5.2rem 5.2rem 1fr auto; }
     .dnd-row-feat { grid-template-columns: 1.2fr 4rem 4rem 7rem 1fr auto; }
@@ -1313,7 +1318,7 @@
 
     .search-wrap { position: relative; margin-bottom: 0.75rem; }
     .search-wrap input,
-    .field input, .field select, .login-card input {
+    .field input, .field select, .login-card input, .login-card textarea {
       width: 100%;
       border: 1px solid var(--line);
       background: var(--panel);
@@ -1323,7 +1328,7 @@
     }
     .search-wrap input:focus,
     .field input:focus, .field select:focus,
-    .login-card input:focus, .editor-canvas:focus {
+    .login-card input:focus, .login-card textarea:focus, .editor-canvas:focus {
       outline: 2px solid rgba(212, 179, 106, 0.35);
       border-color: var(--gold-dim);
     }
