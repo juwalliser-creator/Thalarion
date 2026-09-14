@@ -2001,6 +2001,7 @@
       left: 50%;
       top: 50%;
       pointer-events: none;
+      backface-visibility: hidden;
     }
     .dice-gold {
       background:
@@ -2013,6 +2014,7 @@
       left: 50%;
       top: 50%;
       box-shadow: none;
+      backface-visibility: hidden;
     }
     .dice-scene.is-d4 .dice-face { font-size: 1.45rem; }
     .dice-scene.is-d8 .dice-face { font-size: 1.15rem; }
@@ -6247,8 +6249,8 @@
         const h = r * (1 + Math.cos(Math.PI * 36 / 180));
         return { w: w, h: h, ox: '50% 55.28%', ml: w / -2, mt: h * -0.5528 };
       }
-      const w = dieDist(pts[1], pts[3]) * 1.06;
-      const h = dieDist(pts[0], pts[2]) * 1.06;
+      const w = dieDist(pts[1], pts[3]);
+      const h = dieDist(pts[0], pts[2]);
       return { w: w, h: h, ox: '50% 42%', ml: w / -2, mt: h * -0.42 };
     }
 
@@ -6299,9 +6301,9 @@
         const twist = dieTwistToApex(n, apex);
         const side = dieDist(pts[0], pts[1]);
         const box = dieFaceBox(spec.kind, side, pts);
-        const t = dieOrientFace(n[0], n[1], n[2], R, twist, 1.05);
-        const tGold = dieOrientFace(n[0], n[1], n[2], R, twist, 1.18);
-        const tCore = dieOrientFace(n[0], n[1], n[2], R * 0.9, twist, 1);
+        const tGold = dieOrientFace(n[0], n[1], n[2], R, twist, 1);
+        const t = dieOrientFace(n[0], n[1], n[2], R + 0.018, twist, 0.84);
+        const tCore = dieOrientFace(n[0], n[1], n[2], R * 0.7, twist, 0.9);
         const boxStyle = 'width:' + box.w.toFixed(3) + 'rem;height:' + box.h.toFixed(3) + 'rem;margin:' + box.mt.toFixed(3) + 'rem 0 0 ' + box.ml.toFixed(3) + 'rem;transform-origin:' + box.ox + ';clip-path:' + clip + ';';
         plates.push({
           t: t,
@@ -6317,9 +6319,9 @@
       topAt = 0;
       plates.forEach((p, i) => { if (p.nz > plates[topAt].nz) topAt = i; });
       const top = plates[topAt];
-      top.t = dieOrientFace(top.nx, top.ny, top.nz, top.R, 0, 1.05);
-      top.tGold = dieOrientFace(top.nx, top.ny, top.nz, top.R, 0, 1.18);
-      top.tCore = dieOrientFace(top.nx, top.ny, top.nz, top.R * 0.9, 0, 1);
+      top.t = dieOrientFace(top.nx, top.ny, top.nz, top.R + 0.018, 0, 0.84);
+      top.tGold = dieOrientFace(top.nx, top.ny, top.nz, top.R, 0, 1);
+      top.tCore = dieOrientFace(top.nx, top.ny, top.nz, top.R * 0.7, 0, 0.9);
       let labels;
       if (shape === 'd100') labels = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
       else {
@@ -6396,9 +6398,7 @@
         const e = s / 2 - r;
         const knobs = [[1,1,1],[1,1,-1],[1,-1,1],[1,-1,-1],[-1,1,1],[-1,1,-1],[-1,-1,1],[-1,-1,-1]].map(p => {
           const t = 'translate3d(' + (p[0] * e) + 'rem,' + (p[1] * e) + 'rem,' + (p[2] * e) + 'rem)';
-          return '<b class="dice-knob" style="transform:' + t + '"></b>' +
-            '<b class="dice-knob" style="transform:' + t + ' rotateX(90deg)"></b>' +
-            '<b class="dice-knob" style="transform:' + t + ' rotateY(90deg)"></b>';
+          return '<b class="dice-knob" style="transform:' + t + '"></b>';
         }).join('');
         let edges = '';
         [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(p => {
@@ -6406,11 +6406,8 @@
           const alongY = 'translate3d(' + (p[0] * e) + 'rem,0,' + (p[1] * e) + 'rem) rotateZ(90deg)';
           const alongZ = 'translate3d(' + (p[0] * e) + 'rem,' + (p[1] * e) + 'rem,0) rotateY(90deg)';
           edges += '<b class="dice-edge" style="transform:' + alongX + '"></b>';
-          edges += '<b class="dice-edge" style="transform:' + alongX + ' rotateX(90deg)"></b>';
           edges += '<b class="dice-edge" style="transform:' + alongY + '"></b>';
-          edges += '<b class="dice-edge" style="transform:' + alongY + ' rotateX(90deg)"></b>';
           edges += '<b class="dice-edge" style="transform:' + alongZ + '"></b>';
-          edges += '<b class="dice-edge" style="transform:' + alongZ + ' rotateX(90deg)"></b>';
         });
         const core = ['front', 'back', 'right', 'left', 'top', 'bottom'].map(side => {
           return '<i data-side="' + side + '"></i>';
