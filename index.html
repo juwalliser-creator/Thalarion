@@ -1989,11 +1989,37 @@
       margin: calc(var(--dice-s) / -2) 0 0 calc(var(--dice-s) / -2);
       transform-style: preserve-3d;
     }
-    .dice-scene.is-d6 {
-      --dice-s: 3.9rem;
-      --dice-r: 0.52rem;
-      --dice-h: 1.95rem;
+    .dice-scene.is-d4 { --dice-s: 4.6rem; }
+    .dice-scene.is-d8 { --dice-s: 4.5rem; }
+    .dice-scene.is-d10,
+    .dice-scene.is-d100 { --dice-s: 4.7rem; }
+    .dice-scene.is-d12 { --dice-s: 5rem; }
+    .dice-scene.is-d20 { --dice-s: 5.2rem; }
+    .dice-gold,
+    .dice-core-poly {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      pointer-events: none;
     }
+    .dice-gold {
+      background:
+        radial-gradient(circle at 30% 24%, #f3e2a8 0%, #d4b36a 38%, #a07d3c 68%, #6e5424 100%);
+    }
+    .dice-core-poly {
+      background: #241e18;
+    }
+    .dice-scene.is-poly .dice-face {
+      left: 50%;
+      top: 50%;
+      box-shadow: none;
+    }
+    .dice-scene.is-d4 .dice-face { font-size: 1.45rem; }
+    .dice-scene.is-d8 .dice-face { font-size: 1.15rem; }
+    .dice-scene.is-d10 .dice-face,
+    .dice-scene.is-d100 .dice-face { font-size: 1rem; }
+    .dice-scene.is-d12 .dice-face { font-size: 0.92rem; }
+    .dice-scene.is-d20 .dice-face { font-size: 0.78rem; }
     .dice-mesh {
       width: 100%;
       height: 100%;
@@ -2081,18 +2107,18 @@
       line-height: 1;
       text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7);
     }
-    .dice-face[data-side="front"] { transform: rotateY(0deg) translateZ(calc(var(--dice-h) + 0.5px)); }
-    .dice-face[data-side="back"] { transform: rotateY(180deg) translateZ(calc(var(--dice-h) + 0.5px)); }
-    .dice-face[data-side="right"] { transform: rotateY(90deg) translateZ(calc(var(--dice-h) + 0.5px)); }
-    .dice-face[data-side="left"] { transform: rotateY(-90deg) translateZ(calc(var(--dice-h) + 0.5px)); }
-    .dice-face[data-side="top"] {
+    .dice-scene:not(.is-poly) .dice-face[data-side="front"] { transform: rotateY(0deg) translateZ(calc(var(--dice-h) + 0.5px)); }
+    .dice-scene:not(.is-poly) .dice-face[data-side="back"] { transform: rotateY(180deg) translateZ(calc(var(--dice-h) + 0.5px)); }
+    .dice-scene:not(.is-poly) .dice-face[data-side="right"] { transform: rotateY(90deg) translateZ(calc(var(--dice-h) + 0.5px)); }
+    .dice-scene:not(.is-poly) .dice-face[data-side="left"] { transform: rotateY(-90deg) translateZ(calc(var(--dice-h) + 0.5px)); }
+    .dice-scene:not(.is-poly) .dice-face[data-side="top"] {
       transform: rotateX(90deg) translateZ(calc(var(--dice-h) + 0.5px));
       background-color: #3a3228;
       background-image:
         radial-gradient(circle at 36% 30%, rgba(243, 234, 216, 0.22), transparent 48%),
         linear-gradient(180deg, #6a5a44 0%, #3a3228 58%, #1c1814 100%);
     }
-    .dice-face[data-side="bottom"] {
+    .dice-scene:not(.is-poly) .dice-face[data-side="bottom"] {
       transform: rotateX(-90deg) translateZ(calc(var(--dice-h) + 0.5px));
       background: linear-gradient(180deg, #241f19 0%, #100e0c 100%);
     }
@@ -5980,6 +6006,330 @@
       return r ? r.total : null;
     }
 
+    function dieShapeForSides(sides) {
+      const n = Number(sides) || 20;
+      if (n === 100) return 'd100';
+      if (n <= 4) return 'd4';
+      if (n <= 6) return 'd6';
+      if (n <= 8) return 'd8';
+      if (n <= 10) return 'd10';
+      if (n <= 12) return 'd12';
+      return 'd20';
+    }
+
+    function dieVec(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+    function dieAdd(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+    function dieDot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+    function dieCross(a, b) {
+      return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    }
+    function dieLen(a) { return Math.hypot(a[0], a[1], a[2]) || 1; }
+    function dieNorm(a) {
+      const l = dieLen(a);
+      return [a[0] / l, a[1] / l, a[2] / l];
+    }
+    function dieDist(a, b) { return dieLen(dieVec(a, b)); }
+    function dieScaleVerts(verts, radius) {
+      let m = 0;
+      verts.forEach(v => { m = Math.max(m, dieLen(v)); });
+      const s = radius / (m || 1);
+      return verts.map(v => [v[0] * s, v[1] * s, v[2] * s]);
+    }
+
+    function dieNbrs(verts, edge) {
+      const n = verts.length;
+      const nbrs = verts.map(() => []);
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          if (Math.abs(dieDist(verts[i], verts[j]) - edge) < edge * 0.12) {
+            nbrs[i].push(j);
+            nbrs[j].push(i);
+          }
+        }
+      }
+      return nbrs;
+    }
+
+    function dieMinEdge(verts) {
+      let edge = Infinity;
+      for (let i = 0; i < verts.length; i++) {
+        for (let j = i + 1; j < verts.length; j++) {
+          const d = dieDist(verts[i], verts[j]);
+          if (d > 0.001 && d < edge) edge = d;
+        }
+      }
+      return edge;
+    }
+
+    function dieTriFaces(verts) {
+      const edge = dieMinEdge(verts);
+      const nbrs = dieNbrs(verts, edge);
+      const faces = [];
+      const seen = {};
+      verts.forEach((_, i) => {
+        const nb = nbrs[i];
+        for (let a = 0; a < nb.length; a++) {
+          for (let b = a + 1; b < nb.length; b++) {
+            const j = nb[a];
+            const k = nb[b];
+            if (nbrs[j].indexOf(k) < 0) continue;
+            const key = [i, j, k].sort((x, y) => x - y).join(',');
+            if (seen[key]) continue;
+            seen[key] = 1;
+            faces.push([i, j, k]);
+          }
+        }
+      });
+      return faces;
+    }
+
+    function diePentFaces(verts) {
+      const edge = dieMinEdge(verts);
+      const nbrs = dieNbrs(verts, edge);
+      const faces = [];
+      const seen = {};
+      verts.forEach((_, start) => {
+        nbrs[start].forEach(second => {
+          const poly = [start, second];
+          let prev = start;
+          let cur = second;
+          for (let step = 0; step < 3; step++) {
+            const vPrev = verts[prev];
+            const vCur = verts[cur];
+            let best = -1;
+            let bestScore = -Infinity;
+            nbrs[cur].forEach(c => {
+              if (c === prev) return;
+              const cr = dieCross(dieVec(vCur, vPrev), dieVec(verts[c], vCur));
+              const score = dieDot(cr, vCur);
+              if (score > bestScore) {
+                bestScore = score;
+                best = c;
+              }
+            });
+            if (best < 0) return;
+            poly.push(best);
+            prev = cur;
+            cur = best;
+          }
+          if (poly.length !== 5) return;
+          const key = poly.slice().sort((a, b) => a - b).join(',');
+          if (seen[key]) return;
+          seen[key] = 1;
+          faces.push(poly);
+        });
+      });
+      return faces;
+    }
+
+    function dieOrientFace(nx, ny, nz, radius, twist, scale) {
+      const len = Math.hypot(nx, ny, nz) || 1;
+      nx /= len;
+      ny /= len;
+      nz /= len;
+      const ax = -ny;
+      const ay = nx;
+      const alen = Math.hypot(ax, ay);
+      const angle = Math.acos(Math.max(-1, Math.min(1, nz))) * 180 / Math.PI;
+      const twistPart = 'rotateZ(' + (twist || 0).toFixed(3) + 'deg)';
+      const sc = scale && scale !== 1 ? 'scale(' + scale + ')' : '';
+      const z = 'translateZ(' + radius.toFixed(4) + 'rem)';
+      const tail = [twistPart, sc, z].filter(Boolean).join(' ');
+      if (alen < 1e-6) {
+        if (nz >= 0) return tail;
+        return 'rotateY(180deg) ' + tail;
+      }
+      return 'rotate3d(' + (ax / alen).toFixed(5) + ',' + (ay / alen).toFixed(5) + ',0,' + angle.toFixed(3) + 'deg) ' + tail;
+    }
+
+    function dieTwistToApex(n, apex) {
+      const target = dieNorm([
+        apex[0] - n[0] * dieDot(apex, n),
+        apex[1] - n[1] * dieDot(apex, n),
+        apex[2] - n[2] * dieDot(apex, n)
+      ]);
+      const ax = -n[1];
+      const ay = n[0];
+      const alen = Math.hypot(ax, ay);
+      const c = n[2];
+      const s = Math.sqrt(Math.max(0, 1 - c * c));
+      let cur;
+      if (alen < 1e-6) {
+        cur = n[2] >= 0 ? [0, -1, 0] : [0, -1, 0];
+      } else {
+        const ux = ax / alen;
+        const uy = ay / alen;
+        const vx = 0;
+        const vy = -1;
+        const vz = 0;
+        const dt = ux * vx + uy * vy;
+        cur = [
+          vx * c + (uy * vz) * s + ux * dt * (1 - c),
+          vy * c + (-ux * vz) * s + uy * dt * (1 - c),
+          vz * c + (ux * vy - uy * vx) * s
+        ];
+      }
+      const cr = dieCross(cur, target);
+      return Math.atan2(dieDot(cr, n), dieDot(cur, target)) * 180 / Math.PI;
+    }
+
+    function dieSolidSpec(shape) {
+      const p = (1 + Math.sqrt(5)) / 2;
+      if (shape === 'd4') {
+        return {
+          verts: [[1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]],
+          faces: [[0, 1, 2], [0, 2, 3], [0, 3, 1], [1, 3, 2]],
+          kind: 'tri',
+          radius: 2.15
+        };
+      }
+      if (shape === 'd8') {
+        return {
+          verts: [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]],
+          faces: null,
+          kind: 'tri',
+          radius: 2.2
+        };
+      }
+      if (shape === 'd20') {
+        return {
+          verts: [
+            [0, 1, p], [0, -1, p], [0, 1, -p], [0, -1, -p],
+            [1, p, 0], [-1, p, 0], [1, -p, 0], [-1, -p, 0],
+            [p, 0, 1], [p, 0, -1], [-p, 0, 1], [-p, 0, -1]
+          ],
+          faces: null,
+          kind: 'tri',
+          radius: 2.45
+        };
+      }
+      if (shape === 'd12') {
+        const ip = 1 / p;
+        const verts = [];
+        [-1, 1].forEach(x => [-1, 1].forEach(y => [-1, 1].forEach(z => verts.push([x, y, z]))));
+        [[0, ip, p], [0, ip, -p], [0, -ip, p], [0, -ip, -p],
+         [ip, p, 0], [ip, -p, 0], [-ip, p, 0], [-ip, -p, 0],
+         [p, 0, ip], [p, 0, -ip], [-p, 0, ip], [-p, 0, -ip]].forEach(v => verts.push(v));
+        return { verts: verts, faces: null, kind: 'pent', radius: 2.4 };
+      }
+      const verts = [[0, 1.45, 0], [0, -1.45, 0]];
+      for (let i = 0; i < 5; i++) {
+        const a = i * 72 * Math.PI / 180;
+        verts.push([Math.cos(a), 0.12, Math.sin(a)]);
+      }
+      for (let i = 0; i < 5; i++) {
+        const a = (i * 72 + 36) * Math.PI / 180;
+        verts.push([Math.cos(a), -0.12, Math.sin(a)]);
+      }
+      const faces = [];
+      for (let i = 0; i < 5; i++) {
+        faces.push([0, 2 + i, 7 + i, 2 + ((i + 1) % 5)]);
+        faces.push([1, 7 + i, 2 + ((i + 1) % 5), 7 + ((i + 1) % 5)]);
+      }
+      return { verts: verts, faces: faces, kind: 'kite', radius: 2.3 };
+    }
+
+    function dieClipForKind(kind) {
+      if (kind === 'tri') return 'polygon(50% 0, 0 100%, 100% 100%)';
+      if (kind === 'pent') return 'polygon(50% 0, 100% 36.2%, 81.6% 100%, 18.4% 100%, 0 36.2%)';
+      return 'polygon(50% 0, 100% 38%, 50% 100%, 0 38%)';
+    }
+
+    function dieFaceBox(kind, side, pts) {
+      if (kind === 'tri') {
+        const h = side * 0.8660254;
+        return { w: side, h: h, ox: '50% 66.666%', ml: side / -2, mt: h * -0.666 };
+      }
+      if (kind === 'pent') {
+        const r = side / (2 * Math.sin(Math.PI / 5));
+        const w = 2 * r * Math.sin(Math.PI * 72 / 180);
+        const h = r * (1 + Math.cos(Math.PI * 36 / 180));
+        return { w: w, h: h, ox: '50% 55.28%', ml: w / -2, mt: h * -0.5528 };
+      }
+      const w = dieDist(pts[1], pts[3]) * 1.06;
+      const h = dieDist(pts[0], pts[2]) * 1.06;
+      return { w: w, h: h, ox: '50% 42%', ml: w / -2, mt: h * -0.42 };
+    }
+
+    function dieRotToZ(v, n) {
+      const ax = n[1];
+      const ay = -n[0];
+      const alen = Math.hypot(ax, ay);
+      const c = n[2];
+      const s = Math.sqrt(Math.max(0, 1 - c * c));
+      if (alen < 1e-6) {
+        if (n[2] >= 0) return v;
+        return [v[0], -v[1], -v[2]];
+      }
+      const ux = ax / alen;
+      const uy = ay / alen;
+      const dt = ux * v[0] + uy * v[1];
+      return [
+        v[0] * c + (uy * v[2]) * s + ux * dt * (1 - c),
+        v[1] * c + (-ux * v[2]) * s + uy * dt * (1 - c),
+        v[2] * c + (ux * v[1] - uy * v[0]) * s
+      ];
+    }
+
+    function diePolyParts(shape, value) {
+      const spec = dieSolidSpec(shape);
+      let verts = dieScaleVerts(spec.verts, spec.radius);
+      let idx = spec.faces;
+      if (!idx) idx = spec.kind === 'pent' ? diePentFaces(verts) : dieTriFaces(verts);
+      const clip = dieClipForKind(spec.kind);
+      const normals = idx.map(face => {
+        const pts = face.map(i => verts[i]);
+        const c = pts.reduce((acc, p) => dieAdd(acc, p), [0, 0, 0]).map(x => x / pts.length);
+        let n = dieNorm(dieCross(dieVec(pts[1], pts[0]), dieVec(pts[2], pts[0])));
+        if (dieDot(n, c) < 0) n = [-n[0], -n[1], -n[2]];
+        return n;
+      });
+      let topAt = 0;
+      normals.forEach((n, i) => { if (n[2] > normals[topAt][2]) topAt = i; });
+      verts = verts.map(v => dieRotToZ(v, normals[topAt]));
+      const plates = [];
+      idx.forEach(face => {
+        const pts = face.map(i => verts[i]);
+        const c = pts.reduce((acc, p) => dieAdd(acc, p), [0, 0, 0]).map(x => x / pts.length);
+        let n = dieNorm(dieCross(dieVec(pts[1], pts[0]), dieVec(pts[2], pts[0])));
+        if (dieDot(n, c) < 0) n = [-n[0], -n[1], -n[2]];
+        const R = Math.abs(dieDot(c, n));
+        const apex = dieVec(pts[0], c);
+        const twist = dieTwistToApex(n, apex);
+        const side = dieDist(pts[0], pts[1]);
+        const box = dieFaceBox(spec.kind, side, pts);
+        const t = dieOrientFace(n[0], n[1], n[2], R, twist, 1.05);
+        const tGold = dieOrientFace(n[0], n[1], n[2], R, twist, 1.18);
+        const tCore = dieOrientFace(n[0], n[1], n[2], R * 0.9, twist, 1);
+        const boxStyle = 'width:' + box.w.toFixed(3) + 'rem;height:' + box.h.toFixed(3) + 'rem;margin:' + box.mt.toFixed(3) + 'rem 0 0 ' + box.ml.toFixed(3) + 'rem;transform-origin:' + box.ox + ';clip-path:' + clip + ';';
+        plates.push({
+          t: t,
+          tGold: tGold,
+          tCore: tCore,
+          boxStyle: boxStyle,
+          nz: n[2]
+        });
+      });
+      topAt = 0;
+      plates.forEach((p, i) => { if (p.nz > plates[topAt].nz) topAt = i; });
+      let labels;
+      if (shape === 'd100') labels = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+      else {
+        const n = plates.length;
+        labels = [];
+        for (let i = 1; i <= n; i++) labels.push(i);
+      }
+      const rest = labels.filter(x => x !== value).sort(() => Math.random() - 0.5);
+      let html = '';
+      plates.forEach((p, i) => {
+        const num = i === topAt ? value : rest.shift();
+        html += '<b class="dice-core-poly" style="' + p.boxStyle + 'transform:' + p.tCore + '"></b>';
+        html += '<b class="dice-gold" style="' + p.boxStyle + 'transform:' + p.tGold + '"></b>';
+        html += '<div class="dice-face" data-side="' + (i === topAt ? 'top' : 'side') + '" style="' + p.boxStyle + 'transform:' + p.t + '"><span>' + (num != null ? num : '') + '</span></div>';
+      });
+      return html;
+    }
+
     function playTableDie(opts) {
       const values = (opts && opts.values || []).filter(v => v != null).slice(0, 3);
       const caption = String(opts && opts.caption || '');
@@ -6002,7 +6352,8 @@
 
       const vw = Math.max(320, window.innerWidth || 800);
       const vh = Math.max(320, window.innerHeight || 600);
-      const isCube = sides <= 6;
+      const shape = dieShapeForSides(sides);
+      const isCube = shape === 'd6';
       const floorY = vh / 2 - 88;
       const wallL = -vw / 2 + 56;
       const wallR = vw / 2 - 56;
@@ -6028,9 +6379,12 @@
 
       const dieHtml = (value) => {
         const kind = value === 20 && sides === 20 ? ' is-crit' : (value === 1 && sides === 20 ? ' is-fumble' : '');
-        const size = isCube ? ' is-d6' : '';
-        const s = isCube ? 3.9 : 5.2;
-        const r = isCube ? 0.52 : 0.68;
+        if (!isCube) {
+          return '<div class="dice-scene is-poly is-' + shape + kind + '"><div class="dice-mesh">' + diePolyParts(shape, value) + '</div><div class="dice-shadow"></div><div class="dice-sparks">' + sparkHtml() + '</div></div>';
+        }
+        const size = ' is-d6';
+        const s = 3.9;
+        const r = 0.52;
         const e = s / 2 - r;
         const knobs = [[1,1,1],[1,1,-1],[1,-1,1],[1,-1,-1],[-1,1,1],[-1,1,-1],[-1,-1,1],[-1,-1,-1]].map(p => {
           const t = 'translate3d(' + (p[0] * e) + 'rem,' + (p[1] * e) + 'rem,' + (p[2] * e) + 'rem)';
@@ -6136,8 +6490,12 @@
           wx: 420 + Math.random() * 380,
           wy: 380 + Math.random() * 340,
           wz: inward * (280 + Math.random() * 260),
-          rest: {
+          rest: isCube ? {
             rx: -90,
+            ry: 0,
+            rz: (Math.random() - 0.5) * 8
+          } : {
+            rx: 0,
             ry: 0,
             rz: (Math.random() - 0.5) * 8
           },
