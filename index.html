@@ -2331,6 +2331,27 @@
       color: var(--ink);
     }
     .dice-log-item:last-child { border-bottom: 0; }
+    .dice-pref {
+      display: grid;
+      gap: 0.32rem;
+      width: 12.4rem;
+      max-width: calc(100vw - 4.4rem);
+      padding: 0.55rem 0.65rem 0.6rem;
+      background: var(--panel);
+      border: 1px solid var(--gold-dim);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+    .dice-pref-btn.is-muted {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+    .dice-pref-slash { display: none; }
+    .dice-pref-btn.is-muted .dice-pref-slash { display: block; }
+    .dice-pref button.is-on {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
     body.is-player .content { padding-bottom: 4.2rem; }
 
     .sound-dock-wrap {
@@ -4921,6 +4942,20 @@
         <div class="dice-log-list" id="diceLogList"></div>
       </div>
     </div>
+    <div class="dice-tool-row hidden" id="dicePrefRow">
+      <button class="ghost battle-gear-btn dice-pref-btn" id="dicePrefBtn" type="button" title="Würfel am Tisch" aria-label="Würfel am Tisch" aria-expanded="false" aria-controls="dicePrefPanel">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path fill="currentColor" d="M12 2.1L3.8 6.9v10.2L12 21.9l8.2-4.8V6.9L12 2.1zm0 1.9l6.4 3.7-2.6 1.5L12 7.4 8.2 9.2 5.6 7.7 12 4zm-7.1 5.1l2.5 1.5L5 15.8V9.1zm1.4 8L9.2 13h.1l2.7 5.1-5.7-1zm7 2.1L10.5 13h3l-2.7 6.2zm1.2-2.1L19 16.1 16.6 12 14 13.1zm2.8-6.4l2.4-1.4v6.6L16.9 11zM9.3 12.9L7.1 8.9l3.1-1.5L12 8.6l1.8 1-1.8 3.3H9.3z"/>
+          <path class="dice-pref-slash" fill="currentColor" d="M5 4.4l15.4 14.2-.9 1L4.1 5.4z"/>
+        </svg>
+      </button>
+      <div id="dicePrefPanel" class="dice-pref hidden" role="menu">
+        <span class="sound-dock-label">Würfel am Tisch</span>
+        <button class="ghost" type="button" data-dice-anim="on">Immer an</button>
+        <button class="ghost" type="button" data-dice-anim="combat">Nicht im Kampf</button>
+        <button class="ghost" type="button" data-dice-anim="off">Aus</button>
+      </div>
+    </div>
   </div>
   <div id="soundDockWrap" class="sound-dock-wrap hidden">
     <button class="ghost battle-gear-btn sound-dock-btn" id="soundDockBtn" type="button" title="Klang" aria-label="Klangleiste" aria-expanded="false" aria-controls="soundDock">
@@ -5116,6 +5151,7 @@
     let combatPersistTimer = null;
     const SOUND_VOL_KEY = 'thalarion_sound_vol';
     const SOUND_PREF_KEY = 'thalarion_sound_prefs';
+    const DICE_PREF_KEY = 'thalarion_dice_anim';
     const SOUND_FADE_IN = 1600;
     const SOUND_FADE_OUT = 1400;
     const SOUND_CROSSFADE = 5000;
@@ -5150,6 +5186,8 @@
     let soundDockOpen = false;
     let diceTrayOpen = false;
     let diceLogOpen = false;
+    let dicePrefOpen = false;
+    let diceAnimMode = 'on';
     let diceLog = [];
     let diceQueue = { 4: 0, 6: 0, 8: 0, 10: 0, 12: 0, 20: 0, 100: 0 };
     let soundPickKind = 'ambiente';
@@ -6827,6 +6865,64 @@
       return !!(isDM || currentPlayerId);
     }
 
+    function diceAnimLabel(mode) {
+      if (mode === 'off') return 'Aus';
+      if (mode === 'combat') return 'Nicht im Kampf';
+      return 'Immer an';
+    }
+
+    function loadDicePrefs() {
+      try {
+        const raw = localStorage.getItem(DICE_PREF_KEY);
+        if (raw === 'off' || raw === 'combat' || raw === 'on') {
+          diceAnimMode = raw;
+          return;
+        }
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (data && (data.anim === 'off' || data.anim === 'combat' || data.anim === 'on')) {
+          diceAnimMode = data.anim;
+        }
+      } catch (err) {}
+    }
+
+    function saveDicePrefs() {
+      try {
+        localStorage.setItem(DICE_PREF_KEY, JSON.stringify({ anim: diceAnimMode }));
+      } catch (err) {}
+    }
+
+    function diceAnimBlocked() {
+      if (diceAnimMode === 'off') return true;
+      if (diceAnimMode === 'combat' && combat && combat.started) return true;
+      return false;
+    }
+
+    function setDiceAnimMode(mode) {
+      diceAnimMode = mode === 'off' || mode === 'combat' ? mode : 'on';
+      saveDicePrefs();
+      dicePrefOpen = false;
+      applyDiceToolsUi();
+      if (diceAnimBlocked()) clearTableDice();
+      toast('Würfel am Tisch: ' + diceAnimLabel(diceAnimMode));
+    }
+
+    function closeDicePrefPanel() {
+      if (!dicePrefOpen) return;
+      dicePrefOpen = false;
+      applyDiceToolsUi();
+    }
+
+    function toggleDicePrefPanel() {
+      if (!currentPlayerId) return;
+      dicePrefOpen = !dicePrefOpen;
+      if (dicePrefOpen) {
+        diceTrayOpen = false;
+        diceLogOpen = false;
+      }
+      applyDiceToolsUi();
+    }
+
     function diceQueueTotal() {
       let n = 0;
       DICE_TRAY_SIDES.forEach(s => { n += diceQueue[s] || 0; });
@@ -6897,16 +6993,33 @@
       const log = document.getElementById('diceLog');
       const trayBtn = document.getElementById('diceTrayBtn');
       const logBtn = document.getElementById('diceLogBtn');
+      const prefRow = document.getElementById('dicePrefRow');
+      const prefBtn = document.getElementById('dicePrefBtn');
+      const prefPanel = document.getElementById('dicePrefPanel');
       const show = canUseDiceTools();
       if (!show) {
         diceTrayOpen = false;
         diceLogOpen = false;
+        dicePrefOpen = false;
       }
+      if (!currentPlayerId) dicePrefOpen = false;
       if (wrap) wrap.classList.toggle('hidden', !show);
       if (tray) tray.classList.toggle('hidden', !diceTrayOpen);
       if (log) log.classList.toggle('hidden', !diceLogOpen);
+      if (prefRow) prefRow.classList.toggle('hidden', !currentPlayerId);
+      if (prefPanel) prefPanel.classList.toggle('hidden', !dicePrefOpen);
       if (trayBtn) trayBtn.setAttribute('aria-expanded', diceTrayOpen ? 'true' : 'false');
       if (logBtn) logBtn.setAttribute('aria-expanded', diceLogOpen ? 'true' : 'false');
+      if (prefBtn) {
+        prefBtn.setAttribute('aria-expanded', dicePrefOpen ? 'true' : 'false');
+        prefBtn.classList.toggle('is-muted', diceAnimMode !== 'on');
+        prefBtn.title = 'Würfel am Tisch: ' + diceAnimLabel(diceAnimMode);
+      }
+      if (prefPanel) {
+        prefPanel.querySelectorAll('[data-dice-anim]').forEach(btn => {
+          btn.classList.toggle('is-on', btn.getAttribute('data-dice-anim') === diceAnimMode);
+        });
+      }
       document.body.classList.toggle('dice-log-open', !!(show && diceLogOpen));
     }
 
@@ -6925,12 +7038,14 @@
     function toggleDiceTray() {
       if (!canUseDiceTools()) return;
       diceTrayOpen = !diceTrayOpen;
+      if (diceTrayOpen) dicePrefOpen = false;
       applyDiceToolsUi();
     }
 
     function toggleDiceLog() {
       if (!canUseDiceTools()) return;
       diceLogOpen = !diceLogOpen;
+      if (diceLogOpen) dicePrefOpen = false;
       applyDiceToolsUi();
     }
 
@@ -6945,18 +7060,49 @@
       renderDiceTray();
     }
 
-    function clearTableDice() {
+    function clearTableDice(keepStage) {
       (playTableDie._items || []).slice().forEach(d => {
         if (d.life) clearTimeout(d.life);
         if (d.scene && d.scene.parentNode) d.scene.parentNode.removeChild(d.scene);
       });
       playTableDie._items = [];
       const stage = document.getElementById('diceStage');
-      if (stage) {
+      if (stage && !keepStage) {
         stage.classList.add('hidden');
         stage.classList.remove('is-landed');
         stage.setAttribute('aria-hidden', 'true');
       }
+    }
+
+    function presentDiceCaption(caption) {
+      const text = String(caption || '').trim();
+      logDiceRoll(text);
+      if (text) {
+        playTableDie._quiet = playTableDie._quiet || [];
+        if (playTableDie._quiet.indexOf(text) < 0) playTableDie._quiet.push(text);
+      }
+      const joined = (playTableDie._quiet || []).join(' · ');
+      clearTableDice(true);
+      const stage = document.getElementById('diceStage');
+      const cap = document.getElementById('diceCaption');
+      if (!joined) return;
+      if (!stage || !cap) {
+        toast(joined, 3800);
+        return;
+      }
+      const span = cap.querySelector('span');
+      if (span) span.textContent = joined;
+      else cap.textContent = joined;
+      stage.classList.remove('hidden');
+      stage.classList.add('is-landed');
+      stage.setAttribute('aria-hidden', 'false');
+      clearTimeout(playTableDie._quietHide);
+      playTableDie._quietHide = setTimeout(() => {
+        playTableDie._quiet = [];
+        stage.classList.add('hidden');
+        stage.classList.remove('is-landed');
+        stage.setAttribute('aria-hidden', 'true');
+      }, 5600);
     }
 
     function rollQueuedDice() {
@@ -7007,7 +7153,7 @@
       if (!extra) return;
       const items = (playTableDie._items || []).filter(x => x.phase !== 'gone');
       if (!items.length) {
-        toast(extra);
+        presentDiceCaption(extra);
         return;
       }
       const last = items[items.length - 1];
@@ -7035,11 +7181,12 @@
         toast(caption);
         return;
       }
-      logDiceRoll(caption);
-      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        toast(caption);
+      if (diceAnimBlocked() || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+        presentDiceCaption(caption);
         return;
       }
+      playTableDie._quiet = [];
+      logDiceRoll(caption);
       const stage = document.getElementById('diceStage');
       const rack = document.getElementById('diceRack');
       const cap = document.getElementById('diceCaption');
@@ -16775,6 +16922,16 @@
           ev.stopPropagation();
           toggleDiceLog();
         });
+        onClick('dicePrefBtn', ev => {
+          ev.stopPropagation();
+          toggleDicePrefPanel();
+        });
+        const prefPanel = document.getElementById('dicePrefPanel');
+        if (prefPanel) prefPanel.addEventListener('click', ev => {
+          const btn = ev.target.closest('[data-dice-anim]');
+          if (!btn) return;
+          setDiceAnimMode(btn.getAttribute('data-dice-anim'));
+        });
         onClick('diceTrayResetBtn', () => {
           resetDiceQueue();
           renderDiceTray();
@@ -16796,12 +16953,10 @@
           addDiceToQueue(btn.getAttribute('data-sides'));
         });
         document.addEventListener('click', ev => {
-          if (!diceTrayOpen) return;
-          const tray = document.getElementById('diceTray');
-          const trayBtn = document.getElementById('diceTrayBtn');
-          if (tray && tray.contains(ev.target)) return;
-          if (trayBtn && trayBtn.contains(ev.target)) return;
+          const wrap = document.getElementById('diceToolsWrap');
+          if (wrap && wrap.contains(ev.target)) return;
           closeDiceTray();
+          closeDicePrefPanel();
         });
       });
 
@@ -17548,6 +17703,7 @@
 
     bindAll();
     loadSoundPrefs();
+    loadDicePrefs();
     renderSoundFxButtons();
     renderDiceTray();
     renderDiceLog();
@@ -17573,6 +17729,7 @@
       if (soundPick && !soundPick.classList.contains('hidden')) { closeSoundPicker(); return; }
       if (diceTrayOpen) { closeDiceTray(); return; }
       if (diceLogOpen) { closeDiceLog(); return; }
+      if (dicePrefOpen) { closeDicePrefPanel(); return; }
       if (soundDockOpen) { closeSoundDock(); return; }
       const gallery = document.getElementById('battleGalleryOverlay');
       if (gallery && !gallery.classList.contains('hidden')) { closeBattleGallery(); return; }
