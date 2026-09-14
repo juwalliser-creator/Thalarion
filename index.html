@@ -1974,12 +1974,12 @@
       position: absolute;
       inset: 0;
       perspective: 1200px;
-      perspective-origin: 50% 40%;
+      perspective-origin: 50% 78%;
     }
     .dice-scene {
       position: absolute;
       left: 50%;
-      top: 48%;
+      top: 50%;
       width: 5.4rem;
       height: 5.4rem;
       margin: -2.7rem 0 0 -2.7rem;
@@ -5979,9 +5979,11 @@
       const vh = Math.max(320, window.innerHeight || 600);
       const isCube = sides <= 6;
       const rest = { rx: -84, ry: 8, rz: 0 };
-      const pt = playTableDie._pt || { x: vw * (0.32 + Math.random() * 0.36), y: vh * (0.28 + Math.random() * 0.3) };
-      const ox = pt.x - vw / 2;
-      const oy = pt.y - vh / 2;
+      const floorY = vh / 2 - 88;
+      const wallL = -vw / 2 + 56;
+      const wallR = vw / 2 - 56;
+      const wallT = -vh / 2 + 48;
+      const fromLeft = Math.random() < 0.5;
 
       const sparkHtml = () => {
         let out = '';
@@ -6023,14 +6025,14 @@
       stage.setAttribute('aria-hidden', 'false');
 
       const pose = (d) => {
-        const lift = d.h * 0.42;
         if (d.mesh) {
-          d.mesh.style.transform = 'translate3d(' + d.x + 'px,' + (d.y - lift) + 'px,' + d.h + 'px) rotateX(' + d.rx + 'deg) rotateY(' + d.ry + 'deg) rotateZ(' + d.rz + 'deg)';
+          d.mesh.style.transform = 'translate3d(' + d.x + 'px,' + d.y + 'px,0) rotateX(' + d.rx + 'deg) rotateY(' + d.ry + 'deg) rotateZ(' + d.rz + 'deg)';
         }
         if (d.shadow) {
-          const grounded = 1 - Math.min(1, d.h / 220);
-          d.shadow.style.opacity = String(0.08 + 0.38 * grounded);
-          d.shadow.style.transform = 'translate3d(' + d.x + 'px,' + (d.y + 26) + 'px,0) scale(' + (0.42 + 0.58 * grounded) + ')';
+          const air = Math.max(0, floorY - d.y);
+          const grounded = 1 - Math.min(1, air / (vh * 0.55));
+          d.shadow.style.opacity = String(0.1 + 0.4 * grounded);
+          d.shadow.style.transform = 'translate3d(' + d.x + 'px,' + (floorY + 30) + 'px,0) scale(' + (0.38 + 0.62 * grounded) + ')';
         }
       };
 
@@ -6050,10 +6052,6 @@
         }, 760);
       };
 
-      const wallX = vw * 0.46;
-      const wallY = vh * 0.42;
-      const wallTop = vh * 0.3;
-
       const batch = (playTableDie._batch = (playTableDie._batch || 0) + 1);
       const revealCaption = () => {
         const same = (playTableDie._items || []).filter(x => x.batch === batch && x.phase !== 'gone');
@@ -6068,47 +6066,37 @@
 
       values.forEach((value, i) => {
         const scene = scenes[i];
-        const throwA = Math.random() * Math.PI * 2;
-        const throwDist = 18 + Math.random() * 36 + i * 12;
-        const startX = Math.max(-wallX, Math.min(wallX, ox + Math.cos(throwA) * throwDist));
-        const startY = Math.max(-wallTop, Math.min(wallY, oy + Math.sin(throwA) * throwDist));
-        const toMid = Math.hypot(startX, startY) || 1;
-        const speed = 420 + Math.random() * 260;
-        const homeX = (i - (values.length - 1) / 2) * 78;
+        const inward = fromLeft ? 1 : -1;
         const d = {
           scene: scene,
           mesh: scene.querySelector('.dice-mesh'),
           shadow: scene.querySelector('.dice-shadow'),
           phase: 'fly',
-          delay: i * 0.09,
+          delay: i * 0.1,
           born: performance.now(),
-          x: startX,
-          y: startY,
-          h: 90 + Math.random() * 50,
-          vx: -startX / toMid * speed + (Math.random() - 0.5) * 80,
-          vy: -startY / toMid * speed + (Math.random() - 0.5) * 80,
-          vz: 280 + Math.random() * 160,
+          x: (fromLeft ? wallL : wallR) + inward * i * 18,
+          y: wallT - i * 16,
+          vx: inward * (520 + Math.random() * 340),
+          vy: 180 + Math.random() * 160,
           rx: Math.random() * 360,
           ry: Math.random() * 360,
           rz: Math.random() * 360,
-          wx: 380 + Math.random() * 320,
-          wy: 340 + Math.random() * 300,
-          wz: (Math.random() - 0.5) * 360,
+          wx: 420 + Math.random() * 380,
+          wy: 380 + Math.random() * 340,
+          wz: inward * (280 + Math.random() * 260),
           rest: rest,
-          settle: 0,
           value: value,
-          batch: batch,
-          homeX: homeX
+          batch: batch
         };
         pose(d);
-        d.life = setTimeout(() => dissolveDie(d), 4600 + Math.random() * 900 + i * 180);
+        d.life = setTimeout(() => dissolveDie(d), 4800 + Math.random() * 800 + i * 180);
         playTableDie._items.push(d);
       });
 
       if (playTableDie._raf) return;
 
       let last = performance.now();
-      const g = 2180;
+      const g = 2680;
 
       const frame = now => {
         const dt = Math.min(0.033, (now - last) / 1000);
@@ -6123,53 +6111,43 @@
             return;
           }
 
-          d.vz -= g * dt;
+          d.vy += g * dt;
           d.x += d.vx * dt;
           d.y += d.vy * dt;
-          d.h += d.vz * dt;
           d.rx += d.wx * dt;
           d.ry += d.wy * dt;
           d.rz += d.wz * dt;
-          d.vx += -(d.x - (d.homeX || 0)) * 3.4 * dt;
-          d.vy += -d.y * 3.4 * dt;
-          d.vx *= 1 - 0.18 * dt;
-          d.vy *= 1 - 0.18 * dt;
+          d.vx *= 1 - 0.14 * dt;
 
-          if (d.x > wallX) { d.x = wallX; d.vx = -Math.abs(d.vx) * 0.74; }
-          if (d.x < -wallX) { d.x = -wallX; d.vx = Math.abs(d.vx) * 0.74; }
-          if (d.y > wallY) { d.y = wallY; d.vy = -Math.abs(d.vy) * 0.74; }
-          if (d.y < -wallTop) { d.y = -wallTop; d.vy = Math.abs(d.vy) * 0.74; }
+          if (d.x > wallR) { d.x = wallR; d.vx = -Math.abs(d.vx) * 0.68; }
+          if (d.x < wallL) { d.x = wallL; d.vx = Math.abs(d.vx) * 0.68; }
+          if (d.y < wallT) { d.y = wallT; d.vy = Math.abs(d.vy) * 0.4; }
 
-          if (d.h <= 0) {
-            d.h = 0;
-            if (Math.abs(d.vz) > 55) {
-              d.vz = -d.vz * 0.56;
-              d.vx *= 0.86;
-              d.vy *= 0.86;
-              d.wx = d.wx * 0.62 + (Math.random() - 0.5) * 360;
-              d.wy = d.wy * 0.6 + (Math.random() - 0.5) * 300;
-              d.wz = d.wz * 0.64 + d.vx * 0.16;
+          if (d.y >= floorY) {
+            d.y = floorY;
+            if (d.vy > 80) {
+              d.vy = -d.vy * 0.42;
+              d.vx *= 0.72;
+              d.wx = d.wx * 0.55 + (Math.random() - 0.5) * 240;
+              d.wy = d.wy * 0.52 + (Math.random() - 0.5) * 200;
+              d.wz = d.wz * 0.58 + d.vx * 0.18;
             } else {
-              d.vz = 0;
-              d.vx *= 0.94;
-              d.vy *= 0.94;
-              d.wx *= 0.86;
-              d.wy *= 0.86;
-              d.wz *= 0.84;
+              d.vy = 0;
+              d.vx *= 0.9;
+              d.wx *= 0.82;
+              d.wy *= 0.82;
+              d.wz *= 0.8;
             }
           }
 
-          const still = d.h <= 0.4 && Math.hypot(d.vx, d.vy) < 22 && Math.abs(d.vz) < 28 && Math.hypot(d.wx, d.wy, d.wz) < 55;
-          if (still || local > 2.2) {
-            d.h = 0;
+          const still = d.y >= floorY - 0.5 && Math.abs(d.vy) < 28 && Math.abs(d.vx) < 26 && Math.hypot(d.wx, d.wy, d.wz) < 50;
+          if (still || local > 2.4) {
+            d.y = floorY;
             d.vx = 0;
             d.vy = 0;
-            d.vz = 0;
             d.wx = 0;
             d.wy = 0;
             d.wz = 0;
-            d.x = d.homeX || 0;
-            d.y = 0;
             d.rx = d.rest.rx;
             d.ry = d.rest.ry;
             d.rz = d.rest.rz;
