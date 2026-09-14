@@ -6306,7 +6306,8 @@
 
     function usesDndSheet(owner) {
       if (!owner || isDmNotesOwner(owner)) return false;
-      if (owner === VEYR_OWNER || owner === ILLUSION_OWNER) return false;
+      if (owner === ILLUSION_OWNER) return false;
+      if (owner === VEYR_OWNER) return true;
       return String(owner).indexOf(':') < 0;
     }
 
@@ -6429,6 +6430,61 @@
           sheet.name = alt.entry.title;
         }
       }
+    }
+
+    function ensureVeyrDrakeSheet(accs) {
+      const acc = accs && accs[YUVI_ID];
+      if (!acc) return false;
+      if (!acc.alts || !acc.alts[VEYR_ALT]) ensureVeyrAlt(accs);
+      const alt = accs[YUVI_ID] && accs[YUVI_ID].alts && accs[YUVI_ID].alts[VEYR_ALT];
+      if (!alt || !alt.sheet) return false;
+      const sheet = alt.sheet;
+      const dnd = normalizeDndSheet(sheet.dnd);
+      if ((dnd.attacks || []).some(a => a && String(a.name || '').trim())) {
+        sheet.dnd = dnd;
+        return false;
+      }
+      const lucan = accs[YUVI_ID] && accs[YUVI_ID].sheet && accs[YUVI_ID].sheet.dnd;
+      const lvl = Math.max(1, Number(String((lucan && lucan.stufe) || sheet.stufe || '4').replace(/\D/g, '')) || 4);
+      const prof = lvl >= 5 ? 3 : 2;
+      const hpMax = String(5 + 5 * lvl);
+      dnd.name = 'Veyr';
+      dnd.volk = 'Drake (klein)';
+      dnd.klasse = 'Drake Companion';
+      dnd.stufe = String(lvl);
+      dnd.ac = String(14 + prof);
+      dnd.speed = '40 ft.';
+      dnd.hpMax = dnd.hpMax || hpMax;
+      dnd.hpCurrent = dnd.hpCurrent || dnd.hpMax || hpMax;
+      dnd.hitDice = lvl + 'd10';
+      dnd.abilities.str = { score: 16, save: false };
+      dnd.abilities.dex = { score: 12, save: true };
+      dnd.abilities.con = { score: 15, save: false };
+      dnd.abilities.int = { score: 8, save: false };
+      dnd.abilities.wis = { score: 14, save: true };
+      dnd.abilities.cha = { score: 8, save: false };
+      dnd.skills.perception = 1;
+      dnd.skills.stealth = 1;
+      dnd.senses = 'Darkvision 60 ft.';
+      dnd.immunities = 'Fire';
+      dnd.languages = 'Draconic';
+      dnd.reactions = 'Infused Strikes';
+      dnd.attacks = [
+        { id: combatNewId('a'), name: 'Bite', range: '5 ft.', bonus: '+5', hitRoll: '', damage: '1W6+2', dmgRoll: '', notes: 'Piercing', text: '' },
+        { id: combatNewId('a'), name: 'Infused Strikes', range: '30 ft.', bonus: '', hitRoll: '', damage: '1W6', dmgRoll: '', notes: 'Reaction · Fire', text: '' }
+      ];
+      dnd.features = [
+        { id: combatNewId('f'), name: 'Draconic Essence (Fire)', uses: '', used: '', reset: 'long', text: '' },
+        { id: combatNewId('f'), name: 'Infused Strikes', uses: '', used: '', reset: 'long', text: '' }
+      ];
+      sheet.name = 'Veyr';
+      sheet.volk = dnd.volk;
+      sheet.klasse = dnd.klasse;
+      sheet.stufe = dnd.stufe;
+      sheet.armor = dnd.ac;
+      sheet.hp = dnd.hpCurrent + ' / ' + dnd.hpMax;
+      sheet.dnd = normalizeDndSheet(dnd);
+      return true;
     }
 
     function ensureIllusionAlt(accs) {
@@ -8426,10 +8482,20 @@
       removeUdoAccount(out);
       renameReptileToBjoern(out);
       Object.keys(out).forEach(id => {
-        if (!usesDndSheet(id) || !out[id] || !out[id].sheet) return;
-        const dnd = normalizeDndSheet(out[id].sheet.dnd);
-        if (!dnd.name) dnd.name = out[id].sheet.name || out[id].name || '';
-        out[id].sheet.dnd = dnd;
+        if (!out[id] || !out[id].sheet) return;
+        if (usesDndSheet(id)) {
+          const dnd = normalizeDndSheet(out[id].sheet.dnd);
+          if (!dnd.name) dnd.name = out[id].sheet.name || out[id].name || '';
+          out[id].sheet.dnd = dnd;
+        }
+        const alts = out[id].alts || {};
+        Object.keys(alts).forEach(k => {
+          const owner = id + ':' + k;
+          if (!usesDndSheet(owner) || !alts[k] || !alts[k].sheet) return;
+          const dnd = normalizeDndSheet(alts[k].sheet.dnd);
+          if (!dnd.name) dnd.name = alts[k].sheet.name || alts[k].name || '';
+          alts[k].sheet.dnd = dnd;
+        });
       });
       return out;
     }
@@ -8457,7 +8523,8 @@
       syncPlayerCombatNames();
       const hadUdo = !!(data.accounts && (data.accounts.udo || data.accounts.Udo));
       const needsBjoernExtras = ensureBjoernFighterExtras(playerAccounts);
-      if ((needsCloudRename || hadUdo || needsBjoernExtras) && db && !sheetDirty && !veyrEntryEditing) {
+      const needsVeyrSheet = ensureVeyrDrakeSheet(playerAccounts);
+      if ((needsCloudRename || hadUdo || needsBjoernExtras || needsVeyrSheet) && db && !sheetDirty && !veyrEntryEditing) {
         persistPlayers().catch(() => {});
       }
       syncChatListeners();
@@ -8486,6 +8553,7 @@
       if (!db) throw new Error('Keine Verbindung zur Cloud.');
       renameReptileToBjoern(playerAccounts);
       ensureBjoernFighterExtras(playerAccounts);
+      ensureVeyrDrakeSheet(playerAccounts);
       removeUdoAccount(playerAccounts);
       const nextAt = Date.now();
       writingPlayers = true;
@@ -11159,7 +11227,7 @@
         return;
       }
       document.getElementById('charBlurb').textContent = isVeyr
-        ? 'Feste Werte oben, Text darunter — nur für dich und den DM.'
+        ? 'Lucans Drake-Gefährte (Drakewarden) — nur für Yuvi und den DM.'
         : 'Feste Werte oben, Notizen und Ausrüstung darunter — nur für dich und den DM.';
       if (!rec) {
         document.getElementById('charHeading').textContent = 'Charakterblatt';
