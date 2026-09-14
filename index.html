@@ -2211,6 +2211,127 @@
       .dice-scene.is-dissolving .dice-sparks i { animation: none; }
     }
 
+    .dice-tools-wrap {
+      display: flex;
+      position: fixed;
+      left: 0.75rem;
+      bottom: 0.7rem;
+      z-index: 38;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.45rem;
+      pointer-events: none;
+      max-width: calc(100vw - 1.5rem);
+    }
+    body.is-dm .dice-tools-wrap { bottom: 4.1rem; }
+    body.is-dm.sound-dock-open .dice-tools-wrap { bottom: 8.6rem; }
+    .dice-tool-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 0.45rem;
+      pointer-events: none;
+      max-width: 100%;
+    }
+    .dice-tool-row > * { pointer-events: auto; }
+    .dice-tray-btn[aria-expanded="true"],
+    .dice-log-btn[aria-expanded="true"] {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+    .dice-tray,
+    .dice-log {
+      min-width: 0;
+      background: var(--panel);
+      border: 1px solid var(--gold-dim);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+    .dice-tray {
+      display: grid;
+      width: 16.8rem;
+      max-width: calc(100vw - 4.4rem);
+      gap: 0.5rem;
+      padding: 0.65rem 0.75rem 0.7rem;
+    }
+    .dice-tray-head,
+    .dice-log-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+    .dice-tray-sum {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    .dice-tray-kinds {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.35rem;
+    }
+    .dice-kind {
+      position: relative;
+      min-width: 0;
+      padding: 0.42rem 0.2rem 0.38rem;
+      font-family: Cinzel, serif;
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+    }
+    .dice-kind.is-on {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+    .dice-kind-count {
+      position: absolute;
+      top: -0.35rem;
+      right: -0.28rem;
+      min-width: 1.05rem;
+      height: 1.05rem;
+      padding: 0 0.22rem;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #c9a35c, #9a7a38);
+      color: #1a140c;
+      font-family: Cinzel, serif;
+      font-size: 0.68rem;
+      line-height: 1.05rem;
+      text-align: center;
+    }
+    .dice-tray-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+    .dice-tray-actions button { flex: 1 1 auto; }
+    .dice-log {
+      display: flex;
+      flex-direction: column;
+      width: 17.5rem;
+      max-width: calc(100vw - 4.4rem);
+      max-height: min(42vh, 22rem);
+      padding: 0.55rem 0.7rem 0.65rem;
+    }
+    .dice-log-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      overflow: auto;
+      margin-top: 0.4rem;
+      padding-right: 0.15rem;
+    }
+    .dice-log-empty,
+    .dice-log-item {
+      font-size: 0.82rem;
+      line-height: 1.35;
+    }
+    .dice-log-empty { color: var(--muted); }
+    .dice-log-item {
+      padding: 0.28rem 0.15rem;
+      border-bottom: 1px solid var(--line);
+      color: var(--ink);
+    }
+    .dice-log-item:last-child { border-bottom: 0; }
+    body.is-player .content { padding-bottom: 4.2rem; }
+
     .sound-dock-wrap {
       display: flex;
       position: fixed;
@@ -3536,6 +3657,17 @@
       body.is-dm.sound-dock-open .toast {
         bottom: max(9.2rem, calc(env(safe-area-inset-bottom) + 8.2rem));
       }
+      .dice-tools-wrap {
+        left: 0.5rem;
+        bottom: max(0.45rem, env(safe-area-inset-bottom));
+        max-width: calc(100vw - 1rem);
+      }
+      body.is-dm .dice-tools-wrap {
+        bottom: max(3.9rem, calc(env(safe-area-inset-bottom) + 3.4rem));
+      }
+      body.is-dm.sound-dock-open .dice-tools-wrap {
+        bottom: max(8.4rem, calc(env(safe-area-inset-bottom) + 7.8rem));
+      }
       .sound-dock-wrap {
         left: 0.5rem;
         bottom: max(0.45rem, env(safe-area-inset-bottom));
@@ -4539,6 +4671,45 @@
     <audio id="soundElReise" preload="auto" loop playsinline src="audio/reise/reisemusik.mp3"></audio>
     <audio id="soundElKampf" preload="auto" loop playsinline src="audio/kampf/kampfmusik.mp3"></audio>
   </div>
+  <div id="diceToolsWrap" class="dice-tools-wrap hidden">
+    <div class="dice-tool-row">
+      <button class="ghost battle-gear-btn dice-tray-btn" id="diceTrayBtn" type="button" title="Würfel" aria-label="Würfelbrett" aria-expanded="false" aria-controls="diceTray">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 2.1L3.8 6.9v10.2L12 21.9l8.2-4.8V6.9L12 2.1zm0 1.9l6.4 3.7-2.6 1.5L12 7.4 8.2 9.2 5.6 7.7 12 4zm-7.1 5.1l2.5 1.5L5 15.8V9.1zm1.4 8L9.2 13h.1l2.7 5.1-5.7-1zm7 2.1L10.5 13h3l-2.7 6.2zm1.2-2.1L19 16.1 16.6 12 14 13.1zm2.8-6.4l2.4-1.4v6.6L16.9 11zM9.3 12.9L7.1 8.9l3.1-1.5L12 8.6l1.8 1-1.8 3.3H9.3z"/></svg>
+      </button>
+      <div id="diceTray" class="dice-tray hidden">
+        <div class="dice-tray-head">
+          <span class="sound-dock-label">Würfel</span>
+          <span class="dice-tray-sum" id="diceTraySum">Keine Würfel</span>
+        </div>
+        <div class="dice-tray-kinds" id="diceTrayKinds">
+          <button class="ghost dice-kind" type="button" data-sides="4">W4<b class="dice-kind-count hidden">0</b></button>
+          <button class="ghost dice-kind" type="button" data-sides="6">W6<b class="dice-kind-count hidden">0</b></button>
+          <button class="ghost dice-kind" type="button" data-sides="8">W8<b class="dice-kind-count hidden">0</b></button>
+          <button class="ghost dice-kind" type="button" data-sides="10">W10<b class="dice-kind-count hidden">0</b></button>
+          <button class="ghost dice-kind" type="button" data-sides="12">W12<b class="dice-kind-count hidden">0</b></button>
+          <button class="ghost dice-kind" type="button" data-sides="20">W20<b class="dice-kind-count hidden">0</b></button>
+          <button class="ghost dice-kind" type="button" data-sides="100">W100<b class="dice-kind-count hidden">0</b></button>
+        </div>
+        <div class="dice-tray-actions">
+          <button class="ghost" id="diceTrayResetBtn" type="button" disabled>Zurücksetzen</button>
+          <button class="primary" id="diceTrayRollBtn" type="button" disabled>Würfeln</button>
+        </div>
+        <button class="ghost" id="diceTrayClearBtn" type="button">Leeren</button>
+      </div>
+    </div>
+    <div class="dice-tool-row">
+      <button class="ghost battle-gear-btn dice-log-btn" id="diceLogBtn" type="button" title="Wurfprotokoll" aria-label="Wurfprotokoll" aria-expanded="false" aria-controls="diceLog">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M5 6h14v2H5V6zm0 5h14v2H5v-2zm0 5h10v2H5v-2z"/></svg>
+      </button>
+      <div id="diceLog" class="dice-log hidden">
+        <div class="dice-log-head">
+          <span class="sound-dock-label">Würfe</span>
+          <button class="ghost" id="diceLogClearBtn" type="button">Leeren</button>
+        </div>
+        <div class="dice-log-list" id="diceLogList"></div>
+      </div>
+    </div>
+  </div>
   <div id="soundDockWrap" class="sound-dock-wrap hidden">
     <button class="ghost battle-gear-btn sound-dock-btn" id="soundDockBtn" type="button" title="Klang" aria-label="Klangleiste" aria-expanded="false" aria-controls="soundDock">
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
@@ -4765,6 +4936,10 @@
     let soundDuckUntil = 0;
     let soundUnlocked = false;
     let soundDockOpen = false;
+    let diceTrayOpen = false;
+    let diceLogOpen = false;
+    let diceLog = [];
+    let diceQueue = { 4: 0, 6: 0, 8: 0, 10: 0, 12: 0, 20: 0, 100: 0 };
     let soundPickKind = 'ambiente';
     let soundGroupFilter = 'all';
     let soundFavorites = [];
@@ -6340,14 +6515,182 @@
       return html;
     }
 
+    const DICE_TRAY_SIDES = [4, 6, 8, 10, 12, 20, 100];
+
+    function canUseDiceTools() {
+      return !!(isDM || currentPlayerId);
+    }
+
+    function diceQueueTotal() {
+      let n = 0;
+      DICE_TRAY_SIDES.forEach(s => { n += diceQueue[s] || 0; });
+      return n;
+    }
+
+    function diceQueueParts() {
+      const parts = [];
+      DICE_TRAY_SIDES.forEach(s => {
+        const n = diceQueue[s] || 0;
+        if (n) parts.push((n > 1 ? n : '') + 'W' + s);
+      });
+      return parts;
+    }
+
+    function formatDiceQueueLabel() {
+      const parts = diceQueueParts();
+      return parts.length ? parts.join(' + ') : 'Keine Würfel';
+    }
+
+    function resetDiceQueue() {
+      DICE_TRAY_SIDES.forEach(s => { diceQueue[s] = 0; });
+    }
+
+    function renderDiceTray() {
+      const kinds = document.querySelectorAll('#diceTrayKinds [data-sides]');
+      kinds.forEach(btn => {
+        const n = diceQueue[Number(btn.getAttribute('data-sides'))] || 0;
+        btn.classList.toggle('is-on', n > 0);
+        const badge = btn.querySelector('.dice-kind-count');
+        if (badge) {
+          badge.textContent = n ? String(n) : '0';
+          badge.classList.toggle('hidden', !n);
+        }
+      });
+      const sum = document.getElementById('diceTraySum');
+      const total = diceQueueTotal();
+      if (sum) sum.textContent = formatDiceQueueLabel();
+      const rollBtn = document.getElementById('diceTrayRollBtn');
+      const resetBtn = document.getElementById('diceTrayResetBtn');
+      if (rollBtn) rollBtn.disabled = !total;
+      if (resetBtn) resetBtn.disabled = !total;
+    }
+
+    function renderDiceLog() {
+      const list = document.getElementById('diceLogList');
+      if (!list) return;
+      if (!diceLog.length) {
+        list.innerHTML = '<div class="dice-log-empty">Noch keine Würfe.</div>';
+        return;
+      }
+      list.innerHTML = diceLog.map(row =>
+        '<div class="dice-log-item">' + String(row.text || '').replace(/[&<>]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch])) + '</div>'
+      ).join('');
+    }
+
+    function logDiceRoll(caption) {
+      const text = String(caption || '').trim();
+      if (!text) return;
+      diceLog.unshift({ text: text });
+      if (diceLog.length > 24) diceLog.length = 24;
+      renderDiceLog();
+    }
+
+    function applyDiceToolsUi() {
+      const wrap = document.getElementById('diceToolsWrap');
+      const tray = document.getElementById('diceTray');
+      const log = document.getElementById('diceLog');
+      const trayBtn = document.getElementById('diceTrayBtn');
+      const logBtn = document.getElementById('diceLogBtn');
+      const show = canUseDiceTools();
+      if (!show) {
+        diceTrayOpen = false;
+        diceLogOpen = false;
+      }
+      if (wrap) wrap.classList.toggle('hidden', !show);
+      if (tray) tray.classList.toggle('hidden', !diceTrayOpen);
+      if (log) log.classList.toggle('hidden', !diceLogOpen);
+      if (trayBtn) trayBtn.setAttribute('aria-expanded', diceTrayOpen ? 'true' : 'false');
+      if (logBtn) logBtn.setAttribute('aria-expanded', diceLogOpen ? 'true' : 'false');
+      document.body.classList.toggle('dice-log-open', !!(show && diceLogOpen));
+    }
+
+    function closeDiceTray() {
+      if (!diceTrayOpen) return;
+      diceTrayOpen = false;
+      applyDiceToolsUi();
+    }
+
+    function closeDiceLog() {
+      if (!diceLogOpen) return;
+      diceLogOpen = false;
+      applyDiceToolsUi();
+    }
+
+    function toggleDiceTray() {
+      if (!canUseDiceTools()) return;
+      diceTrayOpen = !diceTrayOpen;
+      applyDiceToolsUi();
+    }
+
+    function toggleDiceLog() {
+      if (!canUseDiceTools()) return;
+      diceLogOpen = !diceLogOpen;
+      applyDiceToolsUi();
+    }
+
+    function addDiceToQueue(sides) {
+      const key = Number(sides);
+      if (!diceQueue.hasOwnProperty(key)) return;
+      if (diceQueueTotal() >= 8) {
+        toast('Maximal 8 Würfel.');
+        return;
+      }
+      diceQueue[key] += 1;
+      renderDiceTray();
+    }
+
+    function clearTableDice() {
+      (playTableDie._items || []).slice().forEach(d => {
+        if (d.life) clearTimeout(d.life);
+        if (d.scene && d.scene.parentNode) d.scene.parentNode.removeChild(d.scene);
+      });
+      playTableDie._items = [];
+      const stage = document.getElementById('diceStage');
+      if (stage) {
+        stage.classList.add('hidden');
+        stage.classList.remove('is-landed');
+        stage.setAttribute('aria-hidden', 'true');
+      }
+    }
+
+    function rollQueuedDice() {
+      const dice = [];
+      DICE_TRAY_SIDES.forEach(sides => {
+        const n = diceQueue[sides] || 0;
+        for (let i = 0; i < n; i++) dice.push({ sides: sides, value: 1 + Math.floor(Math.random() * sides) });
+      });
+      if (!dice.length) {
+        toast('Zuerst Würfel wählen.');
+        return;
+      }
+      const total = dice.reduce((sum, d) => sum + d.value, 0);
+      const detail = dice.map(d => 'W' + d.sides + ' ' + d.value).join(', ');
+      playTableDie({
+        dice: dice,
+        caption: formatDiceQueueLabel() + ': ' + detail + ' = ' + total
+      });
+    }
+
     function playTableDie(opts) {
-      const values = (opts && opts.values || []).filter(v => v != null).slice(0, 3);
       const caption = String(opts && opts.caption || '');
-      const sides = Math.max(2, Number(opts && opts.sides) || 20);
-      if (!values.length) {
+      let dice = [];
+      if (opts && Array.isArray(opts.dice) && opts.dice.length) {
+        dice = opts.dice.map(d => ({
+          sides: Math.max(2, Number(d && d.sides) || 20),
+          value: d && d.value
+        })).filter(d => d.value != null).slice(0, 8);
+      } else {
+        const sides = Math.max(2, Number(opts && opts.sides) || 20);
+        dice = (opts && opts.values || []).filter(v => v != null).slice(0, 8).map(v => ({
+          sides: sides,
+          value: v
+        }));
+      }
+      if (!dice.length) {
         toast(caption);
         return;
       }
+      logDiceRoll(caption);
       if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         toast(caption);
         return;
@@ -6362,8 +6705,6 @@
 
       const vw = Math.max(320, window.innerWidth || 800);
       const vh = Math.max(320, window.innerHeight || 600);
-      const shape = dieShapeForSides(sides);
-      const isCube = shape === 'd6';
       const floorY = vh / 2 - 88;
       const wallL = -vw / 2 + 56;
       const wallR = vw / 2 - 56;
@@ -6387,7 +6728,9 @@
         return out;
       };
 
-      const dieHtml = (value) => {
+      const dieHtml = (value, sides) => {
+        const shape = dieShapeForSides(sides);
+        const isCube = shape === 'd6';
         const kind = value === 20 && sides === 20 ? ' is-crit' : (value === 1 && sides === 20 ? ' is-fumble' : '');
         if (!isCube) {
           return '<div class="dice-scene is-poly is-' + shape + kind + '"><div class="dice-mesh">' + diePolyParts(shape, value) + '</div><div class="dice-shadow"></div><div class="dice-sparks">' + sparkHtml() + '</div></div>';
@@ -6420,14 +6763,14 @@
       };
 
       if (!playTableDie._items) playTableDie._items = [];
-      while (playTableDie._items.length + values.length > 8) {
+      while (playTableDie._items.length + dice.length > 8) {
         const old = playTableDie._items.shift();
         if (old && old.life) clearTimeout(old.life);
         if (old && old.scene && old.scene.parentNode) old.scene.parentNode.removeChild(old.scene);
       }
 
       const wrap = document.createElement('div');
-      wrap.innerHTML = values.map(dieHtml).join('');
+      wrap.innerHTML = dice.map(d => dieHtml(d.value, d.sides)).join('');
       const scenes = Array.prototype.slice.call(wrap.children);
       scenes.forEach(scene => rack.appendChild(scene));
 
@@ -6474,9 +6817,10 @@
         stage.classList.add('is-landed');
       };
 
-      values.forEach((value, i) => {
+      dice.forEach((spec, i) => {
         const scene = scenes[i];
         const inward = fromLeft ? 1 : -1;
+        const isCube = dieShapeForSides(spec.sides) === 'd6';
         const d = {
           scene: scene,
           mesh: scene.querySelector('.dice-mesh'),
@@ -6504,7 +6848,7 @@
             ry: 0,
             rz: 0
           },
-          value: value,
+          value: spec.value,
           batch: batch
         };
         pose(d);
@@ -8955,6 +9299,7 @@
       const acc = currentPlayerId ? playerAccounts[currentPlayerId] : null;
       document.getElementById('playerChip').textContent = acc ? acc.name : 'Spieler';
       document.getElementById('playerButton').textContent = on ? 'Spieler Logout' : 'Spieler Login';
+      applyDiceToolsUi();
       syncChatListeners();
       renderChatChrome();
     }
@@ -14755,6 +15100,7 @@
       if (!on) {
         cancelBattleDraw();
       }
+      applyDiceToolsUi();
     }
 
     function openLogin() {
@@ -14977,6 +15323,48 @@
         });
         onEv('soundPickOverlay', 'click', ev => {
           if (ev.target === document.getElementById('soundPickOverlay')) closeSoundPicker();
+        });
+      });
+
+      safeBind('dice', () => {
+        renderDiceTray();
+        renderDiceLog();
+        applyDiceToolsUi();
+        onClick('diceTrayBtn', ev => {
+          ev.stopPropagation();
+          toggleDiceTray();
+        });
+        onClick('diceLogBtn', ev => {
+          ev.stopPropagation();
+          toggleDiceLog();
+        });
+        onClick('diceTrayResetBtn', () => {
+          resetDiceQueue();
+          renderDiceTray();
+        });
+        onClick('diceTrayRollBtn', rollQueuedDice);
+        onClick('diceTrayClearBtn', () => {
+          resetDiceQueue();
+          renderDiceTray();
+          clearTableDice();
+        });
+        onClick('diceLogClearBtn', () => {
+          diceLog = [];
+          renderDiceLog();
+        });
+        const kinds = document.getElementById('diceTrayKinds');
+        if (kinds) kinds.addEventListener('click', ev => {
+          const btn = ev.target.closest('[data-sides]');
+          if (!btn) return;
+          addDiceToQueue(btn.getAttribute('data-sides'));
+        });
+        document.addEventListener('click', ev => {
+          if (!diceTrayOpen) return;
+          const tray = document.getElementById('diceTray');
+          const trayBtn = document.getElementById('diceTrayBtn');
+          if (tray && tray.contains(ev.target)) return;
+          if (trayBtn && trayBtn.contains(ev.target)) return;
+          closeDiceTray();
         });
       });
 
@@ -15743,8 +16131,13 @@
     bindAll();
     loadSoundPrefs();
     renderSoundFxButtons();
+    renderDiceTray();
+    renderDiceLog();
     if (sessionStorage.getItem(SESSION_KEY) === '1') setDM(true);
-    else syncSoundUi();
+    else {
+      syncSoundUi();
+      applyDiceToolsUi();
+    }
 
     window.addEventListener('keydown', ev => {
       if (ev.key !== 'Escape') return;
@@ -15760,6 +16153,8 @@
       if (pin && !pin.classList.contains('hidden')) { closePinPicker(); return; }
       const soundPick = document.getElementById('soundPickOverlay');
       if (soundPick && !soundPick.classList.contains('hidden')) { closeSoundPicker(); return; }
+      if (diceTrayOpen) { closeDiceTray(); return; }
+      if (diceLogOpen) { closeDiceLog(); return; }
       if (soundDockOpen) { closeSoundDock(); return; }
       const gallery = document.getElementById('battleGalleryOverlay');
       if (gallery && !gallery.classList.contains('hidden')) { closeBattleGallery(); return; }
