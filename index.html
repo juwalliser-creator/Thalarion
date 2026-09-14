@@ -4390,8 +4390,8 @@
                       </div>
                       <div class="dnd-stat dnd-card">
                         <label>Bewegung</label>
-                        <div class="dnd-big" id="dndSpeedOut">9 m</div>
-                        <input data-dnd-field="speed" placeholder="9 m" />
+                        <div class="dnd-big" id="dndSpeedOut">30 ft.</div>
+                        <input data-dnd-field="speed" placeholder="30 ft." />
                       </div>
                       <button type="button" class="dnd-chip-btn dnd-insp" id="dndInsp">
                         <label>Inspiration</label>
@@ -6444,6 +6444,15 @@
       { id: 'persuasion', ability: 'cha', label: 'Überzeugen' }
     ];
 
+    function dndMetersToFeetText(raw) {
+      return String(raw == null ? '' : raw).replace(/(\d+(?:[.,]\d+)?)\s*m\b/gi, (_, num) => {
+        const n = Number(String(num).replace(',', '.'));
+        if (!Number.isFinite(n) || n < 0) return _;
+        const ft = Math.round((n * 10 / 3) / 5) * 5;
+        return ft + ' ft.';
+      });
+    }
+
     function emptyDndSheet() {
       const abilities = {};
       DND_ABS.forEach(a => { abilities[a.id] = { score: 10, save: false }; });
@@ -6455,7 +6464,7 @@
         name: '', volk: '', klasse: '', stufe: '',
         background: '', alignment: '', xp: '', playerName: '', inspiration: false, profBonus: '',
         abilities: abilities, skills: skills, jackOfAllTrades: false,
-        ac: '', initiativeBonus: '', speed: '9 m',
+        ac: '', initiativeBonus: '', speed: '30 ft.',
         hpCurrent: '', hpMax: '', hpTemp: '', hitDice: '', hitDiceUsed: '',
         deathSuccess: 0, deathFail: 0,
         senses: '', resistances: '', immunities: '', vulnerabilities: '', conditions: '',
@@ -6519,10 +6528,10 @@
       base.deathFail = Math.max(0, Math.min(3, Number(src.deathFail) || 0));
       const list = (arr, shape) => (Array.isArray(arr) ? arr : []).map(shape).filter(Boolean);
       base.attacks = list(src.attacks, x => x && {
-        id: x.id || combatNewId('a'), name: String(x.name || ''), range: String(x.range || ''),
+        id: x.id || combatNewId('a'), name: String(x.name || ''), range: dndMetersToFeetText(x.range || ''),
         bonus: String(x.bonus || ''), hitRoll: String(x.hitRoll || ''),
         damage: String(x.damage || ''), dmgRoll: String(x.dmgRoll || ''),
-        notes: String(x.notes || ''), text: String(x.text || '')
+        notes: dndMetersToFeetText(x.notes || ''), text: dndMetersToFeetText(x.text || '')
       });
       base.spells = list(src.spells, x => x && {
         id: x.id || combatNewId('s'),
@@ -6530,13 +6539,13 @@
         name: String(x.name || ''),
         prepared: !!x.prepared,
         time: String(x.time || ''),
-        range: String(x.range || ''),
+        range: dndMetersToFeetText(x.range || ''),
         hit: String(x.hit || ''),
         damage: String(x.damage || ''),
         concentration: !!x.concentration,
         ritual: !!x.ritual,
-        notes: String(x.notes || ''),
-        text: String(x.text || '')
+        notes: dndMetersToFeetText(x.notes || ''),
+        text: dndMetersToFeetText(x.text || '')
       });
       base.items = list(src.items, x => x && {
         id: x.id || combatNewId('i'), name: String(x.name || ''), qty: String(x.qty || '1'),
@@ -6548,6 +6557,8 @@
         text: String(x.text || '')
       });
       if (!['actions', 'spells', 'inventory', 'features', 'description', 'notes', 'extras'].includes(base.tab)) base.tab = 'actions';
+      base.speed = dndMetersToFeetText(base.speed);
+      base.senses = dndMetersToFeetText(base.senses);
       return base;
     }
 
@@ -7812,12 +7823,15 @@
     }
 
     function dndFormatRange(raw) {
-      const s = String(raw || '').trim();
+      const s = dndMetersToFeetText(raw).trim();
       if (!s) return { main: '—', extra: '' };
       const m = s.match(/(\d+(?:[.,]\d+)?)\s*(ft\.?|m)?\s*(?:[\/(]\s*(\d+(?:[.,]\d+)?)\)?)?/i);
       if (!m) return { main: s, extra: '' };
-      if (m[3]) return { main: m[1], extra: m[3] };
-      const unit = m[2] ? (/m/i.test(m[2]) ? ' m' : ' ft.') : '';
+      if (m[3]) {
+        const unit = m[2] && /m/i.test(m[2]) ? ' m' : ' ft.';
+        return { main: m[1] + unit, extra: m[3] + unit };
+      }
+      const unit = m[2] ? (/m/i.test(m[2]) ? ' m' : ' ft.') : ' ft.';
       return { main: m[1] + unit, extra: '' };
     }
 
@@ -8024,7 +8038,7 @@
             return '<div class="dnd-atk-edit" data-dnd-row="attacks" data-id="' + row.id + '">' +
               '<div class="dnd-atk-edit-top">' +
               '<input data-k="name" value="' + escapeAttr(row.name) + '" placeholder="Aktion" />' +
-              '<input data-k="range" value="' + escapeAttr(row.range) + '" placeholder="1,50 m" /></div>' +
+              '<input data-k="range" value="' + escapeAttr(row.range) + '" placeholder="5 ft." /></div>' +
               '<div class="dnd-atk-roll-row">' +
               '<input data-k="bonus" value="' + escapeAttr(row.bonus) + '" placeholder="+5" />' +
               '<span class="dnd-atk-roll-wrap">' +
@@ -8088,7 +8102,7 @@
               '<input data-k="name" value="' + escapeAttr(row.name) + '" placeholder="Zauber" /></div>' +
               '<div class="dnd-spell-edit-grid">' +
               '<input data-k="time" value="' + escapeAttr(row.time) + '" placeholder="Aktion" />' +
-              '<input data-k="range" value="' + escapeAttr(row.range) + '" placeholder="9 m" />' +
+              '<input data-k="range" value="' + escapeAttr(row.range) + '" placeholder="30 ft." />' +
               '<input data-k="hit" value="' + escapeAttr(row.hit) + '" placeholder="+7 / WIS 15" />' +
               '<input data-k="damage" value="' + escapeAttr(row.damage) + '" placeholder="2W8" /></div>' +
               '<div class="dnd-spell-flags-edit">' +
@@ -8228,7 +8242,7 @@
       const init = dndMod(dndState.abilities.dex.score) + (Number(String(dndState.initiativeBonus || '').replace(',', '.')) || 0);
       setTxt('dndInitOut', dndSigned(init));
       setTxt('dndInitBox', dndSigned(init));
-      setTxt('dndSpeedOut', dndState.speed || '9 m');
+      setTxt('dndSpeedOut', dndState.speed || '30 ft.');
       setTxt('dndInspOut', dndState.inspiration ? 'Ja' : '—');
       const classLine = document.getElementById('dndClassLine');
       if (classLine) {
