@@ -1102,6 +1102,68 @@
       font-size: 0.75rem;
     }
     .dnd-row-spell { grid-template-columns: 3.2rem 1.3fr 5.2rem 1fr auto; }
+    #dndSpellList { min-width: 0; overflow-x: auto; }
+    .dnd-spell-cols,
+    .dnd-spell-item {
+      display: grid;
+      grid-template-columns: 1.8rem minmax(8.2rem, 1.45fr) minmax(4.6rem, 6.4rem) minmax(4.4rem, 6.2rem) minmax(4.6rem, 6rem) minmax(5rem, 6.6rem) minmax(5.4rem, 1.2fr) auto auto;
+      gap: 0.4rem 0.5rem;
+      align-items: center;
+    }
+    .dnd-spell-cols {
+      color: var(--dnd-gold);
+      font-size: 0.68rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0 0.1rem 0.4rem;
+      border-bottom: 1px solid var(--dnd-line);
+      margin-bottom: 0.05rem;
+    }
+    .dnd-spell-item {
+      padding: 0.55rem 0.1rem;
+      border-bottom: 1px solid var(--dnd-line);
+      margin-bottom: 0;
+    }
+    .dnd-spell-item:last-of-type { border-bottom: 0; }
+    .dnd-spell-prep {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .dnd-spell-id-text { min-width: 0; }
+    .dnd-spell-flags {
+      display: block;
+      color: var(--dnd-mute);
+      font-size: 0.72rem;
+      margin-top: 0.12rem;
+    }
+    .dnd-spell-edit {
+      display: grid;
+      gap: 0.35rem;
+      margin-bottom: 0.55rem;
+    }
+    .dnd-spell-edit-top {
+      display: grid;
+      grid-template-columns: auto 3.4rem minmax(0, 1fr);
+      gap: 0.35rem;
+      align-items: center;
+    }
+    .dnd-spell-edit-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.35rem;
+    }
+    .dnd-spell-flags-edit {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.7rem;
+      align-items: center;
+    }
+    .dnd-spell-item .ghost,
+    .dnd-spell-edit .ghost {
+      padding: 0.28rem 0.45rem;
+      font-size: 0.75rem;
+    }
     .dnd-row-item { grid-template-columns: 1.3fr 3.4rem 4rem 5.2rem 5.2rem 1fr auto; }
     .dnd-row-feat { grid-template-columns: 1.2fr 4rem 4rem 7rem 1fr auto; }
     .dnd-slots {
@@ -1152,7 +1214,8 @@
     @media (max-width: 1100px) {
       .char-layout:has(.is-dnd) { grid-template-columns: 1fr; }
       .dnd-head, .dnd-body, .dnd-abs, .dnd-combat, .dnd-meta, .dnd-grid-2, .dnd-def-grid,
-      .dnd-slots, .dnd-atk-head, .dnd-row, .dnd-row-spell, .dnd-row-item, .dnd-row-feat {
+      .dnd-slots, .dnd-atk-head, .dnd-row, .dnd-row-spell, .dnd-row-item, .dnd-row-feat,
+      .dnd-spell-cols, .dnd-spell-item, .dnd-spell-edit-top, .dnd-spell-edit-grid {
         grid-template-columns: 1fr;
       }
       .dnd-money { grid-template-columns: 1fr 1fr; }
@@ -6386,8 +6449,17 @@
         damage: String(x.damage || ''), dmgRoll: String(x.dmgRoll || ''), notes: String(x.notes || '')
       });
       base.spells = list(src.spells, x => x && {
-        id: x.id || combatNewId('s'), level: String(x.level || '0'), name: String(x.name || ''),
-        prepared: !!x.prepared, notes: String(x.notes || '')
+        id: x.id || combatNewId('s'),
+        level: String(x.level || '0'),
+        name: String(x.name || ''),
+        prepared: !!x.prepared,
+        time: String(x.time || ''),
+        range: String(x.range || ''),
+        hit: String(x.hit || ''),
+        damage: String(x.damage || ''),
+        concentration: !!x.concentration,
+        ritual: !!x.ritual,
+        notes: String(x.notes || '')
       });
       base.items = list(src.items, x => x && {
         id: x.id || combatNewId('i'), name: String(x.name || ''), qty: String(x.qty || '1'),
@@ -6405,6 +6477,7 @@
     let dndState = emptyDndSheet();
     let dndActFilter = 'all';
     let dndAttackEditId = '';
+    let dndSpellEditId = '';
 
     function dndParseDice(raw) {
       const s = String(raw || '').replace(/\s/g, '').replace(',', '.');
@@ -7711,6 +7784,62 @@
       dndState.attacks = (dndState.attacks || []).filter(row => String(row.name || '').trim());
     }
 
+    function emptyDndSpell(id) {
+      return {
+        id: id || combatNewId('s'),
+        level: '0',
+        name: '',
+        prepared: false,
+        time: '',
+        range: '',
+        hit: '',
+        damage: '',
+        concentration: false,
+        ritual: false,
+        notes: ''
+      };
+    }
+
+    function dndSpellIsOpen(row) {
+      return !String(row && row.name || '').trim() || (row && row.id) === dndSpellEditId;
+    }
+
+    function collapseDndSpells() {
+      dndSpellEditId = '';
+      dndState.spells = (dndState.spells || []).filter(row => String(row.name || '').trim());
+    }
+
+    function commitDndSpell(id) {
+      collectDndFields();
+      const item = (dndState.spells || []).find(x => x.id === id);
+      if (!item || !String(item.name || '').trim()) {
+        toast('Zuerst einen Namen für den Zauber eintragen.');
+        return;
+      }
+      dndSpellEditId = '';
+      renderDndLists();
+      sheetDirty = true;
+      saveSheet();
+    }
+
+    function dndSpellLevelLabel(level) {
+      const l = String(level || '0').trim();
+      if (!l || l === '0' || /^k/i.test(l)) return 'Zaubertrick';
+      return 'Grad ' + l;
+    }
+
+    function dndHitIsAttack(hit) {
+      return /^[+-]?\d+$/.test(String(hit || '').replace(/\s/g, ''));
+    }
+
+    function dndItemAttackBonus(item) {
+      if (!item) return '';
+      const bonus = String(item.bonus || '').trim();
+      if (bonus && dndHitIsAttack(bonus)) return bonus;
+      const hit = String(item.hit || '').trim();
+      return hit && dndHitIsAttack(hit) ? hit : '';
+    }
+
     function renderDndLists() {
       const atk = document.getElementById('dndAttackList');
       if (atk) {
@@ -7777,14 +7906,53 @@
       }
       const spells = document.getElementById('dndSpellList');
       if (spells) {
-        spells.innerHTML = dndState.spells.map(row =>
-          '<div class="dnd-row dnd-row-spell" data-dnd-row="spells" data-id="' + row.id + '">' +
-          '<input data-k="level" value="' + escapeAttr(row.level) + '" placeholder="0" />' +
-          '<input data-k="name" value="' + escapeAttr(row.name) + '" placeholder="Zauber" />' +
-          '<label class="dnd-save"><input class="dnd-check" type="checkbox" data-k="prepared"' + (row.prepared ? ' checked' : '') + ' /> vorb.</label>' +
-          '<input data-k="notes" value="' + escapeAttr(row.notes) + '" placeholder="Notiz" />' +
-          '<button type="button" class="ghost" data-dnd-del="spells">×</button></div>'
-        ).join('');
+        const hasSaved = dndState.spells.some(row => !dndSpellIsOpen(row));
+        const cols = hasSaved
+          ? '<div class="dnd-spell-cols"><span></span><span>Zauber</span><span>Zeit</span><span>Reichweite</span><span>Treffer/SG</span><span>Schaden</span><span>Notizen</span><span></span><span></span></div>'
+          : '';
+        spells.innerHTML = cols + dndState.spells.map(row => {
+          if (dndSpellIsOpen(row)) {
+            return '<div class="dnd-spell-edit" data-dnd-row="spells" data-id="' + row.id + '">' +
+              '<div class="dnd-spell-edit-top">' +
+              '<label class="dnd-save"><input class="dnd-check" type="checkbox" data-k="prepared"' + (row.prepared ? ' checked' : '') + ' /> vorb.</label>' +
+              '<input data-k="level" value="' + escapeAttr(row.level) + '" placeholder="0" title="Grad" />' +
+              '<input data-k="name" value="' + escapeAttr(row.name) + '" placeholder="Zauber" /></div>' +
+              '<div class="dnd-spell-edit-grid">' +
+              '<input data-k="time" value="' + escapeAttr(row.time) + '" placeholder="Aktion" />' +
+              '<input data-k="range" value="' + escapeAttr(row.range) + '" placeholder="9 m" />' +
+              '<input data-k="hit" value="' + escapeAttr(row.hit) + '" placeholder="+7 / WIS 15" />' +
+              '<input data-k="damage" value="' + escapeAttr(row.damage) + '" placeholder="2W8" /></div>' +
+              '<div class="dnd-spell-flags-edit">' +
+              '<label class="dnd-save"><input class="dnd-check" type="checkbox" data-k="concentration"' + (row.concentration ? ' checked' : '') + ' /> Konz.</label>' +
+              '<label class="dnd-save"><input class="dnd-check" type="checkbox" data-k="ritual"' + (row.ritual ? ' checked' : '') + ' /> Ritual</label></div>' +
+              '<div class="dnd-atk-edit-foot">' +
+              '<input data-k="notes" value="' + escapeAttr(row.notes) + '" placeholder="Notiz" />' +
+              '<button type="button" class="primary" data-dnd-spell-save="' + row.id + '">Speichern</button>' +
+              '<button type="button" class="ghost" data-dnd-del="spells">×</button></div></div>';
+          }
+          const flags = [];
+          if (row.concentration) flags.push('Konz.');
+          if (row.ritual) flags.push('Ritual');
+          const hit = String(row.hit || '').trim() || '—';
+          const dmg = String(row.damage || '').trim() || '—';
+          const hitBtn = dndHitIsAttack(row.hit);
+          const dmgBtn = !!dndParseDice(String(row.damage || '').replace(/\s/g, ''));
+          return '<div class="dnd-spell-item" data-dnd-row="spells" data-id="' + row.id + '">' +
+            '<label class="dnd-spell-prep" title="Vorbereitet"><input class="dnd-check" type="checkbox" data-k="prepared"' + (row.prepared ? ' checked' : '') + ' /></label>' +
+            '<div class="dnd-spell-id-text"><span class="dnd-atk-name">' + escapeAttr(row.name || 'Zauber') + '</span>' +
+            '<span class="dnd-spell-flags">' + escapeAttr(dndSpellLevelLabel(row.level) + (flags.length ? ' · ' + flags.join(' · ') : '')) + '</span></div>' +
+            '<div class="dnd-atk-range">' + escapeAttr(row.time || '—') + '</div>' +
+            '<div class="dnd-atk-range">' + escapeAttr(row.range || '—') + '</div>' +
+            (hitBtn
+              ? '<button type="button" class="dnd-atk-stat" data-dnd-roll="attack" title="Zauberangriff würfeln">' + escapeAttr(hit) + '</button>'
+              : '<div class="dnd-atk-stat" style="cursor:default;">' + escapeAttr(hit) + '</div>') +
+            (dmgBtn
+              ? '<button type="button" class="dnd-atk-stat" data-dnd-roll="damage" title="Nur Schaden würfeln">' + escapeAttr(dmg) + '</button>'
+              : '<div class="dnd-atk-stat" style="cursor:default;">' + escapeAttr(dmg) + '</div>') +
+            '<div class="dnd-atk-notes">' + escapeAttr(row.notes || '') + '</div>' +
+            '<button type="button" class="ghost" data-dnd-spell-edit="' + row.id + '" title="Bearbeiten">Ändern</button>' +
+            '<button type="button" class="ghost" data-dnd-del="spells">×</button></div>';
+        }).join('');
       }
       const items = document.getElementById('dndItemList');
       if (items) {
@@ -7928,6 +8096,7 @@
       renderDndAbilityCol();
       renderDndSlots();
       collapseDndAttacks();
+      collapseDndSpells();
       renderDndLists();
       renderDndPips();
       applyDndFields();
@@ -7968,7 +8137,11 @@
         });
         dndAttackEditId = id;
       }
-      if (kind === 'spells') dndState.spells.push({ id: combatNewId('s'), level: '0', name: '', prepared: false, notes: '' });
+      if (kind === 'spells') {
+        const id = combatNewId('s');
+        dndState.spells.push(emptyDndSpell(id));
+        dndSpellEditId = id;
+      }
       if (kind === 'items') dndState.items.push({ id: combatNewId('i'), name: '', qty: '1', weight: '', equipped: false, attuned: false, notes: '' });
       if (kind === 'features') dndState.features.push({ id: combatNewId('f'), name: '', uses: '', used: '', reset: 'long', text: '' });
       renderDndLists();
@@ -10852,6 +11025,7 @@
         persistCombat();
         if (usesDndSheet(currentSheetOwner)) {
           collapseDndAttacks();
+          collapseDndSpells();
           renderDndLists();
         }
         sheetDirty = false;
@@ -11639,9 +11813,12 @@
           kind: 'spell',
           id: s.id,
           name: String(s.name).trim(),
-          bonus: '',
-          damage: '',
+          bonus: dndItemAttackBonus(s),
+          hit: s.hit,
+          damage: s.damage,
           notes: s.notes,
+          range: s.range,
+          time: s.time,
           level: lvl
         });
       });
@@ -11654,14 +11831,15 @@
     }
 
     function kampfPowerLiveItem(action) {
-      if (!action || action.kind !== 'attack') return action;
+      if (!action) return action;
+      const key = action.kind === 'spell' ? 'spells' : 'attacks';
       const from = combatantById(kampfAimFrom);
       if (from && from.playerId && from.playerId === currentSheetOwner) {
-        const item = (dndState.attacks || []).find(x => x.id === action.id);
+        const item = (dndState[key] || []).find(x => x.id === action.id);
         if (item) return item;
       }
       const dnd = combatantDndSheet(from);
-      return (dnd && (dnd.attacks || []).find(x => x.id === action.id)) || action;
+      return (dnd && (dnd[key] || []).find(x => x.id === action.id)) || action;
     }
 
     function kampfPowerDice(action) {
@@ -11678,7 +11856,7 @@
       if (!row || !row.playerId) return;
       if (currentSheetOwner === row.playerId) {
         sheetDirty = true;
-        if (!dndAttackEditId) renderDndLists();
+        if (!dndAttackEditId && !dndSpellEditId) renderDndLists();
       }
       persistPlayersSoon();
     }
@@ -11804,7 +11982,7 @@
         applyCombatDamage(toId, n, true, fromId);
         return;
       }
-      const bonusRaw = String((live && live.bonus) || action.bonus || '').trim();
+      const bonusRaw = dndItemAttackBonus(live) || dndItemAttackBonus(action);
       const doDamage = crit => {
         if (typed) {
           appendTableDieCaption(typed + ' Schaden');
@@ -11821,7 +11999,7 @@
         }
         applyCombatDamage(toId, 1, false, fromId);
       };
-      if (action.kind === 'attack' && bonusRaw) {
+      if (bonusRaw && (action.kind === 'attack' || action.kind === 'spell')) {
         const bonus = dndParseBonus(bonusRaw);
         const die = 1 + Math.floor(Math.random() * 20);
         const total = die + bonus;
@@ -11951,7 +12129,10 @@
               const name = document.createElement('b');
               name.textContent = act.name;
               const meta = document.createElement('span');
-              meta.textContent = act.level && act.level !== '0' ? 'G' + act.level : 'G0';
+              const bits = [act.level && act.level !== '0' ? 'G' + act.level : 'G0'];
+              if (String(act.hit || act.bonus || '').trim()) bits.push(String(act.hit || act.bonus).trim());
+              if (String(act.damage || '').trim()) bits.push(String(act.damage).trim());
+              meta.textContent = bits.join(' · ');
               btn.appendChild(name);
               btn.appendChild(meta);
               btn.onclick = ev => {
@@ -17142,13 +17323,27 @@
               const wrap = rollAtk.closest('[data-dnd-row]');
               const id = wrap && wrap.getAttribute('data-id');
               collectDndFields();
-              const item = (dndState.attacks || []).find(x => x.id === id);
+              const item = (dndState.attacks || []).find(x => x.id === id)
+                || (dndState.spells || []).find(x => x.id === id);
               if (!item) return;
               const kind = rollAtk.getAttribute('data-dnd-roll');
-              if (kind === 'attack') rollDndAttack(item, wrap, true);
-              else rollDndDamageOnly(item, wrap, false);
+              const rollItem = Object.assign({}, item, { bonus: dndItemAttackBonus(item) || item.bonus });
+              if (kind === 'attack') rollDndAttack(rollItem, wrap, true);
+              else rollDndDamageOnly(rollItem, wrap, false);
               sheetDirty = true;
-              if (!dndAttackIsOpen(item)) renderDndLists();
+              if (!dndAttackIsOpen(item) && !dndSpellIsOpen(item)) renderDndLists();
+              return;
+            }
+            const spellSave = ev.target.closest('[data-dnd-spell-save]');
+            if (spellSave) {
+              commitDndSpell(spellSave.getAttribute('data-dnd-spell-save'));
+              return;
+            }
+            const spellEdit = ev.target.closest('[data-dnd-spell-edit]');
+            if (spellEdit) {
+              collectDndFields();
+              dndSpellEditId = spellEdit.getAttribute('data-dnd-spell-edit') || '';
+              renderDndLists();
               return;
             }
             const atkSave = ev.target.closest('[data-dnd-atk-save]');
