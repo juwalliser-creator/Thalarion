@@ -7982,6 +7982,11 @@
         if (kind === 'long' && (f.reset === 'short' || f.reset === 'long')) f.used = '0';
         if (kind === 'dawn' && f.reset === 'dawn') f.used = '0';
       });
+      if (kind === 'short') {
+        const max = Math.max(0, Number(dndState.hpMax) || 0);
+        const cur = Math.max(0, Number(dndState.hpCurrent) || 0);
+        if (max) dndState.hpCurrent = String(Math.min(max, cur + Math.floor(max / 2)));
+      }
       if (kind === 'long') {
         dndState.hpCurrent = dndState.hpMax || dndState.hpCurrent;
         dndState.hpTemp = '';
