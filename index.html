@@ -2227,20 +2227,26 @@
     body.is-dm .dice-tools-wrap { bottom: 4.1rem; }
     body.is-dm.sound-dock-open .dice-tools-wrap { bottom: 8.6rem; }
     .dice-tool-row {
+      position: relative;
       display: flex;
       align-items: flex-end;
-      gap: 0.45rem;
       pointer-events: none;
       max-width: 100%;
     }
     .dice-tool-row > * { pointer-events: auto; }
     .dice-tray-btn[aria-expanded="true"],
-    .dice-log-btn[aria-expanded="true"] {
+    .dice-log-btn[aria-expanded="true"],
+    .dice-pref-btn[aria-expanded="true"] {
       border-color: var(--gold);
       color: var(--gold);
     }
     .dice-tray,
-    .dice-log {
+    .dice-log,
+    .dice-pref {
+      position: absolute;
+      left: calc(100% + 0.45rem);
+      bottom: 0;
+      z-index: 3;
       min-width: 0;
       background: var(--panel);
       border: 1px solid var(--gold-dim);
@@ -2337,10 +2343,6 @@
       width: 12.4rem;
       max-width: calc(100vw - 4.4rem);
       padding: 0.55rem 0.65rem 0.6rem;
-      background: var(--panel);
-      border: 1px solid var(--gold-dim);
-      border-radius: 12px;
-      box-shadow: var(--shadow);
     }
     .dice-pref-btn.is-muted {
       border-color: var(--gold);
@@ -7038,14 +7040,20 @@
     function toggleDiceTray() {
       if (!canUseDiceTools()) return;
       diceTrayOpen = !diceTrayOpen;
-      if (diceTrayOpen) dicePrefOpen = false;
+      if (diceTrayOpen) {
+        diceLogOpen = false;
+        dicePrefOpen = false;
+      }
       applyDiceToolsUi();
     }
 
     function toggleDiceLog() {
       if (!canUseDiceTools()) return;
       diceLogOpen = !diceLogOpen;
-      if (diceLogOpen) dicePrefOpen = false;
+      if (diceLogOpen) {
+        diceTrayOpen = false;
+        dicePrefOpen = false;
+      }
       applyDiceToolsUi();
     }
 
