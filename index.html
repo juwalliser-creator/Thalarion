@@ -1053,10 +1053,24 @@
     .dnd-atk-name {
       display: block;
       font-weight: 700;
-      color: var(--dnd-ink);
+      color: var(--dnd-gold);
       font-size: 0.98rem;
       line-height: 1.2;
     }
+    button.dnd-atk-name {
+      background: none;
+      border: 0;
+      padding: 0;
+      margin: 0;
+      text-align: left;
+      cursor: pointer;
+      font: inherit;
+      color: var(--dnd-gold);
+      text-decoration: underline;
+      text-underline-offset: 0.16em;
+      text-decoration-color: rgba(212, 179, 106, 0.45);
+    }
+    button.dnd-atk-name:hover { filter: brightness(1.14); }
     .dnd-atk-kind {
       display: block;
       color: var(--dnd-mute);
@@ -1164,6 +1178,45 @@
       padding: 0.28rem 0.45rem;
       font-size: 0.75rem;
     }
+    #dndActionOverlay { z-index: 55; }
+    .dnd-action-card {
+      width: min(34rem, 100%);
+      max-height: min(86vh, 40rem);
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+    .dnd-action-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.6rem;
+    }
+    .dnd-action-head h2 {
+      margin: 0;
+      font-size: 1.2rem;
+      line-height: 1.25;
+    }
+    .dnd-action-head .ghost {
+      padding: 0.15rem 0.5rem;
+      flex: 0 0 auto;
+    }
+    .dnd-action-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.75rem;
+      margin: 0;
+      color: var(--dnd-mute);
+      font-size: 0.82rem;
+    }
+    .dnd-action-meta span { white-space: nowrap; }
+    .dnd-action-text {
+      min-height: 12rem;
+      flex: 1 1 auto;
+      line-height: 1.5;
+      resize: vertical;
+    }
+    .dnd-action-text[readonly] { opacity: 0.92; }
     .dnd-row-item { grid-template-columns: 1.3fr 3.4rem 4rem 5.2rem 5.2rem 1fr auto; }
     .dnd-row-feat { grid-template-columns: 1.2fr 4rem 4rem 7rem 1fr auto; }
     .dnd-slots {
@@ -3792,6 +3845,13 @@
       font-weight: 600;
       font-size: 0.86rem;
     }
+    .battle-power-act .battle-power-name {
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 0.14em;
+      text-decoration-color: rgba(212, 179, 106, 0.4);
+    }
+    .battle-power-act .battle-power-name:hover { color: var(--gold); }
     .battle-power-act em,
     .battle-power-act span {
       font-style: normal;
@@ -4855,6 +4915,21 @@
         <button class="ghost" id="playerCancel" type="button">Abbrechen</button>
       </div>
     </form>
+  </div>
+
+  <div id="dndActionOverlay" class="overlay hidden">
+    <div class="login-card dnd-action-card" role="dialog" aria-modal="true" aria-labelledby="dndActionTitle">
+      <div class="dnd-action-head">
+        <h2 id="dndActionTitle">Aktion</h2>
+        <button class="ghost" id="dndActionClose" type="button" title="Schließen">×</button>
+      </div>
+      <p class="dnd-action-meta" id="dndActionMeta"></p>
+      <textarea id="dndActionText" class="dnd-action-text" placeholder="Was tut diese Aktion?"></textarea>
+      <div class="editor-actions">
+        <button class="primary" id="dndActionSave" type="button">Speichern</button>
+        <button class="ghost" id="dndActionDismiss" type="button">Schließen</button>
+      </div>
+    </div>
   </div>
 
   <input id="uploadAllInput" class="hidden" type="file" accept=".txt,.md,text/plain" />
@@ -6446,7 +6521,8 @@
       base.attacks = list(src.attacks, x => x && {
         id: x.id || combatNewId('a'), name: String(x.name || ''), range: String(x.range || ''),
         bonus: String(x.bonus || ''), hitRoll: String(x.hitRoll || ''),
-        damage: String(x.damage || ''), dmgRoll: String(x.dmgRoll || ''), notes: String(x.notes || '')
+        damage: String(x.damage || ''), dmgRoll: String(x.dmgRoll || ''),
+        notes: String(x.notes || ''), text: String(x.text || '')
       });
       base.spells = list(src.spells, x => x && {
         id: x.id || combatNewId('s'),
@@ -6459,7 +6535,8 @@
         damage: String(x.damage || ''),
         concentration: !!x.concentration,
         ritual: !!x.ritual,
-        notes: String(x.notes || '')
+        notes: String(x.notes || ''),
+        text: String(x.text || '')
       });
       base.items = list(src.items, x => x && {
         id: x.id || combatNewId('i'), name: String(x.name || ''), qty: String(x.qty || '1'),
@@ -7796,7 +7873,8 @@
         damage: '',
         concentration: false,
         ritual: false,
-        notes: ''
+        notes: '',
+        text: ''
       };
     }
 
@@ -7840,6 +7918,97 @@
       return hit && dndHitIsAttack(hit) ? hit : '';
     }
 
+    let dndActionView = null;
+
+    function closeDndActionInfo() {
+      dndActionView = null;
+      const overlay = document.getElementById('dndActionOverlay');
+      if (overlay) overlay.classList.add('hidden');
+    }
+
+    function dndActionMetaLine(kind, item) {
+      if (!item) return '';
+      const bits = [];
+      if (kind === 'spells') {
+        bits.push(dndSpellLevelLabel(item.level));
+        if (item.time) bits.push(item.time);
+        if (item.range) bits.push(item.range);
+        if (item.hit) bits.push(item.hit);
+        if (item.damage) bits.push(item.damage);
+        if (item.concentration) bits.push('Konzentration');
+        if (item.ritual) bits.push('Ritual');
+      } else {
+        if (item.range) bits.push(item.range);
+        if (item.bonus) bits.push(item.bonus);
+        if (item.damage) bits.push(item.damage);
+      }
+      if (item.notes) bits.push(item.notes);
+      return bits.filter(Boolean).join(' · ');
+    }
+
+    function findDndAction(kind, id, owner) {
+      const live = !owner || owner === currentSheetOwner;
+      if (live) {
+        const item = (dndState[kind] || []).find(x => x.id === id);
+        if (item) return { item: item, live: true, owner: currentSheetOwner };
+      }
+      const rec = sheetOwnerRecord(owner || currentSheetOwner);
+      const dnd = rec && rec.sheet && rec.sheet.dnd;
+      const item = dnd && (dnd[kind] || []).find(x => x.id === id);
+      return { item: item, live: false, owner: owner || currentSheetOwner };
+    }
+
+    function openDndActionInfo(kind, id, owner) {
+      if (kind !== 'spells' && kind !== 'attacks') return;
+      if ((!owner || owner === currentSheetOwner) && usesDndSheet(currentSheetOwner)) collectDndFields();
+      const found = findDndAction(kind, id, owner);
+      if (!found.item) {
+        toast('Keine Beschreibung gefunden.');
+        return;
+      }
+      dndActionView = { kind: kind, id: id, owner: found.owner, live: found.live };
+      const overlay = document.getElementById('dndActionOverlay');
+      const title = document.getElementById('dndActionTitle');
+      const meta = document.getElementById('dndActionMeta');
+      const ta = document.getElementById('dndActionText');
+      const save = document.getElementById('dndActionSave');
+      if (title) title.textContent = found.item.name || (kind === 'spells' ? 'Zauber' : 'Angriff');
+      if (meta) meta.textContent = dndActionMetaLine(kind, found.item);
+      const canEdit = canEditOwnerSheet(found.owner);
+      if (ta) {
+        ta.value = String(found.item.text || '');
+        ta.readOnly = !canEdit;
+      }
+      if (save) save.classList.toggle('hidden', !canEdit);
+      if (overlay) overlay.classList.remove('hidden');
+      if (ta && canEdit) setTimeout(() => ta.focus(), 30);
+    }
+
+    function saveDndActionText() {
+      if (!dndActionView) return;
+      const ta = document.getElementById('dndActionText');
+      const text = ta ? ta.value : '';
+      const owner = dndActionView.owner;
+      if (!canEditOwnerSheet(owner)) return;
+      if (dndActionView.live || owner === currentSheetOwner) {
+        collectDndFields();
+        const item = (dndState[dndActionView.kind] || []).find(x => x.id === dndActionView.id);
+        if (!item) return;
+        item.text = text;
+        sheetDirty = true;
+        saveSheet();
+      } else {
+        const rec = sheetOwnerRecord(owner);
+        if (!rec || !rec.sheet) return;
+        rec.sheet.dnd = normalizeDndSheet(rec.sheet.dnd);
+        const item = (rec.sheet.dnd[dndActionView.kind] || []).find(x => x.id === dndActionView.id);
+        if (!item) return;
+        item.text = text;
+        persistPlayersSoon();
+      }
+      toast('Beschreibung gespeichert.');
+    }
+
     function renderDndLists() {
       const atk = document.getElementById('dndAttackList');
       if (atk) {
@@ -7877,7 +8046,7 @@
           const dmg = String(row.damage || '').trim() || '—';
           return '<div class="dnd-atk-item" data-dnd-row="attacks" data-id="' + row.id + '">' +
             '<div class="dnd-atk-id">' + dndAtkIcon(kind.icon) +
-            '<span class="dnd-atk-id-text"><span class="dnd-atk-name">' + escapeAttr(row.name || 'Angriff') + '</span>' +
+            '<span class="dnd-atk-id-text"><button type="button" class="dnd-atk-name" data-dnd-info title="Beschreibung">' + escapeAttr(row.name || 'Angriff') + '</button>' +
             '<span class="dnd-atk-kind">' + escapeAttr(kind.label) + '</span></span></div>' +
             '<div class="dnd-atk-range">' + escapeAttr(range.main) +
             (range.extra ? ' <span class="dnd-atk-range-far">(' + escapeAttr(range.extra) + ')</span>' : '') +
@@ -7939,7 +8108,7 @@
           const dmgBtn = !!dndParseDice(String(row.damage || '').replace(/\s/g, ''));
           return '<div class="dnd-spell-item" data-dnd-row="spells" data-id="' + row.id + '">' +
             '<label class="dnd-spell-prep" title="Vorbereitet"><input class="dnd-check" type="checkbox" data-k="prepared"' + (row.prepared ? ' checked' : '') + ' /></label>' +
-            '<div class="dnd-spell-id-text"><span class="dnd-atk-name">' + escapeAttr(row.name || 'Zauber') + '</span>' +
+            '<div class="dnd-spell-id-text"><button type="button" class="dnd-atk-name" data-dnd-info title="Beschreibung">' + escapeAttr(row.name || 'Zauber') + '</button>' +
             '<span class="dnd-spell-flags">' + escapeAttr(dndSpellLevelLabel(row.level) + (flags.length ? ' · ' + flags.join(' · ') : '')) + '</span></div>' +
             '<div class="dnd-atk-range">' + escapeAttr(row.time || '—') + '</div>' +
             '<div class="dnd-atk-range">' + escapeAttr(row.range || '—') + '</div>' +
@@ -8133,7 +8302,7 @@
       if (kind === 'attacks') {
         const id = combatNewId('a');
         dndState.attacks.push({
-          id: id, name: '', range: '', bonus: '', hitRoll: '', damage: '', dmgRoll: '', notes: ''
+          id: id, name: '', range: '', bonus: '', hitRoll: '', damage: '', dmgRoll: '', notes: '', text: ''
         });
         dndAttackEditId = id;
       }
@@ -12102,7 +12271,14 @@
               btn.type = 'button';
               btn.className = 'battle-power-act' + (kampfPowerAction && kampfPowerAction.id === act.id ? ' is-on' : '');
               const name = document.createElement('b');
+              name.className = 'battle-power-name';
               name.textContent = act.name;
+              name.title = 'Beschreibung';
+              name.onclick = ev => {
+                ev.stopPropagation();
+                const who = combatantById(kampfAimFrom);
+                openDndActionInfo('attacks', act.id, who && who.playerId);
+              };
               const meta = document.createElement('span');
               const bits = [];
               if (String(act.bonus || '').trim()) bits.push(String(act.bonus).trim());
@@ -12127,7 +12303,14 @@
               btn.type = 'button';
               btn.className = 'battle-power-act' + (kampfPowerAction && kampfPowerAction.id === act.id ? ' is-on' : '');
               const name = document.createElement('b');
+              name.className = 'battle-power-name';
               name.textContent = act.name;
+              name.title = 'Beschreibung';
+              name.onclick = ev => {
+                ev.stopPropagation();
+                const who = combatantById(kampfAimFrom);
+                openDndActionInfo('spells', act.id, who && who.playerId);
+              };
               const meta = document.createElement('span');
               const bits = [act.level && act.level !== '0' ? 'G' + act.level : 'G0'];
               if (String(act.hit || act.bonus || '').trim()) bits.push(String(act.hit || act.bonus).trim());
@@ -17318,6 +17501,14 @@
               dndRoll('Initiative', bonus);
               return;
             }
+            const infoBtn = ev.target.closest('[data-dnd-info]');
+            if (infoBtn) {
+              const wrap = infoBtn.closest('[data-dnd-row]');
+              const kind = wrap && wrap.getAttribute('data-dnd-row');
+              const id = wrap && wrap.getAttribute('data-id');
+              if (kind && id) openDndActionInfo(kind, id, currentSheetOwner);
+              return;
+            }
             const rollAtk = ev.target.closest('[data-dnd-roll="attack"], [data-dnd-roll="damage"]');
             if (rollAtk) {
               const wrap = rollAtk.closest('[data-dnd-row]');
@@ -17645,6 +17836,12 @@
         onEv('loginOverlay', 'click', ev => {
           if (ev.target === document.getElementById('loginOverlay')) closeLogin();
         });
+        onClick('dndActionClose', closeDndActionInfo);
+        onClick('dndActionDismiss', closeDndActionInfo);
+        onClick('dndActionSave', saveDndActionText);
+        onEv('dndActionOverlay', 'click', ev => {
+          if (ev.target === document.getElementById('dndActionOverlay')) closeDndActionInfo();
+        });
         onEv('loginForm', 'submit', ev => {
           ev.preventDefault();
           const userEl = els.dmUser;
@@ -17874,6 +18071,8 @@
       if (chatOpen) { toggleChat(false); return; }
       const login = document.getElementById('loginOverlay');
       if (login && !login.classList.contains('hidden')) { closeLogin(); return; }
+      const dndAction = document.getElementById('dndActionOverlay');
+      if (dndAction && !dndAction.classList.contains('hidden')) { closeDndActionInfo(); return; }
       const player = document.getElementById('playerOverlay');
       if (player && !player.classList.contains('hidden')) { closePlayerLogin(); return; }
       const pin = document.getElementById('pinOverlay');
