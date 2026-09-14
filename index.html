@@ -2176,7 +2176,7 @@
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      max-width: min(34rem, calc(100vw - 2rem));
+      max-width: min(44rem, calc(100vw - 2rem));
       padding: 0.38rem 0.85rem 0.38rem 0.42rem;
       border-radius: 999px;
       background: #f4efe4;
@@ -3651,6 +3651,99 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .battle-power-overlay {
+      position: fixed;
+      z-index: 40;
+      width: 15rem;
+      max-width: min(16.5rem, calc(100vw - 1.2rem));
+      max-height: min(22rem, calc(100vh - 1.2rem));
+      overflow: auto;
+      padding: 0.5rem 0.55rem 0.55rem;
+      background: rgba(22, 18, 14, 0.96);
+      border: 1px solid var(--gold-dim);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      pointer-events: auto;
+      color: var(--ink);
+    }
+    .battle-power-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.35rem;
+      margin: 0 0 0.4rem;
+      font-family: Cinzel, serif;
+      color: var(--gold);
+      font-size: 0.92rem;
+    }
+    .battle-power-head button {
+      min-width: 1.7rem;
+      padding: 0.12rem 0.35rem;
+    }
+    .battle-power-sec {
+      margin: 0.25rem 0 0.2rem;
+      color: var(--muted);
+      font-size: 0.7rem;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+    .battle-power-act {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: baseline;
+      gap: 0.1rem 0.45rem;
+      width: 100%;
+      margin: 0 0 0.28rem;
+      padding: 0.36rem 0.48rem;
+      text-align: left;
+      font: inherit;
+      appearance: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+    }
+    .battle-power-act:hover,
+    .battle-power-act.is-on {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+    .battle-power-act b {
+      font-weight: 600;
+      font-size: 0.86rem;
+    }
+    .battle-power-act em,
+    .battle-power-act span {
+      font-style: normal;
+      color: var(--muted);
+      font-size: 0.76rem;
+    }
+    .battle-power-hint {
+      margin: 0.35rem 0 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+    .battle-power-ask {
+      display: grid;
+      gap: 0.35rem;
+    }
+    .battle-power-ask .battle-power-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.35rem;
+    }
+    .battle-power-ask .battle-power-row button { width: 100%; padding: 0.4rem 0.45rem; }
+    .battle-power-ask input {
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      color: var(--ink);
+      border-radius: 8px;
+      padding: 0.38rem 0.45rem;
+    }
+    .battle-power-ask .battle-power-amt input { width: 5rem; }
+    .battle-power-ask input[type="text"] { width: 100%; }
 
     .hidden { display: none !important; }
 
@@ -4564,6 +4657,7 @@
                   <div class="battle-pings" id="kampfBattlePings"></div>
                 </div>
               </div>
+              <div class="battle-power-overlay hidden" id="kampfPowerOverlay" role="dialog" aria-label="Aktionen"></div>
             </div>
             <div class="kampf-list" id="kampfList"></div>
           </div>
@@ -5065,6 +5159,9 @@
     let kampfAimFrom = '';
     let kampfAimTo = '';
     let kampfAimEffect = '';
+    let kampfPowerAction = null;
+    let kampfPowerPhase = '';
+    let kampfPowerRenderKey = '';
     let sheetPortraitId = '';
     let pendingSheetPortrait = null;
     let kartePortraitId = '';
@@ -6880,6 +6977,45 @@
       });
     }
 
+    function revealTableDieCaption() {
+      const cap = document.getElementById('diceCaption');
+      const stage = document.getElementById('diceStage');
+      const items = (playTableDie._items || []).filter(x => x.phase !== 'gone');
+      if (!cap || !items.length) return;
+      const byBatch = {};
+      items.forEach(d => {
+        const b = d.batch || 0;
+        if (!byBatch[b]) byBatch[b] = [];
+        byBatch[b].push(d);
+      });
+      const parts = [];
+      Object.keys(byBatch).map(Number).sort((a, b) => a - b).forEach(b => {
+        const group = byBatch[b];
+        if (group.some(x => x.phase !== 'rest')) return;
+        const text = String(group[0].caption || '').trim();
+        if (text && parts.indexOf(text) < 0) parts.push(text);
+      });
+      if (!parts.length) return;
+      const span = cap.querySelector('span');
+      if (span) span.textContent = parts.join(' · ');
+      else cap.textContent = parts.join(' · ');
+      if (stage) stage.classList.add('is-landed');
+    }
+
+    function appendTableDieCaption(text) {
+      const extra = String(text || '').trim();
+      if (!extra) return;
+      const items = (playTableDie._items || []).filter(x => x.phase !== 'gone');
+      if (!items.length) {
+        toast(extra);
+        return;
+      }
+      const last = items[items.length - 1];
+      if (last.caption && last.caption.indexOf(extra) < 0) last.caption += ' · ' + extra;
+      else if (!last.caption) last.caption = extra;
+      revealTableDieCaption();
+    }
+
     function playTableDie(opts) {
       const caption = String(opts && opts.caption || '');
       let dice = [];
@@ -6957,7 +7093,10 @@
       const scenes = Array.prototype.slice.call(wrap.children);
       scenes.forEach(scene => rack.appendChild(scene));
 
-      stage.classList.remove('hidden', 'is-landed');
+      stage.classList.remove('hidden');
+      if (!(playTableDie._items || []).some(x => x.phase === 'rest')) {
+        stage.classList.remove('is-landed');
+      }
       stage.setAttribute('aria-hidden', 'false');
 
       const pose = (d, vis) => {
@@ -7005,6 +7144,7 @@
         setTimeout(() => {
           if (d.scene && d.scene.parentNode) d.scene.parentNode.removeChild(d.scene);
           playTableDie._items = (playTableDie._items || []).filter(x => x !== d);
+          revealTableDieCaption();
           if (rack && !rack.children.length) {
             stage.classList.add('hidden');
             stage.classList.remove('is-landed');
@@ -7014,16 +7154,6 @@
       };
 
       const batch = (playTableDie._batch = (playTableDie._batch || 0) + 1);
-      const revealCaption = () => {
-        const same = (playTableDie._items || []).filter(x => x.batch === batch && x.phase !== 'gone');
-        if (!same.length || same.some(x => x.phase !== 'rest')) return;
-        if (cap) {
-          const text = cap.querySelector('span');
-          if (text) text.textContent = caption;
-          else cap.textContent = caption;
-        }
-        stage.classList.add('is-landed');
-      };
 
       dice.forEach((spec, i) => {
         const scene = scenes[i];
@@ -7052,7 +7182,8 @@
             rz: Number(scene.getAttribute('data-rest-rz')) || 0
           },
           value: spec.value,
-          batch: batch
+          batch: batch,
+          caption: caption
         };
         syncVis(d);
         pose(d, true);
@@ -7101,7 +7232,7 @@
         pose(d, true);
         const face = d.mesh && d.mesh.querySelector('.dice-face[data-side="top"] span');
         if (face && d.value != null) face.textContent = String(d.value);
-        revealCaption();
+        revealTableDieCaption();
       };
 
       const bounceWall = (d) => {
@@ -8277,6 +8408,7 @@
         if (ev.target.closest('input, select, textarea, label')) return;
         const nestedBtn = ev.target.closest('button');
         if (nestedBtn && nestedBtn !== el) return;
+        if (handleKampfPowerClick(id)) return;
         if (pickKampfAim(id)) return;
         const row = combatantById(id);
         if (isDM && combat.started && row && row.delayed) {
@@ -8531,7 +8663,7 @@
       board.addEventListener('pointerdown', ev => {
         if (ev.button && ev.button !== 0) return;
         if (battleTokenDrag || battleHazardMode || battleMapTool) return;
-        if (ev.target.closest('.battle-token')) return;
+        if (ev.target.closest('.battle-token, .battle-power-overlay')) return;
         if (battleScale <= 1) return;
         ev.preventDefault();
         battlePan = {
@@ -9069,6 +9201,7 @@
           ev.stopPropagation();
           if (battleTokenDragMoved) return;
           if (handleBattleToolAt(token.x, token.y, ev)) return;
+          if (handleKampfPowerClick(token.id)) return;
           if (pickKampfAim(token.id)) return;
           setBattleLink(token.id, true);
         });
@@ -9080,6 +9213,7 @@
       applyBattleLinkHighlight();
       applyBattleTurnHighlight();
       renderKampfInitStrip();
+      renderKampfPowerOverlay();
     }
 
     function battlePctFromEvent(stage, ev) {
@@ -9185,7 +9319,7 @@
           applyBattle(snap, true);
         }
         if (!battleTokenDragMoved) {
-          if (!pickKampfAim(token.id)) setBattleLink(token.id, true);
+          if (!handleKampfPowerClick(token.id) && !pickKampfAim(token.id)) setBattleLink(token.id, true);
           battleTokenDragMoved = true;
         }
       };
@@ -9251,6 +9385,7 @@
       }
       const pct = battlePctFromEvent(stage, ev);
       if (handleBattleToolAt(pct.x, pct.y, ev)) return;
+      if (kampfPowerPhase) { cancelKampfAim(); return; }
       if (isDM && combat.started && kampfAimFrom) cancelKampfAim();
     }
 
@@ -11018,7 +11153,7 @@
       playTableDie({
         sides: rolled.sides,
         values: rolled.rolls,
-        caption: (item.name || 'Schaden') + ': ' + rolled.total + (crit ? ' (Krit)' : '')
+        caption: rolled.total + ' Schaden' + (crit ? ' (Krit)' : '')
       });
       if (opts && opts.apply && opts.toId) applyCombatDamage(opts.toId, rolled.total, false, opts.fromId);
     }
@@ -11360,7 +11495,464 @@
       return '';
     }
 
+    function combatantDndSheet(row) {
+      if (!row || !row.playerId) return null;
+      const rec = sheetOwnerRecord(row.playerId);
+      return rec && rec.sheet && rec.sheet.dnd ? rec.sheet.dnd : null;
+    }
+
+    function combatantPowerList(row) {
+      const dnd = combatantDndSheet(row);
+      const attacks = [];
+      const spells = [];
+      if (!dnd) return { attacks: attacks, spells: spells };
+      (dnd.attacks || []).forEach(a => {
+        const name = String(a.name || '').trim();
+        if (!name) return;
+        attacks.push({
+          kind: 'attack',
+          id: a.id,
+          name: name,
+          bonus: a.bonus,
+          damage: a.damage,
+          notes: a.notes,
+          range: a.range
+        });
+      });
+      const named = (dnd.spells || []).filter(s => String(s.name || '').trim());
+      const anyPrep = named.some(s => s.prepared);
+      named.forEach(s => {
+        const lvl = String(s.level || '0').trim();
+        const cantrip = !lvl || lvl === '0' || /^k/i.test(lvl);
+        if (anyPrep && !s.prepared && !cantrip) return;
+        spells.push({
+          kind: 'spell',
+          id: s.id,
+          name: String(s.name).trim(),
+          bonus: '',
+          damage: '',
+          notes: s.notes,
+          level: lvl
+        });
+      });
+      return { attacks: attacks, spells: spells };
+    }
+
+    function combatantHasPowers(row) {
+      const list = combatantPowerList(row);
+      return !!(list.attacks.length || list.spells.length);
+    }
+
+    function kampfPowerLiveItem(action) {
+      if (!action || action.kind !== 'attack') return action;
+      const from = combatantById(kampfAimFrom);
+      if (from && from.playerId && from.playerId === currentSheetOwner) {
+        const item = (dndState.attacks || []).find(x => x.id === action.id);
+        if (item) return item;
+      }
+      const dnd = combatantDndSheet(from);
+      return (dnd && (dnd.attacks || []).find(x => x.id === action.id)) || action;
+    }
+
+    function kampfPowerDice(action) {
+      if (!action) return '';
+      const live = kampfPowerLiveItem(action);
+      const dmg = String((live && live.damage) || action.damage || '').replace(/\s/g, '');
+      if (dmg && dndParseDice(dmg)) return dmg;
+      const notes = String((live && live.notes) || action.notes || '');
+      const m = notes.replace(/\s/g, '').match(/(\d*)[wWdD]\d+([+-]\d+)?/);
+      return m && dndParseDice(m[0]) ? m[0] : '';
+    }
+
+    function persistKampfPowerSheet(row) {
+      if (!row || !row.playerId) return;
+      if (currentSheetOwner === row.playerId) {
+        sheetDirty = true;
+        if (!dndAttackEditId) renderDndLists();
+      }
+      persistPlayersSoon();
+    }
+
+    function clearKampfAimState() {
+      kampfAimFrom = '';
+      kampfAimTo = '';
+      kampfAimEffect = '';
+      kampfPowerAction = null;
+      kampfPowerPhase = '';
+      kampfPowerRenderKey = '';
+    }
+
+    function openKampfPowerOverlay(id) {
+      kampfAimFrom = id;
+      kampfAimTo = '';
+      kampfAimEffect = '';
+      kampfPowerAction = null;
+      kampfPowerPhase = 'pick';
+      kampfPowerRenderKey = '';
+      renderKampfPowerOverlay();
+      syncKampfAimUi();
+    }
+
+    function pickKampfPowerAction(action) {
+      kampfPowerAction = action;
+      kampfAimTo = '';
+      kampfAimEffect = '';
+      kampfPowerPhase = 'aim';
+      kampfPowerRenderKey = '';
+      renderKampfPowerOverlay();
+      syncKampfAimUi();
+    }
+
+    function handleKampfPowerClick(id) {
+      if (!combat.started || battleHazardMode || battleMapTool) return false;
+      if (!canStartKampfAim() || !id) return false;
+      const row = combatantById(id);
+      if (!row) return false;
+      if ((kampfPowerPhase === 'aim' || kampfPowerPhase === 'intent' || kampfPowerPhase === 'effect') && kampfPowerAction && kampfAimFrom) {
+        kampfAimTo = id;
+        kampfAimEffect = '';
+        kampfPowerPhase = 'intent';
+        kampfPowerRenderKey = '';
+        renderKampfPowerOverlay();
+        syncKampfAimUi();
+        return true;
+      }
+      if (kampfPowerPhase === 'pick' && kampfAimFrom) {
+        if (id === kampfAimFrom) {
+          cancelKampfAim();
+          return true;
+        }
+        if (canControlCombatant(row) && combatantHasPowers(row)) {
+          openKampfPowerOverlay(id);
+          return true;
+        }
+        toast('Erst Angriff oder Zauber wählen.');
+        return true;
+      }
+      if (!canControlCombatant(row) || !combatantHasPowers(row)) return false;
+      openKampfPowerOverlay(id);
+      return true;
+    }
+
+    function positionKampfPowerOverlay() {
+      const box = document.getElementById('kampfPowerOverlay');
+      if (!box || box.classList.contains('hidden')) return;
+      const id = (kampfPowerPhase === 'intent' || kampfPowerPhase === 'effect') ? (kampfAimTo || kampfAimFrom) : kampfAimFrom;
+      const tokenEl = id ? document.querySelector('.battle-token[data-id="' + CSS.escape(id) + '"]') : null;
+      const board = document.getElementById('kampfBattleBoard');
+      const anchor = tokenEl || board;
+      if (!anchor) return;
+      const r = anchor.getBoundingClientRect();
+      box.style.left = (r.right + 10) + 'px';
+      box.style.top = r.top + 'px';
+      requestAnimationFrame(() => {
+        if (box.classList.contains('hidden')) return;
+        const pad = 8;
+        const br = box.getBoundingClientRect();
+        let x = br.left;
+        let y = br.top;
+        if (br.right > window.innerWidth - pad) x = r.left - br.width - 10;
+        if (x < pad) x = pad;
+        if (br.bottom > window.innerHeight - pad) y = window.innerHeight - pad - br.height;
+        if (y < pad) y = pad;
+        box.style.left = x + 'px';
+        box.style.top = y + 'px';
+      });
+    }
+
+    function kampfPowerAmtValue() {
+      const el = document.getElementById('kampfPowerAmt');
+      const n = Math.abs(Number(el && el.value));
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    }
+
+    function applyKampfPowerOutcome(heal) {
+      const fromRow = combatantById(kampfAimFrom);
+      if (!fromRow || !canControlCombatant(fromRow) || !kampfPowerAction || !kampfAimTo) return;
+      const toId = kampfAimTo;
+      const fromId = kampfAimFrom;
+      const action = kampfPowerAction;
+      const typed = kampfPowerAmtValue();
+      const diceRaw = kampfPowerDice(action);
+      const live = kampfPowerLiveItem(action) || action;
+      if (heal) {
+        let n = typed;
+        if (!n && diceRaw) {
+          const rolled = dndRollDicePartsCrit(diceRaw, false);
+          if (rolled) {
+            n = rolled.total;
+            playTableDie({
+              sides: rolled.sides,
+              values: rolled.rolls,
+              caption: (action.name || 'Heilung') + ': ' + rolled.total
+            });
+          }
+        }
+        if (!n) n = 1;
+        clearKampfAimState();
+        renderKampfPowerOverlay();
+        applyCombatDamage(toId, n, true, fromId);
+        return;
+      }
+      const bonusRaw = String((live && live.bonus) || action.bonus || '').trim();
+      const doDamage = crit => {
+        if (typed) {
+          appendTableDieCaption(typed + ' Schaden');
+          applyCombatDamage(toId, typed, false, fromId);
+          return;
+        }
+        if (diceRaw) {
+          rollDndDamageOnly({ name: action.name, damage: diceRaw }, null, !!crit, {
+            toId: toId,
+            fromId: fromId,
+            apply: true
+          });
+          return;
+        }
+        applyCombatDamage(toId, 1, false, fromId);
+      };
+      if (action.kind === 'attack' && bonusRaw) {
+        const bonus = dndParseBonus(bonusRaw);
+        const die = 1 + Math.floor(Math.random() * 20);
+        const total = die + bonus;
+        if (live) live.hitRoll = String(total);
+        const target = combatantById(toId);
+        const acRaw = Number(String((target && target.ac) || '').replace(',', '.').replace(/[^\d.\-]/g, ''));
+        const ac = Number.isFinite(acRaw) && acRaw > 0 ? acRaw : null;
+        const crit = die === 20;
+        const fumble = die === 1;
+        let hit = true;
+        if (fumble) hit = false;
+        else if (crit) hit = true;
+        else if (ac != null) hit = total >= ac;
+        let caption = (action.name || 'Angriff') + ': W20 ' + die + ' (' + dndSigned(bonus) + ') = ' + total;
+        if (target) caption += ' gegen ' + target.name;
+        if (ac != null) caption += hit ? (crit ? ' · kritischer Treffer RK ' + ac : ' · trifft RK ' + ac) : ' · verfehlt RK ' + ac;
+        else if (crit) caption += ' · kritischer Treffer';
+        else if (fumble) caption += ' · Fehlschlag';
+        playTableDie({ sides: 20, values: [die], caption: caption });
+        persistKampfPowerSheet(fromRow);
+        clearKampfAimState();
+        renderKampfPowerOverlay();
+        syncKampfAimUi();
+        if (!hit) {
+          toast('Verfehlt.');
+          return;
+        }
+        setTimeout(() => doDamage(crit), 720);
+        return;
+      }
+      clearKampfAimState();
+      renderKampfPowerOverlay();
+      doDamage(false);
+    }
+
+    function applyKampfPowerEffect(label) {
+      const textEl = document.getElementById('kampfPowerEffectText');
+      const roundEl = document.getElementById('kampfPowerEffectRounds');
+      if (textEl && label) textEl.value = label;
+      const fromRow = combatantById(kampfAimFrom);
+      if (!fromRow || !canControlCombatant(fromRow)) return;
+      const kind = kampfAimEffect === 'buff' ? 'buff' : 'debuff';
+      const text = (label || (textEl && textEl.value) || '').trim();
+      if (!text) {
+        toast(kampfAimEffect === 'buff' ? 'Buff benennen.' : 'Debuff benennen.');
+        return;
+      }
+      const rounds = roundEl && roundEl.value;
+      const fromId = kampfAimFrom;
+      const toId = kampfAimTo;
+      clearKampfAimState();
+      renderKampfPowerOverlay();
+      addCombatDebuff(toId, text, rounds, kind, fromId);
+    }
+
+    function renderKampfPowerOverlay() {
+      const box = document.getElementById('kampfPowerOverlay');
+      if (!box) return;
+      if (!combat.started || !kampfPowerPhase || !kampfAimFrom) {
+        box.classList.add('hidden');
+        box.innerHTML = '';
+        kampfPowerRenderKey = '';
+        return;
+      }
+      const from = combatantById(kampfAimFrom);
+      const to = combatantById(kampfAimTo);
+      const key = [kampfPowerPhase, kampfAimFrom, kampfAimTo, kampfPowerAction && kampfPowerAction.id, kampfAimEffect].join('|');
+      if (key !== kampfPowerRenderKey) {
+        kampfPowerRenderKey = key;
+        const head = document.createElement('div');
+        head.className = 'battle-power-head';
+        const title = document.createElement('span');
+        if (kampfPowerPhase === 'intent' || kampfPowerPhase === 'effect') {
+          title.textContent = (from && from.name ? from.name : '—') + ' → ' + (to && to.name ? to.name : '…');
+        } else {
+          title.textContent = from && from.name ? from.name : 'Aktionen';
+        }
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'ghost';
+        close.textContent = '×';
+        close.title = 'Schließen';
+        close.onclick = ev => {
+          ev.stopPropagation();
+          cancelKampfAim();
+        };
+        head.appendChild(title);
+        head.appendChild(close);
+        box.innerHTML = '';
+        box.appendChild(head);
+        if (kampfPowerPhase === 'pick' || kampfPowerPhase === 'aim') {
+          const list = combatantPowerList(from);
+          if (list.attacks.length) {
+            const sec = document.createElement('div');
+            sec.className = 'battle-power-sec';
+            sec.textContent = 'Angriffe';
+            box.appendChild(sec);
+            list.attacks.forEach(act => {
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'battle-power-act' + (kampfPowerAction && kampfPowerAction.id === act.id ? ' is-on' : '');
+              const name = document.createElement('b');
+              name.textContent = act.name;
+              const meta = document.createElement('span');
+              const bits = [];
+              if (String(act.bonus || '').trim()) bits.push(String(act.bonus).trim());
+              if (String(act.damage || '').trim()) bits.push(String(act.damage).trim());
+              meta.textContent = bits.join(' · ');
+              btn.appendChild(name);
+              btn.appendChild(meta);
+              btn.onclick = ev => {
+                ev.stopPropagation();
+                pickKampfPowerAction(act);
+              };
+              box.appendChild(btn);
+            });
+          }
+          if (list.spells.length) {
+            const sec = document.createElement('div');
+            sec.className = 'battle-power-sec';
+            sec.textContent = 'Zauber';
+            box.appendChild(sec);
+            list.spells.forEach(act => {
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'battle-power-act' + (kampfPowerAction && kampfPowerAction.id === act.id ? ' is-on' : '');
+              const name = document.createElement('b');
+              name.textContent = act.name;
+              const meta = document.createElement('span');
+              meta.textContent = act.level && act.level !== '0' ? 'G' + act.level : 'G0';
+              btn.appendChild(name);
+              btn.appendChild(meta);
+              btn.onclick = ev => {
+                ev.stopPropagation();
+                pickKampfPowerAction(act);
+              };
+              box.appendChild(btn);
+            });
+          }
+          const hint = document.createElement('p');
+          hint.className = 'battle-power-hint';
+          hint.textContent = kampfPowerPhase === 'aim'
+            ? ((kampfPowerAction && kampfPowerAction.name) || 'Aktion') + ' · Ziel antippen'
+            : 'Aktion wählen';
+          box.appendChild(hint);
+        } else if (kampfPowerPhase === 'intent') {
+          const ask = document.createElement('div');
+          ask.className = 'battle-power-ask';
+          const who = document.createElement('p');
+          who.className = 'battle-power-hint';
+          who.style.margin = '0';
+          who.textContent = (kampfPowerAction && kampfPowerAction.name) || 'Aktion';
+          const amtRow = document.createElement('div');
+          amtRow.className = 'battle-power-amt';
+          const amt = document.createElement('input');
+          amt.id = 'kampfPowerAmt';
+          amt.type = 'number';
+          amt.min = '0';
+          amt.placeholder = 'TP';
+          amt.title = 'Leer = Würfel der Aktion, sonst 1';
+          amtRow.appendChild(amt);
+          const row = document.createElement('div');
+          row.className = 'battle-power-row';
+          const dmg = document.createElement('button');
+          dmg.type = 'button';
+          dmg.className = 'danger';
+          dmg.textContent = 'Schaden';
+          dmg.onclick = ev => { ev.stopPropagation(); applyKampfPowerOutcome(false); };
+          const heal = document.createElement('button');
+          heal.type = 'button';
+          heal.className = 'ghost';
+          heal.textContent = 'Heilung';
+          heal.onclick = ev => { ev.stopPropagation(); applyKampfPowerOutcome(true); };
+          row.appendChild(dmg);
+          row.appendChild(heal);
+          const row2 = document.createElement('div');
+          row2.className = 'battle-power-row';
+          const buff = document.createElement('button');
+          buff.type = 'button';
+          buff.className = 'ghost';
+          buff.textContent = 'Buff';
+          buff.onclick = ev => {
+            ev.stopPropagation();
+            kampfAimEffect = 'buff';
+            kampfPowerPhase = 'effect';
+            kampfPowerRenderKey = '';
+            renderKampfPowerOverlay();
+          };
+          const debuff = document.createElement('button');
+          debuff.type = 'button';
+          debuff.className = 'ghost';
+          debuff.textContent = 'Debuff';
+          debuff.onclick = ev => {
+            ev.stopPropagation();
+            kampfAimEffect = 'debuff';
+            kampfPowerPhase = 'effect';
+            kampfPowerRenderKey = '';
+            renderKampfPowerOverlay();
+          };
+          row2.appendChild(buff);
+          row2.appendChild(debuff);
+          ask.appendChild(who);
+          ask.appendChild(amtRow);
+          ask.appendChild(row);
+          ask.appendChild(row2);
+          box.appendChild(ask);
+        } else if (kampfPowerPhase === 'effect') {
+          const ask = document.createElement('div');
+          ask.className = 'battle-power-ask';
+          const text = document.createElement('input');
+          text.id = 'kampfPowerEffectText';
+          text.type = 'text';
+          text.placeholder = kampfAimEffect === 'buff' ? 'z. B. Gesegnet' : 'z. B. Vergiftet';
+          if (kampfPowerAction && kampfPowerAction.name) text.value = kampfPowerAction.name;
+          const row = document.createElement('div');
+          row.className = 'battle-power-row';
+          const rounds = document.createElement('input');
+          rounds.id = 'kampfPowerEffectRounds';
+          rounds.type = 'number';
+          rounds.min = '1';
+          rounds.placeholder = 'Rd.';
+          rounds.title = 'Leer = bleibt';
+          const setBtn = document.createElement('button');
+          setBtn.type = 'button';
+          setBtn.className = 'primary';
+          setBtn.textContent = 'Setzen';
+          setBtn.onclick = ev => { ev.stopPropagation(); applyKampfPowerEffect(''); };
+          row.appendChild(rounds);
+          row.appendChild(setBtn);
+          ask.appendChild(text);
+          ask.appendChild(row);
+          box.appendChild(ask);
+          setTimeout(() => { try { text.focus(); } catch (err) {} }, 0);
+        }
+      }
+      box.classList.remove('hidden');
+      positionKampfPowerOverlay();
+    }
+
     function pickKampfAim(id) {
+      if (kampfPowerPhase) return false;
       if (!canStartKampfAim() || !id || !combatantById(id)) return false;
       const row = combatantById(id);
       if (!kampfAimFrom) {
@@ -11377,9 +11969,8 @@
     }
 
     function cancelKampfAim() {
-      kampfAimFrom = '';
-      kampfAimTo = '';
-      kampfAimEffect = '';
+      clearKampfAimState();
+      renderKampfPowerOverlay();
       syncKampfAimUi();
     }
 
@@ -11421,6 +12012,16 @@
         if (effects) effects.classList.add('hidden');
         return;
       }
+      if (kampfPowerPhase) {
+        if (panel) panel.classList.remove('is-open');
+        if (effects) effects.classList.add('hidden');
+        if (hint && from) {
+          if (kampfPowerPhase === 'pick') hint.textContent = from.name + ': Angriff oder Zauber wählen.';
+          else if (!to) hint.textContent = from.name + ' · ' + ((kampfPowerAction && kampfPowerAction.name) || 'Aktion') + ' → Ziel antippen.';
+          else hint.textContent = kampfAimLabel() + (kampfPowerAction ? ' · ' + kampfPowerAction.name : '');
+        }
+        return;
+      }
       if (!from) {
         if (hint) hint.textContent = isDM
           ? 'Erst den Handelnden antippen, dann das Ziel.'
@@ -11446,9 +12047,8 @@
       const to = kampfAimTo;
       const from = kampfAimFrom;
       const amt = combatDamageAmount();
-      kampfAimFrom = '';
-      kampfAimTo = '';
-      kampfAimEffect = '';
+      clearKampfAimState();
+      renderKampfPowerOverlay();
       applyCombatDamage(to, amt, heal, from);
     }
 
@@ -11458,9 +12058,8 @@
       const row = combatantById(kampfAimTo);
       if (!row) return;
       const from = combatantById(kampfAimFrom);
-      kampfAimFrom = '';
-      kampfAimTo = '';
-      kampfAimEffect = '';
+      clearKampfAimState();
+      renderKampfPowerOverlay();
       row.count = Math.max(0, (Number(row.count) || 0) - 1);
       touchCombatant(row);
       combatLog((from ? from.name + ' → ' : '') + row.name + ' · einer tot');
@@ -11486,9 +12085,8 @@
       const rounds = (document.getElementById('kampfEffectRounds') || {}).value;
       const fromId = kampfAimFrom;
       const toId = kampfAimTo;
-      kampfAimFrom = '';
-      kampfAimTo = '';
-      kampfAimEffect = '';
+      clearKampfAimState();
+      renderKampfPowerOverlay();
       addCombatDebuff(toId, text, rounds, kind, fromId);
     }
 
@@ -16223,6 +16821,8 @@
         onClick('kampfDelayBtn', () => markActiveKampfTurn('delay'));
         onClick('kampfEndBtn', endCombat);
         onClick('kampfAimCancel', cancelKampfAim);
+        onEv('kampfPowerOverlay', 'click', ev => ev.stopPropagation());
+        onEv('kampfPowerOverlay', 'pointerdown', ev => ev.stopPropagation());
         onClick('kampfActDmg', () => applyKampfAimDamage(false));
         onClick('kampfActHeal', () => applyKampfAimDamage(true));
         onClick('kampfActBuff', () => showKampfEffectPicker('buff'));
