@@ -6303,11 +6303,6 @@
     const ILLUSION_ALT = 'illusion';
     const ILLUSION_OWNER = CHRIS_ID + ':' + ILLUSION_ALT;
     const DM_NOTES_OWNER = 'dm-notes';
-    const UDO_ID = 'udo';
-
-    function isUdoOwner(owner) {
-      return owner === UDO_ID;
-    }
 
     function usesDndSheet(owner) {
       if (!owner || isDmNotesOwner(owner)) return false;
@@ -6319,7 +6314,6 @@
       const rec = sheetOwnerRecord(currentSheetOwner);
       if (rec && rec.sheet && String(rec.sheet.name || '').trim()) return rec.sheet.name;
       if (rec && rec.name) return rec.name;
-      if (isUdoOwner(currentSheetOwner)) return 'Udo';
       return '';
     }
 
@@ -7729,23 +7723,15 @@
       });
     }
 
-    function ensureUdoAccount(accs) {
-      if (!accs) return;
-      if (!accs[UDO_ID]) {
-        accs[UDO_ID] = {
-          name: 'Udo',
-          password: '',
-          sheet: Object.assign({}, EMPTY_SHEET, { name: 'Udo', dnd: emptyDndSheet() }),
-          alts: {},
-          createdAt: Date.now()
-        };
-        return;
-      }
-      accs[UDO_ID].name = 'Udo';
-      if (!accs[UDO_ID].sheet) accs[UDO_ID].sheet = Object.assign({}, EMPTY_SHEET, { name: 'Udo' });
-      if (!accs[UDO_ID].sheet.name) accs[UDO_ID].sheet.name = 'Udo';
-      accs[UDO_ID].sheet.dnd = normalizeDndSheet(accs[UDO_ID].sheet.dnd);
-      if (!accs[UDO_ID].sheet.dnd.name) accs[UDO_ID].sheet.dnd.name = 'Udo';
+    function removeUdoAccount(accs) {
+      if (!accs) return false;
+      let changed = false;
+      Object.keys(accs).forEach(id => {
+        if (String(id || '').toLowerCase() !== 'udo') return;
+        delete accs[id];
+        changed = true;
+      });
+      return changed;
     }
 
     function dndMod(score) {
@@ -8437,7 +8423,7 @@
       });
       ensureVeyrAlt(out);
       ensureIllusionAlt(out);
-      ensureUdoAccount(out);
+      removeUdoAccount(out);
       renameReptileToBjoern(out);
       Object.keys(out).forEach(id => {
         if (!usesDndSheet(id) || !out[id] || !out[id].sheet) return;
@@ -8471,7 +8457,7 @@
       syncPlayerCombatNames();
       const hadUdo = !!(data.accounts && (data.accounts.udo || data.accounts.Udo));
       const needsBjoernExtras = ensureBjoernFighterExtras(playerAccounts);
-      if ((needsCloudRename || !hadUdo || needsBjoernExtras) && db && !sheetDirty && !veyrEntryEditing) {
+      if ((needsCloudRename || hadUdo || needsBjoernExtras) && db && !sheetDirty && !veyrEntryEditing) {
         persistPlayers().catch(() => {});
       }
       syncChatListeners();
@@ -8500,6 +8486,7 @@
       if (!db) throw new Error('Keine Verbindung zur Cloud.');
       renameReptileToBjoern(playerAccounts);
       ensureBjoernFighterExtras(playerAccounts);
+      removeUdoAccount(playerAccounts);
       const nextAt = Date.now();
       writingPlayers = true;
       try {
@@ -8992,6 +8979,10 @@
       if (!data) return;
       const merged = mergeCombatStates(combatPayload(), data);
       combat = merged;
+      if (stripUdoFromCombatState()) {
+        replaceBattleTokensFromCombat();
+        persistCombat();
+      }
       persistCombatLocal();
       applyBattleTurnHighlight();
       if (currentPage === 'kampf') renderKampf();
@@ -10486,7 +10477,7 @@
     }
 
     function chatPlayerIds() {
-      return Object.keys(playerAccounts).filter(id => id !== UDO_ID).sort((a, b) =>
+      return Object.keys(playerAccounts).sort((a, b) =>
         playerAccounts[a].name.localeCompare(playerAccounts[b].name, 'de')
       );
     }
@@ -11076,7 +11067,6 @@
       }
 
       ensureVeyrAlt(playerAccounts);
-      ensureUdoAccount(playerAccounts);
       const roster = document.getElementById('charRoster');
       const layout = document.getElementById('charLayout');
       const ids = Object.keys(playerAccounts).sort((a, b) =>
@@ -11139,7 +11129,6 @@
       const del = document.getElementById('deletePlayerBtn');
       const isVeyr = currentSheetOwner === VEYR_OWNER;
       const isNotes = isDM && isDmNotesOwner(currentSheetOwner);
-      const isUdo = isUdoOwner(currentSheetOwner);
       const isDnd = usesDndSheet(currentSheetOwner);
       document.getElementById('charSheetBlock').classList.toggle('hidden', isNotes || isDnd);
       const dndBlock = document.getElementById('charDndBlock');
@@ -11159,7 +11148,7 @@
       if (notesField) notesField.classList.toggle('hidden', isVeyr || isNotes);
       const extraLabel = document.getElementById('sheetExtraLabel');
       if (extraLabel) extraLabel.textContent = isVeyr ? 'Text' : 'Ausrüstung & mehr';
-      del.classList.toggle('hidden', !isDM || !rec || rec.isAlt || isNotes || isUdo);
+      del.classList.toggle('hidden', !isDM || !rec || rec.isAlt || isNotes);
       if (isNotes) {
         document.getElementById('charHeading').textContent = 'DM-Notizen';
         document.getElementById('charBlurb').textContent = 'Nur für dich. Liegt nicht in Sitzung, Codex oder auf den Spielerblättern.';
@@ -11419,6 +11408,14 @@
         if (o) return o;
         return (a.name || '').localeCompare(b.name || '', 'de');
       });
+    }
+
+    function stripUdoFromCombatState() {
+      if (!combat || !Array.isArray(combat.combatants)) return false;
+      const next = combat.combatants.filter(c => String(c.playerId || '').toLowerCase() !== 'udo');
+      if (next.length === combat.combatants.length) return false;
+      combat.combatants = next;
+      return true;
     }
 
     function persistCombat() {
