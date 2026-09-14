@@ -1234,7 +1234,7 @@
     .dnd-slot input { text-align: center; }
     .dnd-money {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 0.55rem;
       margin-bottom: 0.7rem;
     }
@@ -4532,8 +4532,11 @@
                         </div>
                         <div class="dnd-pane dnd-card hidden" data-dnd-pane="inventory">
                           <div class="dnd-money">
-                            <div><label>Goldmünzen</label><input data-dnd-field="gp" inputmode="numeric" /></div>
-                            <div><label>Silbermünzen</label><input data-dnd-field="sp" inputmode="numeric" /></div>
+                            <div><label>Kupfer</label><input data-dnd-field="cp" inputmode="numeric" /></div>
+                            <div><label>Silber</label><input data-dnd-field="sp" inputmode="numeric" /></div>
+                            <div><label>Elektrom</label><input data-dnd-field="ep" inputmode="numeric" /></div>
+                            <div><label>Gold</label><input data-dnd-field="gp" inputmode="numeric" /></div>
+                            <div><label>Platin</label><input data-dnd-field="pp" inputmode="numeric" /></div>
                           </div>
                           <label>Ausrüstung</label>
                           <textarea data-dnd-field="gear" class="dnd-inv-gear" placeholder="Schreibe hier deine Sachen hinein…"></textarea>
@@ -4545,6 +4548,12 @@
                         </div>
                         <div class="dnd-pane dnd-card hidden" data-dnd-pane="description">
                           <div class="dnd-grid-2">
+                            <div><label>Alter</label><input data-dnd-field="age" /></div>
+                            <div><label>Größe</label><input data-dnd-field="height" /></div>
+                            <div><label>Gewicht</label><input data-dnd-field="weight" /></div>
+                            <div><label>Augen</label><input data-dnd-field="eyes" /></div>
+                            <div><label>Haut</label><input data-dnd-field="skin" /></div>
+                            <div><label>Haare</label><input data-dnd-field="hair" /></div>
                             <div><label>Aussehen</label><textarea data-dnd-field="appearance"></textarea></div>
                             <div><label>Persönlichkeit</label><textarea data-dnd-field="personality"></textarea></div>
                             <div><label>Ideale</label><textarea data-dnd-field="ideals"></textarea></div>
@@ -6249,6 +6258,34 @@
       return changed;
     }
 
+    function ensureBjoernFighterExtras(accs) {
+      const acc = accs && accs.chris;
+      if (!acc || !acc.sheet) return false;
+      if (!acc.sheet.dnd || typeof acc.sheet.dnd !== 'object') acc.sheet.dnd = emptyDndSheet();
+      const dnd = acc.sheet.dnd;
+      let changed = false;
+      const gear = String(dnd.gear || '');
+      if (!/sunburst/i.test(gear)) {
+        dnd.gear = gear.replace(/\s+$/, '') + (gear.trim() ? '\n' : '') + 'Sunburst-Token';
+        changed = true;
+      }
+      (Array.isArray(dnd.attacks) ? dnd.attacks : []).forEach(a => {
+        if (!a || !/crossbow|armbrust/i.test(String(a.name || ''))) return;
+        if (String(a.range || '').trim()) return;
+        a.range = '80 ft. / 320 ft.';
+        changed = true;
+      });
+      if (!String(dnd.age || '').trim()) { dnd.age = 'TBD'; changed = true; }
+      if (!String(dnd.skin || '').trim()) { dnd.skin = 'white boi'; changed = true; }
+      if (!String(dnd.weight || '').trim()) { dnd.weight = 'Several hamsters'; changed = true; }
+      const app = String(dnd.appearance || '').replace(/\r/g, '').trim();
+      if (/^Age:\s*TBD\s+Skin:\s*white boi\s+Weight:\s*Several hamsters$/i.test(app)) {
+        dnd.appearance = '';
+        changed = true;
+      }
+      return changed;
+    }
+
     function accountIdFromLoginName(name) {
       const id = playerIdFromName(name);
       if (playerAccounts[id]) return id;
@@ -6477,7 +6514,8 @@
         attacks: [], bonusActions: '', reactions: '', otherActions: '',
         spellAbility: 'int', spellSlots: spellSlots, spells: [],
         pp: '', gp: '', ep: '', sp: '', cp: '', attunement: ['', '', ''], items: [], gear: '',
-        features: [], appearance: '', personality: '', ideals: '', bonds: '', flaws: '',
+        features: [], age: '', height: '', weight: '', eyes: '', skin: '', hair: '',
+        appearance: '', personality: '', ideals: '', bonds: '', flaws: '',
         backstory: '', allies: '', enemies: '', organizations: '', notesOther: '',
         extras: '', creatures: '', tab: 'actions'
       };
@@ -8432,7 +8470,8 @@
       if (currentPlayerId && !playerAccounts[currentPlayerId]) setPlayer(null);
       syncPlayerCombatNames();
       const hadUdo = !!(data.accounts && (data.accounts.udo || data.accounts.Udo));
-      if ((needsCloudRename || !hadUdo) && db && !sheetDirty && !veyrEntryEditing) {
+      const needsBjoernExtras = ensureBjoernFighterExtras(playerAccounts);
+      if ((needsCloudRename || !hadUdo || needsBjoernExtras) && db && !sheetDirty && !veyrEntryEditing) {
         persistPlayers().catch(() => {});
       }
       syncChatListeners();
@@ -8460,6 +8499,7 @@
     async function persistPlayers() {
       if (!db) throw new Error('Keine Verbindung zur Cloud.');
       renameReptileToBjoern(playerAccounts);
+      ensureBjoernFighterExtras(playerAccounts);
       const nextAt = Date.now();
       writingPlayers = true;
       try {
