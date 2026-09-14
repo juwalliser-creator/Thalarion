@@ -2103,6 +2103,9 @@
       box-shadow: inset 0 1px 0 rgba(226, 179, 179, 0.18), 0 0 16px rgba(154, 51, 51, 0.4);
       color: #e2b3b3;
     }
+    .dice-scene.is-rest .dice-face:not([data-side="top"]) span {
+      opacity: 0;
+    }
     .dice-sparks {
       position: absolute;
       inset: 0;
@@ -6133,8 +6136,8 @@
           wy: 380 + Math.random() * 340,
           wz: inward * (280 + Math.random() * 260),
           rest: {
-            rx: -40 + (Math.random() - 0.5) * 6,
-            ry: 28 + (Math.random() - 0.5) * 10,
+            rx: -90,
+            ry: 0,
             rz: (Math.random() - 0.5) * 8
           },
           value: value,
@@ -6181,6 +6184,7 @@
         d.ry = d.rest.ry;
         d.rz = d.rest.rz;
         d.phase = 'rest';
+        if (d.scene) d.scene.classList.add('is-rest');
         const face = d.mesh && d.mesh.querySelector('.dice-face[data-side="top"] span');
         if (face && d.value != null) face.textContent = String(d.value);
         revealCaption();
