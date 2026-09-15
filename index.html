@@ -7617,8 +7617,8 @@
         d.srz = d.rz;
       };
 
-      const easeVis = (d, dt) => {
-        const k = 1 - Math.exp(-18 * dt);
+      const easeVis = (d, dt, rate) => {
+        const k = 1 - Math.exp(-(rate || 12) * dt);
         d.sx += (d.x - d.sx) * k;
         d.sy += (d.y - d.sy) * k;
         d.srx = unwrapTowards(d.srx, d.rx);
@@ -7710,7 +7710,8 @@
           ay: ay,
           az: az,
           spinSpeed0: 3200 + Math.random() * 1400,
-          spinFor: 0.92 + Math.random() * 0.18 + i * 0.03,
+          spinFor: 0.72 + Math.random() * 0.12 + i * 0.03,
+          glideFor: 0.72 + Math.random() * 0.1,
           scrambleAt: 0,
           rest: {
             rx: 0,
@@ -7729,26 +7730,6 @@
         playTableDie._items.push(d);
       });
 
-      const pullToRest = (d, dt, stiffness, damp, maxW) => {
-        d.rx = unwrapTowards(d.rx, d.rest.rx);
-        d.ry = unwrapTowards(d.ry, d.rest.ry);
-        d.rz = unwrapTowards(d.rz, d.rest.rz);
-        d.wx += shortestDeg(d.rx, d.rest.rx) * stiffness * dt;
-        d.wy += shortestDeg(d.ry, d.rest.ry) * stiffness * dt;
-        d.wz += shortestDeg(d.rz, d.rest.rz) * stiffness * dt;
-        const drag = Math.max(0, 1 - damp * dt);
-        d.wx *= drag;
-        d.wy *= drag;
-        d.wz *= drag;
-        const spin = Math.hypot(d.wx, d.wy, d.wz) || 1;
-        if (spin > maxW) {
-          const s = maxW / spin;
-          d.wx *= s;
-          d.wy *= s;
-          d.wz *= s;
-        }
-      };
-
       const lockRest = (d) => {
         if (d.phase === 'rest' || d.phase === 'gone') return;
         d.x = d.slotX;
@@ -7759,22 +7740,39 @@
         d.rx = d.rest.rx;
         d.ry = d.rest.ry;
         d.rz = d.rest.rz;
-        d.scale = 1.14;
-        d.popAt = performance.now();
+        d.scale = 1;
         d.phase = 'rest';
         if (d.scene) {
-          d.scene.classList.remove('is-spinning');
+          d.scene.classList.remove('is-spinning', 'is-braking');
           d.scene.classList.add('is-rest', 'is-pop');
           if (d.sides === 20 && d.value === 20) d.scene.classList.add('is-crit');
           if (d.sides === 20 && d.value === 1) d.scene.classList.add('is-fumble');
         }
         if (d.value != null) setTopFace(d, String(d.value));
-        syncVis(d);
-        pose(d, true);
         revealTableDieCaption();
         setTimeout(() => {
           if (d.scene) d.scene.classList.remove('is-pop');
         }, 620);
+      };
+
+      const beginGlide = (d, t) => {
+        if (d.phase !== 'spin') return;
+        d.phase = 'settle';
+        d.glideAt = t;
+        d.fromRx = unwrapTowards(d.rx, d.rest.rx);
+        d.fromRy = unwrapTowards(d.ry, d.rest.ry);
+        d.fromRz = unwrapTowards(d.rz, d.rest.rz);
+        d.rx = d.fromRx;
+        d.ry = d.fromRy;
+        d.rz = d.fromRz;
+        d.dx = shortestDeg(d.fromRx, d.rest.rx);
+        d.dy = shortestDeg(d.fromRy, d.rest.ry);
+        d.dz = shortestDeg(d.fromRz, d.rest.rz);
+        d.extraDeg = 260 + Math.random() * 160;
+        d.x = d.slotX;
+        d.y = d.slotY;
+        if (d.scene) d.scene.classList.add('is-braking');
+        syncVis(d);
       };
 
       const stepDie = (d, dt, now) => {
@@ -7792,50 +7790,28 @@
         d.x = d.slotX;
 
         if (d.phase === 'spin') {
-          const u = Math.min(1, Math.max(0, t / d.spinFor));
-          const brakeFrom = 0.74;
-          let keep = 1;
-          if (u > brakeFrom) {
-            const b = (u - brakeFrom) / (1 - brakeFrom);
-            keep = Math.pow(1 - b, 4.2);
-          }
-          const speed = d.spinSpeed0 * keep;
-          const wobble = 3 + 7 * keep;
+          const speed = d.spinSpeed0;
+          const wobble = 8;
           d.x = d.slotX + Math.sin(t * 38 + d.born) * wobble;
           d.rx += d.ax * speed * dt;
           d.ry += d.ay * speed * dt;
           d.rz += d.az * speed * dt;
-          if (d.scene) d.scene.classList.toggle('is-braking', u >= brakeFrom);
-          if (u < brakeFrom && now - d.scrambleAt > 18) {
+          if (now - d.scrambleAt > 18) {
             d.scrambleAt = now;
             scrambleFace(d);
           }
-          if (t >= d.spinFor) {
-            d.phase = 'settle';
-            d.x = d.slotX;
-            d.y = d.slotY;
-            const leftover = 28 + Math.random() * 22;
-            d.wx = d.ax * leftover;
-            d.wy = d.ay * leftover;
-            d.wz = d.az * leftover;
-            if (d.scene) d.scene.classList.remove('is-braking');
-            syncVis(d);
-          }
+          if (t >= d.spinFor) beginGlide(d, t);
         } else if (d.phase === 'settle') {
-          d.x = d.slotX;
+          const p = Math.min(1, Math.max(0, (t - d.glideAt) / (d.glideFor || 0.72)));
+          const e = 1 - Math.pow(1 - p, 4);
+          const bulge = Math.sin(p * Math.PI);
+          d.rx = d.fromRx + d.dx * e + d.ax * d.extraDeg * bulge;
+          d.ry = d.fromRy + d.dy * e + d.ay * d.extraDeg * bulge;
+          d.rz = d.fromRz + d.dz * e + d.az * d.extraDeg * bulge;
+          d.x = d.slotX + Math.sin(t * 18 + d.born) * (1 - e) * 4;
           d.y = d.slotY;
-          pullToRest(d, dt, 86, 14, 140);
-          d.rx += d.wx * dt;
-          d.ry += d.wy * dt;
-          d.rz += d.wz * dt;
-          const tilt = Math.hypot(
-            shortestDeg(d.rx, d.rest.rx),
-            shortestDeg(d.ry, d.rest.ry),
-            shortestDeg(d.rz, d.rest.rz)
-          );
-          if ((tilt < 2.2 && Math.hypot(d.wx, d.wy, d.wz) < 18) || t > d.spinFor + 0.38) {
-            lockRest(d);
-          }
+          if (p > 0.48 && d.value != null) setTopFace(d, String(d.value));
+          if (p >= 1) lockRest(d);
         }
       };
 
@@ -7872,16 +7848,17 @@
         (playTableDie._items || []).forEach(d => {
           if (d.phase === 'gone') return;
           if (d.phase === 'rest') {
-            if (d.popAt) {
-              const p = Math.min(1, (now - d.popAt) / 200);
-              d.scale = 1 + 0.14 * (1 - p);
-              if (p >= 1) {
-                d.scale = 1;
-                d.popAt = 0;
-              } else moving = true;
-            }
-            syncVis(d);
+            d.x = d.slotX;
+            d.y = d.slotY;
+            d.scale = 1;
+            easeVis(d, renderDt, 10);
             pose(d, true);
+            const tilt = Math.hypot(
+              shortestDeg(d.srx, d.rx),
+              shortestDeg(d.sry, d.ry),
+              shortestDeg(d.srz, d.rz)
+            );
+            if (tilt > 0.2) moving = true;
             return;
           }
           if ((now - d.born) / 1000 - d.delay < 0) {
@@ -7890,7 +7867,7 @@
           }
           if (d.phase === 'spin') pose(d, false);
           else {
-            easeVis(d, renderDt);
+            easeVis(d, renderDt, 11);
             pose(d, true);
           }
           moving = true;
