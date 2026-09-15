@@ -2271,7 +2271,14 @@
       filter: blur(0.5px);
     }
     .dice-scene.is-spinning .dice-glow {
-      animation: diceGlowPulse 0.32s ease-in-out infinite alternate;
+      width: 9.2rem;
+      height: 9.2rem;
+      margin: -4.6rem 0 0 -4.6rem;
+      animation: diceGlowPulse 0.16s ease-in-out infinite alternate;
+    }
+    .dice-scene.is-spinning.is-braking .dice-glow {
+      animation-duration: 0.28s;
+      opacity: 0.45;
     }
     .dice-scene.is-rest .dice-glow {
       opacity: 0.38;
@@ -2364,6 +2371,25 @@
       box-shadow: 0 0 8px #d4b36a, 0 0 16px rgba(232, 197, 122, 0.7);
       opacity: 0;
     }
+    .dice-scene.is-spinning .dice-sparks i {
+      width: 5px;
+      height: 5px;
+      background: #ffe7a8;
+      box-shadow: 0 0 10px #f3d27a, 0 0 18px rgba(255, 220, 140, 0.95);
+      animation: diceSpray 0.2s ease-out infinite;
+      animation-delay: calc(var(--i, 0) * -0.022s);
+    }
+    .dice-scene.is-spinning .dice-sparks i:nth-child(odd) {
+      width: 2px;
+      height: 16px;
+      margin: -8px 0 0 -1px;
+      border-radius: 2px;
+      animation-duration: 0.14s;
+    }
+    .dice-scene.is-spinning.is-braking .dice-sparks i {
+      animation-duration: 0.38s;
+      animation-name: diceSpark;
+    }
     .dice-scene.is-dissolving .dice-mesh {
       opacity: 0;
       transition: opacity 0.35s ease;
@@ -2378,22 +2404,17 @@
     .dice-scene.is-pop .dice-sparks i {
       animation: diceSpark 0.58s ease-out forwards;
     }
-    .dice-scene.is-spinning .dice-sparks i {
-      animation: diceMote 0.5s linear infinite;
-      animation-delay: calc(var(--i, 0) * -0.06s);
-    }
     @keyframes diceSpark {
       0% { opacity: 1; transform: translate(0, 0) scale(1); }
       100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.15); }
     }
     @keyframes diceGlowPulse {
-      from { opacity: 0.42; transform: scale(0.84); }
-      to { opacity: 1; transform: scale(1.14); }
+      from { opacity: 0.55; transform: scale(0.88); }
+      to { opacity: 1; transform: scale(1.22); }
     }
-    @keyframes diceMote {
-      0% { opacity: 0; transform: rotate(0deg) translateX(2.4rem) scale(0.35); }
-      18% { opacity: 0.95; }
-      100% { opacity: 0; transform: rotate(360deg) translateX(2.4rem) scale(0.2); }
+    @keyframes diceSpray {
+      0% { opacity: 1; transform: rotate(var(--spin, 0deg)) translate(0, 0) scale(1.2); }
+      100% { opacity: 0; transform: rotate(calc(var(--spin, 0deg) + 70deg)) translate(var(--dx), var(--dy)) scale(0.12); }
     }
     .dice-caption {
       position: absolute;
@@ -7538,10 +7559,10 @@
 
       const sparkHtml = () => {
         let out = '';
-        for (let i = 0; i < 16; i++) {
-          const a = (i / 16) * Math.PI * 2 + Math.random() * 0.3;
-          const dist = 38 + (i % 4) * 16 + Math.random() * 12;
-          out += '<i style="--i:' + i + ';--dx:' + Math.round(Math.cos(a) * dist) + 'px;--dy:' + Math.round(Math.sin(a) * dist) + 'px"></i>';
+        for (let i = 0; i < 28; i++) {
+          const a = (i / 28) * Math.PI * 2 + Math.random() * 0.4;
+          const dist = 70 + (i % 5) * 22 + Math.random() * 28;
+          out += '<i style="--i:' + i + ';--spin:' + (i * 13) + 'deg;--dx:' + Math.round(Math.cos(a) * dist) + 'px;--dy:' + Math.round(Math.sin(a) * dist) + 'px"></i>';
         }
         return out;
       };
@@ -7688,8 +7709,8 @@
           ax: ax,
           ay: ay,
           az: az,
-          spinSpeed0: 1080 + Math.random() * 820,
-          spinFor: 1.05 + Math.random() * 0.38 + i * 0.04,
+          spinSpeed0: 3200 + Math.random() * 1400,
+          spinFor: 0.92 + Math.random() * 0.18 + i * 0.03,
           scrambleAt: 0,
           rest: {
             rx: 0,
@@ -7771,15 +7792,21 @@
         d.x = d.slotX;
 
         if (d.phase === 'spin') {
-          const u = Math.min(1, t / d.spinFor);
-          const keep = Math.pow(1 - u, 1.28);
-          const speed = d.spinSpeed0 * (0.1 + 0.9 * keep);
-          const wobble = 5 * keep;
-          d.x = d.slotX + Math.sin(t * 26 + d.born) * wobble;
+          const u = Math.min(1, Math.max(0, t / d.spinFor));
+          const brakeFrom = 0.74;
+          let keep = 1;
+          if (u > brakeFrom) {
+            const b = (u - brakeFrom) / (1 - brakeFrom);
+            keep = Math.pow(1 - b, 4.2);
+          }
+          const speed = d.spinSpeed0 * keep;
+          const wobble = 3 + 7 * keep;
+          d.x = d.slotX + Math.sin(t * 38 + d.born) * wobble;
           d.rx += d.ax * speed * dt;
           d.ry += d.ay * speed * dt;
           d.rz += d.az * speed * dt;
-          if (u < 0.9 && now - d.scrambleAt > 42) {
+          if (d.scene) d.scene.classList.toggle('is-braking', u >= brakeFrom);
+          if (u < brakeFrom && now - d.scrambleAt > 18) {
             d.scrambleAt = now;
             scrambleFace(d);
           }
@@ -7787,16 +7814,17 @@
             d.phase = 'settle';
             d.x = d.slotX;
             d.y = d.slotY;
-            const leftover = 70 + Math.random() * 50;
+            const leftover = 28 + Math.random() * 22;
             d.wx = d.ax * leftover;
             d.wy = d.ay * leftover;
             d.wz = d.az * leftover;
+            if (d.scene) d.scene.classList.remove('is-braking');
             syncVis(d);
           }
         } else if (d.phase === 'settle') {
           d.x = d.slotX;
           d.y = d.slotY;
-          pullToRest(d, dt, 38, 6.4, 190);
+          pullToRest(d, dt, 86, 14, 140);
           d.rx += d.wx * dt;
           d.ry += d.wy * dt;
           d.rz += d.wz * dt;
@@ -7805,7 +7833,7 @@
             shortestDeg(d.ry, d.rest.ry),
             shortestDeg(d.rz, d.rest.rz)
           );
-          if ((tilt < 1.8 && Math.hypot(d.wx, d.wy, d.wz) < 14) || t > d.spinFor + 0.95) {
+          if ((tilt < 2.2 && Math.hypot(d.wx, d.wy, d.wz) < 18) || t > d.spinFor + 0.38) {
             lockRest(d);
           }
         }
