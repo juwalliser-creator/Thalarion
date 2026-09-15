@@ -2685,6 +2685,13 @@
       min-width: 7rem;
       text-align: center;
     }
+    .kampf-econ {
+      color: var(--muted);
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+    }
+    .battle-token.is-range-no { opacity: 0.42; }
+    .battle-token.is-range-ok { box-shadow: 0 0 0 2px var(--gold); }
     .kampf-act input {
       width: 4.6rem;
       border: 1px solid var(--line);
@@ -4756,7 +4763,7 @@
           <div class="hero">
             <div class="seal">K</div>
             <h1>Kampf</h1>
-            <p>Vorbereiten, dann Kampf starten. Danach: erst Handelnden antippen, dann das Ziel.</p>
+            <p>Vorbereiten, dann Kampf starten. Figur antippen, Aktion wählen, Ziel antippen.</p>
           </div>
           <div class="kampf-bar">
             <span class="kampf-round" id="kampfRound">Aufbau</span>
@@ -4775,7 +4782,9 @@
             </div>
           </div>
           <div class="kampf-act" id="kampfActBar">
+            <span class="kampf-econ" id="kampfEcon"></span>
             <span class="kampf-act-name" id="kampfActHint">Figuren vorbereiten, dann Kampf starten.</span>
+            <button class="primary hidden" id="kampfResolveBtn" type="button">Wirken</button>
             <button class="ghost hidden" id="kampfAimCancel" type="button">Abbrechen</button>
           </div>
           <div class="kampf-action-panel" id="kampfActionPanel">
@@ -5392,6 +5401,7 @@
     let soundUserClips = [];
     let kampfAimFrom = '';
     let kampfAimTo = '';
+    let kampfAimTargets = [];
     let kampfAimEffect = '';
     let kampfPowerAction = null;
     let kampfPowerPhase = '';
@@ -9072,10 +9082,16 @@
       applyKampfAimHighlight();
     }
 
+    function kampfIsAimTarget(id) {
+      if (!id) return false;
+      if (kampfAimTo && kampfAimTo === id) return true;
+      return !!(kampfAimTargets && kampfAimTargets.indexOf(id) >= 0);
+    }
+
     function applyKampfAimHighlight() {
       document.querySelectorAll('.battle-token, .kampf-card, .kampf-side-item, .kampf-init-item').forEach(el => {
         el.classList.toggle('is-aim-from', !!(kampfAimFrom && el.dataset.id === kampfAimFrom));
-        el.classList.toggle('is-aim-to', !!(kampfAimTo && el.dataset.id === kampfAimTo));
+        el.classList.toggle('is-aim-to', kampfIsAimTarget(el.dataset.id));
       });
     }
 
@@ -9679,7 +9695,9 @@
 
     function canMoveBattleToken(token) {
       if (isDM) return true;
-      return isOwnCombatOwner(token.playerId);
+      if (!isOwnCombatOwner(token.playerId)) return false;
+      if (combat.started) return isCombatantActiveTurn(token.id);
+      return true;
     }
 
     function battleHintText() {
@@ -9849,7 +9867,7 @@
         if (isOwnCombatOwner(token.playerId)) el.classList.add('is-mine');
         if (isCombatantActiveTurn(token.id)) el.classList.add('is-turn');
         if (kampfAimFrom && token.id === kampfAimFrom) el.classList.add('is-aim-from');
-        if (kampfAimTo && token.id === kampfAimTo) el.classList.add('is-aim-to');
+        if (kampfIsAimTarget(token.id)) el.classList.add('is-aim-to');
         const row = combatantById(token.id);
         if (row && combatantDown(row)) el.classList.add('is-down');
         if (row && combatantBloodied(row)) el.classList.add('is-bloodied');
@@ -9891,9 +9909,14 @@
           hpTxt.textContent = hpMax ? (hp + '/' + hpMax) : String(hp);
           if (row.tempHp) hpTxt.textContent += ' +' + row.tempHp;
           el.appendChild(hpTxt);
-          el.title = (token.name || '') + ' · ' + hpTxt.textContent + (row.ac ? ' · RK ' + row.ac : '');
+          if (combat.started && isCombatantActiveTurn(row.id)) kampfEnsureMove(row);
+          el.title = (token.name || '') + ' · ' + hpTxt.textContent + (row.ac ? ' · RK ' + row.ac : '') +
+            (combat.started && isCombatantActiveTurn(row.id) ? ' · ' + Math.max(0, Number(row.moveLeft) || 0) + ' ft.' : '');
         }
         el.dataset.id = token.id;
+        if (kampfPowerPhase === 'aim' && kampfPowerAction && token.id !== kampfAimFrom) {
+          el.classList.add(kampfInRange(kampfAimFrom, token.id, kampfPowerAction) ? 'is-range-ok' : 'is-range-no');
+        }
         el.addEventListener('pointerenter', () => setBattleLink(token.id, false));
         el.addEventListener('pointerleave', () => {
           if (battleLinkHoverId === token.id) setBattleLink('', false);
@@ -9979,6 +10002,12 @@
       battleTokenDragMoved = false;
       const originX = ev.clientX;
       const originY = ev.clientY;
+      const startPos = { x: Number(token.x), y: Number(token.y) };
+      const row = combatantById(token.id);
+      if (row && combat.started && isCombatantActiveTurn(token.id)) kampfEnsureMove(row);
+      const spendMove = !!(combat.started && row && isCombatantActiveTurn(token.id));
+      const startNeighbors = spendMove ? kampfMeleeNeighbors(token.id) : [];
+      const moveBudget = spendMove ? Math.max(0, Number(row.moveLeft) || 0) : 9999;
       battleTokenDrag = { id: token.id, pointerId: ev.pointerId, el: el, stage: stage };
       el.classList.add('is-dragging');
       const move = e => {
@@ -9986,7 +10015,18 @@
         if (Math.abs(e.clientX - originX) + Math.abs(e.clientY - originY) > 4) {
           battleTokenDragMoved = true;
         }
-        const pct = snapBattlePct(stage, battlePctFromEvent(stage, e));
+        let pct = snapBattlePct(stage, battlePctFromEvent(stage, e));
+        if (spendMove && moveBudget < 9999) {
+          const want = kampfPctDistanceFeet(startPos, pct);
+          if (want > moveBudget && want > 0) {
+            const f = moveBudget / want;
+            pct = {
+              x: startPos.x + (pct.x - startPos.x) * f,
+              y: startPos.y + (pct.y - startPos.y) * f
+            };
+            pct = snapBattlePct(stage, pct);
+          }
+        }
         const t = battle.tokens.find(x => x.id === token.id);
         if (!t) return;
         t.x = pct.x;
@@ -10011,6 +10051,16 @@
             if (battle.removedTokens) delete battle.removedTokens[t.id];
             el.style.left = t.x + '%';
             el.style.top = t.y + '%';
+            if (spendMove && row) {
+              const used = kampfPctDistanceFeet(startPos, t);
+              row.moveLeft = Math.max(0, (Number(row.moveLeft) || 0) - used);
+              touchCombatant(row);
+              const endNeighbors = kampfMeleeNeighbors(token.id);
+              kampfOpportunity(token.id, startNeighbors, endNeighbors);
+              kampfApplyHazards(row, t);
+              persistCombat();
+              syncKampfAimUi();
+            }
           }
         }
         persistBattleSoon();
@@ -11537,6 +11587,11 @@
         concentrating: !!c.concentrating,
         ready: !!c.ready,
         delayed: !!c.delayed,
+        actionUsed: !!c.actionUsed,
+        bonusUsed: !!c.bonusUsed,
+        reactionUsed: !!c.reactionUsed,
+        moveMax: Math.max(0, Number(c.moveMax) || 0),
+        moveLeft: Math.max(0, Number(c.moveLeft) || 0),
         debuffs: normalizeCombatDebuffs(c.debuffs),
         portraitId: typeof c.portraitId === 'string' ? c.portraitId : '',
         updatedAt: stamp(c.updatedAt)
@@ -11962,10 +12017,8 @@
 
     function combatPlayerTurnHint() {
       const names = combatGroupMembers(activeCombatGroupKey()).map(row => row.name).filter(Boolean);
-      if (names.length > 1) {
-        return 'Dein Zug (' + names.join(' + ') + '): erst eine deiner Figuren antippen, dann das Ziel. Danach „Zug beenden“.';
-      }
-      return 'Dein Zug: erst deine Figur antippen, dann das Ziel. Danach „Zug beenden“.';
+      const who = names.length > 1 ? 'Dein Zug (' + names.join(' + ') + ')' : 'Dein Zug';
+      return who + ': Figur antippen, Aktion wählen, Ziel antippen. Ziehen = Bewegung. Danach „Zug beenden“.';
     }
 
     function addCombatant(data, quiet) {
@@ -12237,6 +12290,249 @@
       return 'LR';
     }
 
+    function kampfSpeedFeet(row) {
+      const dnd = combatantDndSheet(row);
+      const raw = String((dnd && dnd.speed) || (row && row.note) || '30 ft.');
+      const m = raw.replace(',', '.').match(/(\d+(?:\.\d+)?)/);
+      const n = m ? Number(m[1]) : 30;
+      if (/m\b|meter/i.test(raw) && n <= 20) return Math.round(n / 0.3 / 5) * 5;
+      return Number.isFinite(n) && n > 0 ? n : 30;
+    }
+
+    function kampfEnsureMove(row) {
+      if (!row) return;
+      if (!(Number(row.moveMax) > 0)) {
+        row.moveMax = kampfSpeedFeet(row);
+        row.moveLeft = row.moveMax;
+        touchCombatant(row);
+      }
+    }
+
+    function kampfResetEconomy(row) {
+      if (!row) return;
+      row.actionUsed = false;
+      row.bonusUsed = false;
+      row.reactionUsed = false;
+      row.moveMax = kampfSpeedFeet(row);
+      row.moveLeft = row.moveMax;
+      touchCombatant(row);
+    }
+
+    function kampfResetTurnEconomy(key) {
+      combatGroupMembers(key || activeCombatGroupKey()).forEach(kampfResetEconomy);
+    }
+
+    function kampfEconLabel(row) {
+      if (!row) return '';
+      kampfEnsureMove(row);
+      const bits = [];
+      bits.push(row.actionUsed ? 'Aktion raus' : 'Aktion');
+      bits.push(row.bonusUsed ? 'Bonus raus' : 'Bonus');
+      bits.push(Math.max(0, Number(row.moveLeft) || 0) + ' ft.');
+      return bits.join(' · ');
+    }
+
+    function kampfParseRangeFeet(raw, kind) {
+      const s = String(raw || '').trim().toLowerCase();
+      if (!s) return kind === 'attack' ? 5 : null;
+      if (/selbst|self/.test(s) && !/\d/.test(s)) return 0;
+      if (/berührung|touch/.test(s)) return 5;
+      const m = s.match(/(\d+)/);
+      return m ? Number(m[1]) : (kind === 'attack' ? 5 : null);
+    }
+
+    function kampfPctDistanceFeet(a, b) {
+      if (!a || !b) return 0;
+      const stage = document.getElementById('kampfBattleStage');
+      const m = battleGridMetrics(stage);
+      if (!m.cellW || !m.width) return 0;
+      const dx = ((Number(a.x) - Number(b.x)) / 100) * m.width / m.cellW;
+      const dy = ((Number(a.y) - Number(b.y)) / 100) * m.height / m.cellH;
+      return Math.max(0, Math.round(Math.max(Math.abs(dx), Math.abs(dy)))) * 5;
+    }
+
+    function kampfTokenDistanceFeet(idA, idB) {
+      const a = (battle.tokens || []).find(t => t.id === idA);
+      const b = (battle.tokens || []).find(t => t.id === idB);
+      if (!a || !b) return 0;
+      return kampfPctDistanceFeet(a, b);
+    }
+
+    function kampfActionEconomy(action) {
+      if (!action) return 'action';
+      const t = String(action.time || '').toLowerCase();
+      const name = String(action.name || '').toLowerCase();
+      if (/reaktion|reaction/.test(t)) return 'reaction';
+      if (/bonus/.test(t) || /second wind|zweiter wind|zweite wind/.test(name)) return 'bonus';
+      if (/action surge|aktionsstoß|aktionsschub/.test(name)) return 'surge';
+      if (action.kind === 'feature') {
+        const live = kampfPowerLiveItem(action) || action;
+        if (!dndItemAttackBonus(live) && !kampfPowerDice(action)) return 'free';
+      }
+      return 'action';
+    }
+
+    function kampfEconomyBlocked(row, action) {
+      const slot = kampfActionEconomy(action);
+      if (slot === 'reaction') return 'Reaktionen kommen später — erst der eigene Zug.';
+      if (slot === 'action' && row && row.actionUsed) return 'Aktion in diesem Zug schon genutzt.';
+      if (slot === 'bonus' && row && row.bonusUsed) return 'Bonusaktion in diesem Zug schon genutzt.';
+      return '';
+    }
+
+    function kampfSpendEconomy(row, action) {
+      if (!row) return;
+      const slot = kampfActionEconomy(action);
+      if (slot === 'action') row.actionUsed = true;
+      if (slot === 'bonus') row.bonusUsed = true;
+      if (slot === 'surge') row.actionUsed = false;
+      touchCombatant(row);
+    }
+
+    function kampfActionIsHeal(action) {
+      return /heal|cure|healing|heilung|heilendes wort|cure wounds|healing word|second wind|zweiter wind|aid\b|goodberry/i.test(String(action && action.name || ''));
+    }
+
+    function kampfActionIsArea(action) {
+      const t = ((action && action.name) || '') + ' ' + ((action && action.notes) || '') + ' ' + ((action && action.range) || '');
+      return /burning hands|faerie fire|thunderwave|shatter|spirit guardians|flaming sphere|ice storm|fireball|cone|cube|sphere|radius|kegel|fläche|burst|emanation/i.test(t);
+    }
+
+    function kampfParseSave(hit) {
+      const s = String(hit || '').trim();
+      const m = s.match(/(STR|DEX|CON|INT|WIS|CHA|STÄ|GES|KON|WEI)\s*(\d+)/i) || s.match(/SG\s*(\d+)/i);
+      if (!m) return null;
+      const abRaw = (m[1] || '').toLowerCase();
+      const dc = Number(m[2] || m[1]);
+      if (!Number.isFinite(dc) || dc <= 0) return null;
+      let ab = 'dex';
+      if (/str|stä/.test(abRaw)) ab = 'str';
+      else if (/dex|ges/.test(abRaw)) ab = 'dex';
+      else if (/con|kon/.test(abRaw)) ab = 'con';
+      else if (/int/.test(abRaw) && !/wis|wei/.test(abRaw)) ab = 'int';
+      else if (/wis|wei/.test(abRaw)) ab = 'wis';
+      else if (/cha/.test(abRaw)) ab = 'cha';
+      return { ab: ab, dc: dc };
+    }
+
+    function kampfAbilityMod(row, ab) {
+      const dnd = combatantDndSheet(row);
+      if (!dnd || !dnd.abilities || !dnd.abilities[ab]) return 0;
+      return dndMod(dnd.abilities[ab].score) + (dnd.abilities[ab].save ? dndProficiencyFor(dnd) : 0);
+    }
+
+    function kampfHasCover(fromId, toId) {
+      const a = (battle.tokens || []).find(t => t.id === fromId);
+      const b = (battle.tokens || []).find(t => t.id === toId);
+      if (!a || !b) return false;
+      const ax = Number(a.x), ay = Number(a.y), bx = Number(b.x), by = Number(b.y);
+      const len = Math.hypot(bx - ax, by - ay);
+      if (len < 6) return false;
+      return (battle.tokens || []).some(t => {
+        if (t.id === fromId || t.id === toId) return false;
+        const row = combatantById(t.id);
+        if (row && combatantDown(row)) return false;
+        const px = Number(t.x), py = Number(t.y);
+        const tparam = ((px - ax) * (bx - ax) + (py - ay) * (by - ay)) / (len * len);
+        if (tparam <= 0.12 || tparam >= 0.88) return false;
+        const qx = ax + tparam * (bx - ax);
+        const qy = ay + tparam * (by - ay);
+        return Math.hypot(px - qx, py - qy) < 2.4;
+      });
+    }
+
+    function kampfPointInPoly(x, y, pts) {
+      if (!pts || pts.length < 3) return false;
+      let inside = false;
+      for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const xi = Number(pts[i].x), yi = Number(pts[i].y);
+        const xj = Number(pts[j].x), yj = Number(pts[j].y);
+        const hit = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / ((yj - yi) || 1e-9) + xi);
+        if (hit) inside = !inside;
+      }
+      return inside;
+    }
+
+    function kampfHazardsAt(x, y) {
+      return (battle.hazards || []).filter(h => kampfPointInPoly(x, y, h.points)).map(h => h.type);
+    }
+
+    function kampfApplyHazards(row, token) {
+      if (!row || !token || !combat.started) return;
+      const types = kampfHazardsAt(token.x, token.y);
+      if (types.indexOf('fire') >= 0) {
+        const rolled = dndRollDicePartsCrit('1W6', false);
+        const n = rolled ? rolled.total : 1;
+        if (rolled) playTableDie({ sides: rolled.sides, values: rolled.rolls, caption: row.name + ' · Feuer ' + n });
+        applyCombatDamage(row.id, n, false, '');
+        toast(row.name + ' im Feuer: ' + n + ' Schaden.');
+      }
+    }
+
+    function kampfMeleeNeighbors(id) {
+      return (combat.combatants || []).filter(row => {
+        if (!row || row.id === id || combatantDown(row)) return false;
+        return kampfTokenDistanceFeet(id, row.id) <= 5;
+      });
+    }
+
+    function kampfFirstMeleeAttack(row) {
+      const list = combatantPowerList(row);
+      return (list.attacks || []).find(a => {
+        const feet = kampfParseRangeFeet(a.range, 'attack');
+        return feet == null || feet <= 5;
+      }) || (list.attacks || [])[0] || null;
+    }
+
+    function kampfOpportunity(fromId, startNeighbors, endNeighbors) {
+      const left = startNeighbors.filter(row => !endNeighbors.some(x => x.id === row.id));
+      left.forEach(enemy => {
+        if (enemy.reactionUsed) return;
+        const atk = kampfFirstMeleeAttack(enemy);
+        if (!atk && enemy.kind === 'player') return;
+        enemy.reactionUsed = true;
+        touchCombatant(enemy);
+        const target = combatantById(fromId);
+        if (!target) return;
+        if (atk) {
+          const live = atk;
+          const bonusRaw = dndItemAttackBonus(live) || live.bonus;
+          const bonus = dndParseBonus(bonusRaw);
+          const die = 1 + Math.floor(Math.random() * 20);
+          const total = die + bonus;
+          const acRaw = Number(String(target.ac || '').replace(',', '.').replace(/[^\d.\-]/g, ''));
+          const ac = Number.isFinite(acRaw) && acRaw > 0 ? acRaw : 10;
+          const hit = die !== 1 && (die === 20 || total >= ac);
+          playTableDie({
+            sides: 20,
+            values: [die],
+            caption: enemy.name + ' · Gelegenheit gegen ' + target.name + ': ' + total + (hit ? ' trifft' : ' verfehlt')
+          });
+          combatLog(enemy.name + ' → ' + target.name + ' · Gelegenheit ' + (hit ? 'trifft' : 'verfehlt'));
+          if (hit) {
+            const diceRaw = kampfPowerDice(atk);
+            setTimeout(() => {
+              if (diceRaw) rollDndDamageOnly({ name: atk.name, damage: diceRaw }, null, die === 20, { toId: fromId, fromId: enemy.id, apply: true });
+              else applyCombatDamage(fromId, 1, false, enemy.id);
+            }, 500);
+          }
+        } else {
+          const die = 1 + Math.floor(Math.random() * 20);
+          playTableDie({ sides: 20, values: [die], caption: enemy.name + ' · Gelegenheit gegen ' + target.name });
+          applyCombatDamage(fromId, die >= 10 ? 4 : 1, false, enemy.id);
+          combatLog(enemy.name + ' → ' + target.name + ' · Gelegenheit');
+        }
+      });
+      if (left.length) persistCombat();
+    }
+
+    function kampfInRange(fromId, toId, action) {
+      if (fromId === toId) return true;
+      const feet = kampfParseRangeFeet(action && action.range, action && action.kind);
+      if (feet == null) return true;
+      return kampfTokenDistanceFeet(fromId, toId) <= feet;
+    }
+
     function kampfActionDepleted(row, action) {
       const dnd = combatantDndSheet(row);
       if (!dnd || !action) return false;
@@ -12290,6 +12586,141 @@
       return { ok: true };
     }
 
+    function resolveKampfPower() {
+      const fromRow = combatantById(kampfAimFrom);
+      const action = kampfPowerAction;
+      if (!fromRow || !canControlCombatant(fromRow) || !action) return;
+      let targets = (kampfAimTargets || []).filter(Boolean);
+      if (!targets.length && kampfAimTo) targets = [kampfAimTo];
+      if (!targets.length) targets = [kampfAimFrom];
+      const blocked = kampfEconomyBlocked(fromRow, action);
+      if (blocked) {
+        toast(blocked);
+        return;
+      }
+      const outOfRange = targets.filter(id => !kampfInRange(kampfAimFrom, id, action));
+      if (outOfRange.length) {
+        toast('Ziel außer Reichweite.');
+        return;
+      }
+      const spent = kampfConsumeAction(fromRow, action);
+      if (!spent.ok) {
+        toast(spent.msg || 'Nicht verfügbar.');
+        return;
+      }
+      kampfSpendEconomy(fromRow, action);
+      const live = kampfPowerLiveItem(action) || action;
+      const bonusRaw = dndItemAttackBonus(live) || dndItemAttackBonus(action);
+      const diceRaw = kampfPowerDice(action);
+      const save = kampfParseSave((live && live.hit) || action.hit);
+      const heal = kampfActionIsHeal(action);
+      const conc = !!(live && live.concentration) || !!action.concentration;
+      if (conc) setCombatantConcentrating(fromRow, true);
+      const noCombatRoll = action.kind === 'feature' && !diceRaw && !bonusRaw && !save && !heal;
+      if (noCombatRoll) {
+        combatLog((fromRow.name || 'Figur') + ' · ' + (action.name || 'Merkmal'));
+        persistCombat();
+        toast((action.name || 'Merkmal') + ' eingesetzt.');
+        clearKampfAimState();
+        renderKampfPowerOverlay();
+        syncKampfAimUi();
+        renderKampf();
+        return;
+      }
+      const fromId = fromRow.id;
+      const applyOne = (toId, delay) => {
+        const target = combatantById(toId);
+        if (!target) return;
+        const run = () => {
+          if (heal) {
+            let n = 0;
+            if (diceRaw) {
+              const rolled = dndRollDicePartsCrit(diceRaw, false);
+              if (rolled) {
+                n = rolled.total;
+                playTableDie({ sides: rolled.sides, values: rolled.rolls, caption: (action.name || 'Heilung') + ': ' + rolled.total });
+              }
+            }
+            applyCombatDamage(toId, n || 1, true, fromId);
+            if (conc) addCombatDebuff(toId, action.name || 'Konzentration', '', 'buff', fromId);
+            return;
+          }
+          if (bonusRaw && (action.kind === 'attack' || action.kind === 'spell')) {
+            const cover = kampfHasCover(fromId, toId);
+            const bonus = dndParseBonus(bonusRaw);
+            const die = 1 + Math.floor(Math.random() * 20);
+            const total = die + bonus;
+            if (live) live.hitRoll = String(total);
+            const acRaw = Number(String(target.ac || '').replace(',', '.').replace(/[^\d.\-]/g, ''));
+            let ac = Number.isFinite(acRaw) && acRaw > 0 ? acRaw : null;
+            if (ac != null && cover) ac += 2;
+            const crit = die === 20;
+            const fumble = die === 1;
+            let hit = true;
+            if (fumble) hit = false;
+            else if (crit) hit = true;
+            else if (ac != null) hit = total >= ac;
+            let caption = (action.name || 'Angriff') + ': W20 ' + die + ' (' + dndSigned(bonus) + ') = ' + total;
+            caption += ' gegen ' + target.name;
+            if (cover) caption += ' · Deckung';
+            if (ac != null) caption += hit ? (crit ? ' · kritischer Treffer RK ' + ac : ' · trifft RK ' + ac) : ' · verfehlt RK ' + ac;
+            playTableDie({ sides: 20, values: [die], caption: caption });
+            persistKampfPowerSheet(fromRow);
+            if (!hit) {
+              toast(target.name + ': verfehlt.');
+              return;
+            }
+            setTimeout(() => {
+              if (diceRaw) rollDndDamageOnly({ name: action.name, damage: diceRaw }, null, crit, { toId: toId, fromId: fromId, apply: true });
+              else applyCombatDamage(toId, 1, false, fromId);
+            }, 720);
+            return;
+          }
+          if (save) {
+            const die = 1 + Math.floor(Math.random() * 20);
+            const mod = kampfAbilityMod(target, save.ab);
+            const total = die + mod;
+            const ok = die === 20 || (die !== 1 && total >= save.dc);
+            playTableDie({
+              sides: 20,
+              values: [die],
+              caption: target.name + ' · ' + save.ab.toUpperCase() + ' SG ' + save.dc + ': ' + total + (ok ? ' geschafft' : ' misslungen')
+            });
+            combatLog(target.name + ' · Rettung SG ' + save.dc + ' → ' + total + (ok ? ' geschafft' : ' misslungen'));
+            if (ok && !diceRaw) {
+              toast(target.name + ' widersteht.');
+              return;
+            }
+            setTimeout(() => {
+              if (diceRaw) {
+                const rolled = dndRollDicePartsCrit(diceRaw, false);
+                let n = rolled ? rolled.total : 1;
+                if (ok) n = Math.max(1, Math.floor(n / 2));
+                if (rolled) playTableDie({ sides: rolled.sides, values: rolled.rolls, caption: action.name + ': ' + n });
+                applyCombatDamage(toId, n, false, fromId);
+              } else applyCombatDamage(toId, ok ? 0 : 1, false, fromId);
+            }, 720);
+            if (!ok) addCombatDebuff(toId, action.name || 'Wirkung', '', 'debuff', fromId);
+            return;
+          }
+          if (diceRaw) {
+            rollDndDamageOnly({ name: action.name, damage: diceRaw }, null, false, { toId: toId, fromId: fromId, apply: true });
+            return;
+          }
+          addCombatDebuff(toId, action.name || 'Wirkung', '', conc ? 'buff' : 'debuff', fromId);
+        };
+        if (delay) setTimeout(run, delay);
+        else run();
+      };
+      targets.forEach((id, i) => applyOne(id, i * 280));
+      if (conc && fromRow) combatLog(fromRow.name + ' · Konzentration · ' + (action.name || ''));
+      persistCombat();
+      clearKampfAimState();
+      renderKampfPowerOverlay();
+      syncKampfAimUi();
+      renderKampf();
+    }
+
     function combatantPowerList(row) {
       const dnd = combatantDndSheet(row);
       const attacks = [];
@@ -12325,7 +12756,8 @@
           notes: s.notes,
           range: s.range,
           time: s.time,
-          level: lvl
+          level: lvl,
+          concentration: !!s.concentration
         });
       });
       (dnd.features || []).forEach(f => {
@@ -12386,6 +12818,7 @@
     function clearKampfAimState() {
       kampfAimFrom = '';
       kampfAimTo = '';
+      kampfAimTargets = [];
       kampfAimEffect = '';
       kampfPowerAction = null;
       kampfPowerPhase = '';
@@ -12395,6 +12828,7 @@
     function openKampfPowerOverlay(id) {
       kampfAimFrom = id;
       kampfAimTo = '';
+      kampfAimTargets = [];
       kampfAimEffect = '';
       kampfPowerAction = null;
       kampfPowerPhase = 'pick';
@@ -12409,13 +12843,30 @@
         toast(action && action.kind === 'spell' ? 'Keine Zauberplätze mehr.' : 'Keine Nutzungen mehr.');
         return;
       }
+      const blocked = kampfEconomyBlocked(from, action);
+      if (blocked) {
+        toast(blocked);
+        return;
+      }
       kampfPowerAction = action;
       kampfAimTo = '';
+      kampfAimTargets = [];
       kampfAimEffect = '';
+      const live = kampfPowerLiveItem(action) || action;
+      const selfOnly = kampfParseRangeFeet(action.range || (live && live.range), action.kind) === 0
+        || (action.kind === 'feature' && kampfActionIsHeal(action))
+        || (action.kind === 'feature' && !kampfPowerDice(action) && !dndItemAttackBonus(live));
+      if (selfOnly) {
+        kampfAimTo = kampfAimFrom;
+        kampfAimTargets = [kampfAimFrom];
+        resolveKampfPower();
+        return;
+      }
       kampfPowerPhase = 'aim';
       kampfPowerRenderKey = '';
       renderKampfPowerOverlay();
       syncKampfAimUi();
+      renderBattleBoards();
     }
 
     function handleKampfPowerClick(id) {
@@ -12423,13 +12874,26 @@
       if (!canStartKampfAim() || !id) return false;
       const row = combatantById(id);
       if (!row) return false;
-      if ((kampfPowerPhase === 'aim' || kampfPowerPhase === 'intent' || kampfPowerPhase === 'effect') && kampfPowerAction && kampfAimFrom) {
+      if (kampfPowerPhase === 'aim' && kampfPowerAction && kampfAimFrom) {
+        if (!kampfInRange(kampfAimFrom, id, kampfPowerAction)) {
+          toast('Außer Reichweite (' + kampfTokenDistanceFeet(kampfAimFrom, id) + ' ft.).');
+          return true;
+        }
+        if (kampfActionIsArea(kampfPowerAction)) {
+          if (kampfAimTargets.indexOf(id) >= 0) {
+            resolveKampfPower();
+            return true;
+          }
+          kampfAimTargets.push(id);
+          kampfAimTo = id;
+          renderKampfPowerOverlay();
+          syncKampfAimUi();
+          renderBattleBoards();
+          return true;
+        }
+        kampfAimTargets = [id];
         kampfAimTo = id;
-        kampfAimEffect = '';
-        kampfPowerPhase = 'intent';
-        kampfPowerRenderKey = '';
-        renderKampfPowerOverlay();
-        syncKampfAimUi();
+        resolveKampfPower();
         return true;
       }
       if (kampfPowerPhase === 'pick' && kampfAimFrom) {
@@ -12607,14 +13071,21 @@
     function appendKampfPowerAct(box, act) {
       const from = combatantById(kampfAimFrom);
       const depleted = kampfActionDepleted(from, act);
+      const econBlock = kampfEconomyBlocked(from, act);
+      const off = depleted || !!econBlock;
       const selected = kampfPowerAction && kampfPowerAction.id === act.id && kampfPowerAction.kind === act.kind;
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'battle-power-act' + (selected ? ' is-on' : '') + (depleted ? ' is-off' : '');
+      btn.className = 'battle-power-act' + (selected ? ' is-on' : '') + (off ? ' is-off' : '');
       const name = document.createElement('b');
       name.textContent = act.name;
       const meta = document.createElement('span');
       const bits = [];
+      const slot = kampfActionEconomy(act);
+      if (slot === 'bonus') bits.push('Bonus');
+      else if (slot === 'reaction') bits.push('Reaktion');
+      else if (slot === 'surge' || slot === 'free') bits.push('frei');
+      else bits.push('Aktion');
       if (act.kind === 'spell') bits.push(act.level && act.level !== '0' ? 'G' + act.level : 'G0');
       if (act.kind === 'feature') {
         const max = kampfFeatureUseMax(act);
@@ -12623,6 +13094,7 @@
         if (String(act.hit || act.bonus || '').trim()) bits.push(String(act.hit || act.bonus).trim());
         if (String(act.damage || '').trim()) bits.push(String(act.damage).trim());
       }
+      if (String(act.range || '').trim()) bits.push(String(act.range).trim());
       meta.textContent = bits.join(' · ');
       btn.appendChild(name);
       btn.appendChild(meta);
@@ -12630,6 +13102,10 @@
         ev.stopPropagation();
         if (depleted) {
           toast(act.kind === 'spell' ? 'Keine Zauberplätze mehr.' : 'Keine Nutzungen mehr.');
+          return;
+        }
+        if (econBlock) {
+          toast(econBlock);
           return;
         }
         pickKampfPowerAction(act);
@@ -12697,7 +13173,7 @@
           }
           const hint = document.createElement('p');
           hint.className = 'battle-power-hint';
-          hint.textContent = 'Aktion wählen';
+          hint.textContent = 'Aktion oder Bonusaktion wählen';
           box.appendChild(hint);
         } else if (kampfPowerPhase === 'intent') {
           const ask = document.createElement('div');
@@ -12816,6 +13292,7 @@
       clearKampfAimState();
       renderKampfPowerOverlay();
       syncKampfAimUi();
+      renderBattleBoards();
     }
 
     function fillKampfEffectSuggest() {
@@ -12836,22 +13313,34 @@
     function syncKampfAimUi() {
       applyKampfAimHighlight();
       const hint = document.getElementById('kampfActHint');
+      const econ = document.getElementById('kampfEcon');
       const panel = document.getElementById('kampfActionPanel');
       const cancel = document.getElementById('kampfAimCancel');
+      const resolveBtn = document.getElementById('kampfResolveBtn');
       const effects = document.getElementById('kampfActionEffects');
       const who = document.getElementById('kampfActionWho');
       const from = combatantById(kampfAimFrom);
       const to = combatantById(kampfAimTo);
+      const turnRow = combatantById(combat.activeId) || from;
+      if (econ) {
+        const show = !!(combat.started && turnRow && (isDM || isMyCombatTurn()));
+        econ.textContent = show ? kampfEconLabel(turnRow) : '';
+      }
       if (cancel) cancel.classList.toggle('hidden', !kampfAimFrom);
+      if (resolveBtn) {
+        const areaAim = kampfPowerPhase === 'aim' && kampfPowerAction && kampfActionIsArea(kampfPowerAction) && kampfAimTargets.length;
+        resolveBtn.classList.toggle('hidden', !areaAim);
+      }
       if (!combat.started) {
         if (hint) hint.textContent = 'Figuren vorbereiten, Rüstung und Initiative eintragen, dann Kampf starten.';
         if (panel) panel.classList.remove('is-open');
         if (cancel) cancel.classList.add('hidden');
+        if (resolveBtn) resolveBtn.classList.add('hidden');
         if (effects) effects.classList.add('hidden');
         return;
       }
       if (!isDM && !isMyCombatTurn()) {
-        if (hint) hint.textContent = 'Warte auf deinen Zug. Du kannst dein Portrait weiter schieben.';
+        if (hint) hint.textContent = 'Warte auf deinen Zug.';
         if (panel) panel.classList.remove('is-open');
         if (effects) effects.classList.add('hidden');
         return;
@@ -12860,15 +13349,16 @@
         if (panel) panel.classList.remove('is-open');
         if (effects) effects.classList.add('hidden');
         if (hint && from) {
-          if (kampfPowerPhase === 'pick') hint.textContent = from.name + ': Angriff, Zauber oder Merkmal wählen.';
-          else if (!to) hint.textContent = from.name + ' · ' + ((kampfPowerAction && kampfPowerAction.name) || 'Aktion') + ' → Ziel antippen.';
-          else hint.textContent = kampfAimLabel() + (kampfPowerAction ? ' · ' + kampfPowerAction.name : '');
+          if (kampfPowerPhase === 'pick') hint.textContent = from.name + ': Aktion oder Bonusaktion wählen.';
+          else if (kampfActionIsArea(kampfPowerAction) && kampfAimTargets.length) {
+            hint.textContent = from.name + ' · ' + (kampfPowerAction.name || 'Aktion') + ' · ' + kampfAimTargets.length + ' Ziel(e) · Wirken oder weiteres Ziel.';
+          } else hint.textContent = from.name + ' · ' + ((kampfPowerAction && kampfPowerAction.name) || 'Aktion') + ' → Ziel antippen.';
         }
         return;
       }
       if (!from) {
         if (hint) hint.textContent = isDM
-          ? 'Erst den Handelnden antippen, dann das Ziel.'
+          ? 'Figur antippen, Aktion wählen, Ziel antippen. Ziehen = Bewegung.'
           : combatPlayerTurnHint();
         if (panel) panel.classList.remove('is-open');
       } else if (!to) {
@@ -14070,6 +14560,7 @@
       }
       combat.started = true;
       ensureCombatTurn();
+      combat.combatants.forEach(kampfResetEconomy);
       touchCombatTurn();
       cancelKampfAim();
       persistCombat();
@@ -14133,6 +14624,7 @@
       const i = Math.max(0, order.indexOf(cur));
       const next = firstInCombatGroup(order[(i + 1) % order.length]);
       combat.activeId = next ? next.id : null;
+      if (next) kampfResetTurnEconomy(combatGroupKey(next));
       cancelKampfAim();
       touchCombatTurn();
       persistCombat();
@@ -14191,6 +14683,7 @@
         row.delayed = false;
         touchCombatant(row);
       });
+      kampfResetTurnEconomy(nextKey);
       cancelKampfAim();
       touchCombatTurn();
       persistCombat();
@@ -14214,6 +14707,7 @@
       const i = Math.max(0, order.indexOf(key));
       const next = firstInCombatGroup(order[(i + 1) % order.length]);
       combat.activeId = next ? next.id : null;
+      if (next) kampfResetTurnEconomy(combatGroupKey(next));
       cancelKampfAim();
       touchCombatTurn();
       persistCombat();
@@ -14237,6 +14731,7 @@
       const i = Math.max(0, order.indexOf(key));
       const prev = firstInCombatGroup(order[(i - 1 + order.length) % order.length]);
       combat.activeId = prev ? prev.id : null;
+      if (prev) kampfResetTurnEconomy(combatGroupKey(prev));
       cancelKampfAim();
       touchCombatTurn();
       persistCombat();
@@ -17668,6 +18163,7 @@
         onClick('kampfDelayBtn', () => markActiveKampfTurn('delay'));
         onClick('kampfEndBtn', endCombat);
         onClick('kampfAimCancel', cancelKampfAim);
+        onClick('kampfResolveBtn', resolveKampfPower);
         onEv('kampfPowerOverlay', 'click', ev => ev.stopPropagation());
         onEv('kampfPowerOverlay', 'pointerdown', ev => ev.stopPropagation());
         onClick('kampfActDmg', () => applyKampfAimDamage(false));
