@@ -2153,7 +2153,7 @@
       position: absolute;
       inset: 0;
       perspective: 1200px;
-      perspective-origin: 50% 78%;
+      perspective-origin: 50% 52%;
     }
     .dice-scene {
       --dice-s: 5.2rem;
@@ -2209,6 +2209,7 @@
       width: 100%;
       height: 100%;
       position: relative;
+      z-index: 1;
       transform-style: preserve-3d;
       will-change: transform;
     }
@@ -2254,6 +2255,35 @@
       margin-left: calc(var(--dice-r) - var(--dice-s) / 2);
       margin-top: calc(var(--dice-r) * -1);
       border-radius: var(--dice-r);
+    }
+    .dice-glow {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 7.4rem;
+      height: 7.4rem;
+      margin: -3.7rem 0 0 -3.7rem;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 0;
+      background: radial-gradient(circle, rgba(232, 197, 122, 0.5) 0%, rgba(212, 179, 106, 0.14) 44%, transparent 72%);
+      opacity: 0;
+      filter: blur(0.5px);
+    }
+    .dice-scene.is-spinning .dice-glow {
+      animation: diceGlowPulse 0.32s ease-in-out infinite alternate;
+    }
+    .dice-scene.is-rest .dice-glow {
+      opacity: 0.38;
+      transition: opacity 0.45s ease;
+    }
+    .dice-scene.is-crit .dice-glow {
+      opacity: 0.9;
+      background: radial-gradient(circle, rgba(255, 231, 168, 0.72) 0%, rgba(212, 179, 106, 0.28) 46%, transparent 74%);
+    }
+    .dice-scene.is-fumble .dice-glow {
+      opacity: 0.7;
+      background: radial-gradient(circle, rgba(226, 160, 160, 0.55) 0%, rgba(154, 51, 51, 0.22) 46%, transparent 74%);
     }
     .dice-shadow {
       position: absolute;
@@ -2320,6 +2350,7 @@
       position: absolute;
       inset: 0;
       pointer-events: none;
+      z-index: 2;
     }
     .dice-sparks i {
       position: absolute;
@@ -2344,9 +2375,25 @@
     .dice-scene.is-dissolving .dice-sparks i {
       animation: diceSpark 0.72s ease-out forwards;
     }
+    .dice-scene.is-pop .dice-sparks i {
+      animation: diceSpark 0.58s ease-out forwards;
+    }
+    .dice-scene.is-spinning .dice-sparks i {
+      animation: diceMote 0.5s linear infinite;
+      animation-delay: calc(var(--i, 0) * -0.06s);
+    }
     @keyframes diceSpark {
       0% { opacity: 1; transform: translate(0, 0) scale(1); }
       100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.15); }
+    }
+    @keyframes diceGlowPulse {
+      from { opacity: 0.42; transform: scale(0.84); }
+      to { opacity: 1; transform: scale(1.14); }
+    }
+    @keyframes diceMote {
+      0% { opacity: 0; transform: rotate(0deg) translateX(2.4rem) scale(0.35); }
+      18% { opacity: 0.95; }
+      100% { opacity: 0; transform: rotate(360deg) translateX(2.4rem) scale(0.2); }
     }
     .dice-caption {
       position: absolute;
@@ -2388,7 +2435,10 @@
     }
     @media (prefers-reduced-motion: reduce) {
       .dice-caption { opacity: 1; transform: none; }
-      .dice-scene.is-dissolving .dice-sparks i { animation: none; }
+      .dice-scene.is-dissolving .dice-sparks i,
+      .dice-scene.is-pop .dice-sparks i,
+      .dice-scene.is-spinning .dice-sparks i,
+      .dice-scene.is-spinning .dice-glow { animation: none; }
     }
 
     .dice-tools-wrap {
@@ -7478,12 +7528,6 @@
       }
 
       const vw = Math.max(320, window.innerWidth || 800);
-      const vh = Math.max(320, window.innerHeight || 600);
-      const floorY = vh / 2 - 88;
-      const wallL = -vw / 2 + 56;
-      const wallR = vw / 2 - 56;
-      const wallT = -vh / 2 + 48;
-      const fromLeft = Math.random() < 0.5;
       const shortestDeg = (from, to) => {
         let d = (to - from) % 360;
         if (d > 180) d -= 360;
@@ -7497,17 +7541,16 @@
         for (let i = 0; i < 16; i++) {
           const a = (i / 16) * Math.PI * 2 + Math.random() * 0.3;
           const dist = 38 + (i % 4) * 16 + Math.random() * 12;
-          out += '<i style="--dx:' + Math.round(Math.cos(a) * dist) + 'px;--dy:' + Math.round(Math.sin(a) * dist) + 'px"></i>';
+          out += '<i style="--i:' + i + ';--dx:' + Math.round(Math.cos(a) * dist) + 'px;--dy:' + Math.round(Math.sin(a) * dist) + 'px"></i>';
         }
         return out;
       };
 
       const dieHtml = (value, sides) => {
         const shape = dieShapeForSides(sides);
-        const kind = value === 20 && sides === 20 ? ' is-crit' : (value === 1 && sides === 20 ? ' is-fumble' : '');
         const built = diePolyParts(shape, value);
         const rz = (-(built.twist || 0)).toFixed(3);
-        return '<div class="dice-scene is-poly is-' + shape + kind + '" data-rest-rz="' + rz + '"><div class="dice-mesh">' + built.html + '</div><div class="dice-shadow"></div><div class="dice-sparks">' + sparkHtml() + '</div></div>';
+        return '<div class="dice-scene is-poly is-' + shape + ' is-spinning" data-rest-rz="' + rz + '"><div class="dice-glow"></div><div class="dice-mesh">' + built.html + '</div><div class="dice-shadow"></div><div class="dice-sparks">' + sparkHtml() + '</div></div>';
       };
 
       if (!playTableDie._items) playTableDie._items = [];
@@ -7534,14 +7577,14 @@
         const rx = vis ? d.srx : d.rx;
         const ry = vis ? d.sry : d.ry;
         const rz = vis ? d.srz : d.rz;
+        const sc = d.scale != null ? d.scale : 1;
         if (d.mesh) {
-          d.mesh.style.transform = 'translate3d(' + x.toFixed(2) + 'px,' + y.toFixed(2) + 'px,0) rotateX(' + rx.toFixed(2) + 'deg) rotateY(' + ry.toFixed(2) + 'deg) rotateZ(' + rz.toFixed(2) + 'deg)';
+          d.mesh.style.transform = 'translate3d(' + x.toFixed(2) + 'px,' + y.toFixed(2) + 'px,0) rotateX(' + rx.toFixed(2) + 'deg) rotateY(' + ry.toFixed(2) + 'deg) rotateZ(' + rz.toFixed(2) + 'deg) scale(' + sc.toFixed(3) + ')';
         }
         if (d.shadow) {
-          const air = Math.max(0, floorY - y);
-          const grounded = 1 - Math.min(1, air / (vh * 0.55));
-          d.shadow.style.opacity = String(0.1 + 0.4 * grounded);
-          d.shadow.style.transform = 'translate3d(' + x.toFixed(2) + 'px,' + (floorY + 30).toFixed(2) + 'px,0) scale(' + (0.38 + 0.62 * grounded).toFixed(3) + ')';
+          const grounded = Math.max(0, Math.min(1, sc));
+          d.shadow.style.opacity = String(0.12 + 0.38 * grounded);
+          d.shadow.style.transform = 'translate3d(' + x.toFixed(2) + 'px,' + (y + 36).toFixed(2) + 'px,0) scale(' + (0.42 + 0.58 * grounded).toFixed(3) + ')';
         }
       };
 
@@ -7554,7 +7597,7 @@
       };
 
       const easeVis = (d, dt) => {
-        const k = 1 - Math.exp(-22 * dt);
+        const k = 1 - Math.exp(-18 * dt);
         d.sx += (d.x - d.sx) * k;
         d.sy += (d.y - d.sy) * k;
         d.srx = unwrapTowards(d.srx, d.rx);
@@ -7565,11 +7608,24 @@
         d.srz += (d.rz - d.srz) * k;
       };
 
+      const setTopFace = (d, text) => {
+        const face = d.mesh && d.mesh.querySelector('.dice-face[data-side="top"] span');
+        if (face) face.textContent = text;
+      };
+
+      const scrambleFace = (d) => {
+        if (d.sides === 100) setTopFace(d, String((1 + Math.floor(Math.random() * 10)) * 10));
+        else setTopFace(d, String(1 + Math.floor(Math.random() * (d.sides || 20))));
+      };
+
       const dissolveDie = (d) => {
         if (!d || d.phase === 'gone') return;
         d.phase = 'gone';
         if (d.life) clearTimeout(d.life);
-        if (d.scene) d.scene.classList.add('is-dissolving');
+        if (d.scene) {
+          d.scene.classList.remove('is-spinning', 'is-rest', 'is-pop');
+          d.scene.classList.add('is-dissolving');
+        }
         setTimeout(() => {
           if (d.scene && d.scene.parentNode) d.scene.parentNode.removeChild(d.scene);
           playTableDie._items = (playTableDie._items || []).filter(x => x !== d);
@@ -7582,49 +7638,75 @@
         }, 760);
       };
 
+      const n = dice.length;
+      const liveBefore = (playTableDie._items || []).filter(x => x.phase !== 'gone').length;
+      const gapX = vw < 420 ? 74 : 98;
+      const gapY = vw < 420 ? 92 : 108;
+      const row0 = n <= 4 ? n : Math.ceil(n / 2);
+      const row1 = n - row0;
+      const extraY = liveBefore ? 100 : 24;
+      const slotFor = i => {
+        const row = i < row0 ? 0 : 1;
+        const col = i < row0 ? i : i - row0;
+        const cols = row === 0 ? row0 : row1;
+        return {
+          x: (col - (cols - 1) / 2) * gapX,
+          y: extraY + (row1 ? (row - 0.5) * gapY : 0)
+        };
+      };
+
       const batch = (playTableDie._batch = (playTableDie._batch || 0) + 1);
 
       dice.forEach((spec, i) => {
         const scene = scenes[i];
-        const inward = fromLeft ? 1 : -1;
+        const slot = slotFor(i);
+        let ax = Math.random() * 2 - 1;
+        let ay = Math.random() * 2 - 1;
+        let az = Math.random() * 2 - 1;
+        const alen = Math.hypot(ax, ay, az) || 1;
+        ax /= alen;
+        ay /= alen;
+        az /= alen;
         const d = {
           scene: scene,
           mesh: scene.querySelector('.dice-mesh'),
           shadow: scene.querySelector('.dice-shadow'),
-          phase: 'fly',
-          delay: i * 0.1,
+          phase: 'spin',
+          delay: i * 0.05,
           born: performance.now(),
-          hits: 0,
-          x: (fromLeft ? wallL : wallR) + inward * i * 18,
-          y: wallT - i * 16,
-          vx: inward * (320 + Math.random() * 220),
-          vy: 40 + Math.random() * 90,
+          slotX: slot.x,
+          slotY: slot.y,
+          x: slot.x,
+          y: slot.y - 28,
+          scale: 0.12,
           rx: Math.random() * 360,
           ry: Math.random() * 360,
           rz: Math.random() * 360,
-          wx: 140 + Math.random() * 160,
-          wy: 120 + Math.random() * 150,
-          wz: inward * (90 + Math.random() * 120),
+          wx: 0,
+          wy: 0,
+          wz: 0,
+          ax: ax,
+          ay: ay,
+          az: az,
+          spinSpeed0: 1080 + Math.random() * 820,
+          spinFor: 1.05 + Math.random() * 0.38 + i * 0.04,
+          scrambleAt: 0,
           rest: {
             rx: 0,
             ry: 0,
             rz: Number(scene.getAttribute('data-rest-rz')) || 0
           },
           value: spec.value,
+          sides: spec.sides,
           batch: batch,
           caption: caption
         };
+        scrambleFace(d);
         syncVis(d);
         pose(d, true);
-        d.life = setTimeout(() => dissolveDie(d), 4800 + Math.random() * 800 + i * 180);
+        d.life = setTimeout(() => dissolveDie(d), 5000 + Math.random() * 500 + i * 140);
         playTableDie._items.push(d);
       });
-
-      if (playTableDie._raf) return;
-
-      let last = performance.now();
-      const g = 1520;
-      const step = 1 / 120;
 
       const pullToRest = (d, dt, stiffness, damp, maxW) => {
         d.rx = unwrapTowards(d.rx, d.rest.rx);
@@ -7647,87 +7729,74 @@
       };
 
       const lockRest = (d) => {
-        d.y = floorY;
-        d.vx = 0;
-        d.vy = 0;
+        if (d.phase === 'rest' || d.phase === 'gone') return;
+        d.x = d.slotX;
+        d.y = d.slotY;
         d.wx = 0;
         d.wy = 0;
         d.wz = 0;
         d.rx = d.rest.rx;
         d.ry = d.rest.ry;
         d.rz = d.rest.rz;
+        d.scale = 1.14;
+        d.popAt = performance.now();
         d.phase = 'rest';
+        if (d.scene) {
+          d.scene.classList.remove('is-spinning');
+          d.scene.classList.add('is-rest', 'is-pop');
+          if (d.sides === 20 && d.value === 20) d.scene.classList.add('is-crit');
+          if (d.sides === 20 && d.value === 1) d.scene.classList.add('is-fumble');
+        }
+        if (d.value != null) setTopFace(d, String(d.value));
         syncVis(d);
         pose(d, true);
-        const face = d.mesh && d.mesh.querySelector('.dice-face[data-side="top"] span');
-        if (face && d.value != null) face.textContent = String(d.value);
         revealTableDieCaption();
+        setTimeout(() => {
+          if (d.scene) d.scene.classList.remove('is-pop');
+        }, 620);
       };
 
-      const bounceWall = (d) => {
-        if (d.x > wallR) {
-          d.x = wallR;
-          d.vx = -Math.abs(d.vx) * 0.72;
-        } else if (d.x < wallL) {
-          d.x = wallL;
-          d.vx = Math.abs(d.vx) * 0.72;
+      const stepDie = (d, dt, now) => {
+        const t = (now - d.born) / 1000 - d.delay;
+        if (t < 0) return;
+        const appear = 0.2;
+        if (t < appear) {
+          const e = 1 - Math.pow(1 - t / appear, 3);
+          d.scale = 0.12 + e * 0.96;
+          d.y = d.slotY - (1 - e) * 28;
+        } else if (d.phase !== 'rest') {
+          d.scale += (1 - d.scale) * Math.min(1, 10 * dt);
+          d.y += (d.slotY - d.y) * Math.min(1, 12 * dt);
         }
-        if (d.y < wallT) {
-          d.y = wallT;
-          d.vy = Math.abs(d.vy) * 0.35;
-        }
-      };
+        d.x = d.slotX;
 
-      const stepDie = (d, dt) => {
-        if (d.phase === 'fly') {
-          d.vy += g * dt;
-          d.x += d.vx * dt;
-          d.y += d.vy * dt;
-          d.rx += d.wx * dt;
-          d.ry += d.wy * dt;
-          d.rz += d.wz * dt;
-          d.vx *= 1 - 0.28 * dt;
-          d.wx *= 1 - 0.55 * dt;
-          d.wy *= 1 - 0.55 * dt;
-          d.wz *= 1 - 0.55 * dt;
-          bounceWall(d);
-
-          if (d.y >= floorY && d.vy > 0) {
-            d.y = floorY;
-            if (d.vy > 55) {
-              d.hits += 1;
-              d.vy = -d.vy * 0.46;
-              d.vx *= 0.84;
-              d.wx *= 0.72;
-              d.wy *= 0.72;
-              d.wz *= 0.72;
-              if (d.hits >= 2) pullToRest(d, dt, 10 + d.hits * 7, 3.2, 280);
-            } else {
-              d.vy = 0;
-              d.vx *= Math.max(0, 1 - 2.8 * dt);
-              pullToRest(d, dt, 18 + 36 * Math.min(1, d.hits / 3), 4.4, 220);
-            }
+        if (d.phase === 'spin') {
+          const u = Math.min(1, t / d.spinFor);
+          const keep = Math.pow(1 - u, 1.28);
+          const speed = d.spinSpeed0 * (0.1 + 0.9 * keep);
+          const wobble = 5 * keep;
+          d.x = d.slotX + Math.sin(t * 26 + d.born) * wobble;
+          d.rx += d.ax * speed * dt;
+          d.ry += d.ay * speed * dt;
+          d.rz += d.az * speed * dt;
+          if (u < 0.9 && now - d.scrambleAt > 42) {
+            d.scrambleAt = now;
+            scrambleFace(d);
           }
-
-          const spin = Math.hypot(d.wx, d.wy, d.wz);
-          const tilt = Math.hypot(
-            shortestDeg(d.rx, d.rest.rx),
-            shortestDeg(d.ry, d.rest.ry),
-            shortestDeg(d.rz, d.rest.rz)
-          );
-          const grounded = d.y >= floorY - 0.5 && Math.abs(d.vy) < 28;
-          if (grounded && tilt < 2.4 && Math.abs(d.vx) < 10 && spin < 14) {
-            lockRest(d);
-          } else if (grounded && d.hits >= 1 && tilt < 22 && spin < 48) {
+          if (t >= d.spinFor) {
             d.phase = 'settle';
-            d.y = floorY;
-            d.vy = 0;
+            d.x = d.slotX;
+            d.y = d.slotY;
+            const leftover = 70 + Math.random() * 50;
+            d.wx = d.ax * leftover;
+            d.wy = d.ay * leftover;
+            d.wz = d.az * leftover;
+            syncVis(d);
           }
         } else if (d.phase === 'settle') {
-          d.y = floorY;
-          d.vy = 0;
-          d.vx *= Math.max(0, 1 - 5.2 * dt);
-          pullToRest(d, dt, 42, 7.2, 180);
+          d.x = d.slotX;
+          d.y = d.slotY;
+          pullToRest(d, dt, 38, 6.4, 190);
           d.rx += d.wx * dt;
           d.ry += d.wy * dt;
           d.rz += d.wz * dt;
@@ -7736,11 +7805,19 @@
             shortestDeg(d.ry, d.rest.ry),
             shortestDeg(d.rz, d.rest.rz)
           );
-          if (tilt < 1.6 && Math.abs(d.vx) < 6 && Math.hypot(d.wx, d.wy, d.wz) < 12) {
+          if ((tilt < 1.8 && Math.hypot(d.wx, d.wy, d.wz) < 14) || t > d.spinFor + 0.95) {
             lockRest(d);
           }
         }
       };
+
+      if (playTableDie._raf) {
+        cancelAnimationFrame(playTableDie._raf);
+        playTableDie._raf = 0;
+      }
+
+      let last = performance.now();
+      const step = 1 / 120;
 
       const frame = now => {
         const renderDt = Math.min(0.05, Math.max(0.008, (now - last) / 1000));
@@ -7752,18 +7829,14 @@
           const dt = Math.min(step, acc);
           acc -= dt;
           (playTableDie._items || []).forEach(d => {
-            if (d.phase === 'rest' || d.phase === 'gone') return;
+            if (d.phase === 'gone') return;
+            if (d.phase === 'rest') return;
             const local = (now - d.born) / 1000 - d.delay;
             if (local < 0) {
               moving = true;
               return;
             }
-            stepDie(d, dt);
-            if (d.phase === 'fly' && local > 3.4 && d.y >= floorY - 12) {
-              d.phase = 'settle';
-              d.y = floorY;
-              d.vy = 0;
-            }
+            stepDie(d, dt, now);
             if (d.phase !== 'rest' && d.phase !== 'gone') moving = true;
           });
         }
@@ -7771,12 +7844,27 @@
         (playTableDie._items || []).forEach(d => {
           if (d.phase === 'gone') return;
           if (d.phase === 'rest') {
+            if (d.popAt) {
+              const p = Math.min(1, (now - d.popAt) / 200);
+              d.scale = 1 + 0.14 * (1 - p);
+              if (p >= 1) {
+                d.scale = 1;
+                d.popAt = 0;
+              } else moving = true;
+            }
+            syncVis(d);
             pose(d, true);
             return;
           }
-          if ((now - d.born) / 1000 - d.delay < 0) return;
-          easeVis(d, renderDt);
-          pose(d, true);
+          if ((now - d.born) / 1000 - d.delay < 0) {
+            moving = true;
+            return;
+          }
+          if (d.phase === 'spin') pose(d, false);
+          else {
+            easeVis(d, renderDt);
+            pose(d, true);
+          }
           moving = true;
         });
 
