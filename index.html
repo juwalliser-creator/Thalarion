@@ -3360,14 +3360,20 @@
     }
     .kampf-action-panel {
       display: none;
+      position: fixed;
+      z-index: 40;
+      width: 16rem;
+      max-width: min(17.5rem, calc(100vw - 1.2rem));
+      max-height: min(24rem, calc(100vh - 1.2rem));
+      overflow: auto;
       grid-template-columns: 1fr;
-      gap: 0.55rem;
-      background: var(--panel);
+      gap: 0.5rem;
+      background: rgba(22, 18, 14, 0.96);
       border: 1px solid var(--gold-dim);
-      border-radius: 14px;
-      padding: 0.85rem 1rem;
-      margin: 0 0 1.1rem;
+      border-radius: 10px;
+      padding: 0.6rem 0.65rem 0.65rem;
       box-shadow: var(--shadow);
+      pointer-events: auto;
     }
     body.is-dm .kampf-action-panel.is-open,
     body.is-player .kampf-action-panel.is-open { display: grid; }
@@ -3376,16 +3382,25 @@
       font-family: Cinzel, serif;
       color: var(--gold);
       text-align: center;
+      font-size: 0.92rem;
+    }
+    .kampf-action-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
     }
     .kampf-action-row input {
-      width: 5.5rem;
+      flex: 1 1 4rem;
+      width: auto;
+      min-width: 0;
       border: 1px solid var(--line);
       background: var(--panel-2);
       color: var(--ink);
       border-radius: 8px;
       padding: 0.4rem 0.5rem;
     }
-    .kampf-action-row input[type="text"] { width: 10rem; }
+    .kampf-action-row input[type="text"] { flex: 1 1 100%; width: auto; }
+    .kampf-action-row button { flex: 1 1 auto; }
     .kampf-log {
       margin-top: 1.2rem;
       color: var(--muted);
@@ -13033,6 +13048,32 @@
       });
     }
 
+    function positionKampfActionPanel() {
+      const box = document.getElementById('kampfActionPanel');
+      if (!box || !box.classList.contains('is-open')) return;
+      const id = kampfAimTo || kampfAimFrom;
+      const tokenEl = id ? document.querySelector('.battle-token[data-id="' + CSS.escape(id) + '"]') : null;
+      const board = document.getElementById('kampfBattleBoard');
+      const anchor = tokenEl || board;
+      if (!anchor) return;
+      const r = anchor.getBoundingClientRect();
+      box.style.left = (r.right + 10) + 'px';
+      box.style.top = r.top + 'px';
+      requestAnimationFrame(() => {
+        if (!box.classList.contains('is-open')) return;
+        const pad = 8;
+        const br = box.getBoundingClientRect();
+        let x = br.left;
+        let y = br.top;
+        if (br.right > window.innerWidth - pad) x = r.left - br.width - 10;
+        if (x < pad) x = pad;
+        if (br.bottom > window.innerHeight - pad) y = window.innerHeight - pad - br.height;
+        if (y < pad) y = pad;
+        box.style.left = x + 'px';
+        box.style.top = y + 'px';
+      });
+    }
+
     function kampfPowerAmtValue() {
       const el = document.getElementById('kampfPowerAmt');
       const n = Math.abs(Number(el && el.value));
@@ -13461,7 +13502,10 @@
       } else {
         if (hint) hint.textContent = kampfAimLabel();
         if (who) who.textContent = kampfAimLabel();
-        if (panel) panel.classList.add('is-open');
+        if (panel) {
+          panel.classList.add('is-open');
+          positionKampfActionPanel();
+        }
       }
       if (effects) {
         effects.classList.toggle('hidden', kampfAimEffect !== 'buff' && kampfAimEffect !== 'debuff');
@@ -18260,6 +18304,8 @@
         onClick('kampfResolveBtn', resolveKampfPower);
         onEv('kampfPowerOverlay', 'click', ev => ev.stopPropagation());
         onEv('kampfPowerOverlay', 'pointerdown', ev => ev.stopPropagation());
+        onEv('kampfActionPanel', 'click', ev => ev.stopPropagation());
+        onEv('kampfActionPanel', 'pointerdown', ev => ev.stopPropagation());
         onClick('kampfActDmg', () => applyKampfAimDamage(false));
         onClick('kampfActHeal', () => applyKampfAimDamage(true));
         onClick('kampfActBuff', () => showKampfEffectPicker('buff'));
