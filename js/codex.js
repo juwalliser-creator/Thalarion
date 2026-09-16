@@ -1069,3 +1069,267 @@
         toast('Löschen fehlgeschlagen: ' + err.message);
       }
     }
+
+/* --- Import / Export / DM-Menü --- */
+    function visibilityLabel(v) {
+      return v === 'dm' ? 'Nur DM' : 'Spieler';
+    }
+
+    function parseVisibility(v) {
+      const s = (v || '').toLowerCase();
+      return /dm|nur/.test(s) ? 'dm' : 'player';
+    }
+
+    function fileNameFor(title) {
+      const clean = (title || 'eintrag').replace(/[<>:"/\\|?*]+/g, '').trim().slice(0, 60);
+      return (clean || 'eintrag') + '.txt';
+    }
+
+    function formatEntryBlock(e) {
+      return [
+        '===== EINTRAG START =====',
+        'Titel: ' + (e.title || ''),
+        'Kategorie: ' + (e.type || ''),
+        'Sichtbarkeit: ' + visibilityLabel(e.visibility),
+        '',
+        htmlToText(e.content),
+        '===== EINTRAG ENDE ====='
+      ].join('\n');
+    }
+
+    function formatCodexFile(list) {
+      return [
+        '# Thalarion – Kompendium',
+        '# Bitte die Markierungen ===== EINTRAG START ===== und ===== EINTRAG ENDE ===== behalten.',
+        '# Titel, Kategorie und Sichtbarkeit in den Kopfzeilen lassen.',
+        '',
+        list.map(formatEntryBlock).join('\n\n')
+      ].join('\n');
+    }
+
+    function geminiSectionFor(type) {
+      if (type === STORY_CAT) return 'Entstehung';
+      if (type === SESSION_CAT) return 'Sitzung';
+      if (BESTIARIUM_CATS.includes(type)) return 'Bestiarium';
+      if (GLOSSAR_CATS.includes(type)) return 'Glossar';
+      return 'Kompendium';
+    }
+
+    function formatGeminiDocument(list) {
+      const items = (Array.isArray(list) ? list : []).slice().sort((a, b) => {
+        const ai = categories.indexOf(normalizeType(a.type));
+        const bi = categories.indexOf(normalizeType(b.type));
+        if (ai !== bi) return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
+        const ad = a.sessionDate || '';
+        const bd = b.sessionDate || '';
+        if (ad !== bd) return ad < bd ? 1 : -1;
+        return String(a.title || '').localeCompare(String(b.title || ''), 'de');
+      });
+      const byType = {};
+      const types = [];
+      items.forEach(e => {
+        const type = categories.includes(normalizeType(e.type)) ? normalizeType(e.type) : (e.type || 'Sonstiges');
+        if (!byType[type]) {
+          byType[type] = [];
+          types.push(type);
+        }
+        byType[type].push(e);
+      });
+      const toc = [];
+      const body = [];
+      let lastSection = '';
+      types.forEach(type => {
+        const section = geminiSectionFor(type);
+        if (section !== lastSection) {
+          lastSection = section;
+          toc.push('');
+          toc.push(section);
+          body.push('');
+          body.push('════════════════════════════════════');
+          body.push(section.toUpperCase());
+          body.push('════════════════════════════════════');
+        }
+        toc.push('  ' + type + ' (' + byType[type].length + ')');
+        body.push('');
+        body.push('── ' + type + ' ──');
+        byType[type].forEach(e => {
+          toc.push('    - ' + (e.title || 'Ohne Titel'));
+          body.push('');
+          body.push('### ' + (e.title || 'Ohne Titel'));
+          body.push('Kategorie: ' + (e.type || type));
+          if (e.kingdom) body.push('Königreich: ' + e.kingdom);
+          body.push('Sichtbarkeit: ' + visibilityLabel(e.visibility));
+          if (e.sessionDate) body.push('Datum: ' + formatSessionDate(e.sessionDate));
+          body.push('');
+          body.push(htmlToText(e.content) || '(Kein Text)');
+          body.push('');
+          body.push('---');
+        });
+      });
+      return [
+        'Thalarion – Das Blutsiegel',
+        'Gesamtdokument',
+        '',
+        'Dieses Dokument enthält Entstehung, Sitzung, Kompendium, Bestiarium und Glossar.',
+        'Jeder Eintrag hat eine eigene Überschrift (### Name).',
+        'Bilder, Karten-Pins, Kampf und Charakterblätter sind nicht enthalten.',
+        '',
+        'Anzahl Einträge: ' + items.length,
+        'Stand: ' + new Date().toISOString().slice(0, 10),
+        '',
+        'INHALTSVERZEICHNIS',
+        ...toc,
+        '',
+        ...body,
+        ''
+      ].join('\n');
+    }
+
+    function parseCodexFile(text) {
+      const chunks = String(text || '').split(/===== EINTRAG START =====/i).slice(1);
+      return chunks.map(chunk => {
+        const body = chunk.split(/===== EINTRAG ENDE =====/i)[0];
+        const lines = body.replace(/^\uFEFF/, '').split(/\r?\n/);
+        const meta = { title: '', type: categories[0], visibility: 'player' };
+        let i = 0;
+        while (i < lines.length) {
+          const line = lines[i];
+          const m = line.match(/^\s*(Titel|Kategorie|Sichtbarkeit)\s*:\s*(.*)$/i);
+          if (m) {
+            const key = m[1].toLowerCase();
+            const val = m[2].trim();
+            if (key === 'titel') meta.title = val;
+            else if (key === 'kategorie') meta.type = normalizeType(val);
+            else meta.visibility = parseVisibility(val);
+            i += 1;
+            continue;
+          }
+          if (line.trim() === '') {
+            i += 1;
+            break;
+          }
+          break;
+        }
+        const content = lines.slice(i).join('\n').trim();
+        return {
+          title: meta.title,
+          type: categories.includes(meta.type) ? meta.type : normalizeType(meta.type),
+          visibility: meta.visibility,
+          content: textToHtml(content)
+        };
+      }).filter(e => e.title);
+    }
+
+    function downloadText(filename, text) {
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+
+    function isMyDocumentEntry(e) {
+      const type = normalizeType(e.type);
+      return type === STORY_CAT ||
+        type === SESSION_CAT ||
+        KOMPENDIUM_CATS.includes(type) ||
+        BESTIARIUM_CATS.includes(type) ||
+        GLOSSAR_CATS.includes(type);
+    }
+
+    function myDocumentEntries() {
+      return entries.filter(isMyDocumentEntry);
+    }
+
+    function downloadMyDocument() {
+      if (!isDM) return;
+      const list = myDocumentEntries();
+      if (!list.length) return toast('Es gibt noch keine Einträge.');
+      downloadText('Thalarion-Gesamtdokument.txt', formatGeminiDocument(list));
+      toast(list.length + ' Einträge in einem Dokument.');
+    }
+
+    function closeDmMenu() {
+      const list = document.getElementById('dmMenuList');
+      const btn = document.getElementById('dmMenuBtn');
+      if (list) list.classList.add('hidden');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleDmMenu() {
+      if (!isDM) return;
+      const list = document.getElementById('dmMenuList');
+      const btn = document.getElementById('dmMenuBtn');
+      const open = list.classList.contains('hidden');
+      list.classList.toggle('hidden', !open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    function downloadOneEntry() {
+      if (!isDM || currentIndex === null) return;
+      const e = entries[currentIndex];
+      downloadText(fileNameFor(e.title), formatCodexFile([e]));
+      toast('Eintrag heruntergeladen.');
+    }
+
+    function readUploadedFile(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result || ''));
+        r.onerror = () => reject(new Error('Datei konnte nicht gelesen werden.'));
+        r.readAsText(file, 'UTF-8');
+      });
+    }
+
+    async function uploadAllEntries(file) {
+      if (!isDM || !file) return;
+      let parsed;
+      try {
+        parsed = parseCodexFile(await readUploadedFile(file));
+      } catch (err) {
+        return toast(err.message);
+      }
+      if (!parsed.length) return toast('In der Datei wurde kein Eintrag gefunden.');
+      if (!confirm(parsed.length + ' Einträge aus der Datei übernehmen und die bisherigen ersetzen?')) return;
+      const previous = entries.slice();
+      const keep = {};
+      previous.forEach(e => {
+        if (e.title) keep[e.title.toLowerCase()] = { imageId: e.imageId || '', sessionDate: e.sessionDate || '', kingdom: e.kingdom || '' };
+      });
+      entries = parsed.map(e => Object.assign({}, e, keep[(e.title || '').toLowerCase()] || {}));
+      try {
+        await persistWorld();
+        toast('Alle Einträge übernommen.');
+        showHome();
+      } catch (err) {
+        entries = previous;
+        toast('Hochladen fehlgeschlagen: ' + err.message);
+      }
+    }
+
+    async function uploadOneEntry(file) {
+      if (!isDM || !file || currentIndex === null) return;
+      let parsed;
+      try {
+        parsed = parseCodexFile(await readUploadedFile(file));
+      } catch (err) {
+        return toast(err.message);
+      }
+      if (!parsed.length) return toast('In der Datei wurde kein Eintrag gefunden.');
+      const current = entries[currentIndex];
+      const incoming = parsed.find(e => e.title.toLowerCase() === current.title.toLowerCase()) || parsed[0];
+      const previous = Object.assign({}, current);
+      entries[currentIndex] = Object.assign({}, incoming, {
+        imageId: current.imageId || '',
+        sessionDate: current.sessionDate || incoming.sessionDate || ''
+      });
+      try {
+        await persistWorld();
+        toast('Eintrag übernommen.');
+        loadEntry(currentIndex);
+      } catch (err) {
+        entries[currentIndex] = previous;
+        toast('Hochladen fehlgeschlagen: ' + err.message);
+      }
+    }
