@@ -1,0 +1,17 @@
+---
+description: Bevorzugter Arbeitsablauf für Code-Änderungen an Thalarion
+alwaysApply: true
+---
+
+# Direkte Datei-Änderungen statt Browser-Automation
+
+- Änderungen am Code (v. a. `index.html`) direkt per Datei-Edit vornehmen.
+- KEINEN lokalen Server starten und KEINE Browser-Automation (CDP/Playwright)
+  nutzen, um Änderungen zu verifizieren oder Daten einzupflegen — das ist
+  spürbar langsamer als der Nutzer es gewohnt ist.
+- Ausnahme: Nur wenn der Nutzer explizit eine Browser-Prüfung oder das
+  Erstellen/Ändern von Live-Daten in Firestore verlangt (z. B. "füge diesen
+  NPC hinzu" mit Stat-Block), darf Browser-Automation genutzt werden.
+- Commit & Push übernimmt der Nutzer selbst über GitHub Desktop. Nicht
+  committen oder pushen, außer beim Codewort "Pineapple" (siehe separate
+  Regel für den leeren Commit).
