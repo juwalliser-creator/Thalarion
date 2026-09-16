@@ -12965,6 +12965,7 @@
     function handleKampfPowerClick(id) {
       if (!combat.started || battleHazardMode || battleMapTool) return false;
       if (!canStartKampfAim() || !id) return false;
+      if (kampfAimFrom && !kampfPowerPhase) return false;
       const row = combatantById(id);
       if (!row) return false;
       if (kampfPowerPhase === 'aim' && kampfPowerAction && kampfAimFrom) {
