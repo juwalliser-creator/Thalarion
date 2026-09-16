@@ -462,6 +462,26 @@
       color: var(--gold);
       margin-bottom: 0.45rem;
     }
+    .char-roster-group { margin-bottom: 0.75rem; }
+    .char-roster-group:last-child { margin-bottom: 0; }
+    .char-roster-label {
+      font-family: Cinzel, serif;
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 0.3rem 0.5rem;
+    }
+    .char-roster .char-add-npc {
+      color: var(--gold);
+      border: 1px dashed var(--gold-dim);
+      margin-top: 0.2rem;
+    }
+    .char-roster .char-npc-empty {
+      color: var(--muted);
+      margin: 0 0 0.3rem 0.5rem;
+      font-size: 0.9em;
+    }
     .char-main.is-dm-notes .editor-canvas { min-height: 22rem; }
     .sheet-grid {
       display: grid;
@@ -4990,6 +5010,11 @@
               <div class="kampf-players" id="kampfPlayers"></div>
             </div>
             <div class="kampf-add-card">
+              <h3>NPCs übernehmen</h3>
+              <p class="kampf-karten-hint">NPC-Charakterblätter aus dem Reiter „Charakter“ — mit voller Kampf-Automatik.</p>
+              <div class="kampf-players" id="kampfNpcs"></div>
+            </div>
+            <div class="kampf-add-card">
               <h3>Karten</h3>
               <p class="kampf-karten-hint">Antippen setzt die Kreatur in den Kampf. Initiative: Button oben oder von Hand eintragen.</p>
               <div class="kampf-add-row">
@@ -5431,6 +5456,7 @@
     let ocrWorkerPromise = null;
     let sheetDirty = false;
     let playerAccounts = {};
+    let npcAccounts = {};
     let dmNotes = '';
     let playersUpdatedAt = 0;
     let writingPlayers = false;
@@ -6475,9 +6501,23 @@
     const ILLUSION_ALT = 'illusion';
     const ILLUSION_OWNER = CHRIS_ID + ':' + ILLUSION_ALT;
     const DM_NOTES_OWNER = 'dm-notes';
+    const NPC_PREFIX = 'npc:';
+
+    function isNpcOwner(owner) {
+      return typeof owner === 'string' && owner.indexOf(NPC_PREFIX) === 0;
+    }
+
+    function npcIdFromOwner(owner) {
+      return isNpcOwner(owner) ? String(owner).slice(NPC_PREFIX.length) : '';
+    }
+
+    function newNpcId() {
+      return 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    }
 
     function usesDndSheet(owner) {
       if (!owner || isDmNotesOwner(owner)) return false;
+      if (isNpcOwner(owner)) return true;
       if (owner === ILLUSION_OWNER) return false;
       if (owner === VEYR_OWNER) return true;
       return String(owner).indexOf(':') < 0;
@@ -6500,6 +6540,11 @@
 
     function sheetOwnerRecord(owner) {
       if (!owner) return null;
+      if (isNpcOwner(owner)) {
+        const npc = npcAccounts[npcIdFromOwner(owner)];
+        if (!npc) return null;
+        return { name: npc.name, sheet: npc.sheet, isAlt: false, isNpc: true, accountId: owner };
+      }
       const parts = String(owner).split(':');
       const acc = playerAccounts[parts[0]];
       if (!acc) return null;
@@ -6512,6 +6557,11 @@
     }
 
     function setOwnerSheet(owner, sheet) {
+      if (isNpcOwner(owner)) {
+        const npc = npcAccounts[npcIdFromOwner(owner)];
+        if (npc) npc.sheet = sheet;
+        return;
+      }
       const rec = sheetOwnerRecord(owner);
       if (!rec) return;
       if (!rec.isAlt) {
@@ -6523,6 +6573,7 @@
 
     function canEditOwnerSheet(owner) {
       if (isDM) return true;
+      if (isNpcOwner(owner)) return false;
       if (!currentPlayerId || !owner) return false;
       return sheetAccountId(owner) === currentPlayerId;
     }
@@ -8781,6 +8832,25 @@
       return out;
     }
 
+    function normalizeNpcAccounts(raw) {
+      const out = {};
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+      Object.keys(raw).forEach(id => {
+        if (!id) return;
+        const a = raw[id] || {};
+        const sheet = normalizeSheet(a.sheet);
+        const dnd = normalizeDndSheet(sheet.dnd);
+        if (!dnd.name) dnd.name = sheet.name || a.name || 'NPC';
+        sheet.dnd = dnd;
+        out[id] = {
+          name: (a.name || sheet.name || dnd.name || 'NPC').trim() || 'NPC',
+          sheet: sheet,
+          createdAt: Number(a.createdAt) || 0
+        };
+      });
+      return out;
+    }
+
     function applyPlayers(data) {
       if (!data) return;
       const at = Number(data.updatedAt) || 0;
@@ -8791,15 +8861,24 @@
         (rawChris.sheet && rawChris.sheet.name !== 'Björn' && (!String(rawChris.sheet.name || '').trim() || isReptileName(rawChris.sheet.name)))
       ));
       const incoming = normalizeAccounts(data.accounts);
-      if ((sheetDirty || veyrEntryEditing) && currentSheetOwner) {
+      if ((sheetDirty || veyrEntryEditing) && currentSheetOwner && !isNpcOwner(currentSheetOwner)) {
         const accId = sheetAccountId(currentSheetOwner);
         if (accId && playerAccounts[accId]) incoming[accId] = playerAccounts[accId];
+      }
+      const incomingNpcs = normalizeNpcAccounts(data.npcs);
+      if (sheetDirty && currentSheetOwner && isNpcOwner(currentSheetOwner)) {
+        const npcId = npcIdFromOwner(currentSheetOwner);
+        if (npcId && npcAccounts[npcId]) incomingNpcs[npcId] = npcAccounts[npcId];
       }
       if (!(sheetDirty && isDmNotesOwner(currentSheetOwner))) {
         dmNotes = typeof data.dmNotes === 'string' ? data.dmNotes : '';
       }
       playersUpdatedAt = at;
       playerAccounts = incoming;
+      npcAccounts = incomingNpcs;
+      if (currentSheetOwner && isNpcOwner(currentSheetOwner) && !npcAccounts[npcIdFromOwner(currentSheetOwner)]) {
+        currentSheetOwner = null;
+      }
       if (currentPlayerId && !playerAccounts[currentPlayerId]) setPlayer(null);
       syncPlayerCombatNames();
       const hadUdo = !!(data.accounts && (data.accounts.udo || data.accounts.Udo));
@@ -8842,6 +8921,7 @@
         await playersRef().set({
           updatedAt: nextAt,
           accounts: playerAccounts,
+          npcs: npcAccounts,
           dmNotes: typeof dmNotes === 'string' ? dmNotes : ''
         });
         playersUpdatedAt = nextAt;
@@ -11484,24 +11564,39 @@
       if (showRoster) {
         roster.classList.remove('hidden');
         layout.classList.remove('solo');
-        roster.querySelector('h3').textContent = yuviPlayer ? 'Charaktere' : 'Spieler';
+        roster.querySelector('h3').textContent = yuviPlayer ? 'Charaktere' : 'Kategorien';
         const list = document.getElementById('charRosterList');
         list.innerHTML = '';
         if (isDM) {
+          const dmGroup = document.createElement('div');
+          dmGroup.className = 'char-roster-group';
+          const dmLabel = document.createElement('div');
+          dmLabel.className = 'char-roster-label';
+          dmLabel.textContent = 'DM';
+          dmGroup.appendChild(dmLabel);
           const dmBtn = document.createElement('button');
           dmBtn.type = 'button';
           dmBtn.className = 'char-dm-notes' + (isDmNotesOwner(currentSheetOwner) ? ' active' : '');
           dmBtn.textContent = 'DM-Notizen';
           dmBtn.onclick = () => selectSheetOwner(DM_NOTES_OWNER);
-          list.appendChild(dmBtn);
+          dmGroup.appendChild(dmBtn);
+          list.appendChild(dmGroup);
         }
         const rosterIds = yuviPlayer ? [YUVI_ID] : ids;
+        const playerGroup = document.createElement('div');
+        playerGroup.className = 'char-roster-group';
+        if (isDM) {
+          const playerLabel = document.createElement('div');
+          playerLabel.className = 'char-roster-label';
+          playerLabel.textContent = 'Spieler';
+          playerGroup.appendChild(playerLabel);
+        }
         if (!rosterIds.length) {
           const empty = document.createElement('p');
           empty.style.color = 'var(--muted)';
           empty.style.margin = '0';
           empty.textContent = 'Noch keine Spieler.';
-          list.appendChild(empty);
+          playerGroup.appendChild(empty);
         }
         rosterIds.forEach(id => {
           const btn = document.createElement('button');
@@ -11509,7 +11604,7 @@
           btn.className = currentSheetOwner === id ? 'active' : '';
           btn.textContent = playerAccounts[id].name;
           btn.onclick = () => selectSheetOwner(id);
-          list.appendChild(btn);
+          playerGroup.appendChild(btn);
           const showVeyr = id === YUVI_ID && (yuviPlayer || sheetAccountId(currentSheetOwner) === YUVI_ID);
           if (showVeyr && playerAccounts[YUVI_ID] && playerAccounts[YUVI_ID].alts && playerAccounts[YUVI_ID].alts[VEYR_ALT]) {
             const wrap = document.createElement('div');
@@ -11520,9 +11615,43 @@
             altBtn.textContent = playerAccounts[YUVI_ID].alts[VEYR_ALT].name;
             altBtn.onclick = () => selectSheetOwner(VEYR_OWNER);
             wrap.appendChild(altBtn);
-            list.appendChild(wrap);
+            playerGroup.appendChild(wrap);
           }
         });
+        list.appendChild(playerGroup);
+        if (isDM) {
+          const npcGroup = document.createElement('div');
+          npcGroup.className = 'char-roster-group';
+          const npcLabel = document.createElement('div');
+          npcLabel.className = 'char-roster-label';
+          npcLabel.textContent = 'NPCs';
+          npcGroup.appendChild(npcLabel);
+          const npcIds = Object.keys(npcAccounts).sort((a, b) =>
+            (npcAccounts[a].name || '').localeCompare(npcAccounts[b].name || '', 'de')
+          );
+          if (!npcIds.length) {
+            const empty = document.createElement('p');
+            empty.className = 'char-npc-empty';
+            empty.textContent = 'Noch keine NPCs.';
+            npcGroup.appendChild(empty);
+          }
+          npcIds.forEach(id => {
+            const owner = NPC_PREFIX + id;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = currentSheetOwner === owner ? 'active' : '';
+            btn.textContent = npcAccounts[id].name || 'NPC';
+            btn.onclick = () => selectSheetOwner(owner);
+            npcGroup.appendChild(btn);
+          });
+          const addNpcBtn = document.createElement('button');
+          addNpcBtn.type = 'button';
+          addNpcBtn.className = 'char-add-npc';
+          addNpcBtn.textContent = '+ Neuer NPC';
+          addNpcBtn.onclick = () => addNewNpc();
+          npcGroup.appendChild(addNpcBtn);
+          list.appendChild(npcGroup);
+        }
         if (!currentSheetOwner || !(sheetOwnerRecord(currentSheetOwner) || (isDM && isDmNotesOwner(currentSheetOwner)))) {
           currentSheetOwner = rosterIds[0] || (isDM ? DM_NOTES_OWNER : null);
         }
@@ -11556,6 +11685,7 @@
       const extraLabel = document.getElementById('sheetExtraLabel');
       if (extraLabel) extraLabel.textContent = isVeyr ? 'Text' : 'Ausrüstung & mehr';
       del.classList.toggle('hidden', !isDM || !rec || rec.isAlt || isNotes);
+      del.textContent = rec && rec.isNpc ? 'NPC entfernen' : 'Spieler entfernen';
       if (isNotes) {
         document.getElementById('charHeading').textContent = 'DM-Notizen';
         document.getElementById('charBlurb').textContent = 'Nur für dich. Liegt nicht in Sitzung, Codex oder auf den Spielerblättern.';
@@ -11567,6 +11697,8 @@
       }
       document.getElementById('charBlurb').textContent = isVeyr
         ? 'Lucans Drake-Gefährte (Drakewarden) — nur für Yuvi und den DM.'
+        : (rec && rec.isNpc)
+        ? 'NPC-Blatt — nur für den DM sichtbar.'
         : 'Feste Werte oben, Notizen und Ausrüstung darunter — nur für dich und den DM.';
       if (!rec) {
         document.getElementById('charHeading').textContent = 'Charakterblatt';
@@ -11667,6 +11799,24 @@
       if (!isDM || !currentSheetOwner || !sheetOwnerRecord(currentSheetOwner)) return;
       const rec = sheetOwnerRecord(currentSheetOwner);
       if (rec.isAlt) return;
+      if (rec.isNpc) {
+        if (!confirm('NPC „' + rec.name + '“ und das Charakterblatt wirklich entfernen?')) return;
+        const previousNpcs = npcAccounts;
+        const removedNpcId = npcIdFromOwner(currentSheetOwner);
+        npcAccounts = Object.assign({}, npcAccounts);
+        delete npcAccounts[removedNpcId];
+        try {
+          await persistPlayers();
+          currentSheetOwner = null;
+          sheetDirty = false;
+          toast('NPC entfernt.');
+          renderCharakter();
+        } catch (err) {
+          npcAccounts = previousNpcs;
+          toast('Löschen fehlgeschlagen: ' + err.message);
+        }
+        return;
+      }
       if (!confirm('Spieler „' + rec.name + '“ und das Charakterblatt wirklich entfernen?')) return;
       const previous = playerAccounts;
       const removedId = rec.accountId;
@@ -11683,6 +11833,25 @@
         playerAccounts = previous;
         toast('Löschen fehlgeschlagen: ' + err.message);
       }
+    }
+
+    function addNewNpc() {
+      if (!isDM) return;
+      const name = (window.prompt('Name des NPCs:', '') || '').trim();
+      if (!name) return;
+      const id = newNpcId();
+      npcAccounts = Object.assign({}, npcAccounts, {
+        [id]: {
+          name: name,
+          sheet: Object.assign({}, EMPTY_SHEET, { name: name }),
+          createdAt: Date.now()
+        }
+      });
+      currentSheetOwner = NPC_PREFIX + id;
+      sheetDirty = false;
+      renderCharakter();
+      persistPlayersSoon();
+      toast(name + ' angelegt.');
     }
 
     function emptyCombat() {
@@ -12254,6 +12423,30 @@
         name: sheet.name || rec.name,
         kind: 'player',
         playerId: playerId,
+        init: 0,
+        hp: hp.hp,
+        hpMax: hp.hpMax,
+        tempHp: hp.tempHp,
+        ac: hp.ac,
+        portraitId: sheet.portraitId || ''
+      }, quiet);
+      if (!quiet) toast(rec.name + ' übernommen. Initiative noch eintragen oder oben würfeln.');
+    }
+
+    function addNpcToCombat(npcId, quiet) {
+      const owner = NPC_PREFIX + npcId;
+      const rec = sheetOwnerRecord(owner);
+      if (!rec) return;
+      if (combat.combatants.some(c => c.playerId === owner)) {
+        if (!quiet) toast(rec.name + ' ist schon im Kampf.');
+        return;
+      }
+      const sheet = rec.sheet || {};
+      const hp = combatHpFromOwner(owner);
+      addCombatant({
+        name: sheet.name || rec.name,
+        kind: 'enemy',
+        playerId: owner,
         init: 0,
         hp: hp.hp,
         hpMax: hp.hpMax,
@@ -15216,6 +15409,35 @@
           btn.onclick = () => addPlayerToCombat(id);
           playersBox.appendChild(btn);
         });
+      }
+
+      const npcsBox = document.getElementById('kampfNpcs');
+      if (npcsBox) {
+        npcsBox.innerHTML = '';
+        const npcIds = Object.keys(npcAccounts);
+        const freeNpcs = npcIds.filter(id => !combat.combatants.some(c => c.playerId === NPC_PREFIX + id));
+        if (!npcIds.length) {
+          const empty = document.createElement('p');
+          empty.className = 'kampf-empty';
+          empty.style.padding = '0';
+          empty.textContent = 'Noch keine NPCs angelegt.';
+          npcsBox.appendChild(empty);
+        } else if (!freeNpcs.length) {
+          const empty = document.createElement('p');
+          empty.className = 'kampf-empty';
+          empty.style.padding = '0';
+          empty.textContent = 'Alle NPCs sind schon in der Liste.';
+          npcsBox.appendChild(empty);
+        } else {
+          freeNpcs.forEach(id => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'ghost';
+            btn.textContent = npcAccounts[id].name || 'NPC';
+            btn.onclick = () => addNpcToCombat(id);
+            npcsBox.appendChild(btn);
+          });
+        }
       }
 
       const tplBox = document.getElementById('kampfTplList');
