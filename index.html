@@ -7310,10 +7310,20 @@
       return false;
     }
 
+    function diceRollsEnabled() {
+      return diceAnimMode !== 'off';
+    }
+
+    function noticeDiceOff() {
+      toast('Würfel sind aus — nutze deine eigenen Würfel.');
+    }
+
     function setDiceAnimMode(mode) {
       diceAnimMode = mode === 'off' || mode === 'combat' ? mode : 'on';
       saveDicePrefs();
       applyDiceToolsUi();
+      renderDiceTray();
+      if (typeof syncKampfChrome === 'function') syncKampfChrome();
       if (diceAnimBlocked()) clearTableDice();
       toast('Würfel am Tisch: ' + diceAnimLabel(diceAnimMode));
     }
@@ -7358,7 +7368,10 @@
       if (sum) sum.textContent = formatDiceQueueLabel();
       const rollBtn = document.getElementById('diceTrayRollBtn');
       const resetBtn = document.getElementById('diceTrayResetBtn');
-      if (rollBtn) rollBtn.disabled = !total;
+      if (rollBtn) {
+        rollBtn.disabled = !total || !diceRollsEnabled();
+        rollBtn.title = diceRollsEnabled() ? '' : 'Würfel sind aus — nutze deine eigenen Würfel.';
+      }
       if (resetBtn) resetBtn.disabled = !total;
     }
 
@@ -7491,6 +7504,7 @@
     }
 
     function rollQueuedDice() {
+      if (!diceRollsEnabled()) { noticeDiceOff(); return; }
       const dice = [];
       DICE_TRAY_SIDES.forEach(sides => {
         const n = diceQueue[sides] || 0;
@@ -7927,6 +7941,7 @@
     }
 
     function dndRoll(label, bonus) {
+      if (!diceRollsEnabled()) { noticeDiceOff(); return; }
       const die = 1 + Math.floor(Math.random() * 20);
       const add = Number(bonus) || 0;
       playTableDie({
@@ -12016,6 +12031,7 @@
     }
 
     function rollDndAttack(item, wrap, chainDamage) {
+      if (!diceRollsEnabled()) { noticeDiceOff(); return; }
       const bonus = dndParseBonus(item.bonus);
       const die = 1 + Math.floor(Math.random() * 20);
       const total = die + bonus;
@@ -12046,6 +12062,7 @@
     }
 
     function rollDndDamageOnly(item, wrap, crit, opts) {
+      if (!diceRollsEnabled()) { noticeDiceOff(); return; }
       const rolled = dndRollDicePartsCrit(item.damage, !!crit);
       if (!rolled) {
         toast('Schaden als Würfel eintragen, z. B. 1W8+3.');
@@ -12359,7 +12376,7 @@
       const dc = Math.max(10, Math.floor(Number(damage) / 2));
       const rec = row.kind === 'player' && row.playerId ? sheetOwnerRecord(row.playerId) : null;
       const dnd = rec && rec.sheet && rec.sheet.dnd;
-      if (dnd && dnd.abilities && dnd.abilities.con) {
+      if (diceRollsEnabled() && dnd && dnd.abilities && dnd.abilities.con) {
         const bonus = dndMod(dnd.abilities.con.score) + (dnd.abilities.con.save ? dndProficiencyFor(dnd) : 0);
         const die = 1 + Math.floor(Math.random() * 20);
         const total = die + bonus;
@@ -12602,6 +12619,7 @@
 
     function kampfApplyHazards(row, token) {
       if (!row || !token || !combat.started) return;
+      if (!diceRollsEnabled()) return;
       const types = kampfHazardsAt(token.x, token.y);
       if (types.indexOf('fire') >= 0) {
         const rolled = dndRollDicePartsCrit('1W6', false);
@@ -12628,6 +12646,7 @@
     }
 
     function kampfOpportunity(fromId, startNeighbors, endNeighbors) {
+      if (!diceRollsEnabled()) return;
       const left = startNeighbors.filter(row => !endNeighbors.some(x => x.id === row.id));
       left.forEach(enemy => {
         if (enemy.reactionUsed) return;
@@ -12730,6 +12749,7 @@
     }
 
     function resolveKampfPower() {
+      if (!diceRollsEnabled()) { noticeDiceOff(); cancelKampfAim(); return; }
       const fromRow = combatantById(kampfAimFrom);
       const action = kampfPowerAction;
       if (!fromRow || !canControlCombatant(fromRow) || !action) return;
@@ -13016,6 +13036,7 @@
       if (!combat.started || battleHazardMode || battleMapTool) return false;
       if (!canStartKampfAim() || !id) return false;
       if (kampfAimFrom && !kampfPowerPhase) return false;
+      if (!diceRollsEnabled()) return false;
       const row = combatantById(id);
       if (!row) return false;
       if (kampfPowerPhase === 'aim' && kampfPowerAction && kampfAimFrom) {
@@ -13116,6 +13137,7 @@
     }
 
     function applyKampfPowerOutcome(heal) {
+      if (!diceRollsEnabled()) { noticeDiceOff(); cancelKampfAim(); return; }
       const fromRow = combatantById(kampfAimFrom);
       if (!fromRow || !canControlCombatant(fromRow) || !kampfPowerAction || !kampfAimTo) return;
       const spent = kampfConsumeAction(fromRow, kampfPowerAction);
@@ -13726,7 +13748,11 @@
       const startBtn = document.getElementById('kampfStartBtn');
       if (startBtn) startBtn.classList.toggle('hidden', !isDM || combat.started);
       const initAll = document.getElementById('kampfInitAllBtn');
-      if (initAll) initAll.classList.toggle('hidden', !isDM || combat.started || !combat.combatants.length);
+      if (initAll) {
+        initAll.classList.toggle('hidden', !isDM || combat.started || !combat.combatants.length);
+        initAll.disabled = !diceRollsEnabled();
+        initAll.title = diceRollsEnabled() ? '' : 'Würfel sind aus — Initiative selbst eintragen.';
+      }
       const addToggle = document.getElementById('kampfAddToggleBtn');
       if (addToggle) addToggle.classList.toggle('hidden', !isDM || !combat.started);
       const nextBtn = document.getElementById('kampfNextBtn');
@@ -14745,6 +14771,7 @@
 
     function rollAllKampfInit() {
       if (!isDM) return;
+      if (!diceRollsEnabled()) { noticeDiceOff(); return; }
       if (combat.started) {
         toast('Initiative nur vor Kampfbeginn.');
         return;
