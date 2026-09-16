@@ -14892,11 +14892,10 @@
         combat.logResetAt = now;
         cancelKampfAim();
         persistCombat();
-        clearBattleTokensAndHazards();
         renderKampf();
         return;
       }
-      if (!confirm('Kampf beenden und die Tafel leeren? Die Charakterblätter und Vorlagen bleiben unverändert.')) return;
+      if (!confirm('Kampf beenden? Initiative und Kampfdaten werden gelöscht, Portraits und Gefahrenflächen bleiben auf der Karte stehen.')) return;
       combat = emptyCombat();
       combat.debuffTick = tick;
       combat.removed = removed;
@@ -14905,8 +14904,8 @@
       combat.logResetAt = now;
       cancelKampfAim();
       persistCombat();
-      clearBattleTokensAndHazards();
       renderKampf();
+      renderBattleBoards();
       toast('Kampf beendet.');
     }
 
