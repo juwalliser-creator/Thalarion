@@ -2616,6 +2616,10 @@
       color: var(--ink);
     }
     .dice-log-item:last-child { border-bottom: 0; }
+    .dice-log-who {
+      color: var(--dnd-gold, #d4b36a);
+      font-weight: 700;
+    }
     .dice-pref {
       display: grid;
       gap: 0.32rem;
@@ -5395,6 +5399,7 @@
     const BATTLE_MAP_DOC = 'kampfFeldMap';
     const BATTLE_GALLERY_DOC = 'kampfFeldGalerie';
     const COMBAT_DOC = 'kampfStand';
+    const DICE_LOG_DOC = 'wurfProtokoll';
     const BATTLE_LOCAL_KEY = 'thalarion_kampf_feld';
     const BATTLE_GALLERY_LOCAL_KEY = 'thalarion_kampf_galerie';
     const BATTLE_HAZARDS = {
@@ -6129,6 +6134,10 @@
 
     function combatRef() {
       return db.collection('world').doc(COMBAT_DOC);
+    }
+
+    function diceLogRef() {
+      return db.collection('world').doc(DICE_LOG_DOC);
     }
 
     function imageRef(id) {
@@ -7437,6 +7446,10 @@
       if (resetBtn) resetBtn.disabled = !total;
     }
 
+    function escapeDiceLogHtml(s) {
+      return String(s || '').replace(/[&<>]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]));
+    }
+
     function renderDiceLog() {
       const list = document.getElementById('diceLogList');
       if (!list) return;
@@ -7445,16 +7458,51 @@
         return;
       }
       list.innerHTML = diceLog.map(row =>
-        '<div class="dice-log-item">' + String(row.text || '').replace(/[&<>]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch])) + '</div>'
+        '<div class="dice-log-item">' +
+        (row.who ? '<span class="dice-log-who">' + escapeDiceLogHtml(row.who) + '</span> · ' : '') +
+        escapeDiceLogHtml(row.text) + '</div>'
       ).join('');
+    }
+
+    function currentActorLabel() {
+      if (isDM) return 'DM';
+      if (currentPlayerId && playerAccounts[currentPlayerId] && playerAccounts[currentPlayerId].name) {
+        return playerAccounts[currentPlayerId].name;
+      }
+      return 'Spieler';
+    }
+
+    let writingDiceLog = false;
+
+    async function persistDiceLog() {
+      if (!db) return;
+      writingDiceLog = true;
+      try {
+        await diceLogRef().set({ entries: diceLog, updatedAt: Date.now() });
+      } catch (err) {
+        console.warn(err);
+      } finally {
+        writingDiceLog = false;
+      }
     }
 
     function logDiceRoll(caption) {
       const text = String(caption || '').trim();
       if (!text) return;
-      diceLog.unshift({ text: text });
+      diceLog.unshift({ text: text, who: currentActorLabel(), t: Date.now() });
       if (diceLog.length > 24) diceLog.length = 24;
       renderDiceLog();
+      persistDiceLog();
+    }
+
+    function listenDiceLog() {
+      if (!db) return;
+      diceLogRef().onSnapshot(snap => {
+        if (!snap.exists || writingDiceLog) return;
+        const data = snap.data();
+        diceLog = Array.isArray(data && data.entries) ? data.entries.slice(0, 24) : [];
+        renderDiceLog();
+      });
     }
 
     function applyDiceToolsUi() {
@@ -18564,6 +18612,7 @@
         onClick('diceLogClearBtn', () => {
           diceLog = [];
           renderDiceLog();
+          persistDiceLog();
         });
         const kinds = document.getElementById('diceTrayKinds');
         if (kinds) kinds.addEventListener('click', ev => {
@@ -19541,6 +19590,7 @@
       listenBattle();
       listenBattleGallery();
       listenCombat();
+      listenDiceLog();
     })().catch(err => {
       console.warn(err);
       toast('Die Seite konnte nicht vollständig starten. Bitte neu laden.');
