@@ -8807,7 +8807,7 @@
       sheetDirty = true;
     }
 
-    function applyDndRest(kind) {
+    async function applyDndRest(kind) {
       collectDndFields();
       dndState.features.forEach(f => {
         if (kind === 'short' && f.reset === 'short') f.used = '0';
@@ -8834,6 +8834,7 @@
       refreshDndCalcs();
       sheetDirty = true;
       toast(kind === 'short' ? 'Kurzrast verrechnet.' : kind === 'long' ? 'Langrast verrechnet.' : 'Morgengrauen verrechnet.');
+      if (kind === 'short' || kind === 'long') await saveSheet();
     }
 
     function normalizeAlts(raw) {
