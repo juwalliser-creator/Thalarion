@@ -3744,6 +3744,23 @@
       border-color: #6a645c;
     }
     .battle-token.is-dragging { cursor: grabbing; z-index: 5; }
+    .battle-token-del {
+      position: absolute;
+      top: -0.3rem;
+      right: calc(50% - var(--battle-token-face, 48px) / 2 - 0.65rem);
+      width: 1.15rem;
+      height: 1.15rem;
+      border-radius: 50%;
+      background: var(--blood);
+      color: #fff2ea;
+      font-style: normal;
+      line-height: 1;
+      display: grid;
+      place-items: center;
+      z-index: 6;
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+      cursor: pointer;
+    }
     .battle-token-face {
       position: relative;
       width: var(--battle-token-face, 48px);
@@ -9731,7 +9748,13 @@
 
     function upsertBattleToken(row) {
       if (!row || !row.id) return;
-      const old = battle.tokens.find(t => t.id === row.id);
+      let old = battle.tokens.find(t => t.id === row.id);
+      if (!old && row.playerId) {
+        const activeIds = {};
+        combat.combatants.forEach(c => { if (c && c.id) activeIds[c.id] = true; });
+        old = battle.tokens.find(t => t.playerId === row.playerId && t.id !== row.id && !activeIds[t.id]);
+        if (old) old.id = row.id;
+      }
       if (old) {
         old.name = row.name || old.name;
         old.kind = row.kind === 'player' ? 'player' : 'enemy';
@@ -10024,6 +10047,18 @@
         el.dataset.id = token.id;
         if (kampfPowerPhase === 'aim' && kampfPowerAction && token.id !== kampfAimFrom) {
           el.classList.add(kampfInRange(kampfAimFrom, token.id, kampfPowerAction) ? 'is-range-ok' : 'is-range-no');
+        }
+        if (isDM && !row) {
+          const del = document.createElement('i');
+          del.className = 'battle-token-del';
+          del.title = 'Portrait von der Karte entfernen';
+          del.textContent = '×';
+          del.addEventListener('pointerdown', ev => ev.stopPropagation());
+          del.addEventListener('click', ev => {
+            ev.stopPropagation();
+            if (confirm((token.name || 'Portrait') + ' von der Karte entfernen?')) removeBattleToken(token.id);
+          });
+          el.appendChild(del);
         }
         el.addEventListener('pointerenter', () => setBattleLink(token.id, false));
         el.addEventListener('pointerleave', () => {
