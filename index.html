@@ -4252,7 +4252,6 @@
       </button>
       <nav class="top-nav">
         <button type="button" id="navEntstehung">Entstehung</button>
-        <button type="button" id="navSitzung">Sitzung</button>
         <button type="button" id="navWorld">Thalarion</button>
         <button type="button" id="navMap" class="active">Karte</button>
         <button type="button" id="navCharakter">Charakter</button>
@@ -4270,6 +4269,7 @@
       <div class="dm-menu" id="dmMenuWrap">
         <button class="dm-chip" id="dmMenuBtn" type="button" aria-expanded="false" aria-haspopup="true">DM-Modus</button>
         <div class="dm-menu-list hidden" id="dmMenuList" role="menu">
+          <button type="button" role="menuitem" id="dmMenuSitzung">Sitzung</button>
           <button type="button" role="menuitem" id="dmMenuMyDoc">Für mich</button>
         </div>
       </div>
@@ -5564,7 +5564,7 @@
       playerToEdit: document.getElementById('playerToEdit'),
       navWorld: document.getElementById('navWorld'),
       navEntstehung: document.getElementById('navEntstehung'),
-      navSitzung: document.getElementById('navSitzung'),
+      dmMenuSitzung: document.getElementById('dmMenuSitzung'),
       navMap: document.getElementById('navMap'),
       navCharakter: document.getElementById('navCharakter'),
       navKampf: document.getElementById('navKampf'),
@@ -17207,7 +17207,7 @@
       persistView();
       els.navWorld.classList.toggle('active', page === 'world' || page === 'codex' || page === 'bestiarium' || page === 'glossar');
       els.navEntstehung.classList.toggle('active', page === 'entstehung');
-      els.navSitzung.classList.toggle('active', page === 'sitzung');
+      els.dmMenuSitzung.classList.toggle('active', page === 'sitzung');
       els.navMap.classList.toggle('active', page === 'map');
       els.navCharakter.classList.toggle('active', page === 'char');
       els.navKampf.classList.toggle('active', page === 'kampf');
@@ -18243,7 +18243,6 @@
         onClick('homeBtn', showMap);
         onClick('navWorld', showWorld);
         onClick('navEntstehung', showEntstehung);
-        onClick('navSitzung', showSitzung);
         onClick('navMap', showMap);
         onClick('navCharakter', showCharakter);
         onClick('navKampf', showKampf);
@@ -18922,6 +18921,10 @@
         onClick('dmMenuBtn', ev => {
           ev.stopPropagation();
           toggleDmMenu();
+        });
+        onClick('dmMenuSitzung', () => {
+          closeDmMenu();
+          showSitzung();
         });
         onClick('dmMenuMyDoc', () => {
           closeDmMenu();
