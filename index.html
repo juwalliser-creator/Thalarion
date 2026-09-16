@@ -9479,8 +9479,12 @@
         persistCombat();
       }
       persistCombatLocal();
+      ensureCombatTurn();
       applyBattleTurnHighlight();
-      if (currentPage === 'kampf') renderKampf();
+      if (currentPage === 'kampf') {
+        renderKampf();
+        renderBattleBoards();
+      }
     }
 
     function listenCombat() {
@@ -12669,9 +12673,15 @@
       return '';
     }
 
+    function kampfSheetIsLive(owner) {
+      if (!owner || owner !== currentSheetOwner || !usesDndSheet(owner)) return false;
+      const charOpen = els.charView && !els.charView.classList.contains('hidden');
+      return !!(charOpen || sheetDirty);
+    }
+
     function combatantDndSheet(row) {
       if (!row || !row.playerId) return null;
-      if (row.playerId === currentSheetOwner) return dndState;
+      if (kampfSheetIsLive(row.playerId)) return dndState;
       const rec = sheetOwnerRecord(row.playerId);
       return rec && rec.sheet && rec.sheet.dnd ? rec.sheet.dnd : null;
     }
@@ -12970,7 +12980,7 @@
 
     function kampfConsumeAction(row, action) {
       if (!row || !action) return { ok: true };
-      if (row.playerId === currentSheetOwner && usesDndSheet(currentSheetOwner)) collectDndFields();
+      if (kampfSheetIsLive(row.playerId)) collectDndFields();
       const dnd = combatantDndSheet(row);
       if (!dnd) return { ok: true };
       if (action.kind === 'feature') {
@@ -13201,7 +13211,7 @@
       if (!action) return action;
       const key = action.kind === 'spell' ? 'spells' : action.kind === 'feature' ? 'features' : 'attacks';
       const from = combatantById(kampfAimFrom);
-      if (from && from.playerId && from.playerId === currentSheetOwner) {
+      if (from && kampfSheetIsLive(from.playerId)) {
         const item = (dndState[key] || []).find(x => x.id === action.id);
         if (item) return item;
       }
@@ -13221,9 +13231,10 @@
 
     function persistKampfPowerSheet(row) {
       if (!row || !row.playerId) return;
-      if (currentSheetOwner === row.playerId) {
-        const rec = sheetOwnerRecord(row.playerId);
-        if (rec && rec.sheet) rec.sheet.dnd = normalizeDndSheet(dndState);
+      const rec = sheetOwnerRecord(row.playerId);
+      if (!rec || !rec.sheet) return;
+      if (kampfSheetIsLive(row.playerId)) {
+        rec.sheet.dnd = normalizeDndSheet(dndState);
         sheetDirty = true;
         if (!dndAttackEditId && !dndSpellEditId) renderDndLists();
         renderDndSlots();
@@ -13287,7 +13298,14 @@
 
     function handleKampfPowerClick(id) {
       if (!combat.started || battleHazardMode || battleMapTool) return false;
-      if (!canStartKampfAim() || !id) return false;
+      if (!id) return false;
+      if (!canStartKampfAim()) {
+        if (!isDM && currentPlayerId && combat.started && combatantById(id) && isOwnCombatOwner(combatantById(id).playerId)) {
+          toast('Erst wenn du am Zug bist.');
+          return true;
+        }
+        return false;
+      }
       if (kampfAimFrom && !kampfPowerPhase) return false;
       if (!diceRollsEnabled()) return false;
       const row = combatantById(id);
@@ -15421,13 +15439,13 @@
 
     function renderKampf() {
       if (!els.kampfView || els.kampfView.classList.contains('hidden')) return;
+      ensureCombatTurn();
       syncKampfChrome();
       if (!isDM) {
         renderPlayerKampfList();
         renderKampfInitStrip();
         return;
       }
-      ensureCombatTurn();
       renderKampfKartenList();
 
       const playersBox = document.getElementById('kampfPlayers');
