@@ -1037,7 +1037,7 @@
     .dnd-atk-cols,
     .dnd-atk-item {
       display: grid;
-      grid-template-columns: minmax(7rem, 1.35fr) minmax(3.8rem, 5.6rem) minmax(4.6rem, 5.6rem) minmax(5.4rem, 7.2rem) minmax(6rem, 1.5fr) auto auto;
+      grid-template-columns: minmax(7rem, 1.35fr) minmax(3.8rem, 5.6rem) minmax(4.6rem, 5.6rem) minmax(5.4rem, 7.2rem) auto auto;
       gap: 0.4rem 0.55rem;
       align-items: center;
     }
@@ -1127,10 +1127,17 @@
     }
     .dnd-atk-stat:hover { background: rgba(212, 179, 106, 0.12); }
     .dnd-atk-notes {
+      grid-column: 1 / -1;
+      grid-row: 2;
       color: var(--dnd-mute);
       font-size: 0.78rem;
-      line-height: 1.35;
+      line-height: 1.4;
+      white-space: normal;
+      padding-top: 0.3rem;
+      margin-top: 0.15rem;
+      border-top: 1px dashed var(--dnd-line);
     }
+    .dnd-atk-notes:empty { display: none; }
     .dnd-atk-item .ghost {
       padding: 0.28rem 0.45rem;
       font-size: 0.75rem;
@@ -1140,7 +1147,7 @@
     .dnd-spell-cols,
     .dnd-spell-item {
       display: grid;
-      grid-template-columns: 1.8rem minmax(8.2rem, 1.45fr) minmax(4.6rem, 6.4rem) minmax(4.4rem, 6.2rem) minmax(4.6rem, 6rem) minmax(5rem, 6.6rem) minmax(5.4rem, 1.2fr) auto auto;
+      grid-template-columns: 1.8rem minmax(8.2rem, 1.45fr) minmax(4.6rem, 6.4rem) minmax(4.4rem, 6.2rem) minmax(4.6rem, 6rem) minmax(5rem, 6.6rem) auto auto;
       gap: 0.4rem 0.5rem;
       align-items: center;
     }
@@ -1353,6 +1360,10 @@
       .dnd-atk-head, .dnd-row, .dnd-row-spell, .dnd-row-item, .dnd-row-feat,
       .dnd-spell-cols, .dnd-spell-item, .dnd-spell-edit-top, .dnd-spell-edit-grid {
         grid-template-columns: 1fr;
+      }
+      .dnd-spell-item .dnd-atk-notes {
+        grid-column: 1;
+        grid-row: auto;
       }
       .dnd-money { grid-template-columns: 1fr 1fr; }
       .dnd-rests-head { flex-direction: row; }
@@ -8482,7 +8493,7 @@
         if (head) head.classList.toggle('hidden', !anyOpen);
         const hasSaved = dndState.attacks.some(row => !dndAttackIsOpen(row));
         const cols = hasSaved
-          ? '<div class="dnd-atk-cols"><span>Angriff</span><span>Reichweite</span><span>Treffer</span><span>Schaden</span><span>Notizen</span><span></span><span></span></div>'
+          ? '<div class="dnd-atk-cols"><span>Angriff</span><span>Reichweite</span><span>Treffer</span><span>Schaden</span><span></span><span></span></div>'
           : '';
         atk.innerHTML = cols + dndState.attacks.map(row => {
           if (dndAttackIsOpen(row)) {
@@ -8547,7 +8558,7 @@
         });
         const hasSaved = visible.some(row => !dndSpellIsOpen(row));
         let html = hasSaved
-          ? '<div class="dnd-spell-cols"><span></span><span>Zauber</span><span>Zeit</span><span>Reichweite</span><span>Treffer/SG</span><span>Schaden</span><span>Notizen</span><span></span><span></span></div>'
+          ? '<div class="dnd-spell-cols"><span></span><span>Zauber</span><span>Zeit</span><span>Reichweite</span><span>Treffer/SG</span><span>Schaden</span><span></span><span></span></div>'
           : '';
         if (filterLvl == null) {
           const high = dndSpellFilterHigh();
