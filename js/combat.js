@@ -2743,10 +2743,13 @@
     function checkCombatConcentration(row, damage) {
       if (!combatantIsConcentrating(row) || !(Number(damage) > 0)) return;
       const dc = Math.max(10, Math.floor(Number(damage) / 2));
-      const rec = row.kind === 'player' && row.playerId ? sheetOwnerRecord(row.playerId) : null;
-      const dnd = rec && rec.sheet && rec.sheet.dnd;
-      if (diceRollsEnabled() && dnd && dnd.abilities && dnd.abilities.con) {
-        const bonus = dndMod(dnd.abilities.con.score) + (dnd.abilities.con.save ? dndProficiencyFor(dnd) : 0);
+      const dnd = combatantDndSheet(row);
+      const rec = (!dnd && row.playerId) ? sheetOwnerRecord(row.playerId) : null;
+      const sheet = dnd || (rec && rec.sheet && rec.sheet.dnd) || null;
+      const con = sheet && sheet.abilities && sheet.abilities.con;
+      if (diceRollsEnabled()) {
+        const score = con && con.score != null ? Number(con.score) : 10;
+        const bonus = dndMod(score) + (con && con.save ? dndProficiencyFor(sheet) : 0);
         const die = 1 + Math.floor(Math.random() * 20);
         const total = die + bonus;
         const ok = die === 20 || (die !== 1 && total >= dc);
@@ -2756,14 +2759,15 @@
           caption: row.name + ' · Konzentration SG ' + dc + ': W20 ' + die + ' (' + dndSigned(bonus) + ') = ' + total + (ok ? ' · gehalten' : ' · verloren')
         });
         combatLog(row.name + ' · Konzentration SG ' + dc + ' → ' + total + (ok ? ' gehalten' : ' verloren'));
-        if (!ok) {
+        if (ok) toast(row.name + ': Konzentration gehalten (SG ' + dc + ').');
+        else {
           setCombatantConcentrating(row, false);
-          toast(row.name + ': Konzentration verloren.');
+          toast(row.name + ': Konzentration verloren (SG ' + dc + ').');
         }
         return;
       }
       combatLog(row.name + ' · Konzentration prüfen, SG ' + dc);
-      toast(row.name + ': Konzentration SG ' + dc);
+      toast(row.name + ': Konzentration! KON-Rettung SG ' + dc + ' — bitte würfeln (halber Schaden, mind. 10).');
     }
 
     function combatDamageAmount(fromEl) {
@@ -2922,6 +2926,14 @@
       if (slot === 'bonus') row.bonusUsed = true;
       if (slot === 'surge') row.actionUsed = false;
       touchCombatant(row);
+    }
+
+    function kampfActionHasConcentration(action) {
+      if (!action) return false;
+      const live = kampfPowerLiveItem(action) || action;
+      if (live.concentration || action.concentration) return true;
+      const name = String((action.name || '') + ' ' + ((live && live.name) || '')).toLowerCase();
+      return /hunter'?s?\s*mark|mal des j[äa]gers/.test(name);
     }
 
     function kampfActionIsHeal(action) {
@@ -3184,13 +3196,13 @@
       const diceRaw = kampfPowerDice(action);
       const save = kampfParseSave((live && live.hit) || action.hit);
       const heal = kampfActionIsHeal(action);
-      const conc = !!(live && live.concentration) || !!action.concentration;
+      const conc = kampfActionHasConcentration(action);
       if (conc) setCombatantConcentrating(fromRow, true);
       const noCombatRoll = utility || (action.kind === 'feature' && !diceRaw && !bonusRaw && !save && !heal);
       if (noCombatRoll) {
-        combatLog((fromRow.name || 'Figur') + ' · ' + (action.name || 'Zauber') + (spent.slot ? ' · G' + spent.slot : ''));
+        combatLog((fromRow.name || 'Figur') + ' · ' + (action.name || 'Zauber') + (spent.slot ? ' · G' + spent.slot : '') + (conc ? ' · Konzentration' : ''));
         persistCombat();
-        toast((action.name || 'Zauber') + ' gewirkt' + (spent.slot ? ' · Platz Grad ' + spent.slot : '') + '.');
+        toast((action.name || 'Zauber') + ' gewirkt' + (spent.slot ? ' · Platz Grad ' + spent.slot : '') + (conc ? ' · Konzentration' : '') + '.');
         clearKampfAimState();
         renderKampfPowerOverlay();
         syncKampfAimUi();
@@ -3602,6 +3614,7 @@
       const live = kampfPowerLiveItem(action) || action;
       const bonusRaw = dndItemAttackBonus(live) || dndItemAttackBonus(action);
       const noCombatRoll = action.kind === 'feature' && !typed && !diceRaw && !bonusRaw;
+      if (kampfActionHasConcentration(action)) setCombatantConcentrating(fromRow, true);
       if (noCombatRoll) {
         combatLog((fromRow.name || 'Figur') + ' · ' + (action.name || 'Merkmal'));
         persistCombat();
@@ -3718,6 +3731,9 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'battle-power-act' + (selected ? ' is-on' : '') + (off ? ' is-off' : '');
+      btn.disabled = off;
+      if (depleted) btn.title = act.kind === 'spell' ? 'Keine Zauberplätze mehr.' : 'Keine Nutzungen mehr.';
+      else if (econBlock) btn.title = econBlock;
       const name = document.createElement('b');
       name.textContent = act.name;
       const meta = document.createElement('span');

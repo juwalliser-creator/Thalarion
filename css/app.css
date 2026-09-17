@@ -4052,11 +4052,14 @@ body.is-dm .battle-gear-panel .dm-only-tools { display: flex; }
   border-color: var(--gold);
   color: var(--gold);
 }
-.battle-power-act.is-off {
+.battle-power-act.is-off,
+.battle-power-act:disabled {
   opacity: 0.45;
   cursor: default;
+  pointer-events: none;
 }
-.battle-power-act.is-off:hover {
+.battle-power-act.is-off:hover,
+.battle-power-act:disabled:hover {
   border-color: var(--line);
   color: var(--ink);
 }
