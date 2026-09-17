@@ -657,28 +657,6 @@
             <button class="primary hidden" id="kampfResolveBtn" type="button">Wirken</button>
             <button class="ghost hidden" id="kampfAimCancel" type="button">Abbrechen</button>
           </div>
-          <div class="kampf-action-panel" id="kampfActionPanel">
-            <p class="kampf-action-who" id="kampfActionWho"></p>
-            <div class="kampf-action-row">
-              <input id="kampfDmgAmt" type="number" min="0" placeholder="TP" title="Leer = 1" />
-              <button class="danger" id="kampfActDmg" type="button">Schaden</button>
-              <button class="ghost" id="kampfActHeal" type="button">Heilung</button>
-            </div>
-            <div class="kampf-action-row">
-              <button class="ghost" id="kampfActBuff" type="button">Buff</button>
-              <button class="ghost" id="kampfActDebuff" type="button">Debuff</button>
-              <button class="ghost" id="kampfActConcentrate" type="button">Konzentration</button>
-              <button class="ghost" id="kampfActKill" type="button">Einer tot</button>
-            </div>
-            <div class="kampf-action-effects hidden" id="kampfActionEffects">
-              <div class="kampf-action-row">
-                <input id="kampfEffectText" type="text" placeholder="z. B. Vergiftet" />
-                <input id="kampfEffectRounds" class="kampf-num" type="number" min="1" placeholder="Rd." title="Leer = bleibt" />
-                <button class="primary" id="kampfEffectAdd" type="button">Setzen</button>
-              </div>
-              <div class="kampf-suggest" id="kampfEffectSuggest"></div>
-            </div>
-          </div>
           <div class="kampf-stage">
             <div class="battle-card" id="kampfBattleCard">
               <div class="battle-head">
@@ -747,7 +725,6 @@
                   <div class="battle-pings" id="kampfBattlePings"></div>
                 </div>
               </div>
-              <div class="battle-power-overlay hidden" id="kampfPowerOverlay" role="dialog" aria-label="Aktionen"></div>
             </div>
             <div class="kampf-list" id="kampfList"></div>
           </div>
@@ -1061,6 +1038,30 @@
     <input id="soundLibInput" class="hidden" type="file" accept="application/json,.json" />
     </div>
   </div>
+
+  <div class="kampf-action-panel" id="kampfActionPanel">
+    <p class="kampf-action-who" id="kampfActionWho"></p>
+    <div class="kampf-action-row">
+      <input id="kampfDmgAmt" type="number" min="0" placeholder="TP" title="Leer = 1" />
+      <button class="danger" id="kampfActDmg" type="button">Schaden</button>
+      <button class="ghost" id="kampfActHeal" type="button">Heilung</button>
+    </div>
+    <div class="kampf-action-row">
+      <button class="ghost" id="kampfActBuff" type="button">Buff</button>
+      <button class="ghost" id="kampfActDebuff" type="button">Debuff</button>
+      <button class="ghost" id="kampfActConcentrate" type="button">Konzentration</button>
+      <button class="ghost" id="kampfActKill" type="button">Einer tot</button>
+    </div>
+    <div class="kampf-action-effects hidden" id="kampfActionEffects">
+      <div class="kampf-action-row">
+        <input id="kampfEffectText" type="text" placeholder="z. B. Vergiftet" />
+        <input id="kampfEffectRounds" class="kampf-num" type="number" min="1" placeholder="Rd." title="Leer = bleibt" />
+        <button class="primary" id="kampfEffectAdd" type="button">Setzen</button>
+      </div>
+      <div class="kampf-suggest" id="kampfEffectSuggest"></div>
+    </div>
+  </div>
+  <div class="battle-power-overlay hidden" id="kampfPowerOverlay" role="dialog" aria-label="Aktionen"></div>
 
   <div id="diceStage" class="dice-stage hidden" aria-hidden="true">
     <div class="dice-rack" id="diceRack"></div>

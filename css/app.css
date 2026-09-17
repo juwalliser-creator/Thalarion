@@ -2988,6 +2988,7 @@ body.is-player #kampfView.is-live .kampf-act { display: flex; }
   box-shadow: none !important;
   outline: none;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 .kampf-init-item::-moz-focus-inner {
   border: 0;
@@ -3394,7 +3395,7 @@ body.is-dm #kampfAdd.hidden { display: none !important; }
 .kampf-action-panel {
   display: none;
   position: fixed;
-  z-index: 40;
+  z-index: 50;
   width: 16rem;
   max-width: min(17.5rem, calc(100vw - 1.2rem));
   max-height: min(24rem, calc(100vh - 1.2rem));
@@ -3990,7 +3991,7 @@ body.is-dm .battle-gear-panel .dm-only-tools { display: flex; }
 }
 .battle-power-overlay {
   position: fixed;
-  z-index: 40;
+  z-index: 50;
   width: 15rem;
   max-width: min(16.5rem, calc(100vw - 1.2rem));
   max-height: min(22rem, calc(100vh - 1.2rem));

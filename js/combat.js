@@ -411,8 +411,7 @@
         if (ev.target.closest('input, select, textarea, label')) return;
         const nestedBtn = ev.target.closest('button');
         if (nestedBtn && nestedBtn !== el) return;
-        if (handleKampfPowerClick(id)) return;
-        if (pickKampfAim(id)) return;
+        if (activateKampfFigure(id)) return;
         const row = combatantById(id);
         if (isDM && combat.started && row && row.delayed) {
           row.delayed = false;
@@ -1235,11 +1234,9 @@
         });
         el.addEventListener('click', ev => {
           ev.stopPropagation();
-          if (battleTokenDragMoved) return;
+          if (battleTokenSuppressClick || battleTokenDragMoved) return;
           if (handleBattleToolAt(token.x, token.y, ev)) return;
-          if (handleKampfPowerClick(token.id)) return;
-          if (pickKampfAim(token.id)) return;
-          setBattleLink(token.id, true);
+          if (!activateKampfFigure(token.id)) setBattleLink(token.id, true);
         });
         if (movable && !battleHazardMode && !battleMapTool) {
           el.addEventListener('pointerdown', ev => startBattleTokenDrag(ev, token, stage, el));
@@ -1312,8 +1309,10 @@
       ev.stopPropagation();
       try { el.setPointerCapture(ev.pointerId); } catch (err) {}
       battleTokenDragMoved = false;
+      battleTokenSuppressClick = false;
       const originX = ev.clientX;
       const originY = ev.clientY;
+      const tapSlop = ev.pointerType === 'mouse' ? 8 : 16;
       const startPos = { x: Number(token.x), y: Number(token.y) };
       const row = combatantById(token.id);
       if (row && combat.started && isCombatantActiveTurn(token.id)) kampfEnsureMove(row);
@@ -1324,7 +1323,7 @@
       el.classList.add('is-dragging');
       const move = e => {
         if (!battleTokenDrag || e.pointerId !== battleTokenDrag.pointerId) return;
-        if (Math.abs(e.clientX - originX) + Math.abs(e.clientY - originY) > 4) {
+        if (Math.abs(e.clientX - originX) + Math.abs(e.clientY - originY) > tapSlop) {
           battleTokenDragMoved = true;
         }
         let pct = snapBattlePct(stage, battlePctFromEvent(stage, e));
@@ -1381,9 +1380,14 @@
           pendingBattleSnap = null;
           applyBattle(snap, true);
         }
-        if (!battleTokenDragMoved) {
-          if (!handleKampfPowerClick(token.id) && !pickKampfAim(token.id)) setBattleLink(token.id, true);
-          battleTokenDragMoved = true;
+        const wasMoved = battleTokenDragMoved;
+        battleTokenSuppressClick = true;
+        setTimeout(() => { battleTokenSuppressClick = false; }, 450);
+        battleTokenDragMoved = false;
+        if (!wasMoved) {
+          if (!handleBattleToolAt(token.x, token.y, e) && !activateKampfFigure(token.id)) {
+            setBattleLink(token.id, true);
+          }
         }
       };
       document.addEventListener('pointermove', move);
@@ -3404,6 +3408,12 @@
       renderBattleBoards();
     }
 
+    function activateKampfFigure(id) {
+      if (handleKampfPowerClick(id)) return true;
+      if (pickKampfAim(id)) return true;
+      return false;
+    }
+
     function handleKampfPowerClick(id) {
       if (!combat.started || battleHazardMode || battleMapTool) return false;
       if (!id) return false;
@@ -3414,10 +3424,15 @@
         }
         return false;
       }
-      if (kampfAimFrom && !kampfPowerPhase) return false;
-      if (!diceRollsEnabled()) return false;
       const row = combatantById(id);
       if (!row) return false;
+      if (kampfAimFrom && !kampfPowerPhase) {
+        if (canControlCombatant(row) && combatantHasPowers(row)) {
+          openKampfPowerOverlay(id);
+          return true;
+        }
+        return false;
+      }
       if (kampfPowerPhase === 'aim' && kampfPowerAction && kampfAimFrom) {
         if (!kampfInRange(kampfAimFrom, id, kampfPowerAction)) {
           toast('Außer Reichweite (' + kampfTokenDistanceFeet(kampfAimFrom, id) + ' ft.).');
@@ -3442,7 +3457,7 @@
       }
       if (kampfPowerPhase === 'pick' && kampfAimFrom) {
         if (id === kampfAimFrom) {
-          cancelKampfAim();
+          positionKampfPowerOverlay();
           return true;
         }
         if (canControlCombatant(row) && combatantHasPowers(row)) {
@@ -3452,14 +3467,38 @@
         toast('Erst Aktion wählen.');
         return true;
       }
-      if (!canControlCombatant(row) || !combatantHasPowers(row)) return false;
+      if (!canControlCombatant(row)) return false;
+      if (!combatantHasPowers(row)) {
+        if (row.kind === 'player') {
+          toast('Keine Angriffe, Zauber oder Merkmale auf dem Blatt.');
+          return true;
+        }
+        return false;
+      }
       openKampfPowerOverlay(id);
       return true;
+    }
+
+    function bindKampfFloatUi() {
+      if (bindKampfFloatUi.done) return;
+      bindKampfFloatUi.done = true;
+      const place = () => {
+        positionKampfPowerOverlay();
+        positionKampfActionPanel();
+      };
+      window.addEventListener('resize', place);
+      window.addEventListener('scroll', place, true);
+    }
+
+    function ensureKampfFloatHost(el) {
+      if (el && el.parentElement !== document.body) document.body.appendChild(el);
     }
 
     function positionKampfPowerOverlay() {
       const box = document.getElementById('kampfPowerOverlay');
       if (!box || box.classList.contains('hidden')) return;
+      ensureKampfFloatHost(box);
+      bindKampfFloatUi();
       const id = (kampfPowerPhase === 'intent' || kampfPowerPhase === 'effect') ? (kampfAimTo || kampfAimFrom) : kampfAimFrom;
       const tokenEl = id ? document.querySelector('.battle-token[data-id="' + CSS.escape(id) + '"]') : null;
       const board = document.getElementById('kampfBattleBoard');
@@ -3486,6 +3525,8 @@
     function positionKampfActionPanel() {
       const box = document.getElementById('kampfActionPanel');
       if (!box || !box.classList.contains('is-open')) return;
+      ensureKampfFloatHost(box);
+      bindKampfFloatUi();
       const id = kampfAimTo || kampfAimFrom;
       const tokenEl = id ? document.querySelector('.battle-token[data-id="' + CSS.escape(id) + '"]') : null;
       const board = document.getElementById('kampfBattleBoard');
@@ -3839,6 +3880,8 @@
         }
       }
       box.classList.remove('hidden');
+      ensureKampfFloatHost(box);
+      bindKampfFloatUi();
       positionKampfPowerOverlay();
     }
 

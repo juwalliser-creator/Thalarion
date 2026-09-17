@@ -425,6 +425,7 @@
         onEv('kampfPowerOverlay', 'pointerdown', ev => ev.stopPropagation());
         onEv('kampfActionPanel', 'click', ev => ev.stopPropagation());
         onEv('kampfActionPanel', 'pointerdown', ev => ev.stopPropagation());
+        bindKampfFloatUi();
         onClick('kampfActDmg', () => applyKampfAimDamage(false));
         onClick('kampfActHeal', () => applyKampfAimDamage(true));
         onClick('kampfActBuff', () => showKampfEffectPicker('buff'));

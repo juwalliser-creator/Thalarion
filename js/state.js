@@ -125,6 +125,7 @@
     var playersPersistTimer = null;
     var battleTokenDrag = null;
     var battleTokenDragMoved = false;
+    var battleTokenSuppressClick = false;
     var battleScale = 1;
     var battlePanX = 0;
     var battlePanY = 0;
