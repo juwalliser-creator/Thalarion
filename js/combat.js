@@ -2928,6 +2928,26 @@
       return /heal|cure|healing|heilung|heilendes wort|cure wounds|healing word|second wind|zweiter wind|aid\b|goodberry/i.test(String(action && action.name || ''));
     }
 
+    function kampfActionIsUtilitySpell(action) {
+      if (!action || action.kind !== 'spell') return false;
+      if (kampfActionIsHeal(action) || kampfActionIsArea(action)) return false;
+      const live = kampfPowerLiveItem(action) || action;
+      if (dndItemAttackBonus(live) || kampfPowerDice(action)) return false;
+      if (kampfParseSave((live && live.hit) || action.hit)) return false;
+      return true;
+    }
+
+    function kampfActionIsSelfCast(action) {
+      if (!action) return false;
+      const live = kampfPowerLiveItem(action) || action;
+      const feet = kampfParseRangeFeet(action.range || (live && live.range), action.kind);
+      if (feet === 0) return true;
+      if (kampfActionIsUtilitySpell(action) && feet == null) return true;
+      if (action.kind === 'feature' && kampfActionIsHeal(action)) return true;
+      if (action.kind === 'feature' && !kampfPowerDice(action) && !dndItemAttackBonus(live)) return true;
+      return false;
+    }
+
     function kampfActionIsArea(action) {
       const t = ((action && action.name) || '') + ' ' + ((action && action.notes) || '') + ' ' + ((action && action.range) || '');
       return /burning hands|faerie fire|thunderwave|shatter|spirit guardians|flaming sphere|ice storm|fireball|cone|cube|sphere|radius|kegel|fläche|burst|emanation/i.test(t);
@@ -3070,6 +3090,19 @@
       return kampfTokenDistanceFeet(fromId, toId) <= feet;
     }
 
+    function kampfAvailableSlotLevel(dnd, minLevel) {
+      const min = Math.max(1, Number(minLevel) || 1);
+      if (!dnd || !dnd.spellSlots) return 0;
+      for (let i = min; i <= 9; i++) {
+        const slot = dnd.spellSlots[i];
+        const max = Number(String((slot && slot.max) || '').replace(',', '.'));
+        if (!Number.isFinite(max) || max <= 0) continue;
+        const used = Math.max(0, Number(String((slot && slot.used) || '').replace(',', '.')) || 0);
+        if (used < max) return i;
+      }
+      return 0;
+    }
+
     function kampfActionDepleted(row, action) {
       const dnd = combatantDndSheet(row);
       if (!dnd || !action) return false;
@@ -3081,11 +3114,8 @@
       if (action.kind === 'spell') {
         if (kampfSpellSkipsSlot(action)) return false;
         const lvl = kampfSlotLevel(action);
-        if (!lvl || !dnd.spellSlots || !dnd.spellSlots[lvl]) return false;
-        const max = Number(String(dnd.spellSlots[lvl].max || '').replace(',', '.'));
-        if (!Number.isFinite(max) || max <= 0) return false;
-        const used = Math.max(0, Number(String(dnd.spellSlots[lvl].used || '').replace(',', '.')) || 0);
-        return used >= max;
+        if (!lvl) return false;
+        return !kampfAvailableSlotLevel(dnd, lvl);
       }
       return false;
     }
@@ -3108,26 +3138,29 @@
       }
       if (action.kind === 'spell') {
         if (kampfSpellSkipsSlot(action)) return { ok: true };
-        const lvl = kampfSlotLevel(action);
-        if (!lvl) return { ok: true };
-        const slot = dnd.spellSlots && dnd.spellSlots[lvl];
-        if (!slot) return { ok: true };
-        const max = Number(String(slot.max || '').replace(',', '.'));
-        if (!Number.isFinite(max) || max <= 0) return { ok: true };
-        const used = Math.max(0, Number(String(slot.used || '').replace(',', '.')) || 0);
-        if (used >= max) return { ok: false, msg: 'Keine Zauberplätze Grad ' + lvl + ' mehr.' };
+        const min = kampfSlotLevel(action);
+        if (!min) return { ok: true };
+        const lvl = kampfAvailableSlotLevel(dnd, min);
+        if (!lvl) {
+          return { ok: false, msg: 'Keine Zauberplätze ab Grad ' + min + '.' };
+        }
+        const slot = dnd.spellSlots[lvl];
+        const used = Math.max(0, Number(String((slot && slot.used) || '').replace(',', '.')) || 0);
         slot.used = String(used + 1);
         persistKampfPowerSheet(row);
-        return { ok: true };
+        return { ok: true, slot: lvl };
       }
       return { ok: true };
     }
 
     function resolveKampfPower() {
-      if (!diceRollsEnabled()) { noticeDiceOff(); cancelKampfAim(); return; }
       const fromRow = combatantById(kampfAimFrom);
       const action = kampfPowerAction;
       if (!fromRow || !canControlCombatant(fromRow) || !action) return;
+      const live = kampfPowerLiveItem(action) || action;
+      const utility = kampfActionIsUtilitySpell(action)
+        || (action.kind === 'feature' && !kampfPowerDice(action) && !dndItemAttackBonus(live) && !kampfParseSave((live && live.hit) || action.hit) && !kampfActionIsHeal(action));
+      if (!utility && !diceRollsEnabled()) { noticeDiceOff(); cancelKampfAim(); return; }
       let targets = (kampfAimTargets || []).filter(Boolean);
       if (!targets.length && kampfAimTo) targets = [kampfAimTo];
       if (!targets.length) targets = [kampfAimFrom];
@@ -3147,18 +3180,17 @@
         return;
       }
       kampfSpendEconomy(fromRow, action);
-      const live = kampfPowerLiveItem(action) || action;
       const bonusRaw = dndItemAttackBonus(live) || dndItemAttackBonus(action);
       const diceRaw = kampfPowerDice(action);
       const save = kampfParseSave((live && live.hit) || action.hit);
       const heal = kampfActionIsHeal(action);
       const conc = !!(live && live.concentration) || !!action.concentration;
       if (conc) setCombatantConcentrating(fromRow, true);
-      const noCombatRoll = action.kind === 'feature' && !diceRaw && !bonusRaw && !save && !heal;
+      const noCombatRoll = utility || (action.kind === 'feature' && !diceRaw && !bonusRaw && !save && !heal);
       if (noCombatRoll) {
-        combatLog((fromRow.name || 'Figur') + ' · ' + (action.name || 'Merkmal'));
+        combatLog((fromRow.name || 'Figur') + ' · ' + (action.name || 'Zauber') + (spent.slot ? ' · G' + spent.slot : ''));
         persistCombat();
-        toast((action.name || 'Merkmal') + ' eingesetzt.');
+        toast((action.name || 'Zauber') + ' gewirkt' + (spent.slot ? ' · Platz Grad ' + spent.slot : '') + '.');
         clearKampfAimState();
         renderKampfPowerOverlay();
         syncKampfAimUi();
@@ -3392,10 +3424,7 @@
       kampfAimTargets = [];
       kampfAimEffect = '';
       const live = kampfPowerLiveItem(action) || action;
-      const selfOnly = kampfParseRangeFeet(action.range || (live && live.range), action.kind) === 0
-        || (action.kind === 'feature' && kampfActionIsHeal(action))
-        || (action.kind === 'feature' && !kampfPowerDice(action) && !dndItemAttackBonus(live));
-      if (selfOnly) {
+      if (kampfActionIsSelfCast(action)) {
         kampfAimTo = kampfAimFrom;
         kampfAimTargets = [kampfAimFrom];
         resolveKampfPower();
@@ -3698,7 +3727,20 @@
       else if (slot === 'reaction') bits.push('Reaktion');
       else if (slot === 'surge' || slot === 'free') bits.push('frei');
       else bits.push('Aktion');
-      if (act.kind === 'spell') bits.push(act.level && act.level !== '0' ? 'G' + act.level : 'G0');
+      if (act.kind === 'spell') {
+        const lvl = kampfSlotLevel(act);
+        bits.push(lvl ? 'G' + lvl : 'G0');
+        const dnd = combatantDndSheet(from);
+        if (lvl && dnd) {
+          const spend = kampfAvailableSlotLevel(dnd, lvl) || lvl;
+          const slot = dnd.spellSlots && dnd.spellSlots[spend];
+          const max = Number(String((slot && slot.max) || '').replace(',', '.'));
+          if (Number.isFinite(max) && max > 0) {
+            const used = Math.max(0, Number(String((slot && slot.used) || '').replace(',', '.')) || 0);
+            bits.push((max - used) + '/' + max);
+          }
+        }
+      }
       if (act.kind === 'feature') {
         const max = kampfFeatureUseMax(act);
         if (max) bits.push(kampfFeatureUsed(act) + '/' + max + ' · ' + kampfResetShort(act.reset));

@@ -140,6 +140,91 @@
       return changed;
     }
 
+    function ensureMinSpellSlots(dnd, slots) {
+      if (!dnd || !slots) return false;
+      if (!dnd.spellSlots || typeof dnd.spellSlots !== 'object') dnd.spellSlots = {};
+      let changed = false;
+      Object.keys(slots).forEach(key => {
+        const level = Number(key);
+        const want = Number(slots[key]);
+        if (!(level >= 1 && level <= 9) || !(want > 0)) return;
+        if (!dnd.spellSlots[level]) dnd.spellSlots[level] = { max: '', used: '' };
+        const cur = Number(String(dnd.spellSlots[level].max || '').replace(',', '.'));
+        if (!Number.isFinite(cur) || cur < want) {
+          dnd.spellSlots[level].max = String(want);
+          const used = Math.max(0, Number(String(dnd.spellSlots[level].used || '').replace(',', '.')) || 0);
+          if (used > want) dnd.spellSlots[level].used = String(want);
+          changed = true;
+        }
+      });
+      return changed;
+    }
+
+    function accountMatchesName(id, acc, re) {
+      if (!acc || !re) return false;
+      if (re.test(String(id || ''))) return true;
+      if (re.test(String(acc.name || ''))) return true;
+      const sheet = acc.sheet || {};
+      if (re.test(String(sheet.name || ''))) return true;
+      return re.test(String((sheet.dnd && sheet.dnd.name) || ''));
+    }
+
+    function ensureKnownSpellLevels(dnd) {
+      if (!dnd || !Array.isArray(dnd.spells)) return false;
+      let changed = false;
+      dnd.spells.forEach(s => {
+        if (!s) return;
+        const name = String(s.name || '').toLowerCase().replace(/\s+/g, ' ');
+        const raw = String(s.level || '').trim();
+        if (raw && raw !== '0' && !/^k/i.test(raw)) return;
+        if (/speak with animals|mit tieren sprechen/.test(name) && (!raw || raw === '0')) {
+          s.level = '1';
+          changed = true;
+        }
+      });
+      return changed;
+    }
+
+    function ensureCasterSpellSlots(accs) {
+      if (!accs) return false;
+      let changed = false;
+      const yuvi = accs[YUVI_ID];
+      if (yuvi && yuvi.sheet) {
+        yuvi.sheet.dnd = normalizeDndSheet(yuvi.sheet.dnd);
+        if (ensureMinSpellSlots(yuvi.sheet.dnd, { 1: 4, 2: 2 })) changed = true;
+        if (ensureKnownSpellLevels(yuvi.sheet.dnd)) changed = true;
+      }
+      Object.keys(accs).forEach(id => {
+        const acc = accs[id];
+        if (!accountMatchesName(id, acc, /nemeia/i) || !acc.sheet) return;
+        acc.sheet.dnd = normalizeDndSheet(acc.sheet.dnd);
+        if (ensureMinSpellSlots(acc.sheet.dnd, { 1: 4, 2: 3 })) changed = true;
+        if (ensureKnownSpellLevels(acc.sheet.dnd)) changed = true;
+      });
+      if (changed && currentSheetOwner && dndState) {
+        const rec = sheetOwnerRecord(currentSheetOwner);
+        const src = rec && rec.sheet && rec.sheet.dnd;
+        if (src) {
+          if (src.spellSlots && dndState.spellSlots) {
+            for (let i = 1; i <= 9; i++) {
+              if (!src.spellSlots[i]) continue;
+              if (!dndState.spellSlots[i]) dndState.spellSlots[i] = { max: '', used: '' };
+              const liveMax = Number(String(dndState.spellSlots[i].max || '').replace(',', '.')) || 0;
+              const srcMax = Number(String(src.spellSlots[i].max || '').replace(',', '.')) || 0;
+              if (srcMax > liveMax) dndState.spellSlots[i].max = src.spellSlots[i].max;
+            }
+          }
+          (src.spells || []).forEach(s => {
+            const live = (dndState.spells || []).find(x => x.id === s.id);
+            if (!live || !s.level) return;
+            const raw = String(live.level || '').trim();
+            if (!raw || raw === '0') live.level = s.level;
+          });
+        }
+      }
+      return changed;
+    }
+
     function ensureBjoernFighterExtras(accs) {
       const acc = accs && accs.chris;
       if (!acc || !acc.sheet) return false;
@@ -845,6 +930,45 @@
       return Math.max(0, Number(String((slot && slot.used) || '').replace(',', '.')) || 0);
     }
 
+    function dndAvailableSlotLevel(dnd, minLevel) {
+      const min = Math.max(1, Number(minLevel) || 1);
+      if (!dnd || !dnd.spellSlots) return 0;
+      for (let i = min; i <= 9; i++) {
+        const slot = dnd.spellSlots[i];
+        const max = Number(String((slot && slot.max) || '').replace(',', '.'));
+        if (!Number.isFinite(max) || max <= 0) continue;
+        const used = Math.max(0, Number(String((slot && slot.used) || '').replace(',', '.')) || 0);
+        if (used < max) return i;
+      }
+      return 0;
+    }
+
+    function dndCastSpell(item) {
+      if (!item || !canEditOwnerSheet(currentSheetOwner)) return false;
+      collectDndFields();
+      const min = dndSpellLevelNum(item.level);
+      if (!min) {
+        toast((item.name || 'Zaubertrick') + ' braucht keinen Platz.');
+        return false;
+      }
+      const lvl = dndAvailableSlotLevel(dndState, min);
+      if (!lvl) {
+        toast('Keine Zauberplätze ab Grad ' + min + '.');
+        return false;
+      }
+      const slot = dndState.spellSlots[lvl];
+      const used = Math.max(0, Number(String((slot && slot.used) || '').replace(',', '.')) || 0);
+      slot.used = String(used + 1);
+      const rec = sheetOwnerRecord(currentSheetOwner);
+      if (rec && rec.sheet) rec.sheet.dnd = normalizeDndSheet(dndState);
+      sheetDirty = true;
+      persistPlayersSoon();
+      renderDndLists();
+      renderDndSlots();
+      toast((item.name || 'Zauber') + ' gewirkt · Platz Grad ' + lvl + '.');
+      return true;
+    }
+
     function dndSpellFilterHigh() {
       let high = 0;
       (dndState.spells || []).forEach(s => { high = Math.max(high, dndSpellLevelNum(s.level)); });
@@ -921,6 +1045,9 @@
           ? '<button type="button" class="dnd-atk-stat" data-dnd-roll="damage" title="Nur Schaden würfeln">' + escapeAttr(dmg) + '</button>'
           : '<div class="dnd-atk-stat" style="cursor:default;">' + escapeAttr(dmg) + '</div>') +
         '<div class="dnd-atk-notes">' + escapeAttr(row.notes || '') + '</div>' +
+        (dndSpellLevelNum(row.level) >= 1
+          ? '<button type="button" class="primary dnd-spell-cast" data-dnd-spell-cast="' + row.id + '" title="Zauber wirken und einen Platz verbrauchen">Wirken</button>'
+          : '<span></span>') +
         '<button type="button" class="ghost" data-dnd-spell-edit="' + row.id + '" title="Bearbeiten">Ändern</button>' +
         '<button type="button" class="ghost" data-dnd-del="spells">×</button></div>';
     }
@@ -949,6 +1076,8 @@
       dndActionView = null;
       const overlay = document.getElementById('dndActionOverlay');
       if (overlay) overlay.classList.add('hidden');
+      const cast = document.getElementById('dndActionCast');
+      if (cast) cast.classList.add('hidden');
     }
 
     function dndActionMetaLine(kind, item) {
@@ -1012,6 +1141,11 @@
         ta.readOnly = !canEdit;
       }
       if (save) save.classList.toggle('hidden', !canEdit);
+      const cast = document.getElementById('dndActionCast');
+      if (cast) {
+        const canCast = canEdit && kind === 'spells' && dndSpellLevelNum(found.item.level) >= 1;
+        cast.classList.toggle('hidden', !canCast);
+      }
       if (overlay) overlay.classList.remove('hidden');
       if (ta && canEdit) setTimeout(() => ta.focus(), 30);
     }
@@ -1114,7 +1248,7 @@
         });
         const hasSaved = visible.some(row => !dndSpellIsOpen(row));
         let html = hasSaved
-          ? '<div class="dnd-spell-cols"><span></span><span>Zauber</span><span>Zeit</span><span>Reichweite</span><span>Treffer/SG</span><span>Schaden</span><span></span><span></span></div>'
+          ? '<div class="dnd-spell-cols"><span></span><span>Zauber</span><span>Zeit</span><span>Reichweite</span><span>Treffer/SG</span><span>Schaden</span><span></span><span></span><span></span><span></span></div>'
           : '';
         if (filterLvl == null) {
           const high = dndSpellFilterHigh();
@@ -1452,7 +1586,8 @@
       const hadUdo = !!(data.accounts && (data.accounts.udo || data.accounts.Udo));
       const needsBjoernExtras = ensureBjoernFighterExtras(playerAccounts);
       const needsVeyrSheet = ensureVeyrDrakeSheet(playerAccounts);
-      if ((needsCloudRename || hadUdo || needsBjoernExtras || needsVeyrSheet) && db && !sheetDirty && !veyrEntryEditing) {
+      const needsSpellSlots = ensureCasterSpellSlots(playerAccounts);
+      if ((needsCloudRename || hadUdo || needsBjoernExtras || needsVeyrSheet || needsSpellSlots) && db && !sheetDirty && !veyrEntryEditing) {
         persistPlayers().catch(() => {});
       }
       syncChatListeners();
@@ -1482,6 +1617,7 @@
       renameReptileToBjoern(playerAccounts);
       ensureBjoernFighterExtras(playerAccounts);
       ensureVeyrDrakeSheet(playerAccounts);
+      ensureCasterSpellSlots(playerAccounts);
       removeUdoAccount(playerAccounts);
       const nextAt = Date.now();
       writingPlayers = true;

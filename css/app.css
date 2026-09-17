@@ -1141,7 +1141,7 @@ button.dnd-atk-name:hover { filter: brightness(1.14); }
 .dnd-spell-cols,
 .dnd-spell-item {
   display: grid;
-  grid-template-columns: 1.8rem minmax(8.2rem, 1.45fr) minmax(4.6rem, 6.4rem) minmax(4.4rem, 6.2rem) minmax(4.6rem, 6rem) minmax(5rem, 6.6rem) auto auto;
+  grid-template-columns: 1.8rem minmax(8.2rem, 1.45fr) minmax(4.6rem, 6.4rem) minmax(4.4rem, 6.2rem) minmax(4.6rem, 6rem) minmax(5rem, 6.6rem) minmax(4rem, 1fr) auto auto auto;
   gap: 0.4rem 0.5rem;
   align-items: center;
 }
@@ -1195,9 +1195,13 @@ button.dnd-atk-name:hover { filter: brightness(1.14); }
   align-items: center;
 }
 .dnd-spell-item .ghost,
+.dnd-spell-item .dnd-spell-cast,
 .dnd-spell-edit .ghost {
   padding: 0.28rem 0.45rem;
   font-size: 0.75rem;
+}
+.dnd-spell-cast {
+  min-width: 4.4rem;
 }
 #dndActionOverlay { z-index: 55; }
 .dnd-action-card {

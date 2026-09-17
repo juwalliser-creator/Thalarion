@@ -695,6 +695,15 @@
               renderDndLists();
               return;
             }
+            const spellCast = ev.target.closest('[data-dnd-spell-cast]');
+            if (spellCast) {
+              const wrap = spellCast.closest('[data-dnd-row]');
+              const id = wrap && wrap.getAttribute('data-id');
+              collectDndFields();
+              const item = (dndState.spells || []).find(x => x.id === id);
+              if (item) dndCastSpell(item);
+              return;
+            }
             const atkSave = ev.target.closest('[data-dnd-atk-save]');
             if (atkSave) {
               commitDndAttack(atkSave.getAttribute('data-dnd-atk-save'));
@@ -1001,6 +1010,11 @@
         onClick('dndActionClose', closeDndActionInfo);
         onClick('dndActionDismiss', closeDndActionInfo);
         onClick('dndActionSave', saveDndActionText);
+        onClick('dndActionCast', () => {
+          if (!dndActionView || dndActionView.kind !== 'spells') return;
+          const item = (dndState.spells || []).find(x => x.id === dndActionView.id);
+          if (item) dndCastSpell(item);
+        });
         onEv('dndActionOverlay', 'click', ev => {
           if (ev.target === document.getElementById('dndActionOverlay')) closeDndActionInfo();
         });
