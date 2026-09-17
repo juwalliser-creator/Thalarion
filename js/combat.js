@@ -4103,7 +4103,9 @@
       const bar = document.createElement('div');
       bar.className = 'kampf-hp-bar';
       const pct = row.hpMax > 0 ? Math.max(0, Math.min(100, (row.hp / row.hpMax) * 100)) : 0;
-      if (pct <= 25) bar.classList.add('is-low');
+      if (combatantDown(row) || pct <= 0) bar.classList.add('is-down');
+      else if (pct <= 25) bar.classList.add('is-low');
+      else if (pct <= 50) bar.classList.add('is-bloodied');
       const fill = document.createElement('span');
       fill.style.width = pct + '%';
       bar.appendChild(fill);
@@ -4171,7 +4173,9 @@
       if (row.debuffs && row.debuffs.length) {
         const chips = document.createElement('div');
         chips.className = 'kampf-debuffs';
+        let hasConc = false;
         row.debuffs.forEach(d => {
+          if (/konzentration/i.test(String(d.text || ''))) hasConc = true;
           const chip = document.createElement('span');
           chip.className = 'kampf-chip' + (d.kind === 'buff' ? ' is-buff' : '');
           chip.textContent = d.rounds == null ? d.text : (d.text + ' · ' + d.rounds);
@@ -4188,6 +4192,20 @@
           }
           chips.appendChild(chip);
         });
+        if (combatantIsConcentrating(row) && !hasConc) {
+          const chip = document.createElement('span');
+          chip.className = 'kampf-chip is-buff';
+          chip.textContent = 'Konzentration';
+          chips.appendChild(chip);
+        }
+        body.appendChild(chips);
+      } else if (combatantIsConcentrating(row)) {
+        const chips = document.createElement('div');
+        chips.className = 'kampf-debuffs';
+        const chip = document.createElement('span');
+        chip.className = 'kampf-chip is-buff';
+        chip.textContent = 'Konzentration';
+        chips.appendChild(chip);
         body.appendChild(chips);
       }
 
@@ -4635,7 +4653,9 @@
         const bar = el.querySelector('.kampf-hp-bar');
         if (bar) {
           const pct = row.hpMax > 0 ? Math.max(0, Math.min(100, (row.hp / row.hpMax) * 100)) : 0;
-          bar.classList.toggle('is-low', pct <= 25);
+          bar.classList.toggle('is-down', down || pct <= 0);
+          bar.classList.toggle('is-low', !down && pct > 0 && pct <= 25);
+          bar.classList.toggle('is-bloodied', !down && pct > 25 && pct <= 50);
           const fill = bar.querySelector('span');
           if (fill) fill.style.width = pct + '%';
         }
@@ -4704,7 +4724,9 @@
       const list = document.getElementById('kampfList');
       if (!list) return;
       list.innerHTML = '';
+      list.classList.toggle('is-roster', !!combat.started);
       if (combat.started) {
+        sortedCombatants().forEach(row => list.appendChild(kampfCompactItem(row)));
         applyBattleLinkHighlight();
         renderKampfLog();
         return;
@@ -4835,7 +4857,9 @@
 
       const list = document.getElementById('kampfList');
       list.innerHTML = '';
+      list.classList.toggle('is-roster', !!combat.started);
       if (combat.started) {
+        rows.forEach(row => list.appendChild(kampfCompactItem(row)));
         applyBattleLinkHighlight();
         syncKampfChrome();
         renderKampfInitStrip();

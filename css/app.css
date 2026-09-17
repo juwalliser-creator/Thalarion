@@ -2952,14 +2952,23 @@ body.is-player #kampfView.is-live .kampf-act { display: flex; }
   align-items: start;
 }
 .kampf-stage.is-live .battle-card {
-  position: sticky;
-  top: 0.4rem;
+  position: static;
   padding: 0.7rem 0.75rem 0.85rem;
   min-width: 0;
 }
-.kampf-stage.is-live .kampf-list { display: none; }
+.kampf-stage.is-live .kampf-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17.2rem, 1fr));
+  gap: 0.45rem;
+}
+.kampf-stage.is-live .kampf-log {
+  margin-top: 0;
+  max-height: 7.2rem;
+  overflow: auto;
+  font-size: 0.8rem;
+}
 .kampf-stage.is-live .battle-board {
-  min-height: min(64vh, 800px);
+  min-height: min(48vh, 560px);
 }
 .kampf-init-strip {
   display: flex;
@@ -3374,6 +3383,8 @@ body.is-dm #kampfAdd.hidden { display: none !important; }
   width: 0;
 }
 .kampf-hp-bar.is-low span { background: var(--blood); }
+.kampf-hp-bar.is-bloodied span { background: var(--gold); }
+.kampf-hp-bar.is-down span { background: #6a645c; width: 0; }
 .kampf-debuffs {
   display: flex;
   flex-wrap: wrap;
@@ -3440,9 +3451,9 @@ body.is-player .kampf-action-panel.is-open { display: grid; }
 .kampf-action-row input[type="text"] { flex: 1 1 100%; width: auto; }
 .kampf-action-row button { flex: 1 1 auto; }
 .kampf-log {
-  margin-top: 1.2rem;
+  margin-top: 0.35rem;
   color: var(--muted);
-  font-size: 0.92rem;
+  font-size: 0.86rem;
 }
 .kampf-log div {
   padding: 0.2rem 0;
