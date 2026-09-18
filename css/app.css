@@ -1485,7 +1485,7 @@ aside {
   max-width: 980px;
 }
 #kampfView.is-live {
-  max-width: 1000px;
+  max-width: 1280px;
 }
 .content:has(#kampfView.is-live:not(.hidden)) {
   padding-left: 1.1rem;
@@ -2947,8 +2947,8 @@ body.is-player #kampfView.is-live .kampf-act { display: flex; }
   min-height: min(62vh, 780px);
 }
 .kampf-stage.is-live {
-  grid-template-columns: 1fr;
-  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) minmax(16.8rem, 19.5rem);
+  gap: 0.75rem 0.85rem;
   align-items: start;
 }
 .kampf-stage.is-live .battle-card {
@@ -2958,10 +2958,20 @@ body.is-player #kampfView.is-live .kampf-act { display: flex; }
 }
 .kampf-stage.is-live .kampf-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(17.2rem, 1fr));
-  gap: 0.45rem;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  grid-template-columns: 1fr;
+  gap: 0.4rem;
+  align-self: start;
+  position: sticky;
+  top: 0.65rem;
+  max-height: calc(100dvh - 7.2rem);
+  overflow: auto;
+  padding-right: 0.12rem;
+  overscroll-behavior: contain;
 }
 .kampf-stage.is-live .kampf-log {
+  grid-column: 1;
   margin-top: 0;
   max-height: 7.2rem;
   overflow: auto;
@@ -4143,6 +4153,14 @@ body.is-dm .battle-gear-panel .dm-only-tools { display: flex; }
     grid-template-columns: 1fr;
   }
   .kampf-stage.is-live .battle-card { position: static; }
+  .kampf-stage.is-live .kampf-list {
+    grid-column: auto;
+    grid-row: auto;
+    position: static;
+    max-height: none;
+    grid-template-columns: repeat(auto-fill, minmax(17.2rem, 1fr));
+  }
+  .kampf-stage.is-live .kampf-log { grid-column: auto; }
   .kampf-add-row input.kampf-num { flex: 1 1 5.5rem; }
   .brand strong { font-size: 1.1rem; }
   .header-search {
