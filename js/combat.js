@@ -2731,7 +2731,7 @@
         }
         if (n > 0) row.hp = Math.max(0, row.hp - n);
         combatLog(prefix + row.name + ' · ' + Math.abs(Number(amount) || 0) + ' Schaden');
-        if (n > 0) checkCombatConcentration(row, n);
+        queueCombatConcentrationCheck(row.id, Math.abs(Number(amount) || 0));
       }
       touchCombatant(row);
       syncCombatantHpToSheet(row);
@@ -2740,16 +2740,32 @@
       renderBattleBoards();
     }
 
+    function combatantConSaveBonus(row) {
+      const dnd = combatantDndSheet(row);
+      const rec = (!dnd && row && row.playerId) ? sheetOwnerRecord(row.playerId) : null;
+      const sheet = dnd || (rec && rec.sheet && rec.sheet.dnd) || null;
+      const con = sheet && sheet.abilities && sheet.abilities.con;
+      const score = con && con.score != null ? Number(con.score) : 10;
+      const n = Number.isFinite(score) && score > 0 ? score : 10;
+      return dndMod(n) + (con && con.save && sheet ? dndProficiencyFor(sheet) : 0);
+    }
+
+    function queueCombatConcentrationCheck(id, damage) {
+      if (!id || !(Number(damage) > 0)) return;
+      if (!queueCombatConcentrationCheck._t) queueCombatConcentrationCheck._t = {};
+      clearTimeout(queueCombatConcentrationCheck._t[id]);
+      const wait = diceAnimBlocked() ? 280 : 980;
+      queueCombatConcentrationCheck._t[id] = setTimeout(() => {
+        const row = combatantById(id);
+        if (row) checkCombatConcentration(row, damage);
+      }, wait);
+    }
+
     function checkCombatConcentration(row, damage) {
       if (!combatantIsConcentrating(row) || !(Number(damage) > 0)) return;
       const dc = Math.max(10, Math.floor(Number(damage) / 2));
-      const dnd = combatantDndSheet(row);
-      const rec = (!dnd && row.playerId) ? sheetOwnerRecord(row.playerId) : null;
-      const sheet = dnd || (rec && rec.sheet && rec.sheet.dnd) || null;
-      const con = sheet && sheet.abilities && sheet.abilities.con;
       if (diceRollsEnabled()) {
-        const score = con && con.score != null ? Number(con.score) : 10;
-        const bonus = dndMod(score) + (con && con.save ? dndProficiencyFor(sheet) : 0);
+        const bonus = combatantConSaveBonus(row);
         const die = 1 + Math.floor(Math.random() * 20);
         const total = die + bonus;
         const ok = die === 20 || (die !== 1 && total >= dc);
@@ -2759,15 +2775,19 @@
           caption: row.name + ' · Konzentration SG ' + dc + ': W20 ' + die + ' (' + dndSigned(bonus) + ') = ' + total + (ok ? ' · gehalten' : ' · verloren')
         });
         combatLog(row.name + ' · Konzentration SG ' + dc + ' → ' + total + (ok ? ' gehalten' : ' verloren'));
-        if (ok) toast(row.name + ': Konzentration gehalten (SG ' + dc + ').');
+        if (ok) toast(row.name + ': Konzentration gehalten (SG ' + dc + ').', 4200);
         else {
           setCombatantConcentrating(row, false);
-          toast(row.name + ': Konzentration verloren (SG ' + dc + ').');
+          toast(row.name + ': Konzentration verloren (SG ' + dc + ').', 4200);
         }
+        persistCombat();
+        renderKampf();
+        renderBattleBoards();
         return;
       }
       combatLog(row.name + ' · Konzentration prüfen, SG ' + dc);
-      toast(row.name + ': Konzentration! KON-Rettung SG ' + dc + ' — bitte würfeln (halber Schaden, mind. 10).');
+      persistCombat();
+      toast(row.name + ': Konzentration! KON-Rettung SG ' + dc + ' — bitte würfeln (halber Schaden, mind. 10).', 5200);
     }
 
     function combatDamageAmount(fromEl) {
@@ -2932,8 +2952,18 @@
       if (!action) return false;
       const live = kampfPowerLiveItem(action) || action;
       if (live.concentration || action.concentration) return true;
-      const name = String((action.name || '') + ' ' + ((live && live.name) || '')).toLowerCase();
-      return /hunter'?s?\s*mark|mal des j[äa]gers/.test(name);
+      const from = combatantById(kampfAimFrom);
+      const dnd = from ? combatantDndSheet(from) : null;
+      if (dnd && action.id) {
+        const s = (dnd.spells || []).find(x => x.id === action.id);
+        if (s && s.concentration) return true;
+      }
+      const blob = [
+        action.name, live && live.name, live && live.notes, action.notes,
+        live && live.time, action.time, live && live.text, action.text
+      ].join(' ').toLowerCase();
+      if (/\bkonz(?:entration|\.)?\b|\bconcentration\b|\bconc\b/.test(blob)) return true;
+      return /hunter'?s?\s*mark|mal des j[äa]gers|faerie fire|feenfeuer|hex\b|bless\b|bane\b|hold person|person festhalten|spirit guardians|geisterw[aä]chter|flaming sphere|flammende kugel|moonbeam|mondstrahl|witch bolt|hexenblitz|heat metal|spike growth|call lightning|web\b|netz\b|dancing lights|tanzende lichter|guidance\b/.test(blob);
     }
 
     function kampfActionIsHeal(action) {
@@ -3765,6 +3795,7 @@
         if (String(act.damage || '').trim()) bits.push(String(act.damage).trim());
       }
       if (String(act.range || '').trim()) bits.push(String(act.range).trim());
+      if (kampfActionHasConcentration(act)) bits.push('Konz.');
       meta.textContent = bits.join(' · ');
       btn.appendChild(name);
       btn.appendChild(meta);
