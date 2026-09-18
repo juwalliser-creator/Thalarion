@@ -2515,29 +2515,25 @@ body.is-dm.sound-dock-open .dice-tools-wrap { bottom: 8.6rem; }
   max-width: 100%;
 }
 .dice-tool-row > * { pointer-events: auto; }
-.dice-tray-btn[aria-expanded="true"],
-.dice-log-btn[aria-expanded="true"] {
+.dice-tray-btn[aria-expanded="true"] {
   border-color: var(--gold);
   color: var(--gold);
 }
-.dice-tray,
-.dice-log {
+.dice-tray {
   position: absolute;
   left: calc(100% + 0.45rem);
   bottom: 0;
   z-index: 3;
-  min-width: 0;
-  background: var(--panel);
-  border: 1px solid var(--gold-dim);
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-}
-.dice-tray {
   display: grid;
+  min-width: 0;
   width: 16.8rem;
   max-width: calc(100vw - 4.4rem);
   gap: 0.5rem;
   padding: 0.65rem 0.75rem 0.7rem;
+  background: var(--panel);
+  border: 1px solid var(--gold-dim);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
 }
 .dice-tray-head,
 .dice-log-head {
@@ -2591,18 +2587,20 @@ body.is-dm.sound-dock-open .dice-tools-wrap { bottom: 8.6rem; }
 .dice-log {
   display: flex;
   flex-direction: column;
-  width: 17.5rem;
-  max-width: calc(100vw - 4.4rem);
-  max-height: min(42vh, 22rem);
-  padding: 0.55rem 0.7rem 0.65rem;
+  min-width: 0;
+  margin: 0.1rem 0 0;
+  padding: 0.5rem 0 0;
+  border-top: 1px solid var(--line);
 }
 .dice-log-list {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
   overflow: auto;
+  max-height: min(28vh, 12.5rem);
   margin-top: 0.4rem;
   padding-right: 0.15rem;
+  overscroll-behavior: contain;
 }
 .dice-log-empty,
 .dice-log-item {
@@ -2614,6 +2612,8 @@ body.is-dm.sound-dock-open .dice-tools-wrap { bottom: 8.6rem; }
   padding: 0.28rem 0.15rem;
   border-bottom: 1px solid var(--line);
   color: var(--ink);
+  overflow-wrap: anywhere;
+  user-select: text;
 }
 .dice-log-item:last-child { border-bottom: 0; }
 .dice-log-who {

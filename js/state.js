@@ -87,7 +87,6 @@
     var soundUnlocked = false;
     var soundDockOpen = false;
     var diceTrayOpen = false;
-    var diceLogOpen = false;
     var diceAnimMode = 'on';
     var diceLog = [];
     var diceQueue = { 4: 0, 6: 0, 8: 0, 10: 0, 12: 0, 20: 0, 100: 0 };

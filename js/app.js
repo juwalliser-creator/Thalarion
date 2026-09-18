@@ -366,10 +366,6 @@
           ev.stopPropagation();
           toggleDiceTray();
         });
-        onClick('diceLogBtn', ev => {
-          ev.stopPropagation();
-          toggleDiceLog();
-        });
         const prefPanel = document.getElementById('dicePrefPanel');
         if (prefPanel) prefPanel.addEventListener('click', ev => {
           const btn = ev.target.closest('[data-dice-anim]');
@@ -1256,7 +1252,6 @@
       const soundPick = document.getElementById('soundPickOverlay');
       if (soundPick && !soundPick.classList.contains('hidden')) { closeSoundPicker(); return; }
       if (diceTrayOpen) { closeDiceTray(); return; }
-      if (diceLogOpen) { closeDiceLog(); return; }
       if (soundDockOpen) { closeSoundDock(); return; }
       const gallery = document.getElementById('battleGalleryOverlay');
       if (gallery && !gallery.classList.contains('hidden')) { closeBattleGallery(); return; }

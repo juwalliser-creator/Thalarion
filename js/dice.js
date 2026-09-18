@@ -579,27 +579,19 @@ var writingDiceLog = false;
     function applyDiceToolsUi() {
       const wrap = document.getElementById('diceToolsWrap');
       const tray = document.getElementById('diceTray');
-      const log = document.getElementById('diceLog');
       const trayBtn = document.getElementById('diceTrayBtn');
-      const logBtn = document.getElementById('diceLogBtn');
       const prefPanel = document.getElementById('dicePrefPanel');
       const show = canUseDiceTools();
-      if (!show) {
-        diceTrayOpen = false;
-        diceLogOpen = false;
-      }
+      if (!show) diceTrayOpen = false;
       if (wrap) wrap.classList.toggle('hidden', !show);
       if (tray) tray.classList.toggle('hidden', !diceTrayOpen);
-      if (log) log.classList.toggle('hidden', !diceLogOpen);
       if (prefPanel) prefPanel.classList.toggle('hidden', !show);
       if (trayBtn) trayBtn.setAttribute('aria-expanded', diceTrayOpen ? 'true' : 'false');
-      if (logBtn) logBtn.setAttribute('aria-expanded', diceLogOpen ? 'true' : 'false');
       if (prefPanel) {
         prefPanel.querySelectorAll('[data-dice-anim]').forEach(btn => {
           btn.classList.toggle('is-on', btn.getAttribute('data-dice-anim') === diceAnimMode);
         });
       }
-      document.body.classList.toggle('dice-log-open', !!(show && diceLogOpen));
     }
 
     function closeDiceTray() {
@@ -608,23 +600,9 @@ var writingDiceLog = false;
       applyDiceToolsUi();
     }
 
-    function closeDiceLog() {
-      if (!diceLogOpen) return;
-      diceLogOpen = false;
-      applyDiceToolsUi();
-    }
-
     function toggleDiceTray() {
       if (!canUseDiceTools()) return;
       diceTrayOpen = !diceTrayOpen;
-      if (diceTrayOpen) diceLogOpen = false;
-      applyDiceToolsUi();
-    }
-
-    function toggleDiceLog() {
-      if (!canUseDiceTools()) return;
-      diceLogOpen = !diceLogOpen;
-      if (diceLogOpen) diceTrayOpen = false;
       applyDiceToolsUi();
     }
 
