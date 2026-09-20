@@ -1048,10 +1048,26 @@
         onEv('mapWrap', 'pointerdown', ev => {
           if (ev.button && ev.button !== 0) return;
           if (placingPin || drawingBorder) return;
-          if (ev.target.closest('.map-pin-del') || ev.target.closest('.map-border-del')) return;
-          const pinEl = ev.target.closest('.map-pin');
+          if (ev.target.closest('.map-pin-del') || ev.target.closest('.map-border-del') || ev.target.closest('.map-border-mid')) return;
           const wrap = document.getElementById('mapWrap');
           if (!wrap) return;
+          const vert = ev.target.closest('.map-border-vert');
+          if (vert && isDM) {
+            ev.preventDefault();
+            mapDrag = {
+              type: 'border-vert',
+              borderId: vert.dataset.borderId,
+              index: Number(vert.dataset.pointIndex),
+              el: vert,
+              x: ev.clientX,
+              y: ev.clientY,
+              moved: false
+            };
+            wrap.classList.add('panning');
+            wrap.setPointerCapture(ev.pointerId);
+            return;
+          }
+          const pinEl = ev.target.closest('.map-pin');
           if (pinEl && isDM) {
             ev.preventDefault();
             mapDrag = { type: 'pin', id: pinEl.dataset.pinId, el: pinEl, x: ev.clientX, y: ev.clientY, moved: false };
@@ -1064,8 +1080,22 @@
             wrap.setPointerCapture(ev.pointerId);
             return;
           }
+          if (isDM && mapScale <= 1 && !ev.target.closest('.map-border-hit')) {
+            clearMapLongPress();
+            const pos = mapClickToPercent(ev);
+            if (pos) {
+              mapLongPressPos = { x: ev.clientX, y: ev.clientY, pos: pos };
+              mapLongPressTimer = setTimeout(() => {
+                if (!mapLongPressPos || mapDrag) return;
+                pendingPin = mapLongPressPos.pos;
+                clearMapLongPress();
+                openPinPicker();
+              }, 550);
+            }
+          }
           if (mapScale <= 1) return;
           ev.preventDefault();
+          clearMapLongPress();
           const hit = ev.target.closest('.map-border-hit');
           mapDrag = {
             type: 'pan',
@@ -1081,11 +1111,19 @@
           wrap.setPointerCapture(ev.pointerId);
         });
         document.addEventListener('pointermove', ev => {
+          if (mapLongPressPos && mapLongPressTimer) {
+            const dx0 = ev.clientX - mapLongPressPos.x;
+            const dy0 = ev.clientY - mapLongPressPos.y;
+            if (dx0 * dx0 + dy0 * dy0 > 36) clearMapLongPress();
+          }
           if (!mapDrag) return;
-          if (mapDrag.type === 'pan' || mapDrag.type === 'pin') ev.preventDefault();
+          if (mapDrag.type === 'pan' || mapDrag.type === 'pin' || mapDrag.type === 'border-vert') ev.preventDefault();
           const dx = ev.clientX - mapDrag.x;
           const dy = ev.clientY - mapDrag.y;
-          if (!mapDrag.moved && (dx * dx + dy * dy) > 36) mapDrag.moved = true;
+          if (!mapDrag.moved && (dx * dx + dy * dy) > 36) {
+            mapDrag.moved = true;
+            clearMapLongPress();
+          }
           if (!mapDrag.moved) return;
           if (mapDrag.type === 'pan') {
             mapPanX = mapDrag.panX + dx;
@@ -1104,9 +1142,23 @@
               mapDrag.el.style.left = pos.x + '%';
               mapDrag.el.style.top = pos.y + '%';
             }
+            return;
+          }
+          if (mapDrag.type === 'border-vert') {
+            const pos = mapClickToPercent(ev);
+            if (!pos) return;
+            const border = mapBorders.find(b => b.id === mapDrag.borderId);
+            if (!border || !border.points[mapDrag.index]) return;
+            border.points[mapDrag.index].x = pos.x;
+            border.points[mapDrag.index].y = pos.y;
+            if (mapDrag.el) {
+              mapDrag.el.style.left = pos.x + '%';
+              mapDrag.el.style.top = pos.y + '%';
+            }
           }
         });
         document.addEventListener('pointerup', async ev => {
+          clearMapLongPress();
           const wrap = document.getElementById('mapWrap');
           if (wrap) wrap.classList.remove('panning');
           const drag = mapDrag;
@@ -1118,26 +1170,41 @@
             return;
           }
           if ((drag.type === 'pin' || drag.type === 'pin-click') && !drag.moved) {
-            openMapPin(drag.id);
+            return;
+          }
+          if (drag.type === 'border-vert' && drag.moved) {
+            renderMapBorders();
+            try { await persistPins(); toast('Grenzpunkt verschoben.'); }
+            catch (err) { toast('Konnte die Grenze nicht speichern: ' + err.message); }
             return;
           }
           if (drag.type === 'pan' && !drag.moved && drag.borderId && isDM) {
-            openBorderEditor(drag.borderId);
+            startBorderVertEdit(drag.borderId);
           }
         });
         document.addEventListener('pointercancel', () => {
+          clearMapLongPress();
           mapDrag = null;
           const wrap = document.getElementById('mapWrap');
           if (wrap) wrap.classList.remove('panning');
         });
+        onEv('mapStage', 'contextmenu', ev => {
+          if (!isDM) return;
+          ev.preventDefault();
+          openPinAtMapEvent(ev);
+        });
         onEv('mapStage', 'click', ev => {
           if (!isDM) return;
-          if (ev.target.closest('.map-pin') || ev.target.closest('.map-border-del')) return;
+          if (ev.target.closest('.map-pin') || ev.target.closest('.map-border-del') || ev.target.closest('.map-border-vert') || ev.target.closest('.map-border-mid')) return;
           const pos = mapClickToPercent(ev);
           if (!pos) return;
           if (drawingBorder) {
             borderDraft.push(pos);
             renderMapBorders();
+            return;
+          }
+          if (editingBorderVertsId && !ev.target.closest('.map-border-hit')) {
+            endBorderVertEdit();
             return;
           }
           if (!placingPin) return;
@@ -1171,14 +1238,16 @@
           const nameEl = document.getElementById('pinLabel');
           const name = ((nameEl && nameEl.value) || '').trim();
           if (!name) return toast('Bitte einen Namen eingeben.');
-          applyPinChoice(name, indexByTitle(name) !== null);
+          applyPinChoice(name);
         });
         onClick('pinSaveEdit', () => {
           const nameEl = document.getElementById('pinLabel');
           const name = ((nameEl && nameEl.value) || '').trim();
           if (!name) return toast('Bitte einen Namen eingeben.');
-          savePinEdits(name, indexByTitle(name) !== null);
+          savePinEdits(name);
         });
+        onClick('entryShowOnMapBtn', () => showEntryOnMap());
+        onClick('entrySetPinBtn', () => beginPinFromEntry());
         onEv('borderForm', 'submit', ev => {
           ev.preventDefault();
           const nameEl = document.getElementById('borderName');
@@ -1263,6 +1332,15 @@
         if (cancel) cancel.click();
         return;
       }
+      if (placingPin) { setPlacingPin(false); toast('Ort setzen abgebrochen.'); return; }
+      if (drawingBorder) {
+        editingBorderId = null;
+        setDrawingBorder(false);
+        toast('Grenze zeichnen abgebrochen.');
+        return;
+      }
+      if (editingBorderVertsId) { endBorderVertEdit(); return; }
+      if (pendingPinEntryId) { pendingPinEntryId = null; updateMapHint(); return; }
       if (kampfAimFrom) { cancelKampfAim(); return; }
       const gear = document.getElementById('kampfBattleGearPanel');
       if (gear && !gear.classList.contains('hidden')) { closeKampfBattleGear(); return; }
@@ -1352,6 +1430,8 @@
 
       entries = chosen.entries || [];
       worldUpdatedAt = chosen.updatedAt || 0;
+      migratePinEntryLinks();
+      renderMapPins();
       persistLocal();
       if (db && upload) {
         try {

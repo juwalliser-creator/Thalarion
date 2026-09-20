@@ -337,6 +337,12 @@
       return i < 0 ? null : i;
     }
 
+    function indexByEntryId(id) {
+      if (!id) return null;
+      const i = entries.findIndex(e => e.id === id);
+      return i < 0 ? null : i;
+    }
+
     function refreshOpenView() {
       if (currentPage === 'map') {
         renderMapPins();

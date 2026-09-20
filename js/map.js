@@ -123,15 +123,69 @@
       return pinIconSvg(pin.shape, pin.faction, pin.tier);
     }
 
+    function resolvePinEntryIndex(pin) {
+      if (!pin) return null;
+      if (pin.entryId) {
+        const byId = indexByEntryId(pin.entryId);
+        if (byId !== null) return byId;
+      }
+      if (pin.linked || pin.title) return indexByTitle(pin.title);
+      return null;
+    }
+
+    function migratePinEntryLinks() {
+      mapPins.forEach(pin => {
+        if (pin.entryId) {
+          const i = indexByEntryId(pin.entryId);
+          if (i !== null) {
+            pin.title = entries[i].title;
+            pin.linked = true;
+          }
+          return;
+        }
+        if (pin.linked === false) return;
+        const i = indexByTitle(pin.title);
+        if (i === null) return;
+        pin.entryId = entries[i].id;
+        pin.title = entries[i].title;
+        pin.linked = true;
+      });
+    }
+
+    function syncPinsForEntry(entry) {
+      if (!entry || !entry.id) return;
+      let changed = false;
+      mapPins.forEach(pin => {
+        if (pin.entryId !== entry.id) return;
+        if (pin.title !== entry.title) {
+          pin.title = entry.title;
+          changed = true;
+        }
+        pin.linked = true;
+      });
+      if (changed) {
+        renderMapPins();
+        persistPins().catch(() => {});
+      }
+    }
+
+    function findPinForEntry(entryId) {
+      if (!entryId) return null;
+      return mapPins.find(p => p.entryId === entryId) || null;
+    }
+
     function normalizePins(list) {
       return (Array.isArray(list) ? list : []).map((p, i) => {
         const migrated = (!p.shape || !p.faction) ? migratePinKind(p.kind) : null;
         const shape = p.shape || (migrated && migrated.shape) || 'landmark';
         const faction = p.faction || (migrated && migrated.faction) || 'neutral';
         const tier = p.tier || (migrated && migrated.tier) || 'marker';
+        const entryId = typeof p.entryId === 'string' ? p.entryId.trim() : '';
+        const linked = entryId ? true : p.linked === true ? true : p.linked === false ? false : true;
         return {
           id: p.id || ('pin_' + i + '_' + (p.title || 'ort')),
           title: p.title || '',
+          entryId: entryId,
           x: Number(p.x),
           y: Number(p.y),
           shape: mapShapeById(shape).id,
@@ -139,7 +193,7 @@
           tier: mapTierById(tier).id,
           visibility: p.visibility === 'dm' ? 'dm' : 'player',
           sessionFocus: !!p.sessionFocus,
-          linked: p.linked !== false
+          linked: linked
         };
       }).filter(p => p.title && Number.isFinite(p.x) && Number.isFinite(p.y));
     }
@@ -163,6 +217,7 @@
       mapPinsUpdatedAt = at;
       mapPins = normalizePins(data.pins);
       mapBorders = normalizeBorders(data.borders);
+      migratePinEntryLinks();
       renderMapPins();
       renderMapBorders();
     }
@@ -193,13 +248,19 @@
 
     function updateMapHint() {
       const hint = document.getElementById('mapHint');
-      if (drawingBorder) {
+      if (editingBorderVertsId) {
+        hint.textContent = 'Grenzpunkte ziehen · auf ◇ tippen fügt einen Punkt ein · Esc beendet · Doppelklick auf Grenze für Name/Farbe.';
+        hint.classList.remove('hidden');
+      } else if (drawingBorder) {
         hint.textContent = editingBorderId
-          ? 'Neue Punkte für die Grenze setzen, dann „Grenze schließen“.'
-          : 'Klicke Punkte entlang der Grenze. Danach „Grenze schließen“.';
+          ? 'Neue Punkte für die Grenze setzen, dann „Grenze schließen“. Esc bricht ab.'
+          : 'Klicke Punkte entlang der Grenze. Danach „Grenze schließen“. Esc bricht ab.';
         hint.classList.remove('hidden');
       } else if (placingPin) {
-        hint.textContent = 'Klicke auf die Stelle auf der Karte, dann wähle Symbol und Eintrag.';
+        hint.textContent = 'Klicke auf die Stelle auf der Karte. Esc bricht ab.';
+        hint.classList.remove('hidden');
+      } else if (pendingPinEntryId) {
+        hint.textContent = 'Rechtsklick oder langes Tippen auf die Karte, um den Pin zu setzen.';
         hint.classList.remove('hidden');
       } else {
         hint.classList.add('hidden');
@@ -209,13 +270,18 @@
     function setPlacingPin(on) {
       placingPin = !!on && isDM;
       pendingPin = null;
-      if (placingPin) setDrawingBorder(false);
+      if (placingPin) {
+        setDrawingBorder(false);
+        endBorderVertEdit(false);
+      }
       const stage = document.getElementById('mapStage');
       const btn = document.getElementById('placePinBtn');
-      stage.classList.toggle('placing', placingPin);
-      btn.classList.toggle('primary', placingPin);
-      btn.classList.toggle('ghost', !placingPin);
-      btn.textContent = placingPin ? 'Fertig' : 'Ort setzen';
+      if (stage) stage.classList.toggle('placing', placingPin);
+      if (btn) {
+        btn.classList.toggle('primary', placingPin);
+        btn.classList.toggle('ghost', !placingPin);
+        btn.textContent = placingPin ? 'Fertig' : 'Ort setzen';
+      }
       updateMapHint();
       if (!placingPin) closePinPicker();
     }
@@ -224,17 +290,40 @@
       drawingBorder = !!on && isDM;
       if (drawingBorder) {
         setPlacingPin(false);
+        endBorderVertEdit(false);
         borderDraft = [];
       } else {
         borderDraft = [];
-        if (!editingBorderId) document.getElementById('borderOverlay').classList.add('hidden');
+        if (!editingBorderId) {
+          const overlay = document.getElementById('borderOverlay');
+          if (overlay) overlay.classList.add('hidden');
+        }
       }
       const stage = document.getElementById('mapStage');
       const btn = document.getElementById('drawBorderBtn');
-      stage.classList.toggle('drawing', drawingBorder);
-      btn.classList.toggle('primary', drawingBorder);
-      btn.classList.toggle('ghost', !drawingBorder);
-      btn.textContent = drawingBorder ? 'Grenze schließen' : 'Grenze zeichnen';
+      if (stage) stage.classList.toggle('drawing', drawingBorder);
+      if (btn) {
+        btn.classList.toggle('primary', drawingBorder);
+        btn.classList.toggle('ghost', !drawingBorder);
+        btn.textContent = drawingBorder ? 'Grenze schließen' : 'Grenze zeichnen';
+      }
+      updateMapHint();
+      renderMapBorders();
+    }
+
+    function endBorderVertEdit(rerender) {
+      editingBorderVertsId = null;
+      if (rerender !== false) {
+        updateMapHint();
+        renderMapBorders();
+      }
+    }
+
+    function startBorderVertEdit(id) {
+      if (!isDM || !id) return;
+      setPlacingPin(false);
+      setDrawingBorder(false);
+      editingBorderVertsId = id;
       updateMapHint();
       renderMapBorders();
     }
@@ -247,8 +336,8 @@
         if (mapFilter.sessionOnly && !pin.sessionFocus) return false;
         if (mapFilter.factions[pin.faction] === false) return false;
         if (mapFilter.shapes[pin.shape] === false) return false;
-        if (!pin.linked) return true;
-        const i = indexByTitle(pin.title);
+        if (!pin.linked && !pin.entryId) return true;
+        const i = resolvePinEntryIndex(pin);
         if (i === null) return isDM;
         return isDM || entries[i].visibility === 'player';
       });
@@ -259,7 +348,9 @@
       if (!box) return;
       box.innerHTML = '';
       visibleMapPins().forEach(pin => {
-        const i = pin.linked ? indexByTitle(pin.title) : null;
+        const i = resolvePinEntryIndex(pin);
+        const missing = !!(pin.entryId || pin.linked) && i === null;
+        const displayTitle = i !== null ? entries[i].title : pin.title;
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'map-pin map-pin-tier-' + (pin.tier || 'marker');
@@ -267,20 +358,25 @@
         if (pin.visibility === 'dm') btn.classList.add('is-dm-secret');
         btn.style.left = pin.x + '%';
         btn.style.top = pin.y + '%';
-        btn.title = pin.title + ' · ' + pinDescribe(pin);
+        btn.title = displayTitle + ' · ' + pinDescribe(pin) + (isDM ? ' · Doppelklick öffnet Codex' : '');
         btn.dataset.pinId = pin.id;
         btn.innerHTML = pinIconFromPin(pin);
+        btn.ondblclick = ev => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          openMapPin(pin.id);
+        };
         const label = document.createElement('span');
         label.className = 'map-pin-label';
         const name = document.createElement('span');
-        name.textContent = pin.title + (pin.linked && i === null ? ' (fehlt)' : '');
+        name.textContent = displayTitle + (missing ? ' (fehlt)' : '');
         label.appendChild(name);
         if (isDM) {
           const edit = document.createElement('button');
           edit.type = 'button';
           edit.className = 'ghost map-pin-del map-pin-edit';
           edit.textContent = '✎';
-          edit.title = 'Ort bearbeiten';
+          edit.title = 'Symbol und Metadaten bearbeiten';
           edit.onclick = ev => {
             ev.stopPropagation();
             openPinEditor(pin.id);
@@ -321,19 +417,20 @@
 
     function renderMapBorders() {
       const svg = document.getElementById('mapOverlay');
+      const pinBox = document.getElementById('mapPins');
       if (!svg) return;
       svg.innerHTML = '';
-      document.querySelectorAll('.map-border-del').forEach(el => el.remove());
+      document.querySelectorAll('.map-border-del, .map-border-vert, .map-border-mid').forEach(el => el.remove());
       hideBorderTip();
       ensureMapFilters();
       const showSavedBorders = mapFilter.showBorders;
       if (showSavedBorders) mapBorders.forEach(border => {
         const d = roundedPolyPath(border.points, true);
         const poly = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        poly.setAttribute('class', 'map-border');
+        poly.setAttribute('class', 'map-border' + (editingBorderVertsId === border.id ? ' is-editing' : ''));
         poly.setAttribute('d', d);
         poly.setAttribute('stroke', border.color || '#d4b36a');
-        poly.setAttribute('fill', hexToRgba(border.color || '#d4b36a', 0.08));
+        poly.setAttribute('fill', hexToRgba(border.color || '#d4b36a', editingBorderVertsId === border.id ? 0.16 : 0.08));
         svg.appendChild(poly);
         const hit = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         hit.setAttribute('class', 'map-border-hit');
@@ -346,11 +443,16 @@
           hit.addEventListener('click', ev => {
             if (placingPin || drawingBorder) return;
             ev.stopPropagation();
+            startBorderVertEdit(border.id);
+          });
+          hit.addEventListener('dblclick', ev => {
+            if (placingPin || drawingBorder) return;
+            ev.stopPropagation();
             openBorderEditor(border.id);
           });
         }
         svg.appendChild(hit);
-        if (isDM) {
+        if (isDM && pinBox) {
           const mid = borderCentroid(border.points);
           const del = document.createElement('button');
           del.type = 'button';
@@ -366,9 +468,41 @@
           del.onclick = ev => {
             ev.stopPropagation();
             hideBorderTip();
+            if (editingBorderVertsId === border.id) endBorderVertEdit(false);
             removeMapBorder(border.id);
           };
-          document.getElementById('mapPins').appendChild(del);
+          pinBox.appendChild(del);
+        }
+        if (isDM && pinBox && editingBorderVertsId === border.id) {
+          border.points.forEach((pt, idx) => {
+            const handle = document.createElement('button');
+            handle.type = 'button';
+            handle.className = 'map-border-vert';
+            handle.title = 'Punkt ziehen';
+            handle.dataset.borderId = border.id;
+            handle.dataset.pointIndex = String(idx);
+            handle.style.left = pt.x + '%';
+            handle.style.top = pt.y + '%';
+            pinBox.appendChild(handle);
+          });
+          for (let i = 0; i < border.points.length; i++) {
+            const a = border.points[i];
+            const b = border.points[(i + 1) % border.points.length];
+            const mx = (a.x + b.x) / 2;
+            const my = (a.y + b.y) / 2;
+            const midBtn = document.createElement('button');
+            midBtn.type = 'button';
+            midBtn.className = 'map-border-mid';
+            midBtn.title = 'Punkt einfügen';
+            midBtn.textContent = '◇';
+            midBtn.style.left = mx + '%';
+            midBtn.style.top = my + '%';
+            midBtn.onclick = ev => {
+              ev.stopPropagation();
+              insertBorderPoint(border.id, i + 1, { x: mx, y: my });
+            };
+            pinBox.appendChild(midBtn);
+          }
         }
       });
       if (drawingBorder && borderDraft.length) {
@@ -377,6 +511,23 @@
         poly.setAttribute('d', roundedPolyPath(borderDraft, borderDraft.length > 2));
         if (borderDraft.length < 3) poly.setAttribute('fill', 'none');
         svg.appendChild(poly);
+      }
+    }
+
+    async function insertBorderPoint(borderId, index, point) {
+      if (!isDM) return;
+      const border = mapBorders.find(b => b.id === borderId);
+      if (!border) return;
+      const previous = mapBorders.map(b => Object.assign({}, b, { points: b.points.map(p => Object.assign({}, p)) }));
+      border.points.splice(index, 0, { x: point.x, y: point.y });
+      renderMapBorders();
+      try {
+        await persistPins();
+        toast('Punkt eingefügt.');
+      } catch (err) {
+        mapBorders = previous;
+        renderMapBorders();
+        toast('Konnte die Grenze nicht speichern: ' + err.message);
       }
     }
 
@@ -444,6 +595,20 @@
       };
     }
 
+    function resolveEntryLinkFromName(name) {
+      if (pendingPinEntryId) {
+        const byPending = indexByEntryId(pendingPinEntryId);
+        if (byPending !== null) {
+          return { entryId: entries[byPending].id, title: entries[byPending].title, linked: true };
+        }
+      }
+      const byId = name && indexByEntryId(name);
+      if (byId !== null) return { entryId: entries[byId].id, title: entries[byId].title, linked: true };
+      const byTitle = indexByTitle(name);
+      if (byTitle !== null) return { entryId: entries[byTitle].id, title: entries[byTitle].title, linked: true };
+      return { entryId: '', title: name, linked: false };
+    }
+
     function openPinPicker() {
       editingPinId = null;
       selectedPinShape = 'landmark';
@@ -454,7 +619,12 @@
       document.getElementById('pinOverlayTitle').textContent = 'Ort setzen';
       document.getElementById('pinOverlayHint').textContent = 'Typ, Zugehörigkeit und Größe wählen, dann einen Namen vergeben.';
       document.getElementById('pinSaveEdit').classList.add('hidden');
-      document.getElementById('pinLabel').value = '';
+      let label = '';
+      if (pendingPinEntryId) {
+        const i = indexByEntryId(pendingPinEntryId);
+        if (i !== null) label = entries[i].title;
+      }
+      document.getElementById('pinLabel').value = label;
       const vis = document.getElementById('pinVisibility');
       const focus = document.getElementById('pinSessionFocus');
       if (vis) vis.value = 'player';
@@ -473,10 +643,12 @@
       selectedPinTier = pin.tier || 'marker';
       selectedPinVisibility = pin.visibility === 'dm' ? 'dm' : 'player';
       selectedPinSessionFocus = !!pin.sessionFocus;
+      pendingPinEntryId = pin.entryId || null;
       document.getElementById('pinOverlayTitle').textContent = 'Ort bearbeiten';
-      document.getElementById('pinOverlayHint').textContent = 'Symbol und Name ändern.';
+      document.getElementById('pinOverlayHint').textContent = 'Symbol und Name ändern. Stimmt der Name mit einem Codex-Eintrag überein, wird per ID verknüpft.';
       document.getElementById('pinSaveEdit').classList.remove('hidden');
-      document.getElementById('pinLabel').value = pin.title || '';
+      const i = resolvePinEntryIndex(pin);
+      document.getElementById('pinLabel').value = i !== null ? entries[i].title : (pin.title || '');
       const vis = document.getElementById('pinVisibility');
       const focus = document.getElementById('pinSessionFocus');
       if (vis) vis.value = selectedPinVisibility;
@@ -486,21 +658,22 @@
       document.getElementById('pinLabel').focus();
     }
 
-    async function savePinEdits(title, linked) {
+    async function savePinEdits(title) {
       if (!isDM || !editingPinId) return;
       const pin = mapPins.find(p => p.id === editingPinId);
       if (!pin) return;
       const previous = mapPins.map(p => Object.assign({}, p));
       const meta = readPinMetaFromUi();
+      const link = resolveEntryLinkFromName(title);
       pin.shape = selectedPinShape || pin.shape;
       pin.faction = selectedPinFaction || pin.faction;
       pin.tier = selectedPinTier || pin.tier;
       pin.visibility = meta.visibility;
       pin.sessionFocus = meta.sessionFocus;
-      if (title) {
-        pin.title = title;
-        pin.linked = !!linked;
-      }
+      pin.title = link.title || title;
+      pin.entryId = link.entryId;
+      pin.linked = !!link.linked;
+      pendingPinEntryId = null;
       closePinPicker();
       renderMapPins();
       try {
@@ -511,6 +684,43 @@
         renderMapPins();
         toast('Konnte den Ort nicht speichern: ' + err.message);
       }
+    }
+
+    async function addMapPin(title) {
+      if (!isDM || !pendingPin || !title) return;
+      const previous = mapPins.slice();
+      const meta = readPinMetaFromUi();
+      const link = resolveEntryLinkFromName(title);
+      mapPins.push({
+        id: 'pin_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        title: link.title || title,
+        entryId: link.entryId,
+        x: pendingPin.x,
+        y: pendingPin.y,
+        shape: selectedPinShape || 'landmark',
+        faction: selectedPinFaction || 'neutral',
+        tier: selectedPinTier || 'marker',
+        visibility: meta.visibility,
+        sessionFocus: meta.sessionFocus,
+        linked: !!link.linked
+      });
+      pendingPinEntryId = null;
+      closePinPicker();
+      updateMapHint();
+      renderMapPins();
+      try {
+        await persistPins();
+        toast(link.linked ? 'Ort verknüpft: ' + (link.title || title) : 'Markierung gesetzt: ' + title);
+      } catch (err) {
+        mapPins = previous;
+        renderMapPins();
+        toast('Konnte den Ort nicht speichern: ' + err.message);
+      }
+    }
+
+    function applyPinChoice(title) {
+      if (editingPinId) return savePinEdits(title);
+      return addMapPin(title);
     }
 
     function updatePinPreview() {
@@ -629,40 +839,6 @@
       addLayerToggle('session', 'Nur Sitzung', () => mapFilter.sessionOnly, v => { mapFilter.sessionOnly = v; });
       if (isDM) {
         addLayerToggle('dmSecrets', 'DM-Geheimnisse', () => mapFilter.showDmSecrets, v => { mapFilter.showDmSecrets = v; });
-      }
-    }
-
-    function applyPinChoice(title, linked) {
-      if (editingPinId) return savePinEdits(title, linked);
-      return addMapPin(title, linked);
-    }
-
-    async function addMapPin(title, linked) {
-      if (!isDM || !pendingPin || !title) return;
-      const previous = mapPins.slice();
-      const meta = readPinMetaFromUi();
-      const autoLink = linked || indexByTitle(title) !== null;
-      mapPins.push({
-        id: 'pin_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-        title: title,
-        x: pendingPin.x,
-        y: pendingPin.y,
-        shape: selectedPinShape || 'landmark',
-        faction: selectedPinFaction || 'neutral',
-        tier: selectedPinTier || 'marker',
-        visibility: meta.visibility,
-        sessionFocus: meta.sessionFocus,
-        linked: !!autoLink
-      });
-      closePinPicker();
-      renderMapPins();
-      try {
-        await persistPins();
-        toast(autoLink ? 'Ort gesetzt: ' + title : 'Markierung gesetzt: ' + title);
-      } catch (err) {
-        mapPins = previous;
-        renderMapPins();
-        toast('Konnte den Ort nicht speichern: ' + err.message);
       }
     }
 
@@ -883,17 +1059,82 @@
     function openMapPin(id) {
       const pin = mapPins.find(p => p.id === id);
       if (!pin) return;
-      if (!pin.linked) {
-        if (isDM) openPinEditor(id);
-        else toast('Dieser Ort ist noch nicht mit einem Eintrag verknüpft.');
-        return;
-      }
-      const i = indexByTitle(pin.title);
+      const i = resolvePinEntryIndex(pin);
       if (i === null) {
-        toast('Dieser Eintrag existiert nicht mehr. Als DM kannst du die Markierung löschen.');
+        if (isDM) openPinEditor(id);
+        else toast(pin.linked || pin.entryId
+          ? 'Dieser Eintrag existiert nicht mehr.'
+          : 'Dieser Ort ist noch nicht mit einem Eintrag verknüpft.');
         return;
       }
       loadEntry(i, true);
+    }
+
+    function focusMapPin(pinId) {
+      const pin = mapPins.find(p => p.id === pinId);
+      if (!pin) return;
+      showMap();
+      requestAnimationFrame(() => {
+        const wrap = document.getElementById('mapWrap');
+        const img = document.getElementById('worldMap');
+        if (!wrap || !img) return;
+        const w = img.offsetWidth || wrap.clientWidth;
+        const h = img.offsetHeight || wrap.clientHeight;
+        const px = (pin.x / 100) * w;
+        const py = (pin.y / 100) * h;
+        mapScale = Math.max(mapScale, 1.85);
+        mapPanX = wrap.clientWidth / 2 - px * mapScale;
+        mapPanY = wrap.clientHeight / 2 - py * mapScale;
+        applyMapTransform();
+        const el = document.querySelector('.map-pin[data-pin-id="' + pinId + '"]');
+        if (el) {
+          el.classList.add('is-flash');
+          setTimeout(() => el.classList.remove('is-flash'), 1600);
+        }
+      });
+    }
+
+    function showEntryOnMap(entryId) {
+      const id = entryId || (currentIndex !== null && entries[currentIndex] && entries[currentIndex].id);
+      if (!id) return toast('Kein Eintrag geöffnet.');
+      const pin = findPinForEntry(id);
+      if (!pin) return toast('Noch kein Pin für diesen Eintrag.');
+      focusMapPin(pin.id);
+    }
+
+    function beginPinFromEntry(entryId) {
+      if (!isDM) return;
+      const id = entryId || (currentIndex !== null && entries[currentIndex] && entries[currentIndex].id);
+      if (!id) return toast('Kein Eintrag geöffnet.');
+      const existing = findPinForEntry(id);
+      if (existing) {
+        focusMapPin(existing.id);
+        toast('Pin existiert bereits — du kannst ihn ziehen oder mit ✎ bearbeiten.');
+        return;
+      }
+      pendingPinEntryId = id;
+      showMap();
+      updateMapHint();
+      toast('Rechtsklick oder langes Tippen auf die Karte, um den Pin zu setzen.');
+    }
+
+    function clearMapLongPress() {
+      if (mapLongPressTimer) {
+        clearTimeout(mapLongPressTimer);
+        mapLongPressTimer = null;
+      }
+      mapLongPressPos = null;
+    }
+
+    function openPinAtMapEvent(ev) {
+      if (!isDM || drawingBorder) return false;
+      if (ev.target.closest('.map-pin') || ev.target.closest('.map-border-del') || ev.target.closest('.map-border-vert') || ev.target.closest('.map-border-mid')) return false;
+      const pos = mapClickToPercent(ev);
+      if (!pos) return false;
+      endBorderVertEdit(false);
+      pendingPin = pos;
+      openPinPicker();
+      return true;
     }
 
     function fileToMapImage(file) {

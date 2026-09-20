@@ -2031,6 +2031,53 @@ body.is-map-full { overflow: hidden; }
 }
 .map-border-label.show { display: block; }
 .map-border.draft {
+  stroke-width: 0.55;
+  stroke-dasharray: 1.2 0.8;
+  fill: rgba(224, 194, 122, 0.12);
+  pointer-events: none;
+}
+.map-border.is-editing {
+  stroke-width: 0.75;
+}
+.map-border-vert {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid #e0c27a;
+  background: #14110e;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  cursor: grab;
+  pointer-events: auto;
+}
+.map-border-vert:active { cursor: grabbing; }
+.map-border-mid {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #e0c27a;
+  font-size: 0.85rem;
+  line-height: 1;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  cursor: pointer;
+  pointer-events: auto;
+  text-shadow: 0 0 4px #000;
+}
+.map-pin.is-flash {
+  animation: mapPinFlash 1.4s ease;
+}
+@keyframes mapPinFlash {
+  0%, 100% { filter: none; }
+  30%, 70% { filter: drop-shadow(0 0 10px rgba(224, 194, 122, 1)); }
+}
   fill: rgba(212, 179, 106, 0.04);
   stroke: var(--gold);
   stroke-dasharray: 1.2 0.8;

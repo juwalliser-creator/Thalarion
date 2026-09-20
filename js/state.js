@@ -9,6 +9,7 @@
     var writingPins = false;
     var placingPin = false;
     var pendingPin = null;
+    var pendingPinEntryId = null;
     var selectedPinShape = 'landmark';
     var selectedPinFaction = 'neutral';
     var selectedPinTier = 'marker';
@@ -25,6 +26,9 @@
     var borderDraft = [];
     var editingPinId = null;
     var editingBorderId = null;
+    var editingBorderVertsId = null;
+    var mapLongPressTimer = null;
+    var mapLongPressPos = null;
     var mapScale = 1;
     var mapPanX = 0;
     var mapPanY = 0;

@@ -199,16 +199,40 @@
       sitBar && sitBar.classList.toggle('hidden', !showSitBar);
     }
 
+    function slugToken(value) {
+      return String(value || '')
+        .toLowerCase()
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 48) || 'x';
+    }
+
+    function newEntryId() {
+      return 'entry_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    }
+
     function normalizeEntries(list) {
-      return (Array.isArray(list) ? list : []).map(e => ({
-        title: e.title || '',
-        type: normalizeType(e.type || categories[0]),
-        visibility: e.visibility === 'dm' ? 'dm' : 'player',
-        content: e.content || '',
-        imageId: typeof e.imageId === 'string' ? e.imageId : '',
-        sessionDate: /^\d{4}-\d{2}-\d{2}$/.test(e.sessionDate || '') ? e.sessionDate : '',
-        kingdom: String(e.kingdom || '').trim()
-      }));
+      const used = new Set();
+      return (Array.isArray(list) ? list : []).map((e, i) => {
+        let id = typeof e.id === 'string' ? e.id.trim() : '';
+        if (!id) id = 'legacy_' + slugToken(e.title) + '_' + slugToken(e.type || categories[0]);
+        const base = id;
+        let n = 2;
+        while (used.has(id)) id = base + '_' + n++;
+        used.add(id);
+        return {
+          id: id,
+          title: e.title || '',
+          type: normalizeType(e.type || categories[0]),
+          visibility: e.visibility === 'dm' ? 'dm' : 'player',
+          content: e.content || '',
+          imageId: typeof e.imageId === 'string' ? e.imageId : '',
+          sessionDate: /^\d{4}-\d{2}-\d{2}$/.test(e.sessionDate || '') ? e.sessionDate : '',
+          kingdom: String(e.kingdom || '').trim()
+        };
+      });
     }
 
     function formatSessionDate(iso) {
@@ -908,6 +932,10 @@
       document.getElementById('viewContent').innerHTML = entryBodyHtml(e);
       showViewImage(e.imageId, e.title);
       els.playerToEdit.classList.toggle('hidden', !isDM);
+      const mapActions = document.getElementById('viewerMapActions');
+      if (mapActions) mapActions.classList.remove('hidden');
+      const setPinBtn = document.getElementById('entrySetPinBtn');
+      if (setPinBtn) setPinBtn.classList.toggle('hidden', !isDM);
       updateEntryToKarteBtn();
       if (!selectedHomeCat && !wantsSidebar(pageForType(e.type))) selectedHomeCat = e.type;
       renderViewerCrumb(e);
@@ -1012,6 +1040,7 @@
         return;
       }
       const e = {
+        id: (previous && previous.id) || newEntryId(),
         title: title,
         type: els.type.value,
         visibility: els.visibility.value,
@@ -1031,6 +1060,7 @@
         dirty = false;
         pendingEntryImage = null;
         currentTitle = e.title;
+        syncPinsForEntry(e);
         toast('Gespeichert.');
         if (e.type === STORY_CAT) showEntstehung();
         else if (e.type === SESSION_CAT) showSitzung();
@@ -1295,9 +1325,14 @@
       const previous = entries.slice();
       const keep = {};
       previous.forEach(e => {
-        if (e.title) keep[e.title.toLowerCase()] = { imageId: e.imageId || '', sessionDate: e.sessionDate || '', kingdom: e.kingdom || '' };
+        if (e.title) keep[e.title.toLowerCase()] = {
+          id: e.id || '',
+          imageId: e.imageId || '',
+          sessionDate: e.sessionDate || '',
+          kingdom: e.kingdom || ''
+        };
       });
-      entries = parsed.map(e => Object.assign({}, e, keep[(e.title || '').toLowerCase()] || {}));
+      entries = normalizeEntries(parsed.map(e => Object.assign({}, e, keep[(e.title || '').toLowerCase()] || {})));
       try {
         await persistWorld();
         toast('Alle Einträge übernommen.');
@@ -1321,6 +1356,7 @@
       const incoming = parsed.find(e => e.title.toLowerCase() === current.title.toLowerCase()) || parsed[0];
       const previous = Object.assign({}, current);
       entries[currentIndex] = Object.assign({}, incoming, {
+        id: current.id || incoming.id || newEntryId(),
         imageId: current.imageId || '',
         sessionDate: current.sessionDate || incoming.sessionDate || ''
       });
