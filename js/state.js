@@ -9,7 +9,18 @@
     var writingPins = false;
     var placingPin = false;
     var pendingPin = null;
-    var selectedPinKind = 'ort';
+    var selectedPinShape = 'landmark';
+    var selectedPinFaction = 'neutral';
+    var selectedPinTier = 'marker';
+    var selectedPinVisibility = 'player';
+    var selectedPinSessionFocus = false;
+    var mapFilter = {
+      factions: {},
+      shapes: {},
+      showBorders: true,
+      sessionOnly: false,
+      showDmSecrets: true
+    };
     var drawingBorder = false;
     var borderDraft = [];
     var editingPinId = null;

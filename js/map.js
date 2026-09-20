@@ -16,33 +16,132 @@
       });
     }
 
-    function pinKindById(id) {
-      return PIN_KINDS.find(k => k.id === id) || PIN_KINDS[0];
+    function mapShapeById(id) {
+      return MAP_SHAPES.find(s => s.id === id) || MAP_SHAPES.find(s => s.id === 'landmark') || MAP_SHAPES[0];
     }
 
-    function pinIconSvg(kindId) {
-      const kind = pinKindById(kindId);
-      const c = kind.color;
-      const inner = {
-        dot: `<circle cx="16" cy="16" r="7" fill="${c}" stroke="#e0c27a" stroke-width="2"/>`,
-        city: `<circle cx="16" cy="16" r="13" fill="none" stroke="${c}" stroke-width="2"/><rect x="10" y="10" width="12" height="12" transform="rotate(45 16 16)" fill="${c}"/>`,
-        outpost: `<polygon points="16,5 27,26 5,26" fill="${c}" stroke="#1a1612" stroke-width="1.4"/>`,
-        battle: `<line x1="8" y1="24" x2="24" y2="8" stroke="${c}" stroke-width="3.2" stroke-linecap="round"/><line x1="8" y1="8" x2="24" y2="24" stroke="${c}" stroke-width="3.2" stroke-linecap="round"/>`,
-        hq: `<circle cx="16" cy="16" r="13" fill="#14110e" stroke="${c}" stroke-width="2.4"/><polygon points="16,7 19,13 26,14 21,18 22,25 16,21 10,25 11,18 6,14 13,13" fill="${c}"/>`,
-        faith: `<circle cx="16" cy="16" r="10" fill="${c}" stroke="#1a1612" stroke-width="1.4"/><circle cx="16" cy="16" r="3.2" fill="#14110e"/>`
-      }[kind.shape] || `<circle cx="16" cy="16" r="7" fill="${c}"/>`;
-      return `<svg class="map-pin-icon" viewBox="0 0 32 32" aria-hidden="true">${inner}</svg>`;
+    function mapFactionById(id) {
+      return MAP_FACTIONS.find(f => f.id === id) || MAP_FACTIONS.find(f => f.id === 'neutral') || MAP_FACTIONS[0];
+    }
+
+    function mapTierById(id) {
+      return MAP_TIERS.find(t => t.id === id) || MAP_TIERS.find(t => t.id === 'marker') || MAP_TIERS[0];
+    }
+
+    function ensureMapFilters() {
+      MAP_FACTIONS.forEach(f => {
+        if (typeof mapFilter.factions[f.id] !== 'boolean') mapFilter.factions[f.id] = true;
+      });
+      MAP_SHAPES.forEach(s => {
+        if (typeof mapFilter.shapes[s.id] !== 'boolean') mapFilter.shapes[s.id] = true;
+      });
+      if (typeof mapFilter.showBorders !== 'boolean') mapFilter.showBorders = true;
+      if (typeof mapFilter.sessionOnly !== 'boolean') mapFilter.sessionOnly = false;
+      if (typeof mapFilter.showDmSecrets !== 'boolean') mapFilter.showDmSecrets = true;
+    }
+
+    function migratePinKind(kind) {
+      return PIN_KIND_MIGRATE[kind] || null;
+    }
+
+    function pinDescribe(pin) {
+      const shape = mapShapeById(pin.shape);
+      const faction = mapFactionById(pin.faction);
+      const tier = mapTierById(pin.tier);
+      return shape.label + ' · ' + faction.label + ' · ' + tier.label;
+    }
+
+    function pinFactionGlyph(factionId, color) {
+      const ink = MAP_PIN_EDGE;
+      const deep = MAP_PIN_CORE;
+      if (factionId === 'swords') {
+        return `<g fill="none" stroke="${ink}" stroke-width="1.6" stroke-linecap="round">
+          <line x1="12" y1="22" x2="20" y2="10"/><line x1="12" y1="10" x2="20" y2="22"/>
+          <line x1="11" y1="11" x2="13" y2="9"/><line x1="19" y1="21" x2="21" y2="19"/>
+        </g>`;
+      }
+      if (factionId === 'lakunos') {
+        return `<polygon points="16,10 20,18 12,18" fill="none" stroke="${ink}" stroke-width="1.5"/>
+          <circle cx="16" cy="15.2" r="1.6" fill="${ink}"/>`;
+      }
+      if (factionId === 'blood') {
+        return `<path d="M16 10 C16 10 21 16 21 18.5 A5 5 0 0 1 11 18.5 C11 16 16 10 16 10Z" fill="${ink}"/>`;
+      }
+      if (factionId === 'night') {
+        return `<path d="M19 11.5 A6 6 0 1 0 19 20.5 A4.5 4.5 0 1 1 19 11.5Z" fill="${ink}"/>`;
+      }
+      if (factionId === 'elf') {
+        return `<path d="M16 9 L18.2 14.5 L24 15 L19.5 18.5 L21 24 L16 21 L11 24 L12.5 18.5 L8 15 L13.8 14.5Z" fill="${ink}"/>`;
+      }
+      if (factionId === 'orc') {
+        return `<path d="M10 14 L16 9 L22 14 L20 23 L12 23Z" fill="${ink}"/>`;
+      }
+      if (factionId === 'human') {
+        return `<circle cx="16" cy="13" r="3" fill="${ink}"/><path d="M10 24 C10 19 22 19 22 24" fill="${ink}"/>`;
+      }
+      if (factionId === 'dwarf') {
+        return `<rect x="11" y="12" width="10" height="9" rx="1" fill="${ink}"/><path d="M13 12 L16 8 L19 12" fill="${deep}"/>`;
+      }
+      return '';
+    }
+
+    function pinShapeBody(shapeId, color) {
+      const c = color;
+      const edge = MAP_PIN_EDGE;
+      const core = MAP_PIN_CORE;
+      const bodies = {
+        settlement: `<circle cx="16" cy="16" r="13" fill="none" stroke="${c}" stroke-width="2"/><rect x="10" y="10" width="12" height="12" transform="rotate(45 16 16)" fill="${c}" stroke="${edge}" stroke-width="1"/>`,
+        outpost: `<polygon points="16,5 27,26 5,26" fill="${c}" stroke="${core}" stroke-width="1.4"/>`,
+        landmark: `<path d="M16 4 C11 4 7 8.2 7 13.2 C7 19.5 16 28 16 28 C16 28 25 19.5 25 13.2 C25 8.2 21 4 16 4Z" fill="${c}" stroke="${edge}" stroke-width="1.4"/><circle cx="16" cy="13" r="3.2" fill="${core}"/>`,
+        temple: `<circle cx="16" cy="16" r="12" fill="${c}" stroke="${edge}" stroke-width="1.6"/><circle cx="16" cy="16" r="5.5" fill="${core}"/>`,
+        hq: `<circle cx="16" cy="16" r="13" fill="${core}" stroke="${c}" stroke-width="2.4"/><circle cx="16" cy="16" r="8.5" fill="${c}"/>`,
+        ruin: `<path d="M7 24 L7 12 L12 8 L16 12 L20 7 L25 12 L25 24 Z" fill="${c}" stroke="${core}" stroke-width="1.3"/><path d="M12 24 L12 16 L16 16 L16 24" fill="${core}" opacity="0.55"/>`,
+        danger: `<circle cx="16" cy="16" r="12" fill="${core}" stroke="${c}" stroke-width="2"/><line x1="9" y1="23" x2="23" y2="9" stroke="${c}" stroke-width="3" stroke-linecap="round"/><line x1="9" y1="9" x2="23" y2="23" stroke="${c}" stroke-width="3" stroke-linecap="round"/>`,
+        harbor: `<circle cx="16" cy="16" r="12" fill="${c}" stroke="${edge}" stroke-width="1.5"/><path d="M16 8 V18 M16 18 C11 18 10 22 10 24 M16 18 C21 18 22 22 22 24 M12 11 H20" fill="none" stroke="${core}" stroke-width="1.8" stroke-linecap="round"/>`,
+        mine: `<polygon points="16,6 26,22 6,22" fill="${c}" stroke="${core}" stroke-width="1.4"/><path d="M12 22 L16 12 L20 22" fill="none" stroke="${core}" stroke-width="1.5"/><rect x="14.2" y="14" width="3.6" height="8" fill="${core}"/>`,
+        magic: `<circle cx="16" cy="16" r="12" fill="none" stroke="${c}" stroke-width="2"/><circle cx="16" cy="16" r="7" fill="${c}" opacity="0.85"/><path d="M16 9 L17.5 14.5 L23 16 L17.5 17.5 L16 23 L14.5 17.5 L9 16 L14.5 14.5 Z" fill="${core}"/>`,
+        camp: `<polygon points="16,7 26,24 6,24" fill="${c}" stroke="${core}" stroke-width="1.4"/><line x1="16" y1="11" x2="16" y2="24" stroke="${core}" stroke-width="1.6"/><path d="M10 24 L16 14 L22 24" fill="none" stroke="${edge}" stroke-width="1.2"/>`
+      };
+      return bodies[shapeId] || bodies.landmark;
+    }
+
+    function pinIconSvg(shapeId, factionId, tierId) {
+      const shape = mapShapeById(shapeId);
+      const faction = mapFactionById(factionId);
+      const tier = mapTierById(tierId);
+      const c = faction.color;
+      const showRaceGlyph = MAP_RACE_FACTIONS.indexOf(faction.id) >= 0 && (shape.id === 'hq' || shape.id === 'temple');
+      const showOrderGlyph = MAP_ORDER_FACTIONS.indexOf(faction.id) >= 0;
+      let glyph = '';
+      if (showOrderGlyph || showRaceGlyph) glyph = pinFactionGlyph(faction.id, c);
+      const scale = tier.scale || 1;
+      const tx = 16 - 16 * scale;
+      return `<svg class="map-pin-icon" viewBox="0 0 32 32" aria-hidden="true"><g transform="translate(${tx} ${tx}) scale(${scale})">${pinShapeBody(shape.id, c)}${glyph}</g></svg>`;
+    }
+
+    function pinIconFromPin(pin) {
+      return pinIconSvg(pin.shape, pin.faction, pin.tier);
     }
 
     function normalizePins(list) {
-      return (Array.isArray(list) ? list : []).map((p, i) => ({
-        id: p.id || ('pin_' + i + '_' + (p.title || 'ort')),
-        title: p.title || '',
-        x: Number(p.x),
-        y: Number(p.y),
-        kind: p.kind || 'ort',
-        linked: p.linked !== false
-      })).filter(p => p.title && Number.isFinite(p.x) && Number.isFinite(p.y));
+      return (Array.isArray(list) ? list : []).map((p, i) => {
+        const migrated = (!p.shape || !p.faction) ? migratePinKind(p.kind) : null;
+        const shape = p.shape || (migrated && migrated.shape) || 'landmark';
+        const faction = p.faction || (migrated && migrated.faction) || 'neutral';
+        const tier = p.tier || (migrated && migrated.tier) || 'marker';
+        return {
+          id: p.id || ('pin_' + i + '_' + (p.title || 'ort')),
+          title: p.title || '',
+          x: Number(p.x),
+          y: Number(p.y),
+          shape: mapShapeById(shape).id,
+          faction: mapFactionById(faction).id,
+          tier: mapTierById(tier).id,
+          visibility: p.visibility === 'dm' ? 'dm' : 'player',
+          sessionFocus: !!p.sessionFocus,
+          linked: p.linked !== false
+        };
+      }).filter(p => p.title && Number.isFinite(p.x) && Number.isFinite(p.y));
     }
 
     function normalizeBorders(list) {
@@ -141,7 +240,13 @@
     }
 
     function visibleMapPins() {
+      ensureMapFilters();
       return mapPins.filter(pin => {
+        if (pin.visibility === 'dm' && !isDM) return false;
+        if (isDM && !mapFilter.showDmSecrets && pin.visibility === 'dm') return false;
+        if (mapFilter.sessionOnly && !pin.sessionFocus) return false;
+        if (mapFilter.factions[pin.faction] === false) return false;
+        if (mapFilter.shapes[pin.shape] === false) return false;
         if (!pin.linked) return true;
         const i = indexByTitle(pin.title);
         if (i === null) return isDM;
@@ -155,15 +260,16 @@
       box.innerHTML = '';
       visibleMapPins().forEach(pin => {
         const i = pin.linked ? indexByTitle(pin.title) : null;
-        const kind = pinKindById(pin.kind);
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'map-pin';
+        btn.className = 'map-pin map-pin-tier-' + (pin.tier || 'marker');
+        if (pin.sessionFocus) btn.classList.add('is-session-focus');
+        if (pin.visibility === 'dm') btn.classList.add('is-dm-secret');
         btn.style.left = pin.x + '%';
         btn.style.top = pin.y + '%';
-        btn.title = pin.title + ' · ' + kind.label;
+        btn.title = pin.title + ' · ' + pinDescribe(pin);
         btn.dataset.pinId = pin.id;
-        btn.innerHTML = pinIconSvg(pin.kind);
+        btn.innerHTML = pinIconFromPin(pin);
         const label = document.createElement('span');
         label.className = 'map-pin-label';
         const name = document.createElement('span');
@@ -219,7 +325,9 @@
       svg.innerHTML = '';
       document.querySelectorAll('.map-border-del').forEach(el => el.remove());
       hideBorderTip();
-      mapBorders.forEach(border => {
+      ensureMapFilters();
+      const showSavedBorders = mapFilter.showBorders;
+      if (showSavedBorders) mapBorders.forEach(border => {
         const d = roundedPolyPath(border.points, true);
         const poly = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         poly.setAttribute('class', 'map-border');
@@ -324,17 +432,35 @@
       document.getElementById('pinOverlay').classList.add('hidden');
       document.getElementById('pinSaveEdit').classList.add('hidden');
       document.getElementById('pinOverlayTitle').textContent = 'Ort setzen';
-      document.getElementById('pinOverlayHint').textContent = 'Wähle ein Symbol. Danach einen Eintrag oder nur einen Namen.';
+      document.getElementById('pinOverlayHint').textContent = 'Typ, Zugehörigkeit und Größe wählen. Danach einen Eintrag oder nur einen Namen.';
+    }
+
+    function readPinMetaFromUi() {
+      const vis = document.getElementById('pinVisibility');
+      const focus = document.getElementById('pinSessionFocus');
+      return {
+        visibility: vis && vis.value === 'dm' ? 'dm' : 'player',
+        sessionFocus: !!(focus && focus.checked)
+      };
     }
 
     function openPinPicker() {
       editingPinId = null;
+      selectedPinShape = 'landmark';
+      selectedPinFaction = 'neutral';
+      selectedPinTier = 'marker';
+      selectedPinVisibility = 'player';
+      selectedPinSessionFocus = false;
       document.getElementById('pinOverlayTitle').textContent = 'Ort setzen';
-      document.getElementById('pinOverlayHint').textContent = 'Wähle ein Symbol. Danach einen Eintrag oder nur einen Namen.';
+      document.getElementById('pinOverlayHint').textContent = 'Typ, Zugehörigkeit und Größe wählen. Danach einen Eintrag oder nur einen Namen.';
       document.getElementById('pinSaveEdit').classList.add('hidden');
       document.getElementById('pinSearch').value = '';
       document.getElementById('pinLabel').value = '';
-      renderPinKindGrid();
+      const vis = document.getElementById('pinVisibility');
+      const focus = document.getElementById('pinSessionFocus');
+      if (vis) vis.value = 'player';
+      if (focus) focus.checked = false;
+      renderPinBuilder();
       renderPinPicker();
       document.getElementById('pinOverlay').classList.remove('hidden');
       document.getElementById('pinSearch').focus();
@@ -344,13 +470,21 @@
       const pin = mapPins.find(p => p.id === id);
       if (!pin || !isDM) return;
       editingPinId = id;
-      selectedPinKind = pin.kind || 'ort';
+      selectedPinShape = pin.shape || 'landmark';
+      selectedPinFaction = pin.faction || 'neutral';
+      selectedPinTier = pin.tier || 'marker';
+      selectedPinVisibility = pin.visibility === 'dm' ? 'dm' : 'player';
+      selectedPinSessionFocus = !!pin.sessionFocus;
       document.getElementById('pinOverlayTitle').textContent = 'Ort bearbeiten';
       document.getElementById('pinOverlayHint').textContent = 'Symbol, Name oder verknüpften Eintrag ändern.';
       document.getElementById('pinSaveEdit').classList.remove('hidden');
       document.getElementById('pinSearch').value = '';
       document.getElementById('pinLabel').value = pin.linked ? '' : (pin.title || '');
-      renderPinKindGrid();
+      const vis = document.getElementById('pinVisibility');
+      const focus = document.getElementById('pinSessionFocus');
+      if (vis) vis.value = selectedPinVisibility;
+      if (focus) focus.checked = selectedPinSessionFocus;
+      renderPinBuilder();
       renderPinPicker();
       document.getElementById('pinOverlay').classList.remove('hidden');
     }
@@ -360,7 +494,12 @@
       const pin = mapPins.find(p => p.id === editingPinId);
       if (!pin) return;
       const previous = mapPins.map(p => Object.assign({}, p));
-      pin.kind = selectedPinKind || pin.kind;
+      const meta = readPinMetaFromUi();
+      pin.shape = selectedPinShape || pin.shape;
+      pin.faction = selectedPinFaction || pin.faction;
+      pin.tier = selectedPinTier || pin.tier;
+      pin.visibility = meta.visibility;
+      pin.sessionFocus = meta.sessionFocus;
       if (title) {
         pin.title = title;
         pin.linked = !!linked;
@@ -377,31 +516,123 @@
       }
     }
 
-    function renderPinKindGrid() {
-      const grid = document.getElementById('pinKindGrid');
-      grid.innerHTML = '';
-      PIN_KINDS.forEach(kind => {
+    function updatePinPreview() {
+      const preview = document.getElementById('pinPreview');
+      const label = document.getElementById('pinPreviewLabel');
+      if (preview) {
+        preview.innerHTML = pinIconSvg(selectedPinShape, selectedPinFaction, selectedPinTier);
+      }
+      if (label) {
+        label.textContent = pinDescribe({
+          shape: selectedPinShape,
+          faction: selectedPinFaction,
+          tier: selectedPinTier
+        });
+      }
+    }
+
+    function renderPinBuilder() {
+      const shapeGrid = document.getElementById('pinShapeGrid');
+      const factionGrid = document.getElementById('pinFactionGrid');
+      const tierGrid = document.getElementById('pinTierGrid');
+      if (!shapeGrid || !factionGrid || !tierGrid) return;
+      shapeGrid.innerHTML = '';
+      MAP_SHAPES.forEach(shape => {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'pin-kind' + (selectedPinKind === kind.id ? ' active' : '');
-        btn.innerHTML = pinIconSvg(kind.id) + '<span>' + kind.label + '</span>';
+        btn.className = 'pin-kind' + (selectedPinShape === shape.id ? ' active' : '');
+        btn.innerHTML = pinIconSvg(shape.id, selectedPinFaction, selectedPinTier) + '<span>' + shape.label + '</span>';
         btn.onclick = () => {
-          selectedPinKind = kind.id;
-          renderPinKindGrid();
+          selectedPinShape = shape.id;
+          renderPinBuilder();
         };
-        grid.appendChild(btn);
+        shapeGrid.appendChild(btn);
       });
+      factionGrid.innerHTML = '';
+      MAP_FACTIONS.forEach(faction => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'pin-kind' + (selectedPinFaction === faction.id ? ' active' : '');
+        btn.innerHTML = pinIconSvg(selectedPinShape, faction.id, selectedPinTier) + '<span>' + faction.label + '</span>';
+        btn.onclick = () => {
+          selectedPinFaction = faction.id;
+          renderPinBuilder();
+        };
+        factionGrid.appendChild(btn);
+      });
+      tierGrid.innerHTML = '';
+      MAP_TIERS.forEach(tier => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'pin-kind' + (selectedPinTier === tier.id ? ' active' : '');
+        btn.innerHTML = pinIconSvg(selectedPinShape, selectedPinFaction, tier.id) + '<span>' + tier.label + '</span>';
+        btn.onclick = () => {
+          selectedPinTier = tier.id;
+          renderPinBuilder();
+        };
+        tierGrid.appendChild(btn);
+      });
+      updatePinPreview();
     }
 
     function renderMapLegend() {
+      ensureMapFilters();
       const box = document.getElementById('mapLegend');
-      box.innerHTML = '<h3>Zeichenerklärung</h3>';
-      PIN_KINDS.forEach(kind => {
-        const row = document.createElement('div');
-        row.className = 'map-legend-item';
-        row.innerHTML = pinIconSvg(kind.id) + '<span>' + kind.label + '</span>';
-        box.appendChild(row);
-      });
+      if (!box) return;
+      box.innerHTML = '';
+      const title = document.createElement('h3');
+      title.textContent = 'Zeichenerklärung & Filter';
+      box.appendChild(title);
+
+      function addSection(label, items, key, getIcon) {
+        const head = document.createElement('div');
+        head.className = 'map-legend-section';
+        head.textContent = label;
+        box.appendChild(head);
+        items.forEach(item => {
+          const on = mapFilter[key][item.id] !== false;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'map-legend-item' + (on ? ' is-on' : ' is-off');
+          btn.innerHTML = getIcon(item) + '<span>' + item.label + '</span>';
+          btn.title = on ? 'Ausblenden' : 'Einblenden';
+          btn.onclick = () => {
+            mapFilter[key][item.id] = !on;
+            renderMapLegend();
+            renderMapPins();
+          };
+          box.appendChild(btn);
+        });
+      }
+
+      addSection('Völker', MAP_FACTIONS.filter(f => f.group === 'Völker'), 'factions', f => pinIconSvg('settlement', f.id, 'minor'));
+      addSection('Orden', MAP_FACTIONS.filter(f => f.group === 'Orden'), 'factions', f => pinIconSvg('hq', f.id, 'major'));
+      addSection('Typen', MAP_SHAPES, 'shapes', s => pinIconSvg(s.id, 'neutral', 'minor'));
+
+      const layers = document.createElement('div');
+      layers.className = 'map-legend-section';
+      layers.textContent = 'Ebenen';
+      box.appendChild(layers);
+
+      function addLayerToggle(id, label, get, set) {
+        const on = get();
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'map-legend-item map-legend-layer' + (on ? ' is-on' : ' is-off');
+        btn.innerHTML = '<span class="map-legend-check">' + (on ? '☑' : '☐') + '</span><span>' + label + '</span>';
+        btn.onclick = () => {
+          set(!on);
+          renderMapLegend();
+          renderMapPins();
+        };
+        box.appendChild(btn);
+      }
+
+      addLayerToggle('borders', 'Grenzen', () => mapFilter.showBorders, v => { mapFilter.showBorders = v; });
+      addLayerToggle('session', 'Nur Sitzung', () => mapFilter.sessionOnly, v => { mapFilter.sessionOnly = v; });
+      if (isDM) {
+        addLayerToggle('dmSecrets', 'DM-Geheimnisse', () => mapFilter.showDmSecrets, v => { mapFilter.showDmSecrets = v; });
+      }
     }
 
     function renderPinPicker() {
@@ -448,12 +679,17 @@
     async function addMapPin(title, linked) {
       if (!isDM || !pendingPin || !title) return;
       const previous = mapPins.slice();
+      const meta = readPinMetaFromUi();
       mapPins.push({
         id: 'pin_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
         title: title,
         x: pendingPin.x,
         y: pendingPin.y,
-        kind: selectedPinKind || 'ort',
+        shape: selectedPinShape || 'landmark',
+        faction: selectedPinFaction || 'neutral',
+        tier: selectedPinTier || 'marker',
+        visibility: meta.visibility,
+        sessionFocus: meta.sessionFocus,
         linked: !!linked
       });
       closePinPicker();

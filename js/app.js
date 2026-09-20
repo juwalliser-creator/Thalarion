@@ -1174,9 +1174,12 @@
           applyPinChoice(name, false);
         });
         onClick('pinSaveEdit', () => {
+          const pin = editingPinId ? mapPins.find(p => p.id === editingPinId) : null;
           const nameEl = document.getElementById('pinLabel');
           const name = ((nameEl && nameEl.value) || '').trim();
-          savePinEdits(name, false);
+          if (name) savePinEdits(name, false);
+          else if (pin) savePinEdits(pin.title, pin.linked !== false);
+          else toast('Bitte einen Namen eingeben oder einen Eintrag wählen.');
         });
         onEv('borderForm', 'submit', ev => {
           ev.preventDefault();

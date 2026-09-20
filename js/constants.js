@@ -140,26 +140,60 @@ var DND_SKILLS = [
   { id: 'persuasion', ability: 'cha', label: 'Überzeugen' }
 ];
 var DICE_TRAY_SIDES = [4, 6, 8, 10, 12, 20, 100];
-var PIN_KINDS = [
-  { id: 'ort', group: 'Allgemein', label: 'Ort', color: '#9a3333', shape: 'dot' },
-  { id: 'elf_city', group: 'Elfen', label: 'Elfenstadt', color: '#3d8c5a', shape: 'city' },
-  { id: 'elf_outpost', group: 'Elfen', label: 'Elfenaußenposten', color: '#3d8c5a', shape: 'outpost' },
-  { id: 'orc_city', group: 'Orks', label: 'Orksiedlung', color: '#8a3d1f', shape: 'city' },
-  { id: 'orc_outpost', group: 'Orks', label: 'Orkaußenposten', color: '#8a3d1f', shape: 'outpost' },
-  { id: 'human_city', group: 'Menschen', label: 'Menschenstadt', color: '#c4a35a', shape: 'city' },
-  { id: 'human_outpost', group: 'Menschen', label: 'Menschenaußenposten', color: '#c4a35a', shape: 'outpost' },
-  { id: 'dwarf_city', group: 'Zwerge', label: 'Zwergenstadt', color: '#b8860b', shape: 'city' },
-  { id: 'dwarf_outpost', group: 'Zwerge', label: 'Zwergenaußenposten', color: '#b8860b', shape: 'outpost' },
-  { id: 'battle', group: 'Kampf', label: 'Kampfstätte', color: '#9a3333', shape: 'battle' },
-  { id: 'swords_hq', group: 'Religionen', label: 'Orden der Schwerter · Hauptsitz', color: '#d0d4dc', shape: 'hq' },
-  { id: 'swords_outpost', group: 'Religionen', label: 'Orden der Schwerter · Außenposten', color: '#d0d4dc', shape: 'faith' },
-  { id: 'lakunos_hq', group: 'Religionen', label: 'Lakunos · Hauptsitz', color: '#8a6aad', shape: 'hq' },
-  { id: 'lakunos_outpost', group: 'Religionen', label: 'Lakunos · Außenposten', color: '#8a6aad', shape: 'faith' },
-  { id: 'blood_hq', group: 'Religionen', label: 'Blutjünger · Hauptsitz', color: '#a32035', shape: 'hq' },
-  { id: 'blood_outpost', group: 'Religionen', label: 'Blutjünger · Außenposten', color: '#a32035', shape: 'faith' },
-  { id: 'night_hq', group: 'Religionen', label: 'Kinder der Nacht · Hauptsitz', color: '#4a5a9a', shape: 'hq' },
-  { id: 'night_outpost', group: 'Religionen', label: 'Kinder der Nacht · Außenposten', color: '#4a5a9a', shape: 'faith' }
+var MAP_PIN_CORE = '#14110e';
+var MAP_PIN_EDGE = '#e0c27a';
+var MAP_SHAPES = [
+  { id: 'settlement', label: 'Siedlung', group: 'Typen' },
+  { id: 'outpost', label: 'Außenposten', group: 'Typen' },
+  { id: 'landmark', label: 'Landmarke', group: 'Typen' },
+  { id: 'temple', label: 'Heiligtum', group: 'Typen' },
+  { id: 'hq', label: 'Hauptsitz', group: 'Typen' },
+  { id: 'ruin', label: 'Ruine', group: 'Typen' },
+  { id: 'danger', label: 'Gefahr/Kampf', group: 'Typen' },
+  { id: 'harbor', label: 'Hafen', group: 'Typen' },
+  { id: 'mine', label: 'Mine', group: 'Typen' },
+  { id: 'magic', label: 'Magischer Ort', group: 'Typen' },
+  { id: 'camp', label: 'Lager', group: 'Typen' }
 ];
+var MAP_FACTIONS = [
+  { id: 'neutral', label: 'Neutral', group: 'Völker', color: '#9a3333' },
+  { id: 'elf', label: 'Elfen', group: 'Völker', color: '#3d8c5a' },
+  { id: 'orc', label: 'Orks', group: 'Völker', color: '#8a3d1f' },
+  { id: 'human', label: 'Menschen', group: 'Völker', color: '#c4a35a' },
+  { id: 'dwarf', label: 'Zwerge', group: 'Völker', color: '#b8860b' },
+  { id: 'swords', label: 'Orden der Schwerter', group: 'Orden', color: '#d0d4dc' },
+  { id: 'lakunos', label: 'Lakunos', group: 'Orden', color: '#8a6aad' },
+  { id: 'blood', label: 'Blutjünger', group: 'Orden', color: '#a32035' },
+  { id: 'night', label: 'Kinder der Nacht', group: 'Orden', color: '#4a5a9a' },
+  { id: 'unknown', label: 'Unbekannt / DM', group: 'Völker', color: '#6a655c' }
+];
+var MAP_TIERS = [
+  { id: 'major', label: 'Groß', scale: 1 },
+  { id: 'minor', label: 'Normal', scale: 0.78 },
+  { id: 'marker', label: 'Klein', scale: 0.62 }
+];
+var MAP_ORDER_FACTIONS = ['swords', 'lakunos', 'blood', 'night'];
+var MAP_RACE_FACTIONS = ['elf', 'orc', 'human', 'dwarf'];
+var PIN_KIND_MIGRATE = {
+  ort: { shape: 'landmark', faction: 'neutral', tier: 'marker' },
+  elf_city: { shape: 'settlement', faction: 'elf', tier: 'minor' },
+  elf_outpost: { shape: 'outpost', faction: 'elf', tier: 'minor' },
+  orc_city: { shape: 'settlement', faction: 'orc', tier: 'minor' },
+  orc_outpost: { shape: 'outpost', faction: 'orc', tier: 'minor' },
+  human_city: { shape: 'settlement', faction: 'human', tier: 'minor' },
+  human_outpost: { shape: 'outpost', faction: 'human', tier: 'minor' },
+  dwarf_city: { shape: 'settlement', faction: 'dwarf', tier: 'minor' },
+  dwarf_outpost: { shape: 'outpost', faction: 'dwarf', tier: 'minor' },
+  battle: { shape: 'danger', faction: 'neutral', tier: 'marker' },
+  swords_hq: { shape: 'hq', faction: 'swords', tier: 'major' },
+  swords_outpost: { shape: 'temple', faction: 'swords', tier: 'minor' },
+  lakunos_hq: { shape: 'hq', faction: 'lakunos', tier: 'major' },
+  lakunos_outpost: { shape: 'temple', faction: 'lakunos', tier: 'minor' },
+  blood_hq: { shape: 'hq', faction: 'blood', tier: 'major' },
+  blood_outpost: { shape: 'temple', faction: 'blood', tier: 'minor' },
+  night_hq: { shape: 'hq', faction: 'night', tier: 'major' },
+  night_outpost: { shape: 'temple', faction: 'night', tier: 'minor' }
+};
 var SEARCH_GROUPS = [
   { page: 'entstehung', label: 'Entstehung' },
   { page: 'sitzung', label: 'Sitzung' },

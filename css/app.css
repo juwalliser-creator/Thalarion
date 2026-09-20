@@ -1846,8 +1846,8 @@ aside.is-magic-in {
 }
 .map-legend {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 0.35rem 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.35rem 0.75rem;
   margin: 0 0 0.75rem;
   padding: 0.75rem 1rem;
   background: var(--panel);
@@ -1861,14 +1861,41 @@ aside.is-magic-in {
   color: var(--gold);
   margin: 0 0 0.2rem;
 }
+.map-legend-section {
+  grid-column: 1 / -1;
+  margin-top: 0.45rem;
+  font-family: Cinzel, serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+}
 .map-legend-item {
   display: flex;
   align-items: center;
   gap: 0.45rem;
   color: var(--muted);
   font-size: 0.88rem;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.28rem 0.45rem;
+  text-align: left;
+  cursor: pointer;
+}
+.map-legend-item.is-on {
+  border-color: var(--gold-dim);
+  color: var(--ink);
+}
+.map-legend-item.is-off {
+  opacity: 0.45;
 }
 .map-legend-item svg { width: 22px; height: 22px; flex-shrink: 0; }
+.map-legend-check {
+  width: 1.1rem;
+  text-align: center;
+  color: var(--gold);
+}
 .map-wrap {
   background: #0b0908;
   border: 1px solid var(--line);
@@ -2071,8 +2098,8 @@ body.is-map-full { overflow: hidden; }
 }
 body.is-dm .map-pin-del { display: inline-flex; align-items: center; justify-content: center; }
 .pin-card {
-  width: min(520px, 100%);
-  max-height: min(80vh, 640px);
+  width: min(640px, 100%);
+  max-height: min(90vh, 820px);
   display: flex;
   flex-direction: column;
   background: var(--panel);
@@ -2086,9 +2113,58 @@ body.is-dm .map-pin-del { display: inline-flex; align-items: center; justify-con
   margin: 0 0 0.35rem;
 }
 .pin-card p { color: var(--muted); margin: 0 0 0.8rem; }
+.pin-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0 0 0.75rem;
+  max-height: 42vh;
+  overflow: auto;
+  padding-right: 0.15rem;
+}
+.pin-preview-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-soft);
+}
+.pin-preview {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.pin-preview svg {
+  width: 36px;
+  height: 36px;
+}
+.pin-preview-label {
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+.pin-meta-row {
+  align-items: end;
+}
+.pin-session-field {
+  display: flex;
+  align-items: center;
+  min-height: 2.6rem;
+}
+.pin-check-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--ink);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
 .pin-list {
   overflow: auto;
-  min-height: 180px;
+  min-height: 140px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--bg-soft);
@@ -2108,11 +2184,14 @@ body.is-dm .map-pin-del { display: inline-flex; align-items: center; justify-con
 .pin-list .search-group-label { padding: 0.45rem 0.75rem 0.15rem; }
 .pin-kinds {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
   gap: 0.35rem;
-  max-height: 200px;
-  overflow: auto;
-  margin: 0 0 0.75rem;
+  max-height: none;
+  overflow: visible;
+  margin: 0;
+}
+.pin-tiers {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 .pin-kind {
   display: flex;
@@ -2131,6 +2210,15 @@ body.is-dm .map-pin-del { display: inline-flex; align-items: center; justify-con
   color: var(--gold);
 }
 .pin-kind svg { width: 22px; height: 22px; flex-shrink: 0; }
+.map-pin-tier-major .map-pin-icon { width: 30px; height: 30px; }
+.map-pin-tier-minor .map-pin-icon { width: 24px; height: 24px; }
+.map-pin-tier-marker .map-pin-icon { width: 18px; height: 18px; }
+.map-pin.is-session-focus {
+  filter: drop-shadow(0 0 4px rgba(224, 194, 122, 0.85));
+}
+.map-pin.is-dm-secret .map-pin-icon {
+  opacity: 0.92;
+}
 
 .overlay {
   position: fixed;
@@ -4243,9 +4331,10 @@ body.is-dm .battle-gear-panel .dm-only-tools { display: flex; }
   .map-toolbar { justify-content: flex-start; }
   .map-legend { grid-template-columns: 1fr; }
   .pin-kinds { grid-template-columns: 1fr 1fr; }
+  .pin-tiers { grid-template-columns: 1fr; }
   .overlay { padding: 0.6rem; padding-bottom: max(0.6rem, env(safe-area-inset-bottom)); }
   .login-card,
-  .pin-card { width: min(100%, 420px); }
+  .pin-card { width: min(100%, 520px); }
   .stat-sheet-card { width: min(100%, 96vw); max-height: min(88dvh, 920px); }
   .toast {
     left: 0.75rem;
