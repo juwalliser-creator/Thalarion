@@ -9,20 +9,32 @@ var KINGDOM_CAT = 'Königreiche';
 var PAGE_CATS = {
   entstehung: [STORY_CAT],
   sitzung: [SESSION_CAT],
-  codex: KOMPENDIUM_CATS,
+  chronik: [STORY_CAT, SESSION_CAT],
+  codex: KOMPENDIUM_CATS.concat(BESTIARIUM_CATS, GLOSSAR_CATS),
   bestiarium: BESTIARIUM_CATS,
   glossar: GLOSSAR_CATS
 };
+var CODEX_SECTIONS = [
+  { id: 'all', label: 'Alles', cats: null },
+  { id: 'kompendium', label: 'Kompendium', cats: KOMPENDIUM_CATS },
+  { id: 'bestiarium', label: 'Bestiarium', cats: BESTIARIUM_CATS },
+  { id: 'glossar', label: 'Glossar', cats: GLOSSAR_CATS }
+];
 var PAGE_HERO = {
+  chronik: {
+    seal: 'C',
+    title: 'Die Chronik von Thalarion',
+    blurb: 'Lies, wie die Welt entstand — und was in den letzten Sitzungen geschah.'
+  },
   world: {
     seal: 'T',
     title: 'Thalarion',
-    blurb: 'Öffne das Kompendium, das Bestiarium oder das Glossar.'
+    blurb: 'Öffne den Codex oder die Chronik.'
   },
   codex: {
     seal: 'T',
-    title: 'Das Kompendium von Thalarion',
-    blurb: 'Öffne eine Kategorie, um Reiche, Städte, Götter und Geheimnisse dieser Welt nachzuschlagen.'
+    title: 'Der Codex von Thalarion',
+    blurb: 'Nachschlagen in Kompendium, Bestiarium und Glossar — filtere nach Bereich oder öffne eine Kategorie.'
   },
   bestiarium: {
     seal: 'B',
@@ -195,9 +207,9 @@ var PIN_KIND_MIGRATE = {
   night_outpost: { shape: 'temple', faction: 'night', tier: 'minor' }
 };
 var SEARCH_GROUPS = [
-  { page: 'entstehung', label: 'Entstehung' },
-  { page: 'sitzung', label: 'Sitzung' },
-  { page: 'codex', label: 'Kompendium' },
-  { page: 'bestiarium', label: 'Bestiarium' },
-  { page: 'glossar', label: 'Glossar' }
+  { page: 'entstehung', label: 'Chronik · Entstehung' },
+  { page: 'sitzung', label: 'Chronik · Sitzung' },
+  { page: 'codex', label: 'Codex · Kompendium', section: 'kompendium' },
+  { page: 'bestiarium', label: 'Codex · Bestiarium', section: 'bestiarium' },
+  { page: 'glossar', label: 'Codex · Glossar', section: 'glossar' }
 ];

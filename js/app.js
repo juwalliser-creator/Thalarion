@@ -21,9 +21,11 @@
       if (currentPage === 'map' && page !== 'map') captureMapView();
       currentPage = page;
       persistView();
-      els.navWorld.classList.toggle('active', page === 'world' || page === 'codex' || page === 'bestiarium' || page === 'glossar');
-      els.navEntstehung.classList.toggle('active', page === 'entstehung');
-      els.dmMenuSitzung.classList.toggle('active', page === 'sitzung');
+      const chronikOn = page === 'chronik' || page === 'entstehung' || page === 'sitzung';
+      const codexOn = page === 'codex' || page === 'bestiarium' || page === 'glossar' || page === 'world';
+      if (els.navChronik) els.navChronik.classList.toggle('active', chronikOn);
+      if (els.navCodex) els.navCodex.classList.toggle('active', codexOn);
+      if (els.dmMenuSitzung) els.dmMenuSitzung.classList.toggle('active', page === 'sitzung');
       els.navMap.classList.toggle('active', page === 'map');
       els.navCharakter.classList.toggle('active', page === 'char');
       els.navKampf.classList.toggle('active', page === 'kampf');
@@ -100,10 +102,11 @@
         else if (currentIndex !== null && entries[currentIndex]?.type === SESSION_CAT) showSitzung();
         else if (currentIndex !== null) loadEntry(currentIndex);
         else if (isCatalogPage(currentPage)) showCatalog(currentPage);
+        else if (currentPage === 'chronik') showChronik();
         else if (currentPage === 'entstehung') showEntstehung();
         else if (currentPage === 'sitzung') showSitzung();
         else if (currentPage === 'map' || currentPage === 'kampf') showMap();
-        else showHome();
+        else showCodex();
       } else {
         renderHome();
         renderSidebar();
@@ -274,10 +277,20 @@
       }
       if (page === 'kampf') showKampf();
       else if (page === 'char') showCharakter();
+      else if (page === 'chronik') showChronik();
       else if (page === 'entstehung') showEntstehung();
       else if (page === 'sitzung') showSitzung();
-      else if (page === 'world') showWorld();
-      else if (isCatalogPage(page)) {
+      else if (page === 'world') showCodex();
+      else if (page === 'bestiarium' || page === 'glossar') {
+        selectedCodexSection = page;
+        showCatalog('codex');
+        if (saved && saved.cat) {
+          selectedHomeCat = saved.cat;
+          renderHome();
+          renderSidebar();
+          persistView();
+        }
+      } else if (isCatalogPage(page) || page === 'codex') {
         if (saved.title) {
           const i = indexByTitle(saved.title);
           if (i !== null) {
@@ -286,7 +299,7 @@
             return;
           }
         }
-        showCatalog(page);
+        showCatalog('codex');
         if (saved.cat) {
           selectedHomeCat = saved.cat;
           renderHome();
@@ -299,8 +312,8 @@
     function bindAll() {
       safeBind('nav', () => {
         onClick('homeBtn', showMap);
-        onClick('navWorld', showWorld);
-        onClick('navEntstehung', showEntstehung);
+        onClick('navChronik', showChronik);
+        onClick('navCodex', showCodex);
         onClick('navMap', showMap);
         onClick('navCharakter', showCharakter);
         onClick('navKampf', showKampf);
@@ -849,6 +862,8 @@
         onClick('homeNewBtn', newEntry);
         onClick('entstehungNewBtn', newEntry);
         onClick('sitzungNewBtn', newEntry);
+        onClick('entstehungBackBtn', showChronik);
+        onClick('sitzungBackBtn', showChronik);
         ['homeUploadAllBtn', 'entstehungUploadAllBtn', 'sitzungUploadAllBtn'].forEach(id => {
           onClick(id, () => {
             const input = document.getElementById('uploadAllInput');
@@ -864,10 +879,11 @@
           else if (currentIndex !== null && entries[currentIndex] && entries[currentIndex].type === SESSION_CAT) showSitzung();
           else if (currentIndex !== null) loadEntry(currentIndex);
           else if (isCatalogPage(currentPage)) showCatalog(currentPage);
+          else if (currentPage === 'chronik') showChronik();
           else if (currentPage === 'entstehung') showEntstehung();
           else if (currentPage === 'sitzung') showSitzung();
           else if (currentPage === 'map') showMap();
-          else showHome();
+          else showCodex();
         });
         onClick('editCurrent', editCurrent);
         onClick('entryToKarteBtn', createKampfKarteFromEntry);

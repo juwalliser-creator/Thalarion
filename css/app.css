@@ -76,8 +76,31 @@ header {
 .top-nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
   margin-left: 0.5rem;
+}
+.nav-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+.nav-group-label {
+  font-family: Cinzel, serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  margin-right: 0.15rem;
+  user-select: none;
+}
+.nav-group-sep {
+  width: 1px;
+  align-self: stretch;
+  min-height: 1.6rem;
+  background: var(--line);
+  margin: 0 0.15rem;
 }
 .top-nav button,
 .ghost, .primary, .danger, .icon-btn {
@@ -1739,7 +1762,25 @@ aside.is-magic-in {
 .prose p { margin: 0 0 1rem; }
 .origin-article { margin-bottom: 1.4rem; }
 .origin-article + .origin-article { margin-top: 0.4rem; }
-.article-actions { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.codex-section-chip.active {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.chronik-tile {
+  min-height: 7.5rem;
+  text-align: left;
+  justify-content: flex-end;
+}
+.chronik-tile b {
+  font-family: Cinzel, serif;
+  font-size: 1.15rem;
+}
+#homeCatNav:not(.hidden) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
 .entry-image-tools { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .entry-image-preview,
 .entry-image-wrap {
@@ -4331,6 +4372,8 @@ body.is-dm .battle-gear-panel .dm-only-tools { display: flex; }
     overscroll-behavior-x: contain;
   }
   .top-nav::-webkit-scrollbar { display: none; }
+  .nav-group { flex-wrap: nowrap; }
+  .nav-group-label { display: none; }
   .top-nav button {
     flex: 0 0 auto;
     white-space: nowrap;

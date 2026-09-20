@@ -360,9 +360,10 @@
       const i = indexByTitle(currentTitle);
       currentIndex = i;
       if (i !== null && !dirty) loadEntry(i);
+      else if (currentPage === 'chronik') showChronik();
       else if (currentPage === 'entstehung') showEntstehung();
       else if (currentPage === 'sitzung') showSitzung();
-      else if (currentTitle && i === null) showCatalog(currentPage);
+      else if (currentTitle && i === null) showCatalog(currentPage === 'bestiarium' || currentPage === 'glossar' ? 'codex' : currentPage);
       else {
         renderHome();
         renderSidebar();

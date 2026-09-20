@@ -2,13 +2,39 @@
 
     function fillTypeSelect(page) {
       els.type.innerHTML = '';
-      const only = page === 'bestiarium' || page === 'glossar' || page === 'codex' || page === 'sitzung' ? PAGE_CATS[page] : null;
-      if (only) {
-        only.forEach(c => {
+      if (page === 'sitzung') {
+        PAGE_CATS.sitzung.forEach(c => {
           const o = document.createElement('option');
           o.value = c;
           o.textContent = c;
           els.type.appendChild(o);
+        });
+        return;
+      }
+      if (page === 'entstehung') {
+        PAGE_CATS.entstehung.forEach(c => {
+          const o = document.createElement('option');
+          o.value = c;
+          o.textContent = c;
+          els.type.appendChild(o);
+        });
+        return;
+      }
+      if (page === 'codex' || page === 'bestiarium' || page === 'glossar') {
+        [
+          ['Kompendium', KOMPENDIUM_CATS],
+          ['Bestiarium', BESTIARIUM_CATS],
+          ['Glossar', GLOSSAR_CATS]
+        ].forEach(([label, cats]) => {
+          const group = document.createElement('optgroup');
+          group.label = label;
+          cats.forEach(c => {
+            const o = document.createElement('option');
+            o.value = c;
+            o.textContent = c;
+            group.appendChild(o);
+          });
+          els.type.appendChild(group);
         });
         return;
       }
@@ -41,22 +67,31 @@
       const t = normalizeType(type);
       if (t === STORY_CAT) return 'entstehung';
       if (t === SESSION_CAT) return 'sitzung';
-      if (BESTIARIUM_CATS.includes(t)) return 'bestiarium';
-      if (GLOSSAR_CATS.includes(t)) return 'glossar';
       return 'codex';
     }
 
     function catalogLabel(page) {
-      if (page === 'bestiarium') return 'Bestiarium';
-      if (page === 'glossar') return 'Glossar';
-      if (page === 'sitzung') return 'Sitzung';
-      return 'Kompendium';
+      if (page === 'chronik' || page === 'entstehung' || page === 'sitzung') return 'Chronik';
+      return 'Codex';
+    }
+
+    function codexSectionForType(type) {
+      const t = normalizeType(type);
+      if (BESTIARIUM_CATS.includes(t)) return 'bestiarium';
+      if (GLOSSAR_CATS.includes(t)) return 'glossar';
+      if (KOMPENDIUM_CATS.includes(t)) return 'kompendium';
+      return 'all';
+    }
+
+    function activeCodexCats() {
+      const sec = CODEX_SECTIONS.find(s => s.id === selectedCodexSection) || CODEX_SECTIONS[0];
+      return sec.cats ? sec.cats.slice() : PAGE_CATS.codex.slice();
     }
 
     function leaveCategory() {
       selectedHomeCat = null;
       titleKingdomFilter = '';
-      updateHomeHero(currentPage);
+      updateHomeHero(currentPage === 'chronik' ? 'chronik' : 'codex');
       renderHome();
     }
 
@@ -109,7 +144,19 @@
       const page = pageForType(e.type);
       bar.innerHTML = '';
       if (page === 'entstehung' && !openedFromMap) {
-        bar.classList.add('hidden');
+        const toChronik = document.createElement('button');
+        toChronik.className = 'primary';
+        toChronik.type = 'button';
+        toChronik.textContent = '← Chronik';
+        toChronik.onclick = () => showChronik();
+        bar.appendChild(toChronik);
+        const toOrig = document.createElement('button');
+        toOrig.className = 'ghost';
+        toOrig.type = 'button';
+        toOrig.textContent = '← Entstehung';
+        toOrig.onclick = () => showEntstehung();
+        bar.appendChild(toOrig);
+        bar.classList.remove('hidden');
         return;
       }
       bar.classList.remove('hidden');
@@ -125,52 +172,74 @@
         const toSit = document.createElement('button');
         toSit.className = openedFromMap ? 'ghost' : 'primary';
         toSit.type = 'button';
-        toSit.textContent = '← Sitzung';
-        toSit.onclick = () => showSitzung();
+        toSit.textContent = '← Chronik';
+        toSit.onclick = () => showChronik();
         bar.appendChild(toSit);
+        const toSessions = document.createElement('button');
+        toSessions.className = 'ghost';
+        toSessions.type = 'button';
+        toSessions.textContent = '← Sitzungen';
+        toSessions.onclick = () => showSitzung();
+        bar.appendChild(toSessions);
         return;
       }
       if (page === 'entstehung' || page === 'map' || page === 'char') return;
       const toRoot = document.createElement('button');
       toRoot.className = openedFromMap ? 'ghost' : 'primary';
       toRoot.type = 'button';
-      toRoot.textContent = '← ' + catalogLabel(page);
-      toRoot.onclick = () => openCatalogCategory(page, null);
+      toRoot.textContent = '← Codex';
+      toRoot.onclick = () => {
+        selectedCodexSection = codexSectionForType(e.type);
+        openCatalogCategory('codex', null);
+      };
       bar.appendChild(toRoot);
       if (e.type && !isSingleEntryCategory(e.type)) {
         const toCat = document.createElement('button');
         toCat.className = 'ghost';
         toCat.type = 'button';
         toCat.textContent = '← ' + e.type;
-        toCat.onclick = () => openCatalogCategory(page, e.type);
+        toCat.onclick = () => {
+          selectedCodexSection = codexSectionForType(e.type);
+          openCatalogCategory('codex', e.type);
+        };
         bar.appendChild(toCat);
       }
     }
 
     function catalogCats() {
-      if (currentPage === 'bestiarium' || currentPage === 'glossar' || currentPage === 'codex') {
-        return PAGE_CATS[currentPage];
+      if (currentPage === 'codex' || currentPage === 'bestiarium' || currentPage === 'glossar') {
+        return activeCodexCats();
       }
       if (currentPage === 'entstehung') return [STORY_CAT];
-      if (currentPage === 'world') return [STORY_CAT, ...KOMPENDIUM_CATS, ...BESTIARIUM_CATS, ...GLOSSAR_CATS];
-      return KOMPENDIUM_CATS;
+      if (currentPage === 'chronik') return [STORY_CAT, SESSION_CAT];
+      return PAGE_CATS.codex.slice();
     }
 
     function sidebarGroups() {
       if (currentPage === 'entstehung') return [{ label: 'Entstehung', cats: [STORY_CAT] }];
-      if (currentPage === 'codex') return [{ label: 'Kompendium', cats: KOMPENDIUM_CATS }];
-      if (currentPage === 'bestiarium') return [{ label: 'Bestiarium', cats: BESTIARIUM_CATS }];
-      if (currentPage === 'glossar') return [{ label: 'Glossar', cats: GLOSSAR_CATS }];
-      if (currentPage === 'world') return [
+      if (currentPage === 'chronik') return [
         { label: 'Entstehung', cats: [STORY_CAT] },
-        { label: 'Kompendium', cats: KOMPENDIUM_CATS },
-        { label: 'Bestiarium', cats: BESTIARIUM_CATS },
-        { label: 'Glossar', cats: GLOSSAR_CATS }
+        { label: 'Sitzungen', cats: [SESSION_CAT] }
       ];
+      if (currentPage === 'codex' || currentPage === 'bestiarium' || currentPage === 'glossar') {
+        const sec = selectedCodexSection;
+        if (sec === 'bestiarium') return [{ label: 'Bestiarium', cats: BESTIARIUM_CATS }];
+        if (sec === 'glossar') return [{ label: 'Glossar', cats: GLOSSAR_CATS }];
+        if (sec === 'kompendium') return [{ label: 'Kompendium', cats: KOMPENDIUM_CATS }];
+        return [
+          { label: 'Kompendium', cats: KOMPENDIUM_CATS },
+          { label: 'Bestiarium', cats: BESTIARIUM_CATS },
+          { label: 'Glossar', cats: GLOSSAR_CATS }
+        ];
+      }
       return [{ label: '', cats: catalogCats() }];
     }
 
     function defaultTypeForPage(page) {
+      if (page === 'codex') {
+        const cats = activeCodexCats();
+        return cats[0] || KOMPENDIUM_CATS[0];
+      }
       return (PAGE_CATS[page] || KOMPENDIUM_CATS)[0];
     }
 
@@ -179,7 +248,7 @@
     }
 
     function wantsSidebar(page) {
-      return isDM && (page === 'world' || isCatalogPage(page) || page === 'entstehung');
+      return isDM && (page === 'chronik' || isCatalogPage(page) || page === 'entstehung' || page === 'world');
     }
 
     function updateSidebarVisibility(page) {
@@ -361,15 +430,24 @@
     }
 
     function showHome() {
-      showWorld();
+      showCodex();
     }
 
     function showWorld() {
+      showCodex();
+    }
+
+    function showCodex() {
+      selectedCodexSection = 'all';
+      showCatalog('codex');
+    }
+
+    function showChronik() {
       if (!confirmLeaveEditor()) return;
       dirty = false;
       openedFromMap = false;
       selectedHomeCat = null;
-      showPage('world');
+      showPage('chronik');
       currentIndex = null;
       currentTitle = null;
       els.homeView.classList.remove('hidden');
@@ -378,7 +456,7 @@
       els.entstehungView.classList.add('hidden');
       els.sitzungView.classList.add('hidden');
       titleKingdomFilter = '';
-      updateHomeHero('world');
+      updateHomeHero('chronik');
       renderHome();
       renderSidebar();
       updateExtraToolbars();
@@ -474,11 +552,17 @@
 
     function openWorldCatalog(page, tile) {
       if (!confirmLeaveEditor()) return;
-      playMagicTransition(tile, () => showCatalog(page));
+      if (page === 'bestiarium' || page === 'glossar') selectedCodexSection = page;
+      else selectedCodexSection = 'kompendium';
+      playMagicTransition(tile, () => showCatalog('codex'));
     }
 
     function showCatalog(page) {
       if (!confirmLeaveEditor()) return;
+      if (page === 'bestiarium' || page === 'glossar') {
+        selectedCodexSection = page;
+        page = 'codex';
+      }
       if (!isCatalogPage(page)) page = 'codex';
       openedFromMap = false;
       selectedHomeCat = null;
@@ -491,7 +575,7 @@
       els.entstehungView.classList.add('hidden');
       els.sitzungView.classList.add('hidden');
       titleKingdomFilter = '';
-      updateHomeHero(page);
+      updateHomeHero('codex');
       renderHome();
       renderSidebar();
       updateExtraToolbars();
@@ -509,6 +593,8 @@
       els.editorView.classList.add('hidden');
       els.sitzungView.classList.add('hidden');
       els.entstehungView.classList.remove('hidden');
+      const backBar = document.getElementById('entstehungBackBar');
+      if (backBar) backBar.classList.remove('hidden');
       renderEntstehung();
       renderSidebar();
       updateExtraToolbars();
@@ -526,6 +612,8 @@
       els.editorView.classList.add('hidden');
       els.entstehungView.classList.add('hidden');
       els.sitzungView.classList.remove('hidden');
+      const backBar = document.getElementById('sitzungBackBar');
+      if (backBar) backBar.classList.remove('hidden');
       renderSitzung();
       updateExtraToolbars();
     }
@@ -647,31 +735,29 @@
       els.homeCards.classList.remove('is-world');
       els.homeView.classList.remove('is-world-hub');
       renderTitleKingdomBar();
-      if (currentPage === 'world') {
+      if (currentPage === 'chronik') {
         nav.classList.add('hidden');
         nav.innerHTML = '';
         els.homeCards.classList.add('is-world');
         els.homeView.classList.add('is-world-hub');
         [
-          { page: 'codex', title: 'Kompendium', image: 'images/world-kompendium.jpg?v=2' },
-          { page: 'bestiarium', title: 'Bestiarium', image: 'images/world-bestiarium.jpg?v=2' },
-          { page: 'glossar', title: 'Glossar', image: 'images/world-glossar.jpg?v=2' }
+          { id: 'entstehung', title: 'Entstehung', blurb: 'Wie Thalarion wurde, was es ist.' },
+          { id: 'sitzung', title: 'Sitzungen', blurb: 'Was zuletzt geschah — zum Nachlesen.' }
         ].forEach(sec => {
           const btn = document.createElement('button');
-          btn.className = 'world-tile';
+          btn.className = 'card chronik-tile';
           btn.type = 'button';
-          btn.setAttribute('aria-label', sec.title);
-          const img = document.createElement('img');
-          img.src = sec.image;
-          img.alt = '';
-          const caption = document.createElement('span');
-          caption.className = 'world-tile-caption';
-          caption.textContent = sec.title;
-          btn.appendChild(img);
-          btn.appendChild(caption);
-          btn.onclick = () => openWorldCatalog(sec.page, btn);
+          btn.innerHTML = '<b>' + escapeHtml(sec.title) + '</b><span>' + escapeHtml(sec.blurb) + '</span>';
+          btn.onclick = () => {
+            if (sec.id === 'sitzung') showSitzung();
+            else showEntstehung();
+          };
           els.homeCards.appendChild(btn);
         });
+        return;
+      }
+      if (currentPage === 'world') {
+        showCodex();
         return;
       }
       const cats = catalogCats();
@@ -681,7 +767,7 @@
         const back = document.createElement('button');
         back.className = 'primary';
         back.type = 'button';
-        back.textContent = '← Zurück zum ' + catalogLabel(currentPage);
+        back.textContent = '← Zurück zum Codex';
         back.onclick = leaveCategory;
         nav.appendChild(back);
         document.getElementById('homeTitle').textContent = selectedHomeCat;
@@ -715,12 +801,23 @@
       }
       nav.classList.remove('hidden');
       nav.innerHTML = '';
-      const toWorld = document.createElement('button');
-      toWorld.className = 'primary';
-      toWorld.type = 'button';
-      toWorld.textContent = '← Zurück zu Thalarion';
-      toWorld.onclick = showWorld;
-      nav.appendChild(toWorld);
+      CODEX_SECTIONS.forEach(sec => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ghost codex-section-chip' + (selectedCodexSection === sec.id ? ' active' : '');
+        btn.textContent = sec.label;
+        btn.onclick = () => {
+          if (!confirmLeaveEditor()) return;
+          selectedCodexSection = sec.id;
+          selectedHomeCat = null;
+          titleKingdomFilter = '';
+          updateHomeHero('codex');
+          renderHome();
+          renderSidebar();
+          persistView();
+        };
+        nav.appendChild(btn);
+      });
       cats.forEach(cat => {
         const count = visibleEntries().filter(e => e.type === cat).length;
         const btn = document.createElement('button');
@@ -854,11 +951,17 @@
       SEARCH_GROUPS.forEach(group => {
         const hits = entries
           .map((e, i) => ({ e, i }))
-          .filter(({ e }) =>
-            pageForType(e.type) === group.page &&
-            (isDM || e.visibility === 'player') &&
-            entryMatchesQuery(e, query)
-          );
+          .filter(({ e }) => {
+            const t = normalizeType(e.type);
+            let inGroup = false;
+            if (group.page === 'entstehung') inGroup = t === STORY_CAT;
+            else if (group.page === 'sitzung') inGroup = t === SESSION_CAT;
+            else if (group.section === 'kompendium') inGroup = KOMPENDIUM_CATS.includes(t);
+            else if (group.section === 'bestiarium') inGroup = BESTIARIUM_CATS.includes(t);
+            else if (group.section === 'glossar') inGroup = GLOSSAR_CATS.includes(t);
+            else inGroup = pageForType(t) === group.page;
+            return inGroup && (isDM || e.visibility === 'player') && entryMatchesQuery(e, query);
+          });
         if (!hits.length) return;
         total += hits.length;
         const wrap = document.createElement('div');
@@ -919,7 +1022,9 @@
       currentIndex = i;
       const e = entries[i];
       currentTitle = e.title;
-      showPage(pageForType(e.type));
+      const page = pageForType(e.type);
+      if (page === 'codex') selectedCodexSection = codexSectionForType(e.type);
+      showPage(page);
       els.homeView.classList.add('hidden');
       els.entstehungView.classList.add('hidden');
       els.sitzungView.classList.add('hidden');
@@ -937,7 +1042,7 @@
       const setPinBtn = document.getElementById('entrySetPinBtn');
       if (setPinBtn) setPinBtn.classList.toggle('hidden', !isDM);
       updateEntryToKarteBtn();
-      if (!selectedHomeCat && !wantsSidebar(pageForType(e.type))) selectedHomeCat = e.type;
+      if (!selectedHomeCat && !wantsSidebar(page)) selectedHomeCat = e.type;
       renderViewerCrumb(e);
       renderSidebar();
       setSidebarOpen(false);

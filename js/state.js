@@ -48,6 +48,7 @@
     var expandedCategories = {};
     var currentPage = 'map';
     var selectedHomeCat = null;
+    var selectedCodexSection = 'all';
     var titleKingdomFilter = '';
     var dirty = false;
     var imageCache = {};
@@ -170,8 +171,8 @@
       content: document.getElementById('content'),
       editorHeading: document.getElementById('editorHeading'),
       playerToEdit: document.getElementById('playerToEdit'),
-      navWorld: document.getElementById('navWorld'),
-      navEntstehung: document.getElementById('navEntstehung'),
+      navChronik: document.getElementById('navChronik'),
+      navCodex: document.getElementById('navCodex'),
       dmMenuSitzung: document.getElementById('dmMenuSitzung'),
       navMap: document.getElementById('navMap'),
       navCharakter: document.getElementById('navCharakter'),

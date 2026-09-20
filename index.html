@@ -17,12 +17,19 @@
         <strong>Thalarion</strong>
         <span>Das Blutsiegel</span>
       </button>
-      <nav class="top-nav">
-        <button type="button" id="navEntstehung">Entstehung</button>
-        <button type="button" id="navWorld">Thalarion</button>
-        <button type="button" id="navMap" class="active">Karte</button>
-        <button type="button" id="navCharakter">Charakter</button>
-        <button type="button" id="navKampf">Kampf</button>
+      <nav class="top-nav" aria-label="Hauptnavigation">
+        <span class="nav-group" role="group" aria-label="Welt">
+          <span class="nav-group-label">Welt</span>
+          <button type="button" id="navChronik">Chronik</button>
+          <button type="button" id="navCodex">Codex</button>
+          <button type="button" id="navMap" class="active">Karte</button>
+        </span>
+        <span class="nav-group-sep" aria-hidden="true"></span>
+        <span class="nav-group" role="group" aria-label="Tisch">
+          <span class="nav-group-label">Tisch</span>
+          <button type="button" id="navCharakter">Charakter</button>
+          <button type="button" id="navKampf">Kampf</button>
+        </span>
       </nav>
       <div class="header-search">
         <div class="search-wrap">
@@ -167,6 +174,9 @@
         </section>
 
         <section id="entstehungView" class="panel hidden">
+          <div class="page-toolbar" id="entstehungBackBar">
+            <button class="primary" id="entstehungBackBtn" type="button">← Chronik</button>
+          </div>
           <div class="hero">
             <div class="seal">E</div>
             <h1>Die Entstehung Thalarions</h1>
@@ -180,6 +190,9 @@
         </section>
 
         <section id="sitzungView" class="panel hidden">
+          <div class="page-toolbar" id="sitzungBackBar">
+            <button class="primary" id="sitzungBackBtn" type="button">← Chronik</button>
+          </div>
           <div class="hero">
             <div class="seal">S</div>
             <h1>Letzte Sitzung</h1>
