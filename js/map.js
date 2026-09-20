@@ -432,7 +432,7 @@
       document.getElementById('pinOverlay').classList.add('hidden');
       document.getElementById('pinSaveEdit').classList.add('hidden');
       document.getElementById('pinOverlayTitle').textContent = 'Ort setzen';
-      document.getElementById('pinOverlayHint').textContent = 'Typ, Zugehörigkeit und Größe wählen. Danach einen Eintrag oder nur einen Namen.';
+      document.getElementById('pinOverlayHint').textContent = 'Typ, Zugehörigkeit und Größe wählen, dann einen Namen vergeben.';
     }
 
     function readPinMetaFromUi() {
@@ -452,18 +452,16 @@
       selectedPinVisibility = 'player';
       selectedPinSessionFocus = false;
       document.getElementById('pinOverlayTitle').textContent = 'Ort setzen';
-      document.getElementById('pinOverlayHint').textContent = 'Typ, Zugehörigkeit und Größe wählen. Danach einen Eintrag oder nur einen Namen.';
+      document.getElementById('pinOverlayHint').textContent = 'Typ, Zugehörigkeit und Größe wählen, dann einen Namen vergeben.';
       document.getElementById('pinSaveEdit').classList.add('hidden');
-      document.getElementById('pinSearch').value = '';
       document.getElementById('pinLabel').value = '';
       const vis = document.getElementById('pinVisibility');
       const focus = document.getElementById('pinSessionFocus');
       if (vis) vis.value = 'player';
       if (focus) focus.checked = false;
       renderPinBuilder();
-      renderPinPicker();
       document.getElementById('pinOverlay').classList.remove('hidden');
-      document.getElementById('pinSearch').focus();
+      document.getElementById('pinLabel').focus();
     }
 
     function openPinEditor(id) {
@@ -476,17 +474,16 @@
       selectedPinVisibility = pin.visibility === 'dm' ? 'dm' : 'player';
       selectedPinSessionFocus = !!pin.sessionFocus;
       document.getElementById('pinOverlayTitle').textContent = 'Ort bearbeiten';
-      document.getElementById('pinOverlayHint').textContent = 'Symbol, Name oder verknüpften Eintrag ändern.';
+      document.getElementById('pinOverlayHint').textContent = 'Symbol und Name ändern.';
       document.getElementById('pinSaveEdit').classList.remove('hidden');
-      document.getElementById('pinSearch').value = '';
-      document.getElementById('pinLabel').value = pin.linked ? '' : (pin.title || '');
+      document.getElementById('pinLabel').value = pin.title || '';
       const vis = document.getElementById('pinVisibility');
       const focus = document.getElementById('pinSessionFocus');
       if (vis) vis.value = selectedPinVisibility;
       if (focus) focus.checked = selectedPinSessionFocus;
       renderPinBuilder();
-      renderPinPicker();
       document.getElementById('pinOverlay').classList.remove('hidden');
+      document.getElementById('pinLabel').focus();
     }
 
     async function savePinEdits(title, linked) {
@@ -635,43 +632,7 @@
       }
     }
 
-    function renderPinPicker() {
-      const list = document.getElementById('pinList');
-      const query = (document.getElementById('pinSearch').value || '').toLowerCase();
-      list.innerHTML = '';
-      let total = 0;
-      SEARCH_GROUPS.forEach(group => {
-        if (group.page === 'entstehung' || group.page === 'sitzung') return;
-        const hits = entries
-          .map((e, i) => ({ e, i }))
-          .filter(({ e }) =>
-            pageForType(e.type) === group.page &&
-            (isDM || e.visibility === 'player') &&
-            (!query || e.title.toLowerCase().includes(query) || htmlToText(e.content).toLowerCase().includes(query))
-          );
-        if (!hits.length) return;
-        total += hits.length;
-        const label = document.createElement('div');
-        label.className = 'search-group-label';
-        label.textContent = group.label;
-        list.appendChild(label);
-        hits.forEach(({ e }) => {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.textContent = e.title + ' · ' + e.type;
-          btn.onclick = () => applyPinChoice(e.title, true);
-          list.appendChild(btn);
-        });
-      });
-      if (!total) {
-        const empty = document.createElement('div');
-        empty.className = 'search-empty';
-        empty.textContent = query ? 'Kein passender Eintrag.' : 'Keine Einträge. Du kannst oben einen Namen eingeben und nur eine Markierung setzen.';
-        list.appendChild(empty);
-      }
-    }
-
-    async function applyPinChoice(title, linked) {
+    function applyPinChoice(title, linked) {
       if (editingPinId) return savePinEdits(title, linked);
       return addMapPin(title, linked);
     }
@@ -680,6 +641,7 @@
       if (!isDM || !pendingPin || !title) return;
       const previous = mapPins.slice();
       const meta = readPinMetaFromUi();
+      const autoLink = linked || indexByTitle(title) !== null;
       mapPins.push({
         id: 'pin_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
         title: title,
@@ -690,13 +652,13 @@
         tier: selectedPinTier || 'marker',
         visibility: meta.visibility,
         sessionFocus: meta.sessionFocus,
-        linked: !!linked
+        linked: !!autoLink
       });
       closePinPicker();
       renderMapPins();
       try {
         await persistPins();
-        toast(linked ? 'Ort verknüpft: ' + title : 'Markierung gesetzt: ' + title);
+        toast(autoLink ? 'Ort gesetzt: ' + title : 'Markierung gesetzt: ' + title);
       } catch (err) {
         mapPins = previous;
         renderMapPins();

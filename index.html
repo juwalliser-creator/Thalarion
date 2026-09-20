@@ -894,7 +894,7 @@
   <div id="pinOverlay" class="overlay hidden">
     <div class="pin-card">
       <h2 id="pinOverlayTitle">Ort setzen</h2>
-      <p id="pinOverlayHint">Typ, Zugehörigkeit und Größe wählen. Danach einen Eintrag oder nur einen Namen.</p>
+      <p id="pinOverlayHint">Typ, Zugehörigkeit und Größe wählen, dann einen Namen vergeben.</p>
       <div class="pin-builder">
         <div class="pin-preview-wrap">
           <div class="pin-preview" id="pinPreview" aria-hidden="true"></div>
@@ -929,16 +929,12 @@
         </div>
       </div>
       <div class="field">
-        <label for="pinLabel">Name ohne Eintrag</label>
+        <label for="pinLabel">Name</label>
         <input id="pinLabel" placeholder="z. B. Alte Walstatt" />
       </div>
-      <div class="search-wrap">
-        <input id="pinSearch" type="search" placeholder="Eintrag suchen…" autocomplete="off" />
-      </div>
-      <div class="pin-list" id="pinList"></div>
       <div class="editor-actions">
         <button class="primary hidden" id="pinSaveEdit" type="button">Speichern</button>
-        <button class="primary" id="pinNoEntry" type="button">Nur Markierung setzen</button>
+        <button class="primary" id="pinNoEntry" type="button">Ort setzen</button>
         <button class="ghost" id="pinCancel" type="button">Abbrechen</button>
       </div>
     </div>

@@ -2098,8 +2098,8 @@ body.is-map-full { overflow: hidden; }
 }
 body.is-dm .map-pin-del { display: inline-flex; align-items: center; justify-content: center; }
 .pin-card {
-  width: min(640px, 100%);
-  max-height: min(90vh, 820px);
+  width: min(720px, 100%);
+  max-height: min(94vh, 900px);
   display: flex;
   flex-direction: column;
   background: var(--panel);
@@ -2116,35 +2116,37 @@ body.is-dm .map-pin-del { display: inline-flex; align-items: center; justify-con
 .pin-builder {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
-  margin: 0 0 0.75rem;
-  max-height: 42vh;
+  gap: 0.75rem;
+  margin: 0 0 0.85rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
   overflow: auto;
-  padding-right: 0.15rem;
+  padding-right: 0.2rem;
 }
 .pin-preview-wrap {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.55rem 0.7rem;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--bg-soft);
 }
 .pin-preview {
-  width: 40px;
-  height: 40px;
+  width: 72px;
+  height: 72px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
 }
 .pin-preview svg {
-  width: 36px;
-  height: 36px;
+  width: 64px;
+  height: 64px;
 }
 .pin-preview-label {
   color: var(--ink);
-  font-size: 0.9rem;
+  font-size: 1.05rem;
 }
 .pin-meta-row {
   align-items: end;
@@ -2162,30 +2164,10 @@ body.is-dm .map-pin-del { display: inline-flex; align-items: center; justify-con
   font-size: 0.9rem;
   cursor: pointer;
 }
-.pin-list {
-  overflow: auto;
-  min-height: 140px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--bg-soft);
-  margin: 0.75rem 0;
-}
-.pin-list button {
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: 0;
-  border-bottom: 1px solid var(--line);
-  border-radius: 0;
-  color: var(--ink);
-  padding: 0.5rem 0.75rem;
-}
-.pin-list button:hover { background: rgba(212, 179, 106, 0.1); }
-.pin-list .search-group-label { padding: 0.45rem 0.75rem 0.15rem; }
 .pin-kinds {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
-  gap: 0.35rem;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 0.45rem;
   max-height: none;
   overflow: visible;
   margin: 0;
@@ -2196,20 +2178,21 @@ body.is-dm .map-pin-del { display: inline-flex; align-items: center; justify-con
 .pin-kind {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.55rem;
   text-align: left;
   background: var(--bg-soft);
   border: 1px solid var(--line);
   color: var(--ink);
-  padding: 0.35rem 0.5rem;
-  border-radius: 8px;
-  font-size: 0.82rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  min-height: 3rem;
 }
 .pin-kind.active {
   border-color: var(--gold);
   color: var(--gold);
 }
-.pin-kind svg { width: 22px; height: 22px; flex-shrink: 0; }
+.pin-kind svg { width: 32px; height: 32px; flex-shrink: 0; }
 .map-pin-tier-major .map-pin-icon { width: 30px; height: 30px; }
 .map-pin-tier-minor .map-pin-icon { width: 24px; height: 24px; }
 .map-pin-tier-marker .map-pin-icon { width: 18px; height: 18px; }

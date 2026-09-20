@@ -1170,16 +1170,14 @@
         onClick('pinNoEntry', () => {
           const nameEl = document.getElementById('pinLabel');
           const name = ((nameEl && nameEl.value) || '').trim();
-          if (!name) return toast('Bitte einen Namen für die Markierung eingeben.');
-          applyPinChoice(name, false);
+          if (!name) return toast('Bitte einen Namen eingeben.');
+          applyPinChoice(name, indexByTitle(name) !== null);
         });
         onClick('pinSaveEdit', () => {
-          const pin = editingPinId ? mapPins.find(p => p.id === editingPinId) : null;
           const nameEl = document.getElementById('pinLabel');
           const name = ((nameEl && nameEl.value) || '').trim();
-          if (name) savePinEdits(name, false);
-          else if (pin) savePinEdits(pin.title, pin.linked !== false);
-          else toast('Bitte einen Namen eingeben oder einen Eintrag wählen.');
+          if (!name) return toast('Bitte einen Namen eingeben.');
+          savePinEdits(name, indexByTitle(name) !== null);
         });
         onEv('borderForm', 'submit', ev => {
           ev.preventDefault();
@@ -1208,7 +1206,6 @@
         window.addEventListener('resize', () => {
           if (currentPage === 'map') applyMapTransform();
         });
-        onEv('pinSearch', 'input', renderPinPicker);
         onClick('pinCancel', closePinPicker);
         onEv('pinOverlay', 'click', ev => {
           if (ev.target === document.getElementById('pinOverlay')) closePinPicker();
