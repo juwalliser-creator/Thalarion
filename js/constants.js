@@ -15,11 +15,12 @@ var PAGE_CATS = {
   glossar: GLOSSAR_CATS
 };
 var CODEX_SECTIONS = [
-  { id: 'all', label: 'Alles', cats: null },
-  { id: 'kompendium', label: 'Kompendium', cats: KOMPENDIUM_CATS },
-  { id: 'bestiarium', label: 'Bestiarium', cats: BESTIARIUM_CATS },
-  { id: 'glossar', label: 'Glossar', cats: GLOSSAR_CATS }
+  { id: 'all', label: 'Alles', cats: null, seal: 'T', title: 'Der Codex von Thalarion', blurb: 'Wähle ein Tor — Kompendium, Bestiarium oder Glossar.' },
+  { id: 'kompendium', label: 'Kompendium', cats: KOMPENDIUM_CATS, seal: 'K', title: 'Das Kompendium', blurb: 'Reiche, Städte, Götter und die Mächte, die Thalarion formen.' },
+  { id: 'bestiarium', label: 'Bestiarium', cats: BESTIARIUM_CATS, seal: 'B', title: 'Das Bestiarium', blurb: 'Kreaturen, Schrecken und Wesen zwischen Licht und Dunkelheit.' },
+  { id: 'glossar', label: 'Glossar', cats: GLOSSAR_CATS, seal: 'G', title: 'Das Glossar', blurb: 'Namen, Stoffe und Worte, die man kennen sollte.' }
 ];
+var CODEX_GATES = CODEX_SECTIONS.filter(s => s.id !== 'all');
 var PAGE_HERO = {
   chronik: {
     seal: 'C',
@@ -34,7 +35,7 @@ var PAGE_HERO = {
   codex: {
     seal: 'T',
     title: 'Der Codex von Thalarion',
-    blurb: 'Nachschlagen in Kompendium, Bestiarium und Glossar — filtere nach Bereich oder öffne eine Kategorie.'
+    blurb: 'Wähle ein Tor — Kompendium, Bestiarium oder Glossar.'
   },
   bestiarium: {
     seal: 'B',

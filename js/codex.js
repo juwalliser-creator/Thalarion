@@ -88,10 +88,47 @@
       return sec.cats ? sec.cats.slice() : PAGE_CATS.codex.slice();
     }
 
+    function applyCodexSectionHero() {
+      const sec = CODEX_SECTIONS.find(s => s.id === selectedCodexSection) || CODEX_SECTIONS[0];
+      const seal = document.getElementById('homeSeal');
+      if (seal) {
+        seal.innerHTML = '';
+        seal.textContent = sec.seal || PAGE_HERO.codex.seal;
+      }
+      document.getElementById('homeTitle').textContent = sec.title || PAGE_HERO.codex.title;
+      document.getElementById('homeBlurb').textContent = sec.blurb || PAGE_HERO.codex.blurb;
+    }
+
+    function leaveCodexSection() {
+      selectedCodexSection = 'all';
+      selectedHomeCat = null;
+      titleKingdomFilter = '';
+      applyCodexSectionHero();
+      renderHome();
+      renderSidebar();
+      persistView();
+    }
+
+    function openCodexGate(secId, fromEl) {
+      if (!confirmLeaveEditor()) return;
+      const go = () => {
+        selectedCodexSection = secId;
+        selectedHomeCat = null;
+        titleKingdomFilter = '';
+        applyCodexSectionHero();
+        renderHome();
+        renderSidebar();
+        persistView();
+      };
+      if (fromEl) playMagicTransition(fromEl, go);
+      else go();
+    }
+
     function leaveCategory() {
       selectedHomeCat = null;
       titleKingdomFilter = '';
-      updateHomeHero(currentPage === 'chronik' ? 'chronik' : 'codex');
+      if (currentPage === 'chronik') updateHomeHero('chronik');
+      else applyCodexSectionHero();
       renderHome();
     }
 
@@ -482,6 +519,14 @@
       magicAnim = null;
     }
 
+    function dismissMagicVeil() {
+      if (!magicAnim) return;
+      if (magicAnim.fromEl && magicAnim.fromEl.style) magicAnim.fromEl.style.visibility = '';
+      if (magicAnim.veil && magicAnim.veil.parentNode) magicAnim.veil.remove();
+      magicAnim.veil = null;
+      magicAnim.fromEl = null;
+    }
+
     function playMagicTransition(fromEl, onOpen) {
       if (typeof onOpen !== 'function') return;
       stopMagicTransition();
@@ -494,12 +539,23 @@
         onOpen();
         return;
       }
+      const isLine = !!(fromEl.classList && fromEl.classList.contains('codex-chapter-line'));
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
       const veil = document.createElement('div');
-      veil.className = 'magic-veil';
+      veil.className = 'magic-veil' + (isLine ? ' is-line' : '');
       veil.innerHTML = '<div class="magic-shade"></div><div class="magic-dust"></div><div class="magic-flash"></div>';
       const flash = veil.querySelector('.magic-flash');
-      flash.style.left = (rect.left + rect.width / 2) + 'px';
-      flash.style.top = (rect.top + rect.height / 2) + 'px';
+      flash.style.left = cx + 'px';
+      flash.style.top = cy + 'px';
+      if (isLine) {
+        const shade = veil.querySelector('.magic-shade');
+        const rx = Math.max(rect.width * 0.85, 220);
+        const ry = Math.max(rect.height * 3.2, 90);
+        shade.style.background =
+          'radial-gradient(ellipse ' + rx + 'px ' + ry + 'px at ' + cx + 'px ' + cy + 'px,' +
+          ' rgba(212, 179, 106, 0.18), rgba(16, 14, 12, 0.42) 42%, rgba(16, 14, 12, 0.78) 78%)';
+      }
       const img = fromEl.querySelector && fromEl.querySelector('img');
       let clone;
       if (img && img.src) {
@@ -530,23 +586,19 @@
       anim.openTimer = window.setTimeout(() => {
         if (magicAnim !== anim) return;
         onOpen();
+        dismissMagicVeil();
         if (!els.homeView.classList.contains('hidden')) {
           els.homeView.classList.add('is-magic-in');
-          Array.from(els.homeCards.querySelectorAll('.card, .world-tile')).forEach((card, i) => {
+          Array.from(els.homeCards.querySelectorAll('.card, .world-tile, .codex-gate, .codex-chapter-line')).forEach((card, i) => {
             card.style.setProperty('--n', String(i));
           });
         }
         if (!els.viewer.classList.contains('hidden')) els.viewer.classList.add('is-magic-in');
         els.sidebar.classList.add('is-magic-in');
-        void veil.offsetWidth;
-        requestAnimationFrame(() => {
-          if (magicAnim !== anim) return;
-          veil.classList.add('is-out');
-        });
         anim.endTimer = window.setTimeout(() => {
           if (magicAnim !== anim) return;
           stopMagicTransition();
-        }, 820);
+        }, 750);
       }, 400);
     }
 
@@ -732,7 +784,7 @@
     function renderHome() {
       const nav = document.getElementById('homeCatNav');
       els.homeCards.innerHTML = '';
-      els.homeCards.classList.remove('is-world');
+      els.homeCards.classList.remove('is-world', 'is-codex-hub', 'is-codex-chapters');
       els.homeView.classList.remove('is-world-hub');
       renderTitleKingdomBar();
       if (currentPage === 'chronik') {
@@ -767,19 +819,25 @@
         const back = document.createElement('button');
         back.className = 'primary';
         back.type = 'button';
-        back.textContent = '← Zurück zum Codex';
+        const parentSec = CODEX_SECTIONS.find(s => s.id === selectedCodexSection);
+        back.textContent = parentSec && parentSec.id !== 'all'
+          ? '← ' + parentSec.label
+          : '← Zurück zum Codex';
         back.onclick = leaveCategory;
         nav.appendChild(back);
         document.getElementById('homeTitle').textContent = selectedHomeCat;
         document.getElementById('homeBlurb').textContent = 'Wähle einen Eintrag oder gehe zurück zu den Kategorien.';
-        document.getElementById('homeSeal').textContent = selectedHomeCat.charAt(0);
+        const seal = document.getElementById('homeSeal');
+        if (seal) {
+          seal.innerHTML = '';
+          seal.textContent = selectedHomeCat.charAt(0);
+        }
         renderTitleKingdomBar();
+        els.homeCards.classList.add('is-codex-chapters');
         const matching = applyTitleKingdomFilter(visibleEntriesInCat(selectedHomeCat), selectedHomeCat);
         if (!matching.length) {
           const empty = document.createElement('p');
-          empty.style.gridColumn = '1 / -1';
-          empty.style.color = 'var(--muted)';
-          empty.style.textAlign = 'center';
+          empty.className = 'codex-chapters-empty';
           empty.textContent = selectedHomeCat === TITLE_OFFICE_CAT && titleKingdomFilter
             ? 'Keine Titel in diesem Königreich.'
             : 'Noch keine Einträge in dieser Kategorie.';
@@ -787,9 +845,12 @@
         } else {
           matching.forEach(({ e, i }) => {
             const btn = document.createElement('button');
-            btn.className = 'card';
-            const sub = e.kingdom || (e.visibility === 'dm' ? 'nur DM' : 'Öffnen');
-            btn.innerHTML = `<b>${escapeHtml(e.title)}</b><span>${escapeHtml(sub)}</span>`;
+            btn.type = 'button';
+            btn.className = 'codex-chapter-line';
+            const sub = e.kingdom || (e.visibility === 'dm' ? 'nur DM' : '');
+            btn.innerHTML =
+              '<span class="codex-chapter-name">' + escapeHtml(e.title) + '</span>' +
+              (sub ? '<span class="codex-chapter-count">' + escapeHtml(sub) + '</span>' : '');
             btn.onclick = () => {
               if (!confirmLeaveEditor()) return;
               playMagicTransition(btn, () => loadEntry(i));
@@ -799,30 +860,48 @@
         }
         return;
       }
+
+      applyCodexSectionHero();
+
+      if (selectedCodexSection === 'all') {
+        nav.classList.add('hidden');
+        nav.innerHTML = '';
+        els.homeCards.classList.add('is-world', 'is-codex-hub');
+        els.homeView.classList.add('is-world-hub');
+        CODEX_GATES.forEach(sec => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'codex-gate gate-' + sec.id;
+          btn.innerHTML =
+            '<span class="codex-gate-label">' + escapeHtml(sec.label) + '</span>' +
+            '<span class="codex-gate-blurb">' + escapeHtml(sec.blurb) + '</span>';
+          btn.onclick = () => openCodexGate(sec.id, btn);
+          els.homeCards.appendChild(btn);
+        });
+        return;
+      }
+
       nav.classList.remove('hidden');
       nav.innerHTML = '';
-      CODEX_SECTIONS.forEach(sec => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'ghost codex-section-chip' + (selectedCodexSection === sec.id ? ' active' : '');
-        btn.textContent = sec.label;
-        btn.onclick = () => {
-          if (!confirmLeaveEditor()) return;
-          selectedCodexSection = sec.id;
-          selectedHomeCat = null;
-          titleKingdomFilter = '';
-          updateHomeHero('codex');
-          renderHome();
-          renderSidebar();
-          persistView();
-        };
-        nav.appendChild(btn);
-      });
+      const backHub = document.createElement('button');
+      backHub.className = 'primary';
+      backHub.type = 'button';
+      backHub.textContent = '← Codex';
+      backHub.onclick = () => {
+        if (!confirmLeaveEditor()) return;
+        leaveCodexSection();
+      };
+      nav.appendChild(backHub);
+
+      els.homeCards.classList.add('is-codex-chapters');
       cats.forEach(cat => {
         const count = visibleEntries().filter(e => e.type === cat).length;
         const btn = document.createElement('button');
-        btn.className = 'card';
-        btn.innerHTML = `<b>${cat}</b><span>${count} ${count === 1 ? 'Eintrag' : 'Einträge'}</span>`;
+        btn.type = 'button';
+        btn.className = 'codex-chapter-line';
+        btn.innerHTML =
+          '<span class="codex-chapter-name">' + escapeHtml(cat) + '</span>' +
+          '<span class="codex-chapter-count">' + count + '</span>';
         btn.onclick = () => {
           if (!confirmLeaveEditor()) return;
           playMagicTransition(btn, () => openHomeCategory(cat));

@@ -46,8 +46,16 @@
     }
 
     function updateHomeHero(page) {
+      if (page === 'codex') {
+        applyCodexSectionHero();
+        return;
+      }
       const hero = PAGE_HERO[page] || PAGE_HERO.codex;
-      document.getElementById('homeSeal').textContent = hero.seal;
+      const seal = document.getElementById('homeSeal');
+      if (seal) {
+        seal.innerHTML = '';
+        seal.textContent = hero.seal;
+      }
       document.getElementById('homeTitle').textContent = hero.title;
       document.getElementById('homeBlurb').textContent = hero.blurb;
     }
