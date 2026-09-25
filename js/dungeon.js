@@ -219,10 +219,11 @@
 
     function dungeonPointCovered(x, y, minR) {
       const need = (minR != null ? minR : clampDungeonFogRadius(dungeon.fogRadius) * 0.55);
+      const drawR = clampDungeonFogRadius(dungeon.fogRadius);
       return (dungeon.fogReveals || []).some(c => {
         const dx = x - c.x;
         const dy = y - c.y;
-        const r = Math.max(need, Number(c.r) || need);
+        const r = Math.max(need, drawR);
         return (dx * dx + dy * dy) <= (r * r);
       });
     }
@@ -240,6 +241,20 @@
       });
       dungeon.layoutAt = stampNow();
       return true;
+    }
+
+    function setDungeonFogRadius(value, persist) {
+      dungeon.fogRadius = clampDungeonFogRadius(value);
+      const r = dungeon.fogRadius;
+      const now = stampNow();
+      (dungeon.fogReveals || []).forEach(c => {
+        c.r = r;
+        c.updatedAt = now;
+      });
+      dungeon.layoutAt = now;
+      syncDungeonFogControls();
+      renderDungeonFog();
+      if (persist) persistDungeonSoon();
     }
 
     function canMoveDungeonToken(token) {
@@ -431,9 +446,10 @@
       ctx.fillStyle = isDM ? 'rgba(8,6,4,0.48)' : 'rgba(6,5,4,0.94)';
       ctx.fillRect(0, 0, w, h);
       ctx.globalCompositeOperation = 'destination-out';
+      const holeR = clampDungeonFogRadius(dungeon.fogRadius);
       (dungeon.fogReveals || []).forEach(c => {
         ctx.beginPath();
-        ctx.arc(c.x / 100 * w, c.y / 100 * h, (c.r / 100) * w, 0, Math.PI * 2);
+        ctx.arc(c.x / 100 * w, c.y / 100 * h, (holeR / 100) * w, 0, Math.PI * 2);
         ctx.fill();
       });
       ctx.globalCompositeOperation = 'source-over';
@@ -867,14 +883,10 @@
       if (rad && !rad.dataset.bound) {
         rad.dataset.bound = '1';
         rad.addEventListener('input', () => {
-          dungeon.fogRadius = clampDungeonFogRadius(rad.value);
-          syncDungeonFogControls();
+          setDungeonFogRadius(rad.value, false);
         });
         rad.addEventListener('change', () => {
-          dungeon.fogRadius = clampDungeonFogRadius(rad.value);
-          dungeon.layoutAt = stampNow();
-          persistDungeonSoon();
-          syncDungeonFogControls();
+          setDungeonFogRadius(rad.value, true);
         });
       }
       window.addEventListener('resize', () => {
