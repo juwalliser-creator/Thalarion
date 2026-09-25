@@ -333,10 +333,11 @@
       const bw = board.clientWidth;
       const bh = board.clientHeight;
       if (!bw || !bh) return;
-      const pad = 2;
-      const maxW = Math.max(40, bw - pad);
-      const maxH = Math.max(40, bh - pad);
-      const scale = Math.min(maxW / nw, maxH / nh);
+      const maxW = Math.max(40, bw - 4);
+      const maxH = Math.max(40, bh - 4);
+      let scale = Math.min(maxW / nw, maxH / nh) * 1.08;
+      if (nw * scale > maxW) scale = maxW / nw;
+      if (nh * scale > maxH) scale = maxH / nh;
       stage.style.width = Math.max(40, Math.floor(nw * scale)) + 'px';
     }
 
@@ -348,7 +349,7 @@
       const wh = board.clientHeight;
       const sw = stage.offsetWidth * dungeonScale;
       const sh = stage.offsetHeight * dungeonScale;
-      if (sw <= ww) dungeonPanX = (ww - sw) / 2;
+      if (sw <= ww) dungeonPanX = 0;
       else dungeonPanX = Math.min(0, Math.max(ww - sw, dungeonPanX));
       if (sh <= wh) dungeonPanY = (wh - sh) / 2;
       else dungeonPanY = Math.min(0, Math.max(wh - sh, dungeonPanY));
