@@ -549,9 +549,10 @@
       const title = document.getElementById('soundPickTitle');
       const hint = document.getElementById('soundPickHint');
       if (title) title.textContent = soundPickKind === 'fx' ? 'Effekte' : 'Ambiente';
-      if (hint) hint.textContent = soundPickKind === 'fx'
-        ? 'Effekt antippen. Stern legt ihn in die Leiste.'
-        : 'Klang antippen. Pause hält die Stelle, Stop blendet aus. Gruppen filtern die Liste.';
+      if (hint) {
+        hint.textContent = '';
+        hint.classList.add('hidden');
+      }
       syncSoundPickerChrome();
       renderSoundGroupBar();
       renderSoundPickList();

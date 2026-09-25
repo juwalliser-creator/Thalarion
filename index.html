@@ -71,7 +71,7 @@
           <div class="hero">
             <div class="seal" id="homeSeal">T</div>
             <h1 id="homeTitle">Das Kompendium von Thalarion</h1>
-            <p id="homeBlurb">Wähle links einen Eintrag oder öffne eine Kategorie, um Reiche, Städte, Götter und Geheimnisse dieser Welt zu lesen.</p>
+            <p id="homeBlurb" class="hidden"></p>
           </div>
           <div class="page-toolbar hidden" id="homeToolbar">
             <button class="primary" id="homeNewBtn" type="button">+ Neuer Eintrag</button>
@@ -175,7 +175,6 @@
           <div class="hero">
             <div class="seal">E</div>
             <h1>Die Entstehung Thalarions</h1>
-            <p>Die Geschichte, wie diese Welt wurde, was sie ist.</p>
           </div>
           <div class="page-toolbar hidden" id="entstehungToolbar">
             <button class="primary" id="entstehungNewBtn" type="button">+ Neuer Eintrag</button>
@@ -191,7 +190,6 @@
           <div class="hero">
             <div class="seal">S</div>
             <h1>Letzte Sitzung</h1>
-            <p>Was in Thalarion zuletzt geschah — für alle, die nachlesen oder aufholen wollen.</p>
           </div>
           <div class="page-toolbar hidden" id="sitzungToolbar">
             <button class="primary" id="sitzungNewBtn" type="button">+ Neue Sitzung</button>
@@ -232,7 +230,6 @@
             <div class="hero">
               <div class="seal">C</div>
               <h1>Dein Charakter</h1>
-              <p>Registriere dich oder melde dich an, um dein Charakterblatt zu sehen. Nur du und der DM können es lesen.</p>
             </div>
             <div class="page-toolbar">
               <button class="primary" id="charLoginBtn" type="button">Anmelden</button>
@@ -247,7 +244,7 @@
               </div>
               <div class="editor-card char-main" id="charMainCard">
                 <h2 id="charHeading">Charakterblatt</h2>
-                <p id="charBlurb" style="color:var(--muted);margin:-0.4rem 0 1rem;">Feste Werte oben, Notizen und Ausrüstung darunter — nur für dich und den DM.</p>
+                <p id="charBlurb" class="hidden"></p>
                 <div id="charSheetBlock">
                   <div class="sheet-grid">
                   <div class="field">
@@ -648,7 +645,6 @@
           <div class="hero">
             <div class="seal">D</div>
             <h1>Dungeon</h1>
-            <p>Erkunde die Karte — Portraits decken ihren Umkreis dauerhaft auf.</p>
           </div>
           <div class="dungeon-bar">
             <div class="battle-tools dungeon-tools">
@@ -716,7 +712,7 @@
           <div class="dungeon-stage-wrap">
             <div class="dungeon-card">
               <div class="battle-board" id="dungeonBoard">
-                <p class="battle-empty" id="dungeonEmpty">Noch keine Dungeon-Karte. Als DM oben ein Bild hochladen.</p>
+                <p class="battle-empty" id="dungeonEmpty"></p>
                 <div class="battle-stage hidden" id="dungeonStage">
                   <img class="battle-map" id="dungeonImg" alt="Dungeon" draggable="false" />
                   <canvas class="battle-fog dungeon-fog hidden" id="dungeonFog" aria-hidden="true"></canvas>
@@ -731,7 +727,6 @@
           <div class="hero">
             <div class="seal">K</div>
             <h1>Kampf</h1>
-            <p>Vorbereiten, dann Kampf starten. Figur antippen, Aktion wählen, Ziel antippen.</p>
           </div>
           <div class="kampf-bar">
             <span class="kampf-round" id="kampfRound">Aufbau</span>
@@ -751,7 +746,7 @@
           </div>
           <div class="kampf-act" id="kampfActBar">
             <span class="kampf-econ" id="kampfEcon"></span>
-            <span class="kampf-act-name" id="kampfActHint">Figuren vorbereiten, dann Kampf starten.</span>
+            <span class="kampf-act-name" id="kampfActHint"></span>
             <button class="primary hidden" id="kampfResolveBtn" type="button">Wirken</button>
             <button class="ghost hidden" id="kampfAimCancel" type="button">Abbrechen</button>
           </div>
@@ -811,7 +806,7 @@
               <p class="battle-hint" id="kampfBattleHint"></p>
               <div class="kampf-init-strip hidden" id="kampfInitStrip" aria-label="Initiative"></div>
               <div class="battle-board" id="kampfBattleBoard">
-                <p class="battle-empty" id="kampfBattleEmpty">Noch keine Kampfkarte. Oben ein Bild hochladen.</p>
+                <p class="battle-empty" id="kampfBattleEmpty"></p>
                 <div class="battle-stage hidden" id="kampfBattleStage">
                   <img class="battle-map" id="kampfBattleImg" alt="Schlachtfeld" draggable="false" />
                   <svg class="battle-overlay" id="kampfBattleOverlay" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
@@ -834,12 +829,10 @@
             </div>
             <div class="kampf-add-card">
               <h3>NPCs übernehmen</h3>
-              <p class="kampf-karten-hint">NPC-Charakterblätter aus dem Reiter „Charakter“ — mit voller Kampf-Automatik.</p>
               <div class="kampf-players" id="kampfNpcs"></div>
             </div>
             <div class="kampf-add-card">
               <h3>Karten</h3>
-              <p class="kampf-karten-hint">Antippen setzt die Kreatur in den Kampf. Initiative: Button oben oder von Hand eintragen.</p>
               <div class="kampf-add-row">
                 <input id="kampfKartenSearch" type="search" placeholder="Suchen…" autocomplete="off" />
                 <input id="kampfKartenUseCount" class="kampf-num" type="number" min="1" placeholder="Anzahl" title="Leer = Standard der Karte" />
@@ -904,7 +897,6 @@
   <div id="loginOverlay" class="overlay hidden">
     <form class="login-card" id="loginForm">
       <h2>DM-Zugang</h2>
-      <p>Nur zum Bearbeiten. Spieler bleiben im Lesemodus.</p>
       <div class="field">
         <label for="dmUser">Benutzername</label>
         <input id="dmUser" type="text" autocomplete="username" />
@@ -924,7 +916,7 @@
   <div id="playerOverlay" class="overlay hidden">
     <form class="login-card" id="playerForm">
       <h2 id="playerFormTitle">Spieler-Zugang</h2>
-      <p id="playerFormHint">Einfache Anmeldung für dein Charakterblatt.</p>
+      <p id="playerFormHint" class="hidden"></p>
       <div class="auth-tabs">
         <button class="primary" id="playerTabLogin" type="button">Anmelden</button>
         <button class="ghost" id="playerTabRegister" type="button">Registrieren</button>
@@ -978,7 +970,6 @@
   <div id="battleGalleryOverlay" class="overlay hidden">
     <div class="login-card battle-gallery-card" role="dialog" aria-modal="true" aria-labelledby="battleGalleryTitle">
       <h2 id="battleGalleryTitle">Kartengalerie</h2>
-      <p>Karten mit Namen ablegen. Antippen fragt, ob sie das aktuelle Schlachtfeld ersetzen soll.</p>
       <div class="battle-gallery-add">
         <input id="battleGalleryName" type="text" maxlength="80" placeholder="Name, z. B. Taverne" autocomplete="off" />
         <button class="primary" id="battleGalleryAddBtn" type="button">Hinzufügen</button>
@@ -992,7 +983,7 @@
   <div id="pinOverlay" class="overlay hidden">
     <div class="pin-card">
       <h2 id="pinOverlayTitle">Ort setzen</h2>
-      <p id="pinOverlayHint">Typ, Zugehörigkeit und Größe wählen, dann einen Namen vergeben.</p>
+      <p id="pinOverlayHint" class="hidden"></p>
       <div class="pin-builder">
         <div class="pin-preview-wrap">
           <div class="pin-preview" id="pinPreview" aria-hidden="true"></div>
@@ -1041,7 +1032,7 @@
   <div id="borderOverlay" class="overlay hidden">
     <form class="login-card" id="borderForm">
       <h2 id="borderOverlayTitle">Grenze benennen</h2>
-      <p id="borderOverlayHint">Wie soll diese Landesgrenze heißen?</p>
+      <p id="borderOverlayHint" class="hidden"></p>
       <div class="field">
         <label for="borderName">Name</label>
         <input id="borderName" placeholder="z. B. Arthalon" />
@@ -1068,7 +1059,7 @@
   <div id="soundPickOverlay" class="overlay hidden">
     <div class="login-card sound-pick-card">
       <h2 id="soundPickTitle">Ambiente</h2>
-      <p class="sound-pick-hint" id="soundPickHint">Wähle einen Klang. Er läuft in der Schleife, bis du Stop drückst.</p>
+      <p class="sound-pick-hint hidden" id="soundPickHint"></p>
       <div class="sound-group-bar" id="soundGroupBar"></div>
       <div class="sound-pick-meta" id="soundPickMeta">
         <input id="soundAddName" type="text" maxlength="80" placeholder="Name beim Hinzufügen" autocomplete="off" />

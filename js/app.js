@@ -76,7 +76,11 @@
         seal.textContent = hero.seal;
       }
       document.getElementById('homeTitle').textContent = hero.title;
-      document.getElementById('homeBlurb').textContent = hero.blurb;
+      const blurb = document.getElementById('homeBlurb');
+      if (blurb) {
+        blurb.textContent = '';
+        blurb.classList.add('hidden');
+      }
     }
 
     function confirmLeaveEditor() {

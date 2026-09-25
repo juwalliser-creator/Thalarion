@@ -15,42 +15,42 @@ var PAGE_CATS = {
   glossar: GLOSSAR_CATS
 };
 var CODEX_SECTIONS = [
-  { id: 'all', label: 'Alles', cats: null, seal: 'T', title: 'Der Codex von Thalarion', blurb: 'Wähle ein Tor — Kompendium, Bestiarium oder Glossar.' },
-  { id: 'kompendium', label: 'Kompendium', cats: KOMPENDIUM_CATS, seal: 'K', title: 'Das Kompendium', blurb: 'Reiche, Städte, Götter und die Mächte, die Thalarion formen.' },
-  { id: 'bestiarium', label: 'Bestiarium', cats: BESTIARIUM_CATS, seal: 'B', title: 'Das Bestiarium', blurb: 'Kreaturen, Schrecken und Wesen zwischen Licht und Dunkelheit.' },
-  { id: 'glossar', label: 'Glossar', cats: GLOSSAR_CATS, seal: 'G', title: 'Das Glossar', blurb: 'Namen, Stoffe und Worte, die man kennen sollte.' }
+  { id: 'all', label: 'Alles', cats: null, seal: 'T', title: 'Der Codex von Thalarion', blurb: '' },
+  { id: 'kompendium', label: 'Kompendium', cats: KOMPENDIUM_CATS, seal: 'K', title: 'Das Kompendium', blurb: '' },
+  { id: 'bestiarium', label: 'Bestiarium', cats: BESTIARIUM_CATS, seal: 'B', title: 'Das Bestiarium', blurb: '' },
+  { id: 'glossar', label: 'Glossar', cats: GLOSSAR_CATS, seal: 'G', title: 'Das Glossar', blurb: '' }
 ];
 var CODEX_GATES = CODEX_SECTIONS.filter(s => s.id !== 'all');
 var PAGE_HERO = {
   chronik: {
     seal: 'C',
     title: 'Die Chronik von Thalarion',
-    blurb: 'Lies, wie die Welt entstand — und was in den letzten Sitzungen geschah.'
+    blurb: ''
   },
   world: {
     seal: 'T',
     title: 'Thalarion',
-    blurb: 'Öffne den Codex oder die Chronik.'
+    blurb: ''
   },
   codex: {
     seal: 'T',
     title: 'Der Codex von Thalarion',
-    blurb: 'Wähle ein Tor — Kompendium, Bestiarium oder Glossar.'
+    blurb: ''
   },
   bestiarium: {
     seal: 'B',
     title: 'Das Bestiarium von Thalarion',
-    blurb: 'Öffne eine Kategorie, um Tiere, Monster und andere Wesen dieser Welt nachzuschlagen.'
+    blurb: ''
   },
   glossar: {
     seal: 'G',
     title: 'Das Glossar von Thalarion',
-    blurb: 'Öffne eine Kategorie, um Namen, Heilpflanzen und andere Fachworte dieser Welt nachzuschlagen.'
+    blurb: ''
   },
   sitzung: {
     seal: 'S',
     title: 'Letzte Sitzung',
-    blurb: 'Was in Thalarion zuletzt geschah.'
+    blurb: ''
   }
 };
 var categories = [STORY_CAT, SESSION_CAT].concat(KOMPENDIUM_CATS, BESTIARIUM_CATS, GLOSSAR_CATS);

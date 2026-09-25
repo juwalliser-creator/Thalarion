@@ -96,7 +96,11 @@
         seal.textContent = sec.seal || PAGE_HERO.codex.seal;
       }
       document.getElementById('homeTitle').textContent = sec.title || PAGE_HERO.codex.title;
-      document.getElementById('homeBlurb').textContent = sec.blurb || PAGE_HERO.codex.blurb;
+      const blurb = document.getElementById('homeBlurb');
+      if (blurb) {
+        blurb.textContent = '';
+        blurb.classList.add('hidden');
+      }
     }
 
     function leaveCodexSection() {
@@ -683,13 +687,6 @@
           return b.i - a.i;
         });
       if (!sessions.length) {
-        const empty = document.createElement('p');
-        empty.style.color = 'var(--muted)';
-        empty.style.textAlign = 'center';
-        empty.textContent = isDM
-          ? 'Noch kein Sitzungsbericht. Lege als DM einen Eintrag der Kategorie „Updates“ an.'
-          : 'Die letzte Sitzung erscheint hier.';
-        box.appendChild(empty);
         return;
       }
       sessions.forEach(({ e, i }, pos) => {
@@ -739,13 +736,6 @@
         .filter(({ e }) => e.type === STORY_CAT)
         .sort((a, b) => a.e.title.localeCompare(b.e.title, 'de'));
       if (!chapters.length) {
-        const empty = document.createElement('p');
-        empty.style.color = 'var(--muted)';
-        empty.style.textAlign = 'center';
-        empty.textContent = isDM
-          ? 'Noch kein Text. Lege als DM einen Eintrag der Kategorie „Entstehung“ an.'
-          : 'Die Entstehungsgeschichte wird hier erscheinen.';
-        box.appendChild(empty);
         return;
       }
       chapters.forEach(({ e, i }) => {
@@ -793,13 +783,13 @@
         els.homeCards.classList.add('is-world');
         els.homeView.classList.add('is-world-hub');
         [
-          { id: 'entstehung', title: 'Entstehung', blurb: 'Wie Thalarion wurde, was es ist.' },
-          { id: 'sitzung', title: 'Sitzungen', blurb: 'Was zuletzt geschah — zum Nachlesen.' }
+          { id: 'entstehung', title: 'Entstehung' },
+          { id: 'sitzung', title: 'Sitzungen' }
         ].forEach(sec => {
           const btn = document.createElement('button');
           btn.className = 'card chronik-tile';
           btn.type = 'button';
-          btn.innerHTML = '<b>' + escapeHtml(sec.title) + '</b><span>' + escapeHtml(sec.blurb) + '</span>';
+          btn.innerHTML = '<b>' + escapeHtml(sec.title) + '</b>';
           btn.onclick = () => {
             if (sec.id === 'sitzung') showSitzung();
             else showEntstehung();
@@ -826,7 +816,11 @@
         back.onclick = leaveCategory;
         nav.appendChild(back);
         document.getElementById('homeTitle').textContent = selectedHomeCat;
-        document.getElementById('homeBlurb').textContent = 'Wähle einen Eintrag oder gehe zurück zu den Kategorien.';
+        const catBlurb = document.getElementById('homeBlurb');
+        if (catBlurb) {
+          catBlurb.textContent = '';
+          catBlurb.classList.add('hidden');
+        }
         const seal = document.getElementById('homeSeal');
         if (seal) {
           seal.innerHTML = '';
@@ -873,8 +867,7 @@
           btn.type = 'button';
           btn.className = 'codex-gate gate-' + sec.id;
           btn.innerHTML =
-            '<span class="codex-gate-label">' + escapeHtml(sec.label) + '</span>' +
-            '<span class="codex-gate-blurb">' + escapeHtml(sec.blurb) + '</span>';
+            '<span class="codex-gate-label">' + escapeHtml(sec.label) + '</span>';
           btn.onclick = () => openCodexGate(sec.id, btn);
           els.homeCards.appendChild(btn);
         });

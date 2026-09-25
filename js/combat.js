@@ -796,11 +796,6 @@
       box.innerHTML = '';
       const list = sortedBattleGalleryMaps();
       if (!list.length) {
-        const empty = document.createElement('p');
-        empty.className = 'kampf-empty';
-        empty.style.margin = '0';
-        empty.textContent = 'Noch keine Karten. Oben einen Namen eingeben, dann Hinzufügen.';
-        box.appendChild(empty);
         return;
       }
       list.forEach(map => {
@@ -1004,16 +999,11 @@
         const label = BATTLE_HAZARDS[battleHazardMode].label;
         return label + ' zeichnen: auf die Karte tippen. Ersten Punkt nochmal antippen oder „Fläche schließen“.';
       }
-      if (battleMapTool === 'ruler') return 'Maßband: ersten Punkt antippen, dann den zweiten. Felder nach 5e (Diagonal zählt 1).';
+      if (battleMapTool === 'ruler') return 'Maßband: ersten Punkt antippen, dann den zweiten.';
       if (battleMapTool === 'ping') return 'Ping: auf die Karte oder ein Portrait tippen.';
       if (battleMapTool === 'fog-reveal') return 'Nebel aufdecken: auf die Karte tippen.';
       if (battleMapTool === 'fog-hide') return 'Nebel verdecken: aufgedeckte Stelle antippen.';
-      if (battle.fogOn && isDM) return 'Nebel aktiv. Aufdecken/Verdecken im Zahnrad, oder Figuren ziehen.';
-      if (isDM && combat.started && !battleHazardMode) return 'Kurz antippen: erst wer handelt, dann das Ziel. Ziehen setzt die Figur um.';
-      if (isDM) return 'Figuren ziehen. Feuer, Wasser oder Öl wählen, dann die Fläche auf die Karte legen. Eine Fläche antippen löscht sie.';
-      if (currentPlayerId && isMyCombatTurn()) return combatPlayerTurnHint();
-      if (currentPlayerId) return 'Warte auf deinen Zug. Du kannst dein Portrait weiter schieben.';
-      return 'Zum eigenen Token als Spieler anmelden. Sonst nur zuschauen.';
+      return '';
     }
 
     function battleBoardIds() {
@@ -1975,11 +1965,6 @@
         return (c.name || '').toLowerCase().includes(query) || (c.note || '').toLowerCase().includes(query);
       });
       if (!rosterCards.length) {
-        const empty = document.createElement('p');
-        empty.className = 'kampf-empty';
-        empty.style.padding = '0.2rem 0 0';
-        empty.textContent = 'Noch keine Karten. Unten eine anlegen, dann in der Sitzung nur noch antippen.';
-        box.appendChild(empty);
         return;
       }
       if (!list.length) {
@@ -2522,8 +2507,7 @@
 
     function combatPlayerTurnHint() {
       const names = combatGroupMembers(activeCombatGroupKey()).map(row => row.name).filter(Boolean);
-      const who = names.length > 1 ? 'Dein Zug (' + names.join(' + ') + ')' : 'Dein Zug';
-      return who + ': Figur antippen, Aktion wählen, Ziel antippen. Ziehen = Bewegung. Danach „Zug beenden“.';
+      return names.length > 1 ? 'Dein Zug (' + names.join(' + ') + ')' : 'Dein Zug';
     }
 
     function addCombatant(data, quiet) {
@@ -4035,7 +4019,7 @@
         resolveBtn.classList.toggle('hidden', !areaAim);
       }
       if (!combat.started) {
-        if (hint) hint.textContent = 'Figuren vorbereiten, Rüstung und Initiative eintragen, dann Kampf starten.';
+        if (hint) hint.textContent = '';
         if (panel) panel.classList.remove('is-open');
         if (cancel) cancel.classList.add('hidden');
         if (resolveBtn) resolveBtn.classList.add('hidden');
@@ -4060,12 +4044,10 @@
         return;
       }
       if (!from) {
-        if (hint) hint.textContent = isDM
-          ? 'Figur antippen, Aktion wählen, Ziel antippen. Ziehen = Bewegung.'
-          : combatPlayerTurnHint();
+        if (hint) hint.textContent = isDM ? '' : combatPlayerTurnHint();
         if (panel) panel.classList.remove('is-open');
       } else if (!to) {
-        if (hint) hint.textContent = from.name + ' → Ziel antippen. Dieselbe Figur nochmal = auf sich selbst.';
+        if (hint) hint.textContent = from.name + ' → Ziel antippen.';
         if (panel) panel.classList.remove('is-open');
       } else {
         if (hint) hint.textContent = kampfAimLabel();
@@ -4764,10 +4746,6 @@
       }
       const rows = combat.combatants.length ? sortedCombatants() : [];
       if (!rows.length) {
-        const empty = document.createElement('p');
-        empty.className = 'kampf-empty';
-        empty.textContent = 'Noch niemand im Kampf. Der DM setzt die Figuren in die Reihenfolge.';
-        list.appendChild(empty);
         applyBattleLinkHighlight();
         return;
       }
@@ -4898,10 +4876,11 @@
         return;
       }
       if (!rows.length) {
-        const empty = document.createElement('p');
-        empty.className = 'kampf-empty';
-        empty.textContent = 'Noch niemand im Kampf. Übernimm die Spieler und füge Gegner hinzu.';
-        list.appendChild(empty);
+        applyBattleLinkHighlight();
+        syncKampfChrome();
+        renderKampfInitStrip();
+        renderKampfLog();
+        return;
       }
       rows.forEach((row, index) => {
         const card = document.createElement('article');

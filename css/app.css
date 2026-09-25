@@ -1925,13 +1925,10 @@ aside.is-magic-in {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--gold);
-  margin-bottom: 0.4rem;
+  margin-bottom: 0;
 }
 .codex-gate-blurb {
-  color: var(--muted);
-  font-size: 0.95rem;
-  line-height: 1.45;
-  max-width: 34rem;
+  display: none;
 }
 .codex-gate:hover {
   border-color: var(--gold-dim);
@@ -2009,9 +2006,9 @@ aside.is-magic-in {
   padding: 0.4rem 0;
 }
 .chronik-tile {
-  min-height: 7.5rem;
+  min-height: 4.5rem;
   text-align: left;
-  justify-content: flex-end;
+  justify-content: center;
 }
 .chronik-tile b {
   font-family: Cinzel, serif;
@@ -4164,6 +4161,10 @@ body.is-dm .battle-gear-panel .dm-only-tools { display: flex; }
   padding: 2.4rem 1rem;
   text-align: center;
   color: var(--muted);
+}
+.battle-empty:empty {
+  display: none;
+  padding: 0;
 }
 .battle-stage {
   position: relative;

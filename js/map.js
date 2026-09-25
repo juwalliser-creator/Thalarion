@@ -583,7 +583,8 @@
       document.getElementById('pinOverlay').classList.add('hidden');
       document.getElementById('pinSaveEdit').classList.add('hidden');
       document.getElementById('pinOverlayTitle').textContent = 'Ort setzen';
-      document.getElementById('pinOverlayHint').textContent = 'Typ, Zugehörigkeit und Größe wählen, dann einen Namen vergeben.';
+      const closeHint = document.getElementById('pinOverlayHint');
+      if (closeHint) { closeHint.textContent = ''; closeHint.classList.add('hidden'); }
     }
 
     function readPinMetaFromUi() {
@@ -617,7 +618,8 @@
       selectedPinVisibility = 'player';
       selectedPinSessionFocus = false;
       document.getElementById('pinOverlayTitle').textContent = 'Ort setzen';
-      document.getElementById('pinOverlayHint').textContent = 'Typ, Zugehörigkeit und Größe wählen, dann einen Namen vergeben.';
+      const openHint = document.getElementById('pinOverlayHint');
+      if (openHint) { openHint.textContent = ''; openHint.classList.add('hidden'); }
       document.getElementById('pinSaveEdit').classList.add('hidden');
       let label = '';
       if (pendingPinEntryId) {
@@ -645,7 +647,8 @@
       selectedPinSessionFocus = !!pin.sessionFocus;
       pendingPinEntryId = pin.entryId || null;
       document.getElementById('pinOverlayTitle').textContent = 'Ort bearbeiten';
-      document.getElementById('pinOverlayHint').textContent = 'Symbol und Name ändern. Stimmt der Name mit einem Codex-Eintrag überein, wird per ID verknüpft.';
+      const editHint = document.getElementById('pinOverlayHint');
+      if (editHint) { editHint.textContent = ''; editHint.classList.add('hidden'); }
       document.getElementById('pinSaveEdit').classList.remove('hidden');
       const i = resolvePinEntryIndex(pin);
       document.getElementById('pinLabel').value = i !== null ? entries[i].title : (pin.title || '');
@@ -853,7 +856,8 @@
         return;
       }
       document.getElementById('borderOverlayTitle').textContent = 'Grenze benennen';
-      document.getElementById('borderOverlayHint').textContent = 'Wie soll diese Landesgrenze heißen?';
+      const borderHint = document.getElementById('borderOverlayHint');
+      if (borderHint) { borderHint.textContent = ''; borderHint.classList.add('hidden'); }
       document.getElementById('borderRedraw').classList.add('hidden');
       document.getElementById('borderName').value = '';
       document.getElementById('borderColor').value = '#d4b36a';
@@ -866,7 +870,8 @@
       if (!border || !isDM) return;
       editingBorderId = id;
       document.getElementById('borderOverlayTitle').textContent = 'Grenze bearbeiten';
-      document.getElementById('borderOverlayHint').textContent = 'Name und Farbe ändern oder die Grenze neu zeichnen.';
+      const borderEditHint = document.getElementById('borderOverlayHint');
+      if (borderEditHint) { borderEditHint.textContent = ''; borderEditHint.classList.add('hidden'); }
       document.getElementById('borderRedraw').classList.remove('hidden');
       document.getElementById('borderName').value = border.name || '';
       document.getElementById('borderColor').value = border.color || '#d4b36a';

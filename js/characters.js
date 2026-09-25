@@ -1940,9 +1940,11 @@
       playerFormMode = mode === 'register' ? 'register' : 'login';
       const register = playerFormMode === 'register';
       document.getElementById('playerFormTitle').textContent = register ? 'Registrieren' : 'Spieler-Zugang';
-      document.getElementById('playerFormHint').textContent = register
-        ? 'Wähle einen Namen und ein Passwort. Danach siehst du dein Charakterblatt.'
-        : 'Einfache Anmeldung für dein Charakterblatt.';
+      const formHint = document.getElementById('playerFormHint');
+      if (formHint) {
+        formHint.textContent = '';
+        formHint.classList.add('hidden');
+      }
       document.getElementById('playerTabLogin').className = register ? 'ghost' : 'primary';
       document.getElementById('playerTabRegister').className = register ? 'primary' : 'ghost';
       document.getElementById('playerPass2Wrap').classList.toggle('hidden', !register);
@@ -2356,7 +2358,8 @@
       document.getElementById('charEntryBlock').classList.add('hidden');
       const notesBlock = document.getElementById('charDmNotesBlock');
       if (notesBlock) notesBlock.classList.toggle('hidden', !isNotes);
-      document.getElementById('charBlurb').classList.remove('hidden');
+      document.getElementById('charBlurb').classList.add('hidden');
+      document.getElementById('charBlurb').textContent = '';
       document.getElementById('charMainCard').classList.remove('is-entry');
       document.getElementById('charMainCard').classList.toggle('is-veyr-sheet', isVeyr && !isNotes);
       document.getElementById('charMainCard').classList.toggle('is-dm-notes', isNotes);
@@ -2370,18 +2373,12 @@
       del.textContent = rec && rec.isNpc ? 'NPC entfernen' : 'Spieler entfernen';
       if (isNotes) {
         document.getElementById('charHeading').textContent = 'DM-Notizen';
-        document.getElementById('charBlurb').textContent = 'Nur für dich. Liegt nicht in Sitzung, Codex oder auf den Spielerblättern.';
         if (!sheetDirty) {
           const box = document.getElementById('dmNotesContent');
           if (box) box.innerHTML = sanitizeHtml(dmNotes);
         }
         return;
       }
-      document.getElementById('charBlurb').textContent = isVeyr
-        ? 'Lucans Drake-Gefährte (Drakewarden) — nur für Yuvi und den DM.'
-        : (rec && rec.isNpc)
-        ? 'NPC-Blatt — nur für den DM sichtbar.'
-        : 'Feste Werte oben, Notizen und Ausrüstung darunter — nur für dich und den DM.';
       if (!rec) {
         document.getElementById('charHeading').textContent = 'Charakterblatt';
         clearSheetForm();
