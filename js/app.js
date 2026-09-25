@@ -18,6 +18,10 @@
     }
 
     function showPage(page) {
+      if (currentPage === 'dungeon' && page !== 'dungeon') {
+        if (typeof cancelDungeonPlace === 'function') cancelDungeonPlace();
+        if (typeof closeDungeonMenus === 'function') closeDungeonMenus();
+      }
       if (currentPage === 'map' && page !== 'map') captureMapView();
       currentPage = page;
       persistView();
@@ -106,6 +110,8 @@
         closeDmMenu();
         setPlacingPin(false);
         setDrawingBorder(false);
+        if (typeof cancelDungeonPlace === 'function') cancelDungeonPlace();
+        if (typeof closeDungeonMenus === 'function') closeDungeonMenus();
         stopSoundTrack();
         closeSoundDock();
         if (isDmNotesOwner(currentSheetOwner)) currentSheetOwner = currentPlayerId || null;
@@ -129,7 +135,10 @@
         else if (currentPage === 'chronik') showChronik();
         else if (currentPage === 'entstehung') showEntstehung();
         else if (currentPage === 'sitzung') showSitzung();
-        else if (currentPage === 'map' || currentPage === 'kampf') showMap();
+        else if (currentPage === 'kampf') showKampf();
+        else if (currentPage === 'dungeon') showDungeon();
+        else if (currentPage === 'char') showCharakter();
+        else if (currentPage === 'map') showMap();
         else showCodex();
       } else {
         renderHome();
@@ -911,6 +920,9 @@
           else if (currentPage === 'chronik') showChronik();
           else if (currentPage === 'entstehung') showEntstehung();
           else if (currentPage === 'sitzung') showSitzung();
+          else if (currentPage === 'kampf') showKampf();
+          else if (currentPage === 'dungeon') showDungeon();
+          else if (currentPage === 'char') showCharakter();
           else if (currentPage === 'map') showMap();
           else showCodex();
         });
@@ -1428,6 +1440,7 @@
       loadBattleLocal();
       loadBattleGalleryLocal();
       loadDungeonLocal();
+      loadDungeonMapLocal();
       loadCombat();
       if (!initFirebase()) toast('Keine Verbindung zur Cloud.');
       const localPack = readLocalPack();

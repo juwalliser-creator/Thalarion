@@ -82,9 +82,7 @@
         </section>
 
         <section id="viewer" class="panel hidden">
-          <div class="page-toolbar hidden" id="viewerBackBar">
-            <button class="primary" id="backToCatalog" type="button">← Zurück</button>
-          </div>
+          <div class="page-toolbar hidden" id="viewerBackBar"></div>
           <article class="article">
             <div class="article-actions" id="viewerMapActions">
               <button class="ghost" id="entryShowOnMapBtn" type="button">Auf Karte zeigen</button>
@@ -488,7 +486,10 @@
                             <div><label>Gold</label><input data-dnd-field="gp" inputmode="numeric" /></div>
                             <div><label>Platin</label><input data-dnd-field="pp" inputmode="numeric" /></div>
                           </div>
-                          <label>Ausrüstung</label>
+                          <label>Gegenstände</label>
+                          <div id="dndItemList"></div>
+                          <button class="ghost dnd-add" type="button" data-dnd-add="items">Gegenstand hinzufügen</button>
+                          <label style="margin-top:0.75rem;display:block">Ausrüstung / Notizen</label>
                           <textarea data-dnd-field="gear" class="dnd-inv-gear" placeholder="Schreibe hier deine Sachen hinein…"></textarea>
                         </div>
                         <div class="dnd-pane dnd-card hidden" data-dnd-pane="features">

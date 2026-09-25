@@ -112,6 +112,15 @@
       writeLocal(DUNGEON_LOCAL_KEY, JSON.stringify(dungeonPayload()));
     }
 
+    function persistDungeonMapLocal() {
+      try {
+        writeLocal(DUNGEON_MAP_LOCAL_KEY, JSON.stringify({
+          image: dungeon.image || '',
+          updatedAt: stamp(dungeon.mapUpdatedAt)
+        }));
+      } catch (err) {}
+    }
+
     function loadDungeonLocal() {
       try {
         const raw = JSON.parse(localStorage.getItem(DUNGEON_LOCAL_KEY) || 'null');
@@ -128,12 +137,26 @@
       } catch (err) {}
     }
 
+    function loadDungeonMapLocal() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(DUNGEON_MAP_LOCAL_KEY) || 'null');
+        if (!raw || typeof raw !== 'object') return;
+        const at = stamp(raw.updatedAt);
+        if (at && at <= dungeon.mapUpdatedAt && dungeon.image) return;
+        if (raw.image) {
+          dungeon.image = raw.image;
+          dungeon.mapUpdatedAt = at || dungeon.mapUpdatedAt;
+        }
+      } catch (err) {}
+    }
+
     function applyDungeonMap(data) {
       if (!data) return;
       const at = Number(data.updatedAt) || 0;
       if (at && at <= dungeon.mapUpdatedAt) return;
       dungeon.mapUpdatedAt = at;
       dungeon.image = data.image || '';
+      persistDungeonMapLocal();
       renderDungeon();
     }
 
@@ -203,6 +226,7 @@
         if (stored) dungeon.image = stored;
         await dungeonMapRef().set({ image: stored, updatedAt: nextAt });
         dungeon.mapUpdatedAt = nextAt;
+        persistDungeonMapLocal();
       } finally {
         writingDungeonMap = false;
       }
@@ -767,12 +791,11 @@
     function clearDungeonReveals() {
       if (!isDM) return;
       if (!dungeon.fogReveals.length) return;
-      if (!confirm('Gesamte Aufdeckung zurücksetzen? Tokens bleiben.')) return;
+      if (!confirm('Gesamte Aufdeckung zurücksetzen? Die Karte wird wieder vollständig verdeckt. Tokens bleiben.')) return;
       const now = stampNow();
       if (!dungeon.removedFog) dungeon.removedFog = {};
       dungeon.fogReveals.forEach(r => { dungeon.removedFog[r.id] = now; });
       dungeon.fogReveals = [];
-      dungeon.tokens.forEach(t => dungeonStampReveal(t.x, t.y, true));
       dungeon.layoutAt = now;
       persistDungeonSoon();
       renderDungeon();
