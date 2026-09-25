@@ -2076,6 +2076,9 @@
         ready: !!c.ready,
         delayed: !!c.delayed,
         actionUsed: !!c.actionUsed,
+        actionsUsed: (c.actionsUsed != null && c.actionsUsed !== '')
+          ? Math.max(0, Number(c.actionsUsed) || 0)
+          : (c.actionUsed ? 1 : 0),
         bonusUsed: !!c.bonusUsed,
         reactionUsed: !!c.reactionUsed,
         moveMax: Math.max(0, Number(c.moveMax) || 0),
@@ -2853,6 +2856,7 @@
 
     function kampfResetEconomy(row) {
       if (!row) return;
+      row.actionsUsed = 0;
       row.actionUsed = false;
       row.bonusUsed = false;
       row.reactionUsed = false;
@@ -2865,11 +2869,33 @@
       combatGroupMembers(key || activeCombatGroupKey()).forEach(kampfResetEconomy);
     }
 
+    function kampfActionLimit(row) {
+      if (!row) return 1;
+      // Yuvi & Björn: zwei Aktionen pro Zug
+      if (row.playerId === YUVI_ID || row.playerId === CHRIS_ID) return 2;
+      return 1;
+    }
+
+    function kampfActionsUsed(row) {
+      if (!row) return 0;
+      if (row.actionsUsed != null && row.actionsUsed !== '') {
+        return Math.max(0, Number(row.actionsUsed) || 0);
+      }
+      return row.actionUsed ? 1 : 0;
+    }
+
     function kampfEconLabel(row) {
       if (!row) return '';
       kampfEnsureMove(row);
       const bits = [];
-      bits.push(row.actionUsed ? 'Aktion raus' : 'Aktion');
+      const used = kampfActionsUsed(row);
+      const lim = kampfActionLimit(row);
+      const left = Math.max(0, lim - used);
+      if (lim > 1) {
+        bits.push(left ? (left + ' Aktion' + (left === 1 ? '' : 'en')) : 'Aktionen raus');
+      } else {
+        bits.push(left ? 'Aktion' : 'Aktion raus');
+      }
       bits.push(row.bonusUsed ? 'Bonus raus' : 'Bonus');
       bits.push(Math.max(0, Number(row.moveLeft) || 0) + ' ft.');
       return bits.join(' · ');
@@ -2918,7 +2944,11 @@
     function kampfEconomyBlocked(row, action) {
       const slot = kampfActionEconomy(action);
       if (slot === 'reaction') return 'Reaktionen kommen später — erst der eigene Zug.';
-      if (slot === 'action' && row && row.actionUsed) return 'Aktion in diesem Zug schon genutzt.';
+      if (slot === 'action' && row && kampfActionsUsed(row) >= kampfActionLimit(row)) {
+        return kampfActionLimit(row) > 1
+          ? 'Beide Aktionen in diesem Zug schon genutzt.'
+          : 'Aktion in diesem Zug schon genutzt.';
+      }
       if (slot === 'bonus' && row && row.bonusUsed) return 'Bonusaktion in diesem Zug schon genutzt.';
       return '';
     }
@@ -2926,9 +2956,16 @@
     function kampfSpendEconomy(row, action) {
       if (!row) return;
       const slot = kampfActionEconomy(action);
-      if (slot === 'action') row.actionUsed = true;
+      if (slot === 'action') {
+        row.actionsUsed = kampfActionsUsed(row) + 1;
+        row.actionUsed = row.actionsUsed >= kampfActionLimit(row);
+      }
       if (slot === 'bonus') row.bonusUsed = true;
-      if (slot === 'surge') row.actionUsed = false;
+      if (slot === 'surge') {
+        // Aktionsstoß: eine weitere Aktion freigeben
+        row.actionsUsed = Math.max(0, kampfActionsUsed(row) - 1);
+        row.actionUsed = row.actionsUsed >= kampfActionLimit(row);
+      }
       touchCombatant(row);
     }
 
