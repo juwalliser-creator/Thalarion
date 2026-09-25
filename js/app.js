@@ -55,6 +55,7 @@
       currentIndex = null;
       currentTitle = null;
       updateExtraToolbars();
+      renderDungeon();
       const main = document.getElementById('main');
       if (main) main.scrollTop = 0;
     }
@@ -119,6 +120,7 @@
       }
       renderMapPins();
       renderMapBorders();
+      if (currentPage === 'dungeon') renderDungeon();
       if (!on && !els.editorView.classList.contains('hidden')) {
         if (currentIndex !== null && entries[currentIndex]?.type === STORY_CAT) showEntstehung();
         else if (currentIndex !== null && entries[currentIndex]?.type === SESSION_CAT) showSitzung();
@@ -341,6 +343,10 @@
         onClick('navKampf', showKampf);
         onClick('navDungeon', showDungeon);
         onClick('menuBtn', () => setSidebarOpen(!(els.sidebar && els.sidebar.classList.contains('open'))));
+      });
+
+      safeBind('dungeon', () => {
+        bindDungeonUi();
       });
 
       safeBind('sound', () => {
@@ -1363,6 +1369,10 @@
       if (soundDockOpen) { closeSoundDock(); return; }
       const gallery = document.getElementById('battleGalleryOverlay');
       if (gallery && !gallery.classList.contains('hidden')) { closeBattleGallery(); return; }
+      if (typeof dungeonPlaceMode !== 'undefined' && dungeonPlaceMode) {
+        cancelDungeonPlace();
+        return;
+      }
       const statSheet = document.getElementById('statSheetOverlay');
       if (statSheet && !statSheet.classList.contains('hidden')) { closeStatSheetOverlay(); return; }
       const border = document.getElementById('borderOverlay');
@@ -1405,6 +1415,7 @@
       loadCombatTemplatesLocal();
       loadBattleLocal();
       loadBattleGalleryLocal();
+      loadDungeonLocal();
       loadCombat();
       if (!initFirebase()) toast('Keine Verbindung zur Cloud.');
       const localPack = readLocalPack();
@@ -1430,6 +1441,10 @@
           if (battleMapSnap.exists) applyBattleMap(battleMapSnap.data());
           const gallerySnap = await battleGalleryRef().get();
           if (gallerySnap.exists) applyBattleGallery(gallerySnap.data());
+          const dungeonSnap = await dungeonRef().get();
+          if (dungeonSnap.exists) applyDungeon(dungeonSnap.data(), false);
+          const dungeonMapSnap = await dungeonMapRef().get();
+          if (dungeonMapSnap.exists) applyDungeonMap(dungeonMapSnap.data());
           const combatSnap = await combatRef().get();
           if (combatSnap.exists) applyCombat(combatSnap.data());
           else if (combat.combatants.length) persistCombat();
@@ -1495,6 +1510,7 @@
       listenCombatTemplates();
       listenBattle();
       listenBattleGallery();
+      listenDungeon();
       listenCombat();
       listenDiceLog();
     })().catch(err => {

@@ -149,6 +149,33 @@
     var battleLinkPinnedId = '';
     var battleLinkHoverId = '';
 
+    var dungeon = {
+      image: '',
+      tokens: [],
+      fogOn: true,
+      fogReveals: [],
+      fogRadius: 9,
+      tokenSize: 48,
+      updatedAt: 0,
+      mapUpdatedAt: 0,
+      layoutAt: 0,
+      removedTokens: {},
+      removedFog: {}
+    };
+    var writingDungeon = false;
+    var dungeonWriteQueued = false;
+    var pendingDungeonSnap = null;
+    var writingDungeonMap = false;
+    var dungeonPersistTimer = null;
+    var dungeonTokenDrag = null;
+    var dungeonTokenDragMoved = false;
+    var dungeonScale = 1;
+    var dungeonPanX = 0;
+    var dungeonPanY = 0;
+    var dungeonPan = null;
+    var dungeonPendingPortrait = null;
+    var dungeonPlaceMode = false;
+
     var els = {
       sidebar: document.getElementById('sidebar'),
       homeView: document.getElementById('homeView'),

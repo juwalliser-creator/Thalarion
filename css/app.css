@@ -4360,6 +4360,100 @@ body.is-dm .battle-gear-panel .dm-only-tools { display: flex; }
   pointer-events: none;
   z-index: 2;
 }
+
+#dungeonView {
+  max-width: 1280px;
+}
+#dungeonView > .hero {
+  padding-bottom: 0.8rem;
+}
+.dungeon-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem 1rem;
+  margin: 0 0 0.8rem;
+}
+.dungeon-hint {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+.dungeon-stage-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: 0.9rem;
+  align-items: start;
+}
+.dungeon-card {
+  min-width: 0;
+}
+#dungeonBoard {
+  min-height: 320px;
+  max-height: min(78vh, 920px);
+  overflow: auto;
+}
+.dungeon-side {
+  display: grid;
+  gap: 0.75rem;
+}
+.dungeon-side-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.85rem 0.9rem;
+}
+.dungeon-side-card h3 {
+  font-family: Cinzel, serif;
+  font-weight: 500;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  margin: 0 0 0.55rem;
+  color: var(--gold);
+}
+.dungeon-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 10rem;
+  overflow: auto;
+}
+.dungeon-pick-list button {
+  text-align: left;
+  width: 100%;
+}
+.dungeon-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+.dungeon-add-row input {
+  flex: 1 1 7rem;
+  min-width: 0;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: inherit;
+  padding: 0.4rem 0.55rem;
+}
+.dungeon-side-note {
+  margin: 0.45rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+#dungeonStage.is-place {
+  cursor: crosshair;
+}
+@media (max-width: 900px) {
+  .dungeon-stage-wrap {
+    grid-template-columns: 1fr;
+  }
+}
+body:not(.is-dm) .dungeon-stage-wrap {
+  grid-template-columns: 1fr;
+}
+
 .battle-ruler {
   position: absolute;
   inset: 0;

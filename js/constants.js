@@ -70,6 +70,9 @@ var COMBAT_DOC = 'kampfStand';
 var DICE_LOG_DOC = 'wurfProtokoll';
 var BATTLE_LOCAL_KEY = 'thalarion_kampf_feld';
 var BATTLE_GALLERY_LOCAL_KEY = 'thalarion_kampf_galerie';
+var DUNGEON_DOC = 'dungeon';
+var DUNGEON_MAP_DOC = 'dungeonMap';
+var DUNGEON_LOCAL_KEY = 'thalarion_dungeon';
 var BATTLE_HAZARDS = {
   fire: { label: 'Feuer', fill: 'rgba(180, 48, 22, 0.42)', stroke: '#e07040' },
   water: { label: 'Wasser', fill: 'rgba(46, 92, 170, 0.38)', stroke: '#6aa8e0' },

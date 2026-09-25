@@ -647,7 +647,70 @@
           <div class="hero">
             <div class="seal">D</div>
             <h1>Dungeon</h1>
-            <p>Hier entstehen bald die unterirdischen Gänge und Gewölbe von Thalarion.</p>
+            <p>Erkunde die Karte — Portraits decken ihren Umkreis dauerhaft auf.</p>
+          </div>
+          <div class="dungeon-bar">
+            <span class="dungeon-hint" id="dungeonHint">Noch keine Karte.</span>
+            <div class="battle-tools">
+              <span class="map-zoom">
+                <button class="ghost" id="dungeonZoomOut" type="button" title="Verkleinern">−</button>
+                <button class="ghost" id="dungeonZoomReset" type="button" title="Zurücksetzen">100%</button>
+                <button class="ghost" id="dungeonZoomIn" type="button" title="Vergrößern">+</button>
+              </span>
+              <span class="dm-only-tools">
+                <button class="ghost" id="dungeonUploadBtn" type="button">Karte hochladen</button>
+                <button class="ghost" id="dungeonFogBtn" type="button">Nebel</button>
+                <button class="danger" id="dungeonClearBtn" type="button">Karte entfernen</button>
+                <input id="dungeonMapInput" type="file" accept="image/*" class="hidden" />
+                <input id="dungeonPortraitInput" type="file" accept="image/*" class="hidden" />
+              </span>
+            </div>
+          </div>
+          <div class="dungeon-stage-wrap">
+            <div class="dungeon-card">
+              <div class="battle-board" id="dungeonBoard">
+                <p class="battle-empty" id="dungeonEmpty">Noch keine Dungeon-Karte. Als DM oben ein Bild hochladen.</p>
+                <div class="battle-stage hidden" id="dungeonStage">
+                  <img class="battle-map" id="dungeonImg" alt="Dungeon" draggable="false" />
+                  <canvas class="battle-fog dungeon-fog hidden" id="dungeonFog" aria-hidden="true"></canvas>
+                  <div class="battle-tokens" id="dungeonTokens"></div>
+                </div>
+              </div>
+            </div>
+            <aside class="dungeon-side dm-only-block" id="dungeonSide">
+              <div class="dungeon-side-card">
+                <h3>Darstellung</h3>
+                <label class="battle-size" for="dungeonTokenSize">Portraits
+                  <input id="dungeonTokenSize" type="range" min="24" max="80" step="2" value="48" />
+                </label>
+                <label class="battle-size" for="dungeonFogRadius">Sichtweite
+                  <input id="dungeonFogRadius" type="range" min="4" max="18" step="1" value="9" />
+                  <span id="dungeonFogRadiusVal">9 %</span>
+                </label>
+              </div>
+              <div class="dungeon-side-card">
+                <h3>Spieler setzen</h3>
+                <div class="dungeon-pick-list" id="dungeonPlayerList"></div>
+              </div>
+              <div class="dungeon-side-card">
+                <h3>NPCs setzen</h3>
+                <div class="dungeon-pick-list" id="dungeonNpcList"></div>
+              </div>
+              <div class="dungeon-side-card">
+                <h3>Eigenes Token</h3>
+                <div class="dungeon-add-row">
+                  <input id="dungeonCustomName" placeholder="Name" maxlength="40" autocomplete="off" />
+                  <button class="ghost" id="dungeonCustomPortraitBtn" type="button">Portrait</button>
+                  <button class="primary" id="dungeonCustomAddBtn" type="button">Setzen</button>
+                </div>
+                <p class="dungeon-side-note" id="dungeonCustomPortraitStatus">Kein Portrait</p>
+              </div>
+              <div class="dungeon-side-card">
+                <h3>Tokens</h3>
+                <div class="dungeon-pick-list" id="dungeonTokenList"></div>
+                <button class="ghost" id="dungeonClearRevealsBtn" type="button">Aufdeckung zurücksetzen</button>
+              </div>
+            </aside>
           </div>
         </section>
 
@@ -1128,6 +1191,7 @@
   <script src="js/characters.js"></script>
   <script src="js/sound.js"></script>
   <script src="js/combat.js"></script>
+  <script src="js/dungeon.js"></script>
   <script src="js/cloud.js"></script>
   <script src="js/ocr.js"></script>
   <script src="js/app.js"></script>

@@ -127,6 +127,14 @@
       return db.collection('world').doc(BATTLE_GALLERY_DOC);
     }
 
+    function dungeonRef() {
+      return db.collection('world').doc(DUNGEON_DOC);
+    }
+
+    function dungeonMapRef() {
+      return db.collection('world').doc(DUNGEON_MAP_DOC);
+    }
+
     function combatRef() {
       return db.collection('world').doc(COMBAT_DOC);
     }
