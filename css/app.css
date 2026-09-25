@@ -4368,7 +4368,7 @@ body.is-dm .battle-gear-panel .dm-only-tools { display: flex; }
   padding-bottom: 0.8rem;
 }
 .content:has(#dungeonView.is-live:not(.hidden)) {
-  overflow: hidden;
+  overflow: auto;
   padding-bottom: 0.6rem;
 }
 #dungeonView.is-live {
@@ -4431,16 +4431,14 @@ body.is-dm #dungeonView.is-live {
   flex: 1;
   min-height: 0;
   max-height: none;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow: auto;
+  display: block;
 }
 #dungeonView.is-live #dungeonStage {
   width: auto;
-  max-width: 100%;
-  max-height: 100%;
-  flex-shrink: 0;
+  max-width: none;
+  max-height: none;
+  margin: 0 auto;
 }
 #dungeonView.is-live #dungeonImg {
   display: block;
