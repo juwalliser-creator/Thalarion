@@ -294,6 +294,25 @@
       }
     }
 
+    function fitDungeonStageToBoard() {
+      const board = document.getElementById('dungeonBoard');
+      const stage = document.getElementById('dungeonStage');
+      const img = document.getElementById('dungeonImg');
+      if (!board || !stage || !img || !dungeon.image) return;
+      const nw = img.naturalWidth || 0;
+      const nh = img.naturalHeight || 0;
+      if (!nw || !nh) return;
+      const bw = board.clientWidth;
+      const bh = board.clientHeight;
+      if (!bw || !bh) return;
+      const pad = 2;
+      const maxW = Math.max(40, bw - pad);
+      const maxH = Math.max(40, bh - pad);
+      const scale = Math.min(maxW / nw, maxH / nh);
+      const w = Math.max(40, Math.floor(nw * scale));
+      stage.style.width = w + 'px';
+    }
+
     function clampDungeonPan() {
       const board = document.getElementById('dungeonBoard');
       const stage = document.getElementById('dungeonStage');
@@ -312,6 +331,7 @@
       const board = document.getElementById('dungeonBoard');
       const stage = document.getElementById('dungeonStage');
       if (!board || !stage) return;
+      if (dungeonScale <= 1.01) fitDungeonStageToBoard();
       clampDungeonPan();
       stage.style.transform = 'translate(' + dungeonPanX + 'px,' + dungeonPanY + 'px) scale(' + dungeonScale + ')';
       board.classList.toggle('is-zoomed', dungeonScale > 1.01);
@@ -740,13 +760,17 @@
       if (has) {
         if (img.getAttribute('src') !== dungeon.image) {
           img.onload = () => {
+            fitDungeonStageToBoard();
             applyDungeonTransform();
             renderDungeonFog();
           };
           img.src = dungeon.image;
+        } else {
+          fitDungeonStageToBoard();
         }
       } else {
         img.removeAttribute('src');
+        stage.style.width = '';
       }
       applyDungeonTokenSize();
       applyDungeonTransform();
@@ -855,6 +879,7 @@
       }
       window.addEventListener('resize', () => {
         if (currentPage === 'dungeon') {
+          fitDungeonStageToBoard();
           applyDungeonTransform();
           renderDungeonFog();
         }
