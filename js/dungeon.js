@@ -322,25 +322,6 @@
       if (open && isDM) renderDungeonPickLists();
     }
 
-    function fitDungeonStageToBoard() {
-      const board = document.getElementById('dungeonBoard');
-      const stage = document.getElementById('dungeonStage');
-      const img = document.getElementById('dungeonImg');
-      if (!board || !stage || !img || !dungeon.image) return;
-      const nw = img.naturalWidth || 0;
-      const nh = img.naturalHeight || 0;
-      if (!nw || !nh) return;
-      const bw = board.clientWidth;
-      const bh = board.clientHeight;
-      if (!bw || !bh) return;
-      const maxW = Math.max(40, bw - 4);
-      const maxH = Math.max(40, bh - 4);
-      let scale = Math.min(maxW / nw, maxH / nh) * 1.08;
-      if (nw * scale > maxW) scale = maxW / nw;
-      if (nh * scale > maxH) scale = maxH / nh;
-      stage.style.width = Math.max(40, Math.floor(nw * scale)) + 'px';
-    }
-
     function clampDungeonPan() {
       const board = document.getElementById('dungeonBoard');
       const stage = document.getElementById('dungeonStage');
@@ -349,7 +330,7 @@
       const wh = board.clientHeight;
       const sw = stage.offsetWidth * dungeonScale;
       const sh = stage.offsetHeight * dungeonScale;
-      if (sw <= ww) dungeonPanX = 0;
+      if (sw <= ww) dungeonPanX = (ww - sw) / 2;
       else dungeonPanX = Math.min(0, Math.max(ww - sw, dungeonPanX));
       if (sh <= wh) dungeonPanY = (wh - sh) / 2;
       else dungeonPanY = Math.min(0, Math.max(wh - sh, dungeonPanY));
@@ -358,67 +339,84 @@
     function applyDungeonTransform() {
       const board = document.getElementById('dungeonBoard');
       const stage = document.getElementById('dungeonStage');
-      if (!board || !stage) return;
-      if (dungeonScale <= 1.01) fitDungeonStageToBoard();
-      clampDungeonPan();
-      stage.style.transform = 'translate(' + dungeonPanX + 'px,' + dungeonPanY + 'px) scale(' + dungeonScale + ')';
-      board.classList.toggle('is-zoomed', dungeonScale > 1.01);
       const reset = document.getElementById('dungeonZoomReset');
+      if (!board || !stage) return;
+      if (dungeonScale <= 1.001) {
+        dungeonScale = 1;
+        dungeonPanX = 0;
+        dungeonPanY = 0;
+        board.classList.remove('is-zoomed', 'panning');
+        stage.style.transform = 'none';
+        stage.style.width = '';
+      } else {
+        board.classList.add('is-zoomed');
+        clampDungeonPan();
+        stage.style.transform = 'translate(' + dungeonPanX + 'px,' + dungeonPanY + 'px) scale(' + dungeonScale + ')';
+      }
       if (reset) reset.textContent = Math.round(dungeonScale * 100) + '%';
     }
 
-    function setDungeonZoom(next) {
-      dungeonScale = Math.max(1, Math.min(4, Math.round(next * 100) / 100));
-      if (dungeonScale <= 1.01) {
-        dungeonScale = 1;
-        dungeonPanX = 0;
-        dungeonPanY = 0;
-      }
+    function zoomDungeonAt(clientX, clientY, nextScale) {
+      nextScale = Math.max(1, Math.min(4, nextScale));
+      const board = document.getElementById('dungeonBoard');
+      const stage = document.getElementById('dungeonStage');
+      if (!board || !stage || stage.classList.contains('hidden')) return;
+      const rect = board.getBoundingClientRect();
+      const mx = clientX - rect.left;
+      const my = clientY - rect.top;
+      const x = (mx - dungeonPanX) / dungeonScale;
+      const y = (my - dungeonPanY) / dungeonScale;
+      dungeonScale = nextScale;
+      dungeonPanX = mx - x * dungeonScale;
+      dungeonPanY = my - y * dungeonScale;
       applyDungeonTransform();
       renderDungeonFog();
     }
 
-    function zoomDungeonAt(clientX, clientY, nextScale) {
+    function zoomDungeonBy(delta) {
       const board = document.getElementById('dungeonBoard');
-      const stage = document.getElementById('dungeonStage');
-      if (!board || !stage) return;
-      const prev = dungeonScale;
-      const next = Math.max(1, Math.min(4, nextScale));
-      if (Math.abs(next - prev) < 0.001) return;
+      if (!board) return;
       const rect = board.getBoundingClientRect();
-      const bx = clientX - rect.left;
-      const by = clientY - rect.top;
-      const sx = (bx - dungeonPanX) / prev;
-      const sy = (by - dungeonPanY) / prev;
-      dungeonScale = next;
-      dungeonPanX = bx - sx * next;
-      dungeonPanY = by - sy * next;
-      if (dungeonScale <= 1.01) {
-        dungeonScale = 1;
-        dungeonPanX = 0;
-        dungeonPanY = 0;
+      zoomDungeonAt(rect.left + rect.width / 2, rect.top + rect.height / 2, dungeonScale + delta);
+    }
+
+    function setDungeonZoom(next) {
+      const board = document.getElementById('dungeonBoard');
+      if (!board) {
+        dungeonScale = Math.max(1, Math.min(4, next));
+        applyDungeonTransform();
+        renderDungeonFog();
+        return;
       }
-      applyDungeonTransform();
-      renderDungeonFog();
+      const rect = board.getBoundingClientRect();
+      zoomDungeonAt(rect.left + rect.width / 2, rect.top + rect.height / 2, next);
     }
 
     function bindDungeonBoardPan() {
       const board = document.getElementById('dungeonBoard');
-      if (!board || board.dataset.dungeonPanBound) return;
+      const stage = document.getElementById('dungeonStage');
+      if (!board || !stage || board.dataset.dungeonPanBound) return;
       board.dataset.dungeonPanBound = '1';
       board.addEventListener('wheel', ev => {
-        if (!dungeon.image || currentPage !== 'dungeon') return;
-        if (!ev.ctrlKey && !ev.metaKey) return;
+        if (stage.classList.contains('hidden')) return;
         ev.preventDefault();
-        const delta = ev.deltaY < 0 ? 0.12 : -0.12;
-        zoomDungeonAt(ev.clientX, ev.clientY, dungeonScale + delta);
+        const step = ev.deltaY > 0 ? -0.18 : 0.18;
+        zoomDungeonAt(ev.clientX, ev.clientY, dungeonScale + step);
       }, { passive: false });
       board.addEventListener('pointerdown', ev => {
-        if (!dungeon.image || dungeonScale <= 1.01) return;
-        if (ev.button != null && ev.button !== 0) return;
-        if (ev.target && ev.target.closest && ev.target.closest('.battle-token')) return;
-        if (dungeonPlaceMode) return;
-        dungeonPan = { pointerId: ev.pointerId, x: ev.clientX, y: ev.clientY, ox: dungeonPanX, oy: dungeonPanY, moved: false };
+        if (ev.button && ev.button !== 0) return;
+        if (dungeonTokenDrag || dungeonPlaceMode) return;
+        if (ev.target.closest && ev.target.closest('.battle-token')) return;
+        if (dungeonScale <= 1) return;
+        ev.preventDefault();
+        dungeonPan = {
+          pointerId: ev.pointerId,
+          x: ev.clientX,
+          y: ev.clientY,
+          ox: dungeonPanX,
+          oy: dungeonPanY,
+          moved: false
+        };
         try { board.setPointerCapture(ev.pointerId); } catch (err) {}
         board.classList.add('panning');
       });
@@ -752,7 +750,10 @@
       } catch (err) {
         toast(err.message || 'Karte konnte nicht entfernt werden.');
       }
-      setDungeonZoom(1);
+      dungeonScale = 1;
+      dungeonPanX = 0;
+      dungeonPanY = 0;
+      applyDungeonTransform();
     }
 
     function toggleDungeonFog() {
@@ -786,18 +787,17 @@
       empty.classList.toggle('hidden', has);
       stage.classList.toggle('hidden', !has);
       if (has) {
-        if (img.getAttribute('src') !== dungeon.image) {
+        if (img.getAttribute('data-src') !== dungeon.image) {
           img.onload = () => {
-            fitDungeonStageToBoard();
             applyDungeonTransform();
             renderDungeonFog();
           };
           img.src = dungeon.image;
-        } else {
-          fitDungeonStageToBoard();
+          img.setAttribute('data-src', dungeon.image);
         }
       } else {
         img.removeAttribute('src');
+        img.removeAttribute('data-src');
         stage.style.width = '';
       }
       applyDungeonTokenSize();
@@ -821,9 +821,15 @@
         stage.dataset.dungeonClickBound = '1';
         stage.addEventListener('click', onDungeonStageClick);
       }
-      onClick('dungeonZoomIn', () => setDungeonZoom(dungeonScale + 0.2));
-      onClick('dungeonZoomOut', () => setDungeonZoom(dungeonScale - 0.2));
-      onClick('dungeonZoomReset', () => setDungeonZoom(1));
+      onClick('dungeonZoomIn', () => zoomDungeonBy(0.2));
+      onClick('dungeonZoomOut', () => zoomDungeonBy(-0.2));
+      onClick('dungeonZoomReset', () => {
+        dungeonScale = 1;
+        dungeonPanX = 0;
+        dungeonPanY = 0;
+        applyDungeonTransform();
+        renderDungeonFog();
+      });
       onClick('dungeonUploadBtn', () => {
         const input = document.getElementById('dungeonMapInput');
         if (input) input.click();
@@ -920,7 +926,6 @@
       }
       window.addEventListener('resize', () => {
         if (currentPage === 'dungeon') {
-          fitDungeonStageToBoard();
           applyDungeonTransform();
           renderDungeonFog();
         }
