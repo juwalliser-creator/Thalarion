@@ -29,13 +29,15 @@
       els.navMap.classList.toggle('active', page === 'map');
       els.navCharakter.classList.toggle('active', page === 'char');
       els.navKampf.classList.toggle('active', page === 'kampf');
+      if (els.navDungeon) els.navDungeon.classList.toggle('active', page === 'dungeon');
       els.mapView.classList.toggle('hidden', page !== 'map');
       if (page !== 'map') setMapFullscreen(false);
       els.charView.classList.toggle('hidden', page !== 'char');
       els.kampfView.classList.toggle('hidden', page !== 'kampf');
+      if (els.dungeonView) els.dungeonView.classList.toggle('hidden', page !== 'dungeon');
       if (page !== 'kampf') closeStatSheetOverlay();
       updateSidebarVisibility(page);
-      if (page === 'map' || page === 'char' || page === 'kampf') {
+      if (page === 'map' || page === 'char' || page === 'kampf' || page === 'dungeon') {
         els.homeView.classList.add('hidden');
         els.viewer.classList.add('hidden');
         els.editorView.classList.add('hidden');
@@ -43,6 +45,18 @@
         els.sitzungView.classList.add('hidden');
       }
       updateExtraToolbars();
+    }
+
+    function showDungeon() {
+      if (!confirmLeaveEditor()) return;
+      openedFromMap = false;
+      selectedHomeCat = null;
+      showPage('dungeon');
+      currentIndex = null;
+      currentTitle = null;
+      updateExtraToolbars();
+      const main = document.getElementById('main');
+      if (main) main.scrollTop = 0;
     }
 
     function updateHomeHero(page) {
@@ -285,6 +299,7 @@
       }
       if (page === 'kampf') showKampf();
       else if (page === 'char') showCharakter();
+      else if (page === 'dungeon') showDungeon();
       else if (page === 'chronik') showChronik();
       else if (page === 'entstehung') showEntstehung();
       else if (page === 'sitzung') showSitzung();
@@ -319,12 +334,12 @@
 
     function bindAll() {
       safeBind('nav', () => {
-        onClick('homeBtn', showMap);
         onClick('navChronik', showChronik);
         onClick('navCodex', showCodex);
         onClick('navMap', showMap);
         onClick('navCharakter', showCharakter);
         onClick('navKampf', showKampf);
+        onClick('navDungeon', showDungeon);
         onClick('menuBtn', () => setSidebarOpen(!(els.sidebar && els.sidebar.classList.contains('open'))));
       });
 

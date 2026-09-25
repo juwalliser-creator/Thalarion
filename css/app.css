@@ -78,7 +78,7 @@ header {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem 0.85rem;
-  margin-left: 0.5rem;
+  margin-left: 0;
 }
 .nav-group {
   display: inline-flex;

@@ -177,7 +177,9 @@
       navMap: document.getElementById('navMap'),
       navCharakter: document.getElementById('navCharakter'),
       navKampf: document.getElementById('navKampf'),
+      navDungeon: document.getElementById('navDungeon'),
       charView: document.getElementById('charView'),
       kampfView: document.getElementById('kampfView'),
+      dungeonView: document.getElementById('dungeonView'),
       sitzungView: document.getElementById('sitzungView')
     };
