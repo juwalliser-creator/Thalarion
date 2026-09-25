@@ -683,10 +683,14 @@
                 <label class="battle-size" for="dungeonTokenSize">Portraits
                   <input id="dungeonTokenSize" type="range" min="24" max="80" step="2" value="48" />
                 </label>
-                <label class="battle-size" for="dungeonFogRadius">Sichtweite
-                  <input id="dungeonFogRadius" type="range" min="4" max="18" step="1" value="9" />
-                  <span id="dungeonFogRadiusVal">9 %</span>
-                </label>
+                <div class="dungeon-radius-ctrl">
+                  <span>Sichtweite</span>
+                  <span class="map-zoom">
+                    <button class="ghost" id="dungeonFogRadiusDown" type="button" title="Kleiner" aria-label="Sichtweite verkleinern">−</button>
+                    <span id="dungeonFogRadiusVal">9</span>
+                    <button class="ghost" id="dungeonFogRadiusUp" type="button" title="Größer" aria-label="Sichtweite vergrößern">+</button>
+                  </span>
+                </div>
               </div>
               <div class="dungeon-side-card">
                 <h3>Spieler setzen</h3>

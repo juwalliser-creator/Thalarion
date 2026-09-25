@@ -282,11 +282,13 @@
         fogBtn.classList.toggle('primary', !!dungeon.fogOn);
         fogBtn.classList.toggle('ghost', !dungeon.fogOn);
       }
-      const rad = document.getElementById('dungeonFogRadius');
-      const radVal = document.getElementById('dungeonFogRadiusVal');
       const r = clampDungeonFogRadius(dungeon.fogRadius);
-      if (rad && document.activeElement !== rad) rad.value = String(r);
-      if (radVal) radVal.textContent = r + ' %';
+      const radVal = document.getElementById('dungeonFogRadiusVal');
+      if (radVal) radVal.textContent = String(r);
+      const down = document.getElementById('dungeonFogRadiusDown');
+      const up = document.getElementById('dungeonFogRadiusUp');
+      if (down) down.disabled = r <= 4;
+      if (up) up.disabled = r >= 18;
     }
 
     function updateDungeonHint() {
@@ -879,14 +881,18 @@
           renderDungeonTokens();
         });
       }
-      const rad = document.getElementById('dungeonFogRadius');
-      if (rad && !rad.dataset.bound) {
-        rad.dataset.bound = '1';
-        rad.addEventListener('input', () => {
-          setDungeonFogRadius(rad.value, false);
+      const fogDown = document.getElementById('dungeonFogRadiusDown');
+      const fogUp = document.getElementById('dungeonFogRadiusUp');
+      if (fogDown && !fogDown.dataset.bound) {
+        fogDown.dataset.bound = '1';
+        fogDown.addEventListener('click', () => {
+          setDungeonFogRadius(clampDungeonFogRadius(dungeon.fogRadius) - 1, true);
         });
-        rad.addEventListener('change', () => {
-          setDungeonFogRadius(rad.value, true);
+      }
+      if (fogUp && !fogUp.dataset.bound) {
+        fogUp.dataset.bound = '1';
+        fogUp.addEventListener('click', () => {
+          setDungeonFogRadius(clampDungeonFogRadius(dungeon.fogRadius) + 1, true);
         });
       }
       window.addEventListener('resize', () => {
