@@ -291,24 +291,35 @@
       if (up) up.disabled = r >= 18;
     }
 
-    function updateDungeonHint() {
-      const hint = document.getElementById('dungeonHint');
-      if (!hint) return;
-      if (!dungeon.image) {
-        hint.textContent = isDM ? 'Als DM eine Karte hochladen.' : 'Der DM hat noch keine Dungeon-Karte gelegt.';
-        return;
-      }
-      if (dungeonPlaceMode) {
-        hint.textContent = 'Auf die Karte tippen, um das Token zu setzen.';
-        return;
-      }
-      if (dungeon.fogOn) {
-        hint.textContent = isDM
-          ? 'Nebel aktiv — unerkundetes Gebiet ist abgegraut, Aufgedecktes klar.'
-          : 'Nur aufgedeckte Bereiche sind sichtbar. Portraits erhellen ihren Umkreis.';
-      } else {
-        hint.textContent = 'Nebel aus — ganze Karte sichtbar.';
-      }
+    function closeDungeonMenus(exceptId) {
+      [
+        ['dungeonPlayerPanel', 'dungeonPlayerMenuBtn'],
+        ['dungeonNpcPanel', 'dungeonNpcMenuBtn'],
+        ['dungeonTokenPanel', 'dungeonTokenMenuBtn']
+      ].forEach(([panelId, btnId]) => {
+        if (exceptId && panelId === exceptId) return;
+        const panel = document.getElementById(panelId);
+        const btn = document.getElementById(btnId);
+        if (panel) panel.classList.add('hidden');
+        if (btn) {
+          btn.setAttribute('aria-expanded', 'false');
+          btn.classList.add('ghost');
+          btn.classList.remove('primary');
+        }
+      });
+    }
+
+    function toggleDungeonMenu(panelId, btnId) {
+      const panel = document.getElementById(panelId);
+      const btn = document.getElementById(btnId);
+      if (!panel || !btn) return;
+      const open = panel.classList.contains('hidden');
+      closeDungeonMenus(open ? panelId : '');
+      panel.classList.toggle('hidden', !open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      btn.classList.toggle('primary', open);
+      btn.classList.toggle('ghost', !open);
+      if (open && isDM) renderDungeonPickLists();
     }
 
     function fitDungeonStageToBoard() {
@@ -667,7 +678,7 @@
       dungeonPlaceMode = true;
       const stage = document.getElementById('dungeonStage');
       if (stage) stage.classList.add('is-place');
-      updateDungeonHint();
+      closeDungeonMenus();
       toast('Auf die Karte tippen, um „' + (draft.name || 'Token') + '“ zu setzen.');
     }
 
@@ -676,7 +687,6 @@
       dungeonPlaceDraft = null;
       const stage = document.getElementById('dungeonStage');
       if (stage) stage.classList.remove('is-place');
-      updateDungeonHint();
     }
 
     function placeDungeonTokenAt(x, y, draft) {
@@ -799,7 +809,6 @@
     function renderDungeon() {
       if (els.dungeonView) els.dungeonView.classList.toggle('is-live', !!dungeon.image);
       syncDungeonFogControls();
-      updateDungeonHint();
       renderDungeonBoard();
       renderDungeonTokenList();
       if (isDM) renderDungeonPickLists();
@@ -821,7 +830,13 @@
       });
       onClick('dungeonClearBtn', clearDungeonMap);
       onClick('dungeonFogBtn', toggleDungeonFog);
-      onClick('dungeonClearRevealsBtn', clearDungeonReveals);
+      onClick('dungeonPlayerMenuBtn', () => toggleDungeonMenu('dungeonPlayerPanel', 'dungeonPlayerMenuBtn'));
+      onClick('dungeonNpcMenuBtn', () => toggleDungeonMenu('dungeonNpcPanel', 'dungeonNpcMenuBtn'));
+      onClick('dungeonTokenMenuBtn', () => toggleDungeonMenu('dungeonTokenPanel', 'dungeonTokenMenuBtn'));
+      onClick('dungeonClearRevealsBtn', () => {
+        clearDungeonReveals();
+        closeDungeonMenus();
+      });
       onClick('dungeonCustomPortraitBtn', () => {
         const input = document.getElementById('dungeonPortraitInput');
         if (input) input.click();
@@ -838,6 +853,14 @@
           portraitId: (dungeonPendingPortrait && dungeonPendingPortrait.id) || ''
         });
       });
+      if (!document.body.dataset.dungeonMenuOutside) {
+        document.body.dataset.dungeonMenuOutside = '1';
+        document.addEventListener('click', ev => {
+          const tools = document.querySelector('.dungeon-add-tools');
+          if (!tools || tools.contains(ev.target)) return;
+          closeDungeonMenus();
+        });
+      }
       const mapInput = document.getElementById('dungeonMapInput');
       if (mapInput && !mapInput.dataset.bound) {
         mapInput.dataset.bound = '1';

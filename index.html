@@ -650,8 +650,54 @@
             <p>Erkunde die Karte — Portraits decken ihren Umkreis dauerhaft auf.</p>
           </div>
           <div class="dungeon-bar">
-            <span class="dungeon-hint" id="dungeonHint">Noch keine Karte.</span>
-            <div class="battle-tools">
+            <div class="battle-tools dungeon-tools">
+              <span class="dm-only-tools dungeon-add-tools">
+                <div class="dungeon-menu" id="dungeonPlayerMenu">
+                  <button class="ghost" id="dungeonPlayerMenuBtn" type="button" aria-expanded="false" aria-haspopup="true">Spieler</button>
+                  <div class="dungeon-menu-panel hidden" id="dungeonPlayerPanel" role="menu">
+                    <div class="dungeon-pick-list" id="dungeonPlayerList"></div>
+                  </div>
+                </div>
+                <div class="dungeon-menu" id="dungeonNpcMenu">
+                  <button class="ghost" id="dungeonNpcMenuBtn" type="button" aria-expanded="false" aria-haspopup="true">NPCs</button>
+                  <div class="dungeon-menu-panel hidden" id="dungeonNpcPanel" role="menu">
+                    <div class="dungeon-pick-list" id="dungeonNpcList"></div>
+                  </div>
+                </div>
+                <div class="dungeon-menu" id="dungeonTokenMenu">
+                  <button class="ghost" id="dungeonTokenMenuBtn" type="button" aria-expanded="false" aria-haspopup="true">Tokens</button>
+                  <div class="dungeon-menu-panel dungeon-menu-panel-wide hidden" id="dungeonTokenPanel" role="menu">
+                    <div class="dungeon-menu-section">
+                      <h4>Eigenes Token</h4>
+                      <div class="dungeon-add-row">
+                        <input id="dungeonCustomName" placeholder="Name" maxlength="40" autocomplete="off" />
+                        <button class="ghost" id="dungeonCustomPortraitBtn" type="button">Portrait</button>
+                        <button class="primary" id="dungeonCustomAddBtn" type="button">Setzen</button>
+                      </div>
+                      <p class="dungeon-side-note" id="dungeonCustomPortraitStatus">Kein Portrait</p>
+                    </div>
+                    <div class="dungeon-menu-section">
+                      <h4>Darstellung</h4>
+                      <label class="battle-size" for="dungeonTokenSize">Portraits
+                        <input id="dungeonTokenSize" type="range" min="24" max="80" step="2" value="48" />
+                      </label>
+                      <div class="dungeon-radius-ctrl">
+                        <span>Sichtweite</span>
+                        <span class="map-zoom">
+                          <button class="ghost" id="dungeonFogRadiusDown" type="button" title="Kleiner" aria-label="Sichtweite verkleinern">−</button>
+                          <span id="dungeonFogRadiusVal">9</span>
+                          <button class="ghost" id="dungeonFogRadiusUp" type="button" title="Größer" aria-label="Sichtweite vergrößern">+</button>
+                        </span>
+                      </div>
+                    </div>
+                    <div class="dungeon-menu-section">
+                      <h4>Auf der Karte</h4>
+                      <div class="dungeon-pick-list" id="dungeonTokenList"></div>
+                      <button class="ghost" id="dungeonClearRevealsBtn" type="button">Aufdeckung zurücksetzen</button>
+                    </div>
+                  </div>
+                </div>
+              </span>
               <span class="map-zoom">
                 <button class="ghost" id="dungeonZoomOut" type="button" title="Verkleinern">−</button>
                 <button class="ghost" id="dungeonZoomReset" type="button" title="Zurücksetzen">100%</button>
@@ -677,44 +723,6 @@
                 </div>
               </div>
             </div>
-            <aside class="dungeon-side dm-only-block" id="dungeonSide">
-              <div class="dungeon-side-card">
-                <h3>Darstellung</h3>
-                <label class="battle-size" for="dungeonTokenSize">Portraits
-                  <input id="dungeonTokenSize" type="range" min="24" max="80" step="2" value="48" />
-                </label>
-                <div class="dungeon-radius-ctrl">
-                  <span>Sichtweite</span>
-                  <span class="map-zoom">
-                    <button class="ghost" id="dungeonFogRadiusDown" type="button" title="Kleiner" aria-label="Sichtweite verkleinern">−</button>
-                    <span id="dungeonFogRadiusVal">9</span>
-                    <button class="ghost" id="dungeonFogRadiusUp" type="button" title="Größer" aria-label="Sichtweite vergrößern">+</button>
-                  </span>
-                </div>
-              </div>
-              <div class="dungeon-side-card">
-                <h3>Spieler setzen</h3>
-                <div class="dungeon-pick-list" id="dungeonPlayerList"></div>
-              </div>
-              <div class="dungeon-side-card">
-                <h3>NPCs setzen</h3>
-                <div class="dungeon-pick-list" id="dungeonNpcList"></div>
-              </div>
-              <div class="dungeon-side-card">
-                <h3>Eigenes Token</h3>
-                <div class="dungeon-add-row">
-                  <input id="dungeonCustomName" placeholder="Name" maxlength="40" autocomplete="off" />
-                  <button class="ghost" id="dungeonCustomPortraitBtn" type="button">Portrait</button>
-                  <button class="primary" id="dungeonCustomAddBtn" type="button">Setzen</button>
-                </div>
-                <p class="dungeon-side-note" id="dungeonCustomPortraitStatus">Kein Portrait</p>
-              </div>
-              <div class="dungeon-side-card">
-                <h3>Tokens</h3>
-                <div class="dungeon-pick-list" id="dungeonTokenList"></div>
-                <button class="ghost" id="dungeonClearRevealsBtn" type="button">Aufdeckung zurücksetzen</button>
-              </div>
-            </aside>
           </div>
         </section>
 

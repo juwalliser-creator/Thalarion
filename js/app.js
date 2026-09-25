@@ -1373,6 +1373,18 @@
         cancelDungeonPlace();
         return;
       }
+      if (document.getElementById('dungeonPlayerPanel') && !document.getElementById('dungeonPlayerPanel').classList.contains('hidden')) {
+        closeDungeonMenus();
+        return;
+      }
+      if (document.getElementById('dungeonNpcPanel') && !document.getElementById('dungeonNpcPanel').classList.contains('hidden')) {
+        closeDungeonMenus();
+        return;
+      }
+      if (document.getElementById('dungeonTokenPanel') && !document.getElementById('dungeonTokenPanel').classList.contains('hidden')) {
+        closeDungeonMenus();
+        return;
+      }
       const statSheet = document.getElementById('statSheetOverlay');
       if (statSheet && !statSheet.classList.contains('hidden')) { closeStatSheetOverlay(); return; }
       const border = document.getElementById('borderOverlay');

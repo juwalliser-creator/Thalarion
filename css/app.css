@@ -4390,7 +4390,7 @@ body.is-dm #dungeonView.is-live {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0.6rem 1rem;
   margin: 0 0 0.8rem;
   flex-shrink: 0;
@@ -4398,24 +4398,61 @@ body.is-dm #dungeonView.is-live {
 #dungeonView.is-live .dungeon-bar {
   margin-bottom: 0.5rem;
 }
-.dungeon-hint {
-  color: var(--muted);
-  font-size: 0.92rem;
+.dungeon-tools {
+  width: 100%;
+  justify-content: flex-start;
+}
+.dungeon-add-tools {
+  gap: 0.4rem;
+}
+.dungeon-menu {
+  position: relative;
+  display: inline-flex;
+}
+.dungeon-menu-panel {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  z-index: 12;
+  min-width: 12rem;
+  max-width: min(20rem, calc(100vw - 2rem));
+  max-height: min(22rem, 60vh);
+  overflow: auto;
+  padding: 0.65rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+.dungeon-menu-panel-wide {
+  min-width: 16rem;
+}
+.dungeon-menu-section + .dungeon-menu-section {
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--line);
+}
+.dungeon-menu-section h4 {
+  font-family: Cinzel, serif;
+  font-weight: 500;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0 0 0.45rem;
+  color: var(--gold);
 }
 .dungeon-stage-wrap {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
-  gap: 0.9rem;
-  align-items: start;
+  display: block;
+  min-width: 0;
 }
 #dungeonView.is-live .dungeon-stage-wrap {
   flex: 1;
   min-height: 0;
-  align-items: stretch;
 }
 .dungeon-card {
   min-width: 0;
   min-height: 0;
+  height: 100%;
 }
 #dungeonView.is-live .dungeon-card {
   display: flex;
@@ -4446,34 +4483,11 @@ body.is-dm #dungeonView.is-live {
   height: auto;
   max-height: none;
 }
-.dungeon-side {
-  display: grid;
-  gap: 0.75rem;
-  align-content: start;
-}
-#dungeonView.is-live .dungeon-side {
-  max-height: 100%;
-  overflow: auto;
-}
-.dungeon-side-card {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 0.85rem 0.9rem;
-}
-.dungeon-side-card h3 {
-  font-family: Cinzel, serif;
-  font-weight: 500;
-  font-size: 0.95rem;
-  letter-spacing: 0.08em;
-  margin: 0 0 0.55rem;
-  color: var(--gold);
-}
 .dungeon-pick-list {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  max-height: 10rem;
+  max-height: 12rem;
   overflow: auto;
 }
 .dungeon-pick-list button {
@@ -4528,9 +4542,6 @@ body.is-dm #dungeonView.is-live {
   cursor: crosshair;
 }
 @media (max-width: 900px) {
-  .dungeon-stage-wrap {
-    grid-template-columns: 1fr;
-  }
   #dungeonView.is-live {
     height: auto;
     max-height: none;
@@ -4543,9 +4554,6 @@ body.is-dm #dungeonView.is-live {
     min-height: min(62vh, 560px);
     max-height: min(62vh, 560px);
   }
-}
-body:not(.is-dm) .dungeon-stage-wrap {
-  grid-template-columns: 1fr;
 }
 
 .battle-ruler {
