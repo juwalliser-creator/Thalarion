@@ -478,7 +478,8 @@
       if (canvas.height !== h) canvas.height = h;
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = isDM ? 'rgba(8,6,4,0.48)' : 'rgba(6,5,4,0.94)';
+      // DM: halbtransparent (Karte noch lesbar). Spieler: undurchsichtches Schwarz.
+      ctx.fillStyle = isDM ? 'rgba(8,6,4,0.48)' : '#000';
       ctx.fillRect(0, 0, w, h);
       ctx.globalCompositeOperation = 'destination-out';
       const holeR = clampDungeonFogRadius(dungeon.fogRadius);
