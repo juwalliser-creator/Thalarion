@@ -332,13 +332,12 @@
       if (!nw || !nh) return;
       const bw = board.clientWidth;
       const bh = board.clientHeight;
-      if (!bw || !bh) {
-        stage.style.width = nw + 'px';
-        return;
-      }
-      const fit = Math.min(bw / nw, bh / nh);
-      const scale = Math.max(1, fit);
-      stage.style.width = Math.max(1, Math.floor(nw * scale)) + 'px';
+      if (!bw || !bh) return;
+      const pad = 2;
+      const maxW = Math.max(40, bw - pad);
+      const maxH = Math.max(40, bh - pad);
+      const scale = Math.min(maxW / nw, maxH / nh);
+      stage.style.width = Math.max(40, Math.floor(nw * scale)) + 'px';
     }
 
     function clampDungeonPan() {

@@ -4368,7 +4368,7 @@ body.is-dm .battle-gear-panel .dm-only-tools { display: flex; }
   padding-bottom: 0.8rem;
 }
 .content:has(#dungeonView.is-live:not(.hidden)) {
-  overflow: auto;
+  overflow: hidden;
   padding-bottom: 0.6rem;
 }
 #dungeonView.is-live {
@@ -4468,14 +4468,17 @@ body.is-dm #dungeonView.is-live {
   flex: 1;
   min-height: 0;
   max-height: none;
-  overflow: auto;
-  display: block;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 #dungeonView.is-live #dungeonStage {
   width: auto;
-  max-width: none;
-  max-height: none;
-  margin: 0 auto;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
+  flex-shrink: 0;
 }
 #dungeonView.is-live #dungeonImg {
   display: block;
@@ -4545,14 +4548,15 @@ body.is-dm #dungeonView.is-live {
   #dungeonView.is-live {
     height: auto;
     max-height: none;
-    overflow: visible;
+    overflow: hidden;
   }
   .content:has(#dungeonView.is-live:not(.hidden)) {
-    overflow: auto;
+    overflow: hidden;
   }
   #dungeonView.is-live #dungeonBoard {
     min-height: min(62vh, 560px);
     max-height: min(62vh, 560px);
+    overflow: hidden;
   }
 }
 
