@@ -681,11 +681,16 @@
                         <label class="battle-size" for="dungeonScaleFt">Maßstab (ft/%)
                           <input id="dungeonScaleFt" type="number" min="0.5" max="10" step="0.5" value="2" />
                         </label>
+                        <button class="ghost" id="dungeonCalibrateBtn" type="button">Maßstab kalibrieren</button>
+                        <label class="battle-size" for="dungeonViewAsSelect">Spielersicht
+                          <select id="dungeonViewAsSelect"></select>
+                        </label>
                       </div>
                       <div class="dungeon-menu-section">
                         <h4>Auf der Karte</h4>
                         <div class="dungeon-pick-list" id="dungeonTokenList"></div>
                         <button class="ghost" id="dungeonClearRevealsBtn" type="button">Erkundung zurücksetzen</button>
+                        <button class="ghost" id="dungeonToCombatBtn" type="button">In Kampf übernehmen</button>
                       </div>
                     </div>
                   </div>
@@ -695,9 +700,21 @@
                   <div class="dungeon-menu-panel hidden" id="dungeonDrawPanel" role="menu">
                     <div class="dungeon-add-row dungeon-draw-choices">
                       <button class="ghost" id="dungeonWallBtn" type="button">Wand</button>
+                      <button class="ghost" id="dungeonRectBtn" type="button">Raum</button>
                       <button class="ghost" id="dungeonDoorBtn" type="button">Tür</button>
                       <button class="ghost" id="dungeonLightBtn" type="button">Licht</button>
+                      <button class="ghost" id="dungeonNoteBtn" type="button">Notiz</button>
+                      <button class="ghost" id="dungeonZoneBtn" type="button">Zone</button>
                       <button class="ghost" id="dungeonEraseBtn" type="button">Löschen</button>
+                      <button class="ghost" id="dungeonUndoBtn" type="button">Rückgängig</button>
+                    </div>
+                    <div class="dungeon-add-row dungeon-draw-meta">
+                      <label class="battle-size" for="dungeonDoorKind">Tür
+                        <select id="dungeonDoorKind"></select>
+                      </label>
+                      <label class="battle-size" for="dungeonLightKind">Licht
+                        <select id="dungeonLightKind"></select>
+                      </label>
                     </div>
                     <p class="dungeon-side-note">Wand: Punkte, Doppelklick/Enter fertig. Esc bricht ab.</p>
                   </div>
@@ -726,8 +743,12 @@
                   <div class="dungeon-menu-panel hidden" id="dungeonMapPanel" role="menu">
                     <div class="dungeon-add-row">
                       <button class="ghost" id="dungeonUploadBtn" type="button">Hochladen</button>
+                      <button class="ghost" id="dungeonGalleryBtn" type="button">Galerie</button>
                       <button class="danger" id="dungeonClearBtn" type="button">Entfernen</button>
                     </div>
+                    <label class="battle-size" for="dungeonAmbientSelect">Ambient
+                      <select id="dungeonAmbientSelect"></select>
+                    </label>
                   </div>
                 </div>
                 <input id="dungeonMapInput" type="file" accept="image/*" class="hidden" />
@@ -1016,6 +1037,18 @@
       </div>
     </div>
   </div>
+  <div id="dungeonGalleryOverlay" class="overlay hidden">
+    <div class="login-card battle-gallery-card" role="dialog" aria-modal="true" aria-labelledby="dungeonGalleryTitle">
+      <h2 id="dungeonGalleryTitle">Dungeon-Galerie</h2>
+      <div class="editor-actions" style="margin-bottom:0.75rem">
+        <button class="primary" id="dungeonGallerySaveBtn" type="button">Aktuelle Karte speichern</button>
+      </div>
+      <div class="battle-gallery-list" id="dungeonGalleryList"></div>
+      <div class="editor-actions">
+        <button class="ghost" id="dungeonGalleryCloseBtn" type="button">Schließen</button>
+      </div>
+    </div>
+  </div>
   <div id="pinOverlay" class="overlay hidden">
     <div class="pin-card">
       <h2 id="pinOverlayTitle">Ort setzen</h2>
@@ -1233,6 +1266,7 @@
   <script src="js/combat.js"></script>
   <script src="js/dungeon-vision.js"></script>
   <script src="js/dungeon.js"></script>
+  <script src="js/dungeon-extras.js"></script>
   <script src="js/cloud.js"></script>
   <script src="js/ocr.js"></script>
   <script src="js/app.js"></script>

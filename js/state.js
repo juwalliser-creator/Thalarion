@@ -155,18 +155,38 @@
       walls: [],
       doors: [],
       lights: [],
+      notes: [],
+      zones: [],
+      ambientId: '',
       fogOn: true,
       scaleFt: typeof DUNGEON_DEFAULT_SCALE_FT === 'number' ? DUNGEON_DEFAULT_SCALE_FT : 2,
       exploredGen: 0,
       tokenSize: 48,
+      lightKindDefault: 'torch',
+      doorKindDefault: 'normal',
       updatedAt: 0,
       mapUpdatedAt: 0,
       layoutAt: 0,
       removedTokens: {},
       removedWalls: {},
       removedDoors: {},
-      removedLights: {}
+      removedLights: {},
+      removedNotes: {},
+      removedZones: {}
     };
+    var dungeonGalleryMaps = [];
+    var dungeonGalleryUpdatedAt = 0;
+    var writingDungeonGallery = false;
+    var dungeonViewAsId = '';
+    var dungeonUndoStack = [];
+    var dungeonPreviewPt = null;
+    var dungeonCalibratePts = [];
+    var dungeonLightFlickerRaf = 0;
+    var dungeonLightFlickerPhase = 0;
+    var dungeonPendingDoorKind = 'normal';
+    var dungeonPendingLightKind = 'torch';
+    var dungeonNoteDraft = null;
+    var dungeonZoneDraft = null;
     var writingDungeon = false;
     var dungeonWriteQueued = false;
     var pendingDungeonSnap = null;

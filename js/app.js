@@ -59,6 +59,10 @@
       currentIndex = null;
       currentTitle = null;
       updateExtraToolbars();
+      if (typeof loadDungeonExploredCloud === 'function') loadDungeonExploredCloud();
+      if (typeof fillDungeonViewAsSelect === 'function') fillDungeonViewAsSelect();
+      if (typeof fillDungeonAmbientSelect === 'function') fillDungeonAmbientSelect();
+      if (typeof fillDungeonKindSelects === 'function') fillDungeonKindSelects();
       renderDungeon();
       const main = document.getElementById('main');
       if (main) main.scrollTop = 0;
@@ -1445,6 +1449,7 @@
       loadBattleGalleryLocal();
       loadDungeonLocal();
       loadDungeonMapLocal();
+      if (typeof loadDungeonGalleryLocal === 'function') loadDungeonGalleryLocal();
       loadCombat();
       if (!initFirebase()) toast('Keine Verbindung zur Cloud.');
       const localPack = readLocalPack();
@@ -1540,6 +1545,8 @@
       listenBattle();
       listenBattleGallery();
       listenDungeon();
+      if (typeof listenDungeonGallery === 'function') listenDungeonGallery();
+      if (typeof loadDungeonExploredCloud === 'function') loadDungeonExploredCloud();
       listenCombat();
       listenDiceLog();
     })().catch(err => {

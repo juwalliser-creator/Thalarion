@@ -4549,6 +4549,15 @@ body:not(.is-dm) .dungeon-fog-toggle { display: none !important; }
   stroke: #7a9a5a;
   stroke-dasharray: 1.2 0.8;
 }
+.dungeon-geo .dungeon-door.is-locked {
+  stroke: #a05050;
+  stroke-width: 1;
+}
+.dungeon-geo .dungeon-door.is-secret {
+  stroke: #8a7a60;
+  stroke-dasharray: 0.6 0.7;
+  opacity: 0.75;
+}
 .dungeon-geo .dungeon-light-dot {
   fill: #f0c060;
   stroke: #a07020;
@@ -4563,6 +4572,46 @@ body:not(.is-dm) .dungeon-fog-toggle { display: none !important; }
   stroke: #8ec8ff;
   stroke-width: 0.4;
   stroke-dasharray: 1 0.6;
+}
+.dungeon-geo .dungeon-draw-preview {
+  stroke: #8ec8ff;
+  stroke-width: 0.45;
+  stroke-dasharray: 1.2 0.7;
+  fill: rgba(142, 200, 255, 0.08);
+}
+.dungeon-geo .dungeon-note-mark {
+  fill: #c8b070;
+  stroke: #6a5830;
+  stroke-width: 0.2;
+  pointer-events: all;
+  cursor: pointer;
+}
+.dungeon-geo .dungeon-zone-ring {
+  fill: rgba(110, 150, 200, 0.12);
+  stroke: rgba(120, 160, 210, 0.7);
+  stroke-width: 0.35;
+  stroke-dasharray: 1.2 0.8;
+  pointer-events: all;
+  cursor: pointer;
+}
+.dungeon-draw-meta {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+.dungeon-draw-meta .battle-size {
+  flex: 1;
+  min-width: 7rem;
+}
+.dungeon-draw-meta select,
+#dungeonViewAsSelect,
+#dungeonAmbientSelect {
+  width: 100%;
+  margin-top: 0.2rem;
+}
+.battle-token.is-stealth {
+  opacity: 0.55;
+  outline: 1px dashed rgba(180, 160, 100, 0.7);
 }
 .dungeon-token-torch {
   position: absolute;

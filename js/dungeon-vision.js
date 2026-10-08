@@ -69,18 +69,27 @@
     function dungeonDoorNorm(raw) {
       const base = dungeonSegNorm(raw, 'door');
       base.open = !!raw.open;
+      const kind = String((raw && raw.kind) || 'normal');
+      base.kind = DUNGEON_DOOR_KINDS[kind] ? kind : 'normal';
       return base;
+    }
+
+    function dungeonLightKindInfo(kind) {
+      const k = String(kind || 'torch');
+      return (DUNGEON_LIGHT_KINDS && DUNGEON_LIGHT_KINDS[k]) || DUNGEON_LIGHT_KINDS.torch;
     }
 
     function dungeonLightNorm(raw) {
       const r = raw && typeof raw === 'object' ? raw : {};
-      const range = Math.max(1, Number(r.range) || DUNGEON_TORCH_FEET);
+      const kind = DUNGEON_LIGHT_KINDS[r.kind] ? String(r.kind) : 'torch';
+      const info = dungeonLightKindInfo(kind);
+      const range = Math.max(1, Number(r.range) || info.range || DUNGEON_TORCH_FEET);
       return {
         id: r.id || dungeonNewId('light'),
         x: dungeonClampPct(r.x),
         y: dungeonClampPct(r.y),
         range: range,
-        kind: String(r.kind || 'torch'),
+        kind: kind,
         enabled: r.enabled !== false,
         updatedAt: stamp(r.updatedAt)
       };
@@ -88,10 +97,37 @@
 
     function dungeonTokenLightNorm(raw) {
       const r = raw && typeof raw === 'object' ? raw : {};
+      const kind = DUNGEON_LIGHT_KINDS[r.kind] ? String(r.kind) : 'torch';
+      const info = dungeonLightKindInfo(kind);
       return {
         enabled: !!r.enabled,
-        range: Math.max(1, Number(r.range) || DUNGEON_TORCH_FEET),
-        kind: String(r.kind || 'torch')
+        range: Math.max(1, Number(r.range) || info.range || DUNGEON_TORCH_FEET),
+        kind: kind
+      };
+    }
+
+    function dungeonNoteNorm(raw) {
+      const r = raw && typeof raw === 'object' ? raw : {};
+      return {
+        id: r.id || dungeonNewId('note'),
+        x: dungeonClampPct(r.x),
+        y: dungeonClampPct(r.y),
+        title: String(r.title || '').trim() || 'Notiz',
+        text: String(r.text || ''),
+        updatedAt: stamp(r.updatedAt)
+      };
+    }
+
+    function dungeonZoneNorm(raw) {
+      const r = raw && typeof raw === 'object' ? raw : {};
+      return {
+        id: r.id || dungeonNewId('zone'),
+        x: dungeonClampPct(r.x != null ? r.x : 50),
+        y: dungeonClampPct(r.y != null ? r.y : 50),
+        r: Math.max(2, Math.min(40, Number(r.r) || 12)),
+        name: String(r.name || '').trim() || 'Zone',
+        trackId: String(r.trackId || ''),
+        updatedAt: stamp(r.updatedAt)
       };
     }
 

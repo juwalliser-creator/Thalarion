@@ -72,12 +72,26 @@ var BATTLE_LOCAL_KEY = 'thalarion_kampf_feld';
 var BATTLE_GALLERY_LOCAL_KEY = 'thalarion_kampf_galerie';
 var DUNGEON_DOC = 'dungeon';
 var DUNGEON_MAP_DOC = 'dungeonMap';
+var DUNGEON_GALLERY_DOC = 'dungeonGalerie';
+var DUNGEON_EXPLORED_DOC = 'dungeonExplored';
 var DUNGEON_LOCAL_KEY = 'thalarion_dungeon';
 var DUNGEON_MAP_LOCAL_KEY = 'thalarion_dungeon_map';
+var DUNGEON_GALLERY_LOCAL_KEY = 'thalarion_dungeon_galerie';
 var DUNGEON_EXPLORED_LOCAL_KEY = 'thalarion_dungeon_explored';
 var DUNGEON_VISION_ANGLE = 110;
 var DUNGEON_TORCH_FEET = 20;
 var DUNGEON_DEFAULT_SCALE_FT = 2;
+var DUNGEON_LIGHT_KINDS = {
+  torch: { label: 'Fackel', range: 20, color: 'rgba(255,150,55,0.28)', flicker: true },
+  lantern: { label: 'Laterne', range: 30, color: 'rgba(255,205,120,0.24)', flicker: false },
+  candle: { label: 'Kerze', range: 10, color: 'rgba(255,175,70,0.22)', flicker: true },
+  magic: { label: 'Magisch', range: 24, color: 'rgba(110,150,255,0.26)', flicker: false }
+};
+var DUNGEON_DOOR_KINDS = {
+  normal: { label: 'Normal' },
+  locked: { label: 'Verschlossen' },
+  secret: { label: 'Geheim' }
+};
 var BATTLE_HAZARDS = {
   fire: { label: 'Feuer', fill: 'rgba(180, 48, 22, 0.42)', stroke: '#e07040' },
   water: { label: 'Wasser', fill: 'rgba(46, 92, 170, 0.38)', stroke: '#6aa8e0' },

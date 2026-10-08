@@ -131,6 +131,14 @@
       return db.collection('world').doc(DUNGEON_DOC);
     }
 
+    function dungeonGalleryRef() {
+      return db.collection('world').doc(DUNGEON_GALLERY_DOC);
+    }
+
+    function dungeonExploredRef() {
+      return db.collection('world').doc(DUNGEON_EXPLORED_DOC);
+    }
+
     function dungeonMapRef() {
       return db.collection('world').doc(DUNGEON_MAP_DOC);
     }

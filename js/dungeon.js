@@ -64,6 +64,7 @@
         facing: Number.isFinite(Number(raw.facing)) ? Number(raw.facing) : -Math.PI / 2,
         vision: vision,
         lightSource: light,
+        stealth: !!raw.stealth,
         movedAt: stamp(raw.movedAt)
       };
     }
@@ -76,14 +77,21 @@
         walls: (dungeon.walls || []).map(w => dungeonSegNorm(w, 'wall')),
         doors: (dungeon.doors || []).map(dungeonDoorNorm),
         lights: (dungeon.lights || []).map(dungeonLightNorm),
+        notes: (dungeon.notes || []).map(dungeonNoteNorm),
+        zones: (dungeon.zones || []).map(dungeonZoneNorm),
+        ambientId: String(dungeon.ambientId || ''),
         fogOn: dungeon.fogOn !== false,
         scaleFt: dungeonScaleFt(),
         exploredGen: Math.max(0, Number(dungeon.exploredGen) || 0),
         tokenSize: clampDungeonTokenSize(dungeon.tokenSize),
+        lightKindDefault: DUNGEON_LIGHT_KINDS[dungeon.lightKindDefault] ? dungeon.lightKindDefault : 'torch',
+        doorKindDefault: DUNGEON_DOOR_KINDS[dungeon.doorKindDefault] ? dungeon.doorKindDefault : 'normal',
         removedTokens: Object.assign({}, dungeon.removedTokens || {}),
         removedWalls: Object.assign({}, dungeon.removedWalls || {}),
         removedDoors: Object.assign({}, dungeon.removedDoors || {}),
-        removedLights: Object.assign({}, dungeon.removedLights || {})
+        removedLights: Object.assign({}, dungeon.removedLights || {}),
+        removedNotes: Object.assign({}, dungeon.removedNotes || {}),
+        removedZones: Object.assign({}, dungeon.removedZones || {})
       };
     }
 
@@ -94,6 +102,8 @@
       const removedWalls = mergeStampMap(a.removedWalls, b.removedWalls);
       const removedDoors = mergeStampMap(a.removedDoors, b.removedDoors);
       const removedLights = mergeStampMap(a.removedLights, b.removedLights);
+      const removedNotes = mergeStampMap(a.removedNotes, b.removedNotes);
+      const removedZones = mergeStampMap(a.removedZones, b.removedZones);
       const layoutSrc = stamp(b.layoutAt) >= stamp(a.layoutAt) ? b : a;
       return {
         updatedAt: Math.max(stamp(a.updatedAt), stamp(b.updatedAt)),
@@ -122,6 +132,19 @@
           'updatedAt',
           removedLights
         ),
+        notes: mergeByStamp(
+          (Array.isArray(a.notes) ? a.notes : []).map(dungeonNoteNorm),
+          (Array.isArray(b.notes) ? b.notes : []).map(dungeonNoteNorm),
+          'updatedAt',
+          removedNotes
+        ),
+        zones: mergeByStamp(
+          (Array.isArray(a.zones) ? a.zones : []).map(dungeonZoneNorm),
+          (Array.isArray(b.zones) ? b.zones : []).map(dungeonZoneNorm),
+          'updatedAt',
+          removedZones
+        ),
+        ambientId: layoutSrc.ambientId != null ? String(layoutSrc.ambientId) : '',
         fogOn: layoutSrc.fogOn !== false,
         scaleFt: Number(layoutSrc.scaleFt) > 0 ? Number(layoutSrc.scaleFt) : dungeonScaleFt(),
         exploredGen: Math.max(Number(a.exploredGen) || 0, Number(b.exploredGen) || 0),
@@ -130,10 +153,14 @@
             ? (b.tokenSize != null ? b.tokenSize : a.tokenSize)
             : (a.tokenSize != null ? a.tokenSize : b.tokenSize)
         ),
+        lightKindDefault: DUNGEON_LIGHT_KINDS[layoutSrc.lightKindDefault] ? layoutSrc.lightKindDefault : 'torch',
+        doorKindDefault: DUNGEON_DOOR_KINDS[layoutSrc.doorKindDefault] ? layoutSrc.doorKindDefault : 'normal',
         removedTokens: removedTokens,
         removedWalls: removedWalls,
         removedDoors: removedDoors,
-        removedLights: removedLights
+        removedLights: removedLights,
+        removedNotes: removedNotes,
+        removedZones: removedZones
       };
     }
 
@@ -144,16 +171,24 @@
       dungeon.walls = next.walls || [];
       dungeon.doors = next.doors || [];
       dungeon.lights = next.lights || [];
+      dungeon.notes = next.notes || [];
+      dungeon.zones = next.zones || [];
+      dungeon.ambientId = String(next.ambientId || '');
       dungeon.fogOn = next.fogOn !== false;
       dungeon.scaleFt = Number(next.scaleFt) > 0 ? Number(next.scaleFt) : DUNGEON_DEFAULT_SCALE_FT;
       dungeon.exploredGen = Math.max(0, Number(next.exploredGen) || 0);
       dungeon.tokenSize = clampDungeonTokenSize(next.tokenSize);
+      dungeon.lightKindDefault = DUNGEON_LIGHT_KINDS[next.lightKindDefault] ? next.lightKindDefault : 'torch';
+      dungeon.doorKindDefault = DUNGEON_DOOR_KINDS[next.doorKindDefault] ? next.doorKindDefault : 'normal';
       dungeon.removedTokens = next.removedTokens || {};
       dungeon.removedWalls = next.removedWalls || {};
       dungeon.removedDoors = next.removedDoors || {};
       dungeon.removedLights = next.removedLights || {};
+      dungeon.removedNotes = next.removedNotes || {};
+      dungeon.removedZones = next.removedZones || {};
       persistDungeonLocal();
       ensureDungeonExploredBuffer(true);
+      if (typeof syncDungeonAmbient === 'function') syncDungeonAmbient();
       if (doRender !== false) renderDungeon();
     }
 
@@ -185,14 +220,21 @@
         dungeon.walls = (Array.isArray(raw.walls) ? raw.walls : []).map(w => dungeonSegNorm(w, 'wall'));
         dungeon.doors = (Array.isArray(raw.doors) ? raw.doors : []).map(dungeonDoorNorm);
         dungeon.lights = (Array.isArray(raw.lights) ? raw.lights : []).map(dungeonLightNorm);
+        dungeon.notes = (Array.isArray(raw.notes) ? raw.notes : []).map(dungeonNoteNorm);
+        dungeon.zones = (Array.isArray(raw.zones) ? raw.zones : []).map(dungeonZoneNorm);
+        dungeon.ambientId = String(raw.ambientId || '');
         dungeon.fogOn = raw.fogOn !== false;
         dungeon.scaleFt = Number(raw.scaleFt) > 0 ? Number(raw.scaleFt) : DUNGEON_DEFAULT_SCALE_FT;
         dungeon.exploredGen = Math.max(0, Number(raw.exploredGen) || 0);
         dungeon.tokenSize = clampDungeonTokenSize(raw.tokenSize);
+        dungeon.lightKindDefault = DUNGEON_LIGHT_KINDS[raw.lightKindDefault] ? raw.lightKindDefault : 'torch';
+        dungeon.doorKindDefault = DUNGEON_DOOR_KINDS[raw.doorKindDefault] ? raw.doorKindDefault : 'normal';
         dungeon.removedTokens = Object.assign({}, raw.removedTokens || {});
         dungeon.removedWalls = Object.assign({}, raw.removedWalls || {});
         dungeon.removedDoors = Object.assign({}, raw.removedDoors || {});
         dungeon.removedLights = Object.assign({}, raw.removedLights || {});
+        dungeon.removedNotes = Object.assign({}, raw.removedNotes || {});
+        dungeon.removedZones = Object.assign({}, raw.removedZones || {});
       } catch (err) {}
     }
 
@@ -302,13 +344,22 @@
 
     function canMoveDungeonToken(token) {
       if (!token) return false;
+      if (typeof dungeonCanControlToken === 'function') return dungeonCanControlToken(token);
       if (isDM) return true;
       if (!currentPlayerId || !token.playerId) return false;
       return sheetAccountId(token.playerId) === currentPlayerId || token.playerId === currentPlayerId;
     }
 
+    function dungeonViewerIsPlayerFog() {
+      return typeof dungeonFogAsPlayer === 'function' ? dungeonFogAsPlayer() : !isDM;
+    }
+
     function dungeonViewerKey() {
-      if (isDM) return 'dm';
+      if (typeof dungeonEffectiveViewerId === 'function') {
+        const vid = dungeonEffectiveViewerId();
+        if (vid) return vid;
+      }
+      if (isDM && !dungeonViewAsId) return 'dm';
       return currentPlayerId || 'guest';
     }
 
@@ -345,14 +396,16 @@
     }
 
     function persistDungeonExploredSoon() {
-      if (!dungeonExploredCanvas || isDM) return;
+      if (!dungeonExploredCanvas) return;
+      if (isDM && !dungeonViewAsId) return;
       try {
         writeLocal(dungeonExploredStorageKey(), dungeonExploredCanvas.toDataURL('image/png'));
       } catch (err) {}
     }
 
     function accumulateDungeonExplored(polys, w, h) {
-      if (isDM || !dungeonExploredCtx || !polys || !polys.length) return;
+      if (!dungeonViewerIsPlayerFog() || !dungeonExploredCtx || !polys || !polys.length) return;
+      if (isDM && !dungeonViewAsId) return;
       const size = dungeonExploredCanvas.width;
       dungeonExploredCtx.save();
       dungeonExploredCtx.fillStyle = '#fff';
@@ -369,12 +422,16 @@
       });
       dungeonExploredCtx.restore();
       clearTimeout(accumulateDungeonExplored._t);
-      accumulateDungeonExplored._t = setTimeout(persistDungeonExploredSoon, 400);
+      accumulateDungeonExplored._t = setTimeout(() => {
+        persistDungeonExploredSoon();
+        if (typeof persistDungeonExploredCloud === 'function') persistDungeonExploredCloud();
+      }, 400);
     }
 
     function collectDungeonVisiblePolys() {
       const obstacles = dungeonObstacleSegments();
       const polys = [];
+      const asPlayer = dungeonViewerIsPlayerFog();
       (dungeon.lights || []).forEach(L => {
         if (!L || !L.enabled) return;
         const p = dungeonLightPolygon(L.x, L.y, L.range, obstacles);
@@ -382,22 +439,21 @@
       });
       (dungeon.tokens || []).forEach(token => {
         if (token.lightSource && token.lightSource.enabled) {
-          const p = dungeonLightPolygon(token.x, token.y, token.lightSource.range || DUNGEON_TORCH_FEET, obstacles);
+          const info = dungeonLightKindInfo(token.lightSource.kind);
+          const range = token.lightSource.range || info.range || DUNGEON_TORCH_FEET;
+          const p = dungeonLightPolygon(token.x, token.y, range, obstacles);
           if (p.length) polys.push(p);
         }
       });
-      const visionTokens = (dungeon.tokens || []).filter(t => {
-        if (isDM) return false;
-        return canMoveDungeonToken(t);
-      });
-      visionTokens.forEach(token => {
-        const v = resolveDungeonTokenVision(token);
-        token.vision = v;
-        if (!v || v.type === 'none' || !(v.rangeFeet > 0)) return;
-        const p = dungeonVisionPolygon(token.x, token.y, token.facing || 0, v.rangeFeet, v.angleDeg, obstacles);
-        if (p.length) polys.push(p);
-      });
-      if (isDM) {
+      if (asPlayer) {
+        (dungeon.tokens || []).filter(t => canMoveDungeonToken(t)).forEach(token => {
+          const v = resolveDungeonTokenVision(token);
+          token.vision = v;
+          if (!v || v.type === 'none' || !(v.rangeFeet > 0)) return;
+          const p = dungeonVisionPolygon(token.x, token.y, token.facing || 0, v.rangeFeet, v.angleDeg, obstacles);
+          if (p.length) polys.push(p);
+        });
+      } else {
         (dungeon.tokens || []).forEach(token => {
           const v = resolveDungeonTokenVision(token);
           token.vision = v;
@@ -438,8 +494,11 @@
       }
       [
         ['dungeonWallBtn', 'wall'],
+        ['dungeonRectBtn', 'rect'],
         ['dungeonDoorBtn', 'door'],
         ['dungeonLightBtn', 'light'],
+        ['dungeonNoteBtn', 'note'],
+        ['dungeonZoneBtn', 'zone'],
         ['dungeonEraseBtn', 'erase']
       ].forEach(([id, mode]) => {
         const btn = document.getElementById(id);
@@ -448,6 +507,22 @@
         btn.classList.toggle('primary', on);
         btn.classList.toggle('ghost', !on);
       });
+      const calBtn = document.getElementById('dungeonCalibrateBtn');
+      if (calBtn) {
+        const on = dungeonDrawMode === 'calibrate';
+        calBtn.classList.toggle('primary', on);
+        calBtn.classList.toggle('ghost', !on);
+      }
+      const amb = document.getElementById('dungeonAmbientSelect');
+      if (amb && document.activeElement !== amb) amb.value = dungeon.ambientId || '';
+      const doorKind = document.getElementById('dungeonDoorKind');
+      if (doorKind && document.activeElement !== doorKind) {
+        doorKind.value = dungeonPendingDoorKind || dungeon.doorKindDefault || 'normal';
+      }
+      const lightKind = document.getElementById('dungeonLightKind');
+      if (lightKind && document.activeElement !== lightKind) {
+        lightKind.value = dungeonPendingLightKind || dungeon.lightKindDefault || 'torch';
+      }
     }
 
     function closeDungeonMenus(exceptId) {
@@ -626,6 +701,56 @@
       board.addEventListener('pointercancel', endPan);
     }
 
+    function dungeonHasFlickerLights() {
+      const flick = L => {
+        const info = dungeonLightKindInfo(L && L.kind);
+        return !!(L && L.enabled && info && info.flicker);
+      };
+      return (dungeon.lights || []).some(flick) ||
+        (dungeon.tokens || []).some(t => t.lightSource && t.lightSource.enabled && dungeonLightKindInfo(t.lightSource.kind).flicker);
+    }
+
+    function scheduleDungeonLightFlicker() {
+      if (!dungeon.fogOn || !dungeon.image || !dungeonHasFlickerLights()) {
+        if (dungeonLightFlickerRaf) {
+          cancelAnimationFrame(dungeonLightFlickerRaf);
+          dungeonLightFlickerRaf = 0;
+        }
+        return;
+      }
+      if (dungeonLightFlickerRaf) return;
+      const tick = () => {
+        dungeonLightFlickerRaf = 0;
+        dungeonLightFlickerPhase = (dungeonLightFlickerPhase + 0.08) % (Math.PI * 2);
+        renderDungeonFog();
+      };
+      dungeonLightFlickerRaf = requestAnimationFrame(tick);
+    }
+
+    function renderDungeonLightTints(ctx, w, h) {
+      const obstacles = dungeonObstacleSegments();
+      const flicker = 0.85 + 0.15 * Math.sin(dungeonLightFlickerPhase);
+      const paint = (x, y, range, kind) => {
+        const info = dungeonLightKindInfo(kind);
+        const poly = dungeonLightPolygon(x, y, range || info.range, obstacles);
+        if (poly.length < 3) return;
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = info.flicker ? flicker : 1;
+        ctx.fillStyle = info.color || 'rgba(255,180,80,0.2)';
+        dungeonFillPolyPct(ctx, poly, w, h);
+        ctx.restore();
+      };
+      (dungeon.lights || []).forEach(L => {
+        if (!L || !L.enabled) return;
+        paint(L.x, L.y, L.range, L.kind);
+      });
+      (dungeon.tokens || []).forEach(t => {
+        if (!t.lightSource || !t.lightSource.enabled) return;
+        paint(t.x, t.y, t.lightSource.range, t.lightSource.kind);
+      });
+    }
+
     function renderDungeonFog() {
       const canvas = document.getElementById('dungeonFog');
       const stage = document.getElementById('dungeonStage');
@@ -644,17 +769,18 @@
       ensureDungeonExploredBuffer(false);
       const polys = collectDungeonVisiblePolys();
       dungeonVisiblePolys = polys;
-      if (!isDM) accumulateDungeonExplored(polys, w, h);
+      const asPlayer = dungeonViewerIsPlayerFog();
+      if (asPlayer) accumulateDungeonExplored(polys, w, h);
 
       const ctx = canvas.getContext('2d');
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalCompositeOperation = 'source-over';
       ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = isDM ? 'rgba(8,6,4,0.42)' : '#000';
+      ctx.fillStyle = asPlayer ? '#000' : 'rgba(8,6,4,0.42)';
       ctx.fillRect(0, 0, w, h);
 
       ctx.globalCompositeOperation = 'destination-out';
-      if (!isDM && dungeonExploredCanvas) {
+      if (asPlayer && dungeonExploredCanvas) {
         ctx.globalAlpha = 0.55;
         ctx.drawImage(dungeonExploredCanvas, 0, 0, w, h);
         ctx.globalAlpha = 1;
@@ -662,7 +788,9 @@
       ctx.fillStyle = '#fff';
       polys.forEach(poly => dungeonFillPolyPct(ctx, poly, w, h));
       ctx.globalCompositeOperation = 'source-over';
+      renderDungeonLightTints(ctx, w, h);
       renderDungeonGeometryOverlay();
+      scheduleDungeonLightFlicker();
     }
 
     function renderDungeonGeometryOverlay() {
@@ -677,7 +805,8 @@
         svg.setAttribute('preserveAspectRatio', 'none');
         stage.appendChild(svg);
       }
-      const hasDoors = (dungeon.doors || []).length > 0;
+      const asPlayer = dungeonViewerIsPlayerFog();
+      const hasDoors = (dungeon.doors || []).some(d => d.kind !== 'secret' || isDM);
       const show = isDM || dungeonDrawMode || hasDoors;
       svg.classList.toggle('hidden', !show);
       if (!show) {
@@ -694,6 +823,14 @@
           if (!L.enabled) return;
           html += '<circle class="dungeon-light-dot" data-id="' + L.id + '" cx="' + L.x + '" cy="' + L.y + '" r="1.2" />';
         });
+        (dungeon.notes || []).forEach(n => {
+          html += '<circle class="dungeon-note-mark" data-id="' + n.id + '" cx="' + n.x + '" cy="' + n.y +
+            '" r="1.1" title="' + String(n.title || '').replace(/"/g, '') + '" />';
+        });
+        (dungeon.zones || []).forEach(z => {
+          html += '<circle class="dungeon-zone-ring" data-id="' + z.id + '" cx="' + z.x + '" cy="' + z.y +
+            '" r="' + z.r + '" />';
+        });
         dungeonDrawPoints.forEach((p, i) => {
           html += '<circle class="dungeon-draw-pt" cx="' + p.x + '" cy="' + p.y + '" r="0.8" />';
           if (i > 0) {
@@ -702,16 +839,32 @@
               '" x2="' + p.x + '" y2="' + p.y + '" />';
           }
         });
+        if (dungeonPreviewPt && dungeonDrawPoints.length) {
+          const a = dungeonDrawPoints[dungeonDrawPoints.length - 1];
+          const b = dungeonPreviewPt;
+          if (dungeonDrawMode === 'rect' && dungeonDrawPoints.length === 1) {
+            const x = Math.min(a.x, b.x);
+            const y = Math.min(a.y, b.y);
+            const w = Math.abs(b.x - a.x);
+            const h = Math.abs(b.y - a.y);
+            html += '<rect class="dungeon-draw-preview" x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" />';
+          } else if (dungeonDrawMode === 'wall' || dungeonDrawMode === 'door' || dungeonDrawMode === 'calibrate') {
+            html += '<line class="dungeon-draw-line" x1="' + a.x + '" y1="' + a.y +
+              '" x2="' + b.x + '" y2="' + b.y + '" />';
+          }
+        }
       }
       (dungeon.doors || []).forEach(d => {
-        if (!isDM && dungeon.fogOn) {
+        if (d.kind === 'secret' && asPlayer && !d.open) return;
+        if (asPlayer && dungeon.fogOn) {
           const mx = (d.x1 + d.x2) / 2;
           const my = (d.y1 + d.y2) / 2;
           if (!dungeonPointVisibleNow(mx, my) && !dungeonPointVisibleNow(d.x1, d.y1) && !dungeonPointVisibleNow(d.x2, d.y2)) {
             return;
           }
         }
-        html += '<line class="dungeon-door' + (d.open ? ' is-open' : '') + '" data-id="' + d.id +
+        const kindCls = d.kind === 'locked' ? ' is-locked' : (d.kind === 'secret' ? ' is-secret' : '');
+        html += '<line class="dungeon-door' + (d.open ? ' is-open' : '') + kindCls + '" data-id="' + d.id +
           '" x1="' + d.x1 + '" y1="' + d.y1 + '" x2="' + d.x2 + '" y2="' + d.y2 + '" />';
       });
       svg.innerHTML = html;
@@ -756,6 +909,30 @@
             removeDungeonLight(el.getAttribute('data-id'));
           });
         });
+        svg.querySelectorAll('.dungeon-note-mark').forEach(el => {
+          el.style.pointerEvents = 'all';
+          el.addEventListener('click', ev => {
+            ev.stopPropagation();
+            const id = el.getAttribute('data-id');
+            if (dungeonDrawMode === 'erase') {
+              removeDungeonNote(id);
+              return;
+            }
+            showDungeonNote(id);
+          });
+        });
+        svg.querySelectorAll('.dungeon-zone-ring').forEach(el => {
+          el.style.pointerEvents = 'stroke';
+          el.addEventListener('click', ev => {
+            ev.stopPropagation();
+            const id = el.getAttribute('data-id');
+            if (dungeonDrawMode === 'erase') {
+              removeDungeonZone(id);
+              return;
+            }
+            showDungeonZone(id);
+          });
+        });
       }
     }
 
@@ -773,7 +950,17 @@
 
     function updateDungeonFacingFromEvent(ev) {
       const stage = document.getElementById('dungeonStage');
-      if (!stage || !dungeon.image || dungeonDrawMode || dungeonPlaceMode) return;
+      if (!stage || !dungeon.image) return;
+      if (dungeonDrawMode && (dungeonDrawMode === 'wall' || dungeonDrawMode === 'door' ||
+          dungeonDrawMode === 'rect' || dungeonDrawMode === 'calibrate') && dungeonDrawPoints.length) {
+        dungeonPreviewPt = dungeonPctFromEvent(stage, ev);
+        if (dungeonDrawMode === 'wall' || dungeonDrawMode === 'door') {
+          dungeonPreviewPt = dungeonBeautifyDrawPoint(dungeonPreviewPt);
+        }
+        renderDungeonGeometryOverlay();
+        return;
+      }
+      if (dungeonDrawMode || dungeonPlaceMode) return;
       const pct = dungeonPctFromEvent(stage, ev);
       const focus = (dungeon.tokens || []).find(t => t.id === dungeonFocusTokenId);
       const movers = (dungeon.tokens || []).filter(t => canMoveDungeonToken(t));
@@ -841,6 +1028,7 @@
         persistDungeonSoon();
         renderDungeonFog();
         renderDungeonTokenList();
+        if (typeof syncDungeonAmbient === 'function') syncDungeonAmbient();
         if (pendingDungeonSnap) {
           const snap = pendingDungeonSnap;
           pendingDungeonSnap = null;
@@ -852,24 +1040,34 @@
       document.addEventListener('pointercancel', up);
     }
 
+    function dungeonTokenHiddenByStealth(token) {
+      if (!token || !token.stealth) return false;
+      if (isDM && !dungeonViewAsId) return false;
+      if (canMoveDungeonToken(token)) return false;
+      return true;
+    }
+
     function renderDungeonTokens() {
       const box = document.getElementById('dungeonTokens');
       const stage = document.getElementById('dungeonStage');
       if (!box || !stage) return;
       box.innerHTML = '';
+      const asPlayer = dungeonViewerIsPlayerFog();
       dungeon.tokens.forEach(token => {
         const mine = canMoveDungeonToken(token);
-        if (!isDM && dungeon.fogOn && !mine && !dungeonPointVisibleNow(token.x, token.y)) return;
+        if (dungeonTokenHiddenByStealth(token)) return;
+        if (asPlayer && dungeon.fogOn && !mine && !dungeonPointVisibleNow(token.x, token.y)) return;
         const el = document.createElement('button');
         el.type = 'button';
         el.className = 'battle-token ' + (token.kind === 'player' ? 'is-player' : 'is-enemy');
         if (mine) el.classList.add('is-mine');
+        if (token.stealth) el.classList.add('is-stealth');
         if (token.id === dungeonFocusTokenId) el.classList.add('is-focus');
         el.dataset.id = token.id;
         el.style.left = token.x + '%';
         el.style.top = token.y + '%';
         el.style.setProperty('--dungeon-facing', (token.facing || 0) + 'rad');
-        el.title = token.name;
+        el.title = token.name + (token.stealth ? ' (versteckt)' : '');
         const face = document.createElement('div');
         face.className = 'battle-token-face';
         paintPortraitEl(face, token.portraitId, token.name);
@@ -881,7 +1079,7 @@
           const torch = document.createElement('span');
           torch.className = 'dungeon-token-torch' + (token.lightSource && token.lightSource.enabled ? ' is-on' : '');
           torch.textContent = 'L';
-          torch.title = token.lightSource && token.lightSource.enabled ? 'Fackel aus' : 'Fackel an';
+          torch.title = token.lightSource && token.lightSource.enabled ? 'Licht aus' : 'Licht an';
           torch.addEventListener('pointerdown', ev => ev.stopPropagation());
           torch.addEventListener('click', ev => {
             ev.preventDefault();
@@ -890,7 +1088,19 @@
           });
           el.appendChild(torch);
         }
-        if (isDM) {
+        if (isDM && !dungeonViewAsId) {
+          const stealthBtn = document.createElement('span');
+          stealthBtn.className = 'dungeon-token-torch' + (token.stealth ? ' is-on' : '');
+          stealthBtn.style.left = 'calc(50% + var(--battle-token-face, 48px) / 2 - 0.55rem)';
+          stealthBtn.textContent = 'S';
+          stealthBtn.title = token.stealth ? 'Stealth aus' : 'Stealth an';
+          stealthBtn.addEventListener('pointerdown', ev => ev.stopPropagation());
+          stealthBtn.addEventListener('click', ev => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            toggleDungeonTokenStealth(token.id);
+          });
+          el.appendChild(stealthBtn);
           const del = document.createElement('span');
           del.className = 'battle-token-del';
           del.textContent = '×';
@@ -905,12 +1115,27 @@
         }
         if (mine) {
           el.addEventListener('pointerdown', ev => startDungeonTokenDrag(ev, token, stage, el));
-          el.addEventListener('click', () => { dungeonFocusTokenId = token.id; });
+          el.addEventListener('click', () => {
+            dungeonFocusTokenId = token.id;
+            if (typeof syncDungeonAmbient === 'function') syncDungeonAmbient();
+          });
         } else {
           el.style.cursor = 'default';
         }
         box.appendChild(el);
       });
+    }
+
+    function toggleDungeonTokenStealth(id) {
+      if (!isDM) return;
+      const t = (dungeon.tokens || []).find(x => x.id === id);
+      if (!t) return;
+      t.stealth = !t.stealth;
+      t.movedAt = stampNow();
+      dungeon.layoutAt = stampNow();
+      persistDungeonSoon();
+      renderDungeon();
+      toast(t.stealth ? t.name + ' versteckt.' : t.name + ' sichtbar.');
     }
 
     function toggleDungeonTokenLight(id) {
@@ -937,6 +1162,7 @@
 
     function removeDungeonWall(id) {
       if (!isDM || !id) return;
+      if (typeof dungeonPushUndo === 'function') dungeonPushUndo();
       if (!dungeon.removedWalls) dungeon.removedWalls = {};
       dungeon.removedWalls[id] = stampNow();
       dungeon.walls = (dungeon.walls || []).filter(w => w.id !== id);
@@ -947,6 +1173,7 @@
 
     function removeDungeonDoor(id) {
       if (!isDM || !id) return;
+      if (typeof dungeonPushUndo === 'function') dungeonPushUndo();
       if (!dungeon.removedDoors) dungeon.removedDoors = {};
       dungeon.removedDoors[id] = stampNow();
       dungeon.doors = (dungeon.doors || []).filter(d => d.id !== id);
@@ -957,6 +1184,7 @@
 
     function removeDungeonLight(id) {
       if (!isDM || !id) return;
+      if (typeof dungeonPushUndo === 'function') dungeonPushUndo();
       if (!dungeon.removedLights) dungeon.removedLights = {};
       dungeon.removedLights[id] = stampNow();
       dungeon.lights = (dungeon.lights || []).filter(L => L.id !== id);
@@ -965,10 +1193,70 @@
       renderDungeon();
     }
 
+    function removeDungeonNote(id) {
+      if (!isDM || !id) return;
+      if (typeof dungeonPushUndo === 'function') dungeonPushUndo();
+      if (!dungeon.removedNotes) dungeon.removedNotes = {};
+      dungeon.removedNotes[id] = stampNow();
+      dungeon.notes = (dungeon.notes || []).filter(n => n.id !== id);
+      dungeon.layoutAt = stampNow();
+      persistDungeonSoon();
+      renderDungeon();
+    }
+
+    function removeDungeonZone(id) {
+      if (!isDM || !id) return;
+      if (typeof dungeonPushUndo === 'function') dungeonPushUndo();
+      if (!dungeon.removedZones) dungeon.removedZones = {};
+      dungeon.removedZones[id] = stampNow();
+      dungeon.zones = (dungeon.zones || []).filter(z => z.id !== id);
+      dungeon.layoutAt = stampNow();
+      persistDungeonSoon();
+      renderDungeon();
+    }
+
+    function showDungeonNote(id) {
+      const n = (dungeon.notes || []).find(x => x.id === id);
+      if (!n) return;
+      const title = prompt('Notiz-Titel', n.title || 'Notiz');
+      if (title == null) return;
+      const text = prompt('Notiz-Text', n.text || '');
+      if (text == null) return;
+      if (typeof dungeonPushUndo === 'function') dungeonPushUndo();
+      n.title = String(title).trim() || 'Notiz';
+      n.text = String(text);
+      n.updatedAt = stampNow();
+      dungeon.layoutAt = stampNow();
+      persistDungeonSoon();
+      renderDungeon();
+    }
+
+    function showDungeonZone(id) {
+      const z = (dungeon.zones || []).find(x => x.id === id);
+      if (!z) return;
+      const name = prompt('Zonen-Name', z.name || 'Zone');
+      if (name == null) return;
+      const rRaw = prompt('Radius (% der Karte)', String(z.r || 12));
+      if (rRaw == null) return;
+      const track = prompt('Ambient-Track-ID (leer = keine)', z.trackId || '');
+      if (track == null) return;
+      if (typeof dungeonPushUndo === 'function') dungeonPushUndo();
+      z.name = String(name).trim() || 'Zone';
+      z.r = Math.max(2, Math.min(40, Number(String(rRaw).replace(',', '.')) || z.r));
+      z.trackId = String(track || '');
+      z.updatedAt = stampNow();
+      dungeon.layoutAt = stampNow();
+      persistDungeonSoon();
+      renderDungeon();
+      if (typeof syncDungeonAmbient === 'function') syncDungeonAmbient();
+    }
+
     function toggleDungeonDoor(id) {
       const door = (dungeon.doors || []).find(d => d.id === id);
       if (!door) return;
-      if (!isDM) {
+      if (!isDM || dungeonViewAsId) {
+        if (door.kind === 'secret' && !door.open) return;
+        if (door.kind === 'locked' && !door.open) return toast('Tür ist verschlossen.');
         if (!dungeonPointVisibleNow((door.x1 + door.x2) / 2, (door.y1 + door.y2) / 2) &&
             !dungeonPointVisibleNow(door.x1, door.y1) &&
             !dungeonPointVisibleNow(door.x2, door.y2)) {
@@ -986,6 +1274,8 @@
     function setDungeonDrawMode(mode) {
       if (!isDM) return;
       const stage = document.getElementById('dungeonStage');
+      dungeonCalibratePts = [];
+      dungeonPreviewPt = null;
       if (dungeonDrawMode === mode) {
         dungeonDrawMode = null;
         dungeonDrawPoints = [];
@@ -993,13 +1283,17 @@
         cancelDungeonPlace();
         dungeonDrawMode = mode;
         dungeonDrawPoints = [];
-        toast(mode === 'wall'
-          ? 'Wand: Punkte tippen (fast waagerecht/senkrecht wird begradigt). Doppelklick/Enter fertig.'
-          : mode === 'door'
-            ? 'Tür: zwei Punkte tippen (wird ggf. begradigt).'
-            : mode === 'erase'
-              ? 'Löschen: Wand, Tür oder Licht antippen.'
-              : 'Licht: auf die Karte tippen.');
+        const tips = {
+          wall: 'Wand: Punkte tippen (fast waagerecht/senkrecht wird begradigt). Doppelklick/Enter fertig.',
+          rect: 'Raum: zwei Ecken tippen.',
+          door: 'Tür: zwei Punkte tippen (wird ggf. begradigt).',
+          light: 'Licht: auf die Karte tippen.',
+          note: 'Notiz: auf die Karte tippen.',
+          zone: 'Ambient-Zone: Zentrum tippen.',
+          erase: 'Löschen: Wand, Tür, Licht, Notiz oder Zone antippen.',
+          calibrate: 'Maßstab: zwei Punkte tippen.'
+        };
+        toast(tips[mode] || 'Zeichnen…');
       }
       if (stage) {
         stage.classList.toggle('is-draw', !!dungeonDrawMode);
@@ -1013,6 +1307,7 @@
       if (!isDM) return;
       if (!(dungeon.walls || []).length) return toast('Keine Wände.');
       if (!confirm('Alle Wände entfernen?')) return;
+      if (typeof dungeonPushUndo === 'function') dungeonPushUndo();
       const now = stampNow();
       if (!dungeon.removedWalls) dungeon.removedWalls = {};
       (dungeon.walls || []).forEach(w => { dungeon.removedWalls[w.id] = now; });
@@ -1027,6 +1322,7 @@
       if (!isDM) return;
       const walls = dungeon.walls || [];
       if (!walls.length) return toast('Keine Wände.');
+      if (typeof dungeonPushUndo === 'function') dungeonPushUndo();
       let n = 0;
       walls.forEach(w => {
         const prev = { x: w.x1, y: w.y1 };
@@ -1121,8 +1417,10 @@
     function finishDungeonWall() {
       if (dungeonDrawPoints.length < 2) {
         dungeonDrawPoints = [];
+        dungeonPreviewPt = null;
         return;
       }
+      if (typeof dungeonPushUndo === 'function') dungeonPushUndo();
       const pts = dungeonBeautifyPolyline(dungeonDrawPoints);
       const now = stampNow();
       for (let i = 1; i < pts.length; i++) {
@@ -1136,6 +1434,7 @@
         }, 'wall'));
       }
       dungeonDrawPoints = [];
+      dungeonPreviewPt = null;
       dungeon.layoutAt = now;
       persistDungeonSoon();
       renderDungeon();
@@ -1162,7 +1461,8 @@
         if (token.kind === 'player') bits.push('Spieler');
         else if (token.kind === 'npc') bits.push('NPC');
         if (v.type && v.type !== 'none') bits.push('DV ' + v.rangeFeet + 'ft');
-        if (token.lightSource && token.lightSource.enabled) bits.push('Fackel');
+        if (token.lightSource && token.lightSource.enabled) bits.push('Licht');
+        if (token.stealth) bits.push('Stealth');
         row.textContent = bits.join(' · ');
         row.onclick = () => {
           if (!confirm(token.name + ' entfernen?')) return;
@@ -1202,7 +1502,10 @@
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'ghost';
-          btn.textContent = 'Tür ' + (i + 1) + (d.open ? ' (offen)' : ' (zu)');
+          const kindLabel = (DUNGEON_DOOR_KINDS[d.kind] && DUNGEON_DOOR_KINDS[d.kind].label) || '';
+          btn.textContent = 'Tür ' + (i + 1) +
+            (kindLabel && d.kind !== 'normal' ? ' · ' + kindLabel : '') +
+            (d.open ? ' (offen)' : ' (zu)');
           btn.onclick = () => toggleDungeonDoor(d.id);
           const del = document.createElement('button');
           del.type = 'button';
@@ -1225,7 +1528,8 @@
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'ghost';
-          btn.textContent = (L.kind || 'Licht') + ' ' + (i + 1) + (L.enabled ? '' : ' (aus)');
+          const lightLabel = (DUNGEON_LIGHT_KINDS[L.kind] && DUNGEON_LIGHT_KINDS[L.kind].label) || L.kind || 'Licht';
+          btn.textContent = lightLabel + ' ' + (i + 1) + (L.enabled ? '' : ' (aus)');
           btn.onclick = () => {
             L.enabled = !L.enabled;
             L.updatedAt = stampNow();
@@ -1371,20 +1675,97 @@
       if (ev.target && ev.target.closest && ev.target.closest('.battle-token')) return;
       const pct = dungeonPctFromEvent(stage, ev);
 
+      if (dungeonDrawMode === 'calibrate' && isDM) {
+        if (typeof finishDungeonCalibrate === 'function') finishDungeonCalibrate(pct);
+        else {
+          dungeonDrawMode = null;
+          syncDungeonFogControls();
+        }
+        renderDungeonGeometryOverlay();
+        return;
+      }
+
+      if (dungeonDrawMode === 'rect' && isDM) {
+        const snapped = dungeonBeautifyDrawPoint(pct);
+        dungeonDrawPoints.push(snapped);
+        if (dungeonDrawPoints.length >= 2) {
+          const a = dungeonDrawPoints[0];
+          const b = dungeonDrawPoints[1];
+          dungeonDrawPoints = [];
+          dungeonPreviewPt = null;
+          if (typeof placeDungeonRectWalls === 'function') placeDungeonRectWalls(a, b);
+        } else {
+          renderDungeonGeometryOverlay();
+        }
+        return;
+      }
+
+      if (dungeonDrawMode === 'note' && isDM) {
+        const title = prompt('Notiz-Titel', 'Notiz');
+        if (title == null) return;
+        const text = prompt('Notiz-Text', '') || '';
+        if (typeof dungeonPushUndo === 'function') dungeonPushUndo();
+        dungeon.notes = dungeon.notes || [];
+        dungeon.notes.push(dungeonNoteNorm({
+          id: dungeonNewId('note'),
+          x: pct.x,
+          y: pct.y,
+          title: title,
+          text: text,
+          updatedAt: stampNow()
+        }));
+        dungeon.layoutAt = stampNow();
+        persistDungeonSoon();
+        renderDungeon();
+        toast('Notiz gesetzt.');
+        return;
+      }
+
+      if (dungeonDrawMode === 'zone' && isDM) {
+        const name = prompt('Zonen-Name', 'Zone');
+        if (name == null) return;
+        const rRaw = prompt('Radius (% der Karte)', '12');
+        if (rRaw == null) return;
+        const ambSel = document.getElementById('dungeonAmbientSelect');
+        const defaultTrack = (ambSel && ambSel.value) || dungeon.ambientId || '';
+        const track = prompt('Ambient-Track-ID (leer = keins; siehe Karte → Ambient)', defaultTrack);
+        if (track == null) return;
+        if (typeof dungeonPushUndo === 'function') dungeonPushUndo();
+        dungeon.zones = dungeon.zones || [];
+        dungeon.zones.push(dungeonZoneNorm({
+          id: dungeonNewId('zone'),
+          x: pct.x,
+          y: pct.y,
+          r: Number(String(rRaw).replace(',', '.')) || 12,
+          name: name,
+          trackId: track,
+          updatedAt: stampNow()
+        }));
+        dungeon.layoutAt = stampNow();
+        persistDungeonSoon();
+        renderDungeon();
+        if (typeof syncDungeonAmbient === 'function') syncDungeonAmbient();
+        toast('Zone gesetzt.');
+        return;
+      }
+
       if (dungeonDrawMode === 'light' && isDM) {
+        if (typeof dungeonPushUndo === 'function') dungeonPushUndo();
+        const kind = dungeonPendingLightKind || dungeon.lightKindDefault || 'torch';
+        const info = dungeonLightKindInfo(kind);
         dungeon.lights.push(dungeonLightNorm({
           id: dungeonNewId('light'),
           x: pct.x,
           y: pct.y,
-          range: DUNGEON_TORCH_FEET,
-          kind: 'torch',
+          range: info.range || DUNGEON_TORCH_FEET,
+          kind: kind,
           enabled: true,
           updatedAt: stampNow()
         }));
         dungeon.layoutAt = stampNow();
         persistDungeonSoon();
         renderDungeon();
-        toast('Lichtquelle gesetzt.');
+        toast((info.label || 'Licht') + ' gesetzt.');
         return;
       }
 
@@ -1392,20 +1773,25 @@
         const snapped = dungeonBeautifyDrawPoint(pct);
         dungeonDrawPoints.push(snapped);
         if (dungeonDrawPoints.length >= 2) {
+          if (typeof dungeonPushUndo === 'function') dungeonPushUndo();
           const pts = dungeonBeautifyPolyline(dungeonDrawPoints);
           const a = pts[0];
           const b = pts[1];
+          const kind = dungeonPendingDoorKind || dungeon.doorKindDefault || 'normal';
           dungeon.doors.push(dungeonDoorNorm({
             id: dungeonNewId('door'),
             x1: a.x, y1: a.y, x2: b.x, y2: b.y,
             open: false,
+            kind: kind,
             updatedAt: stampNow()
           }));
           dungeonDrawPoints = [];
+          dungeonPreviewPt = null;
           dungeon.layoutAt = stampNow();
           persistDungeonSoon();
           renderDungeon();
-          toast('Tür gesetzt (geschlossen).');
+          const kindLabel = (DUNGEON_DOOR_KINDS[kind] && DUNGEON_DOOR_KINDS[kind].label) || kind;
+          toast('Tür gesetzt (' + kindLabel + ').');
         } else {
           renderDungeonGeometryOverlay();
         }
@@ -1519,11 +1905,16 @@
       if (isDM) {
         renderDungeonPickLists();
         renderDungeonGeoLists();
+        if (typeof fillDungeonViewAsSelect === 'function') fillDungeonViewAsSelect();
+        if (typeof fillDungeonAmbientSelect === 'function') fillDungeonAmbientSelect();
+        if (typeof fillDungeonKindSelects === 'function') fillDungeonKindSelects();
       }
+      if (typeof syncDungeonAmbient === 'function') syncDungeonAmbient();
     }
 
     function bindDungeonUi() {
       bindDungeonBoardPan();
+      if (typeof bindDungeonExtrasUi === 'function') bindDungeonExtrasUi();
       const stage = document.getElementById('dungeonStage');
       if (stage && !stage.dataset.dungeonClickBound) {
         stage.dataset.dungeonClickBound = '1';
@@ -1609,6 +2000,8 @@
             if (dungeonDrawMode) {
               dungeonDrawMode = null;
               dungeonDrawPoints = [];
+              dungeonCalibratePts = [];
+              dungeonPreviewPt = null;
               const st = document.getElementById('dungeonStage');
               if (st) {
                 st.classList.remove('is-draw');
@@ -1618,6 +2011,12 @@
               renderDungeonGeometryOverlay();
             }
             cancelDungeonPlace();
+          }
+          if ((ev.ctrlKey || ev.metaKey) && (ev.key === 'z' || ev.key === 'Z')) {
+            if (isDM && typeof dungeonUndo === 'function' && currentPage === 'dungeon') {
+              ev.preventDefault();
+              dungeonUndo();
+            }
           }
           if (ev.key === 'Enter' && dungeonDrawMode === 'wall') finishDungeonWall();
         });
