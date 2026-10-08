@@ -74,6 +74,10 @@ var DUNGEON_DOC = 'dungeon';
 var DUNGEON_MAP_DOC = 'dungeonMap';
 var DUNGEON_LOCAL_KEY = 'thalarion_dungeon';
 var DUNGEON_MAP_LOCAL_KEY = 'thalarion_dungeon_map';
+var DUNGEON_EXPLORED_LOCAL_KEY = 'thalarion_dungeon_explored';
+var DUNGEON_VISION_ANGLE = 110;
+var DUNGEON_TORCH_FEET = 20;
+var DUNGEON_DEFAULT_SCALE_FT = 2;
 var BATTLE_HAZARDS = {
   fire: { label: 'Feuer', fill: 'rgba(180, 48, 22, 0.42)', stroke: '#e07040' },
   water: { label: 'Wasser', fill: 'rgba(46, 92, 170, 0.38)', stroke: '#6aa8e0' },

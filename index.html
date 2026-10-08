@@ -649,69 +649,105 @@
           <div class="dungeon-bar">
             <div class="battle-tools dungeon-tools">
               <span class="dm-only-tools dungeon-add-tools">
-                <div class="dungeon-menu" id="dungeonPlayerMenu">
-                  <button class="ghost" id="dungeonPlayerMenuBtn" type="button" aria-expanded="false" aria-haspopup="true">Spieler</button>
-                  <div class="dungeon-menu-panel hidden" id="dungeonPlayerPanel" role="menu">
-                    <div class="dungeon-pick-list" id="dungeonPlayerList"></div>
-                  </div>
-                </div>
-                <div class="dungeon-menu" id="dungeonNpcMenu">
-                  <button class="ghost" id="dungeonNpcMenuBtn" type="button" aria-expanded="false" aria-haspopup="true">NPCs</button>
-                  <div class="dungeon-menu-panel hidden" id="dungeonNpcPanel" role="menu">
-                    <div class="dungeon-pick-list" id="dungeonNpcList"></div>
-                  </div>
-                </div>
-                <div class="dungeon-menu" id="dungeonTokenMenu">
-                  <button class="ghost" id="dungeonTokenMenuBtn" type="button" aria-expanded="false" aria-haspopup="true">Tokens</button>
-                  <div class="dungeon-menu-panel dungeon-menu-panel-wide hidden" id="dungeonTokenPanel" role="menu">
-                    <div class="dungeon-menu-section">
-                      <h4>Eigenes Token</h4>
-                      <div class="dungeon-add-row">
-                        <input id="dungeonCustomName" placeholder="Name" maxlength="40" autocomplete="off" />
-                        <button class="ghost" id="dungeonCustomPortraitBtn" type="button">Portrait</button>
-                        <button class="primary" id="dungeonCustomAddBtn" type="button">Setzen</button>
+                <div class="dungeon-menu" id="dungeonFiguresMenu">
+                  <button class="ghost" id="dungeonFiguresMenuBtn" type="button" aria-expanded="false" aria-haspopup="true">Figuren</button>
+                  <div class="dungeon-menu-panel dungeon-menu-panel-wide hidden" id="dungeonFiguresPanel" role="menu">
+                    <div class="dungeon-add-row dungeon-fig-tabs">
+                      <button class="primary" id="dungeonFigTabPlayers" type="button">Spieler</button>
+                      <button class="ghost" id="dungeonFigTabNpcs" type="button">NPCs</button>
+                      <button class="ghost" id="dungeonFigTabTokens" type="button">Tokens</button>
+                    </div>
+                    <div id="dungeonFigPanePlayers" class="dungeon-fig-pane">
+                      <div class="dungeon-pick-list" id="dungeonPlayerList"></div>
+                    </div>
+                    <div id="dungeonFigPaneNpcs" class="dungeon-fig-pane hidden">
+                      <div class="dungeon-pick-list" id="dungeonNpcList"></div>
+                    </div>
+                    <div id="dungeonFigPaneTokens" class="dungeon-fig-pane hidden">
+                      <div class="dungeon-menu-section">
+                        <h4>Eigenes Token</h4>
+                        <div class="dungeon-add-row">
+                          <input id="dungeonCustomName" placeholder="Name" maxlength="40" autocomplete="off" />
+                          <button class="ghost" id="dungeonCustomPortraitBtn" type="button">Portrait</button>
+                          <button class="primary" id="dungeonCustomAddBtn" type="button">Setzen</button>
+                        </div>
+                        <p class="dungeon-side-note" id="dungeonCustomPortraitStatus">Kein Portrait</p>
                       </div>
-                      <p class="dungeon-side-note" id="dungeonCustomPortraitStatus">Kein Portrait</p>
-                    </div>
-                    <div class="dungeon-menu-section">
-                      <h4>Darstellung</h4>
-                      <label class="battle-size" for="dungeonTokenSize">Portraits
-                        <input id="dungeonTokenSize" type="range" min="24" max="80" step="2" value="48" />
-                      </label>
-                      <div class="dungeon-radius-ctrl">
-                        <span>Sichtweite</span>
-                        <span class="map-zoom">
-                          <button class="ghost" id="dungeonFogRadiusDown" type="button" title="Kleiner" aria-label="Sichtweite verkleinern">−</button>
-                          <span id="dungeonFogRadiusVal">9</span>
-                          <button class="ghost" id="dungeonFogRadiusUp" type="button" title="Größer" aria-label="Sichtweite vergrößern">+</button>
-                        </span>
+                      <div class="dungeon-menu-section">
+                        <h4>Darstellung</h4>
+                        <label class="battle-size" for="dungeonTokenSize">Portraits
+                          <input id="dungeonTokenSize" type="range" min="24" max="80" step="2" value="48" />
+                        </label>
+                        <label class="battle-size" for="dungeonScaleFt">Maßstab (ft/%)
+                          <input id="dungeonScaleFt" type="number" min="0.5" max="10" step="0.5" value="2" />
+                        </label>
                       </div>
-                    </div>
-                    <div class="dungeon-menu-section">
-                      <h4>Auf der Karte</h4>
-                      <div class="dungeon-pick-list" id="dungeonTokenList"></div>
-                      <button class="ghost" id="dungeonClearRevealsBtn" type="button">Aufdeckung zurücksetzen</button>
+                      <div class="dungeon-menu-section">
+                        <h4>Auf der Karte</h4>
+                        <div class="dungeon-pick-list" id="dungeonTokenList"></div>
+                        <button class="ghost" id="dungeonClearRevealsBtn" type="button">Erkundung zurücksetzen</button>
+                      </div>
                     </div>
                   </div>
                 </div>
+                <div class="dungeon-menu" id="dungeonDrawMenu">
+                  <button class="ghost" id="dungeonDrawMenuBtn" type="button" aria-expanded="false" aria-haspopup="true">Zeichnen</button>
+                  <div class="dungeon-menu-panel hidden" id="dungeonDrawPanel" role="menu">
+                    <div class="dungeon-add-row dungeon-draw-choices">
+                      <button class="ghost" id="dungeonWallBtn" type="button">Wand</button>
+                      <button class="ghost" id="dungeonDoorBtn" type="button">Tür</button>
+                      <button class="ghost" id="dungeonLightBtn" type="button">Licht</button>
+                      <button class="ghost" id="dungeonEraseBtn" type="button">Löschen</button>
+                    </div>
+                    <p class="dungeon-side-note">Wand: Punkte, Doppelklick/Enter fertig. Esc bricht ab.</p>
+                  </div>
+                </div>
+                <div class="dungeon-menu" id="dungeonGeoMenu">
+                  <button class="ghost" id="dungeonGeoMenuBtn" type="button" aria-expanded="false" aria-haspopup="true">Liste</button>
+                  <div class="dungeon-menu-panel dungeon-menu-panel-wide hidden" id="dungeonGeoPanel" role="menu">
+                    <div class="dungeon-menu-section">
+                      <h4>Wände</h4>
+                      <div class="dungeon-pick-list" id="dungeonWallList"></div>
+                      <button class="ghost" id="dungeonBeautifyWallsBtn" type="button">Wände begradigen</button>
+                      <button class="danger" id="dungeonClearWallsBtn" type="button">Alle Wände entfernen</button>
+                    </div>
+                    <div class="dungeon-menu-section">
+                      <h4>Türen</h4>
+                      <div class="dungeon-pick-list" id="dungeonDoorList"></div>
+                    </div>
+                    <div class="dungeon-menu-section">
+                      <h4>Lichtquellen</h4>
+                      <div class="dungeon-pick-list" id="dungeonLightList"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="dungeon-menu" id="dungeonMapMenu">
+                  <button class="ghost" id="dungeonMapMenuBtn" type="button" aria-expanded="false" aria-haspopup="true">Karte</button>
+                  <div class="dungeon-menu-panel hidden" id="dungeonMapPanel" role="menu">
+                    <div class="dungeon-add-row">
+                      <button class="ghost" id="dungeonUploadBtn" type="button">Hochladen</button>
+                      <button class="danger" id="dungeonClearBtn" type="button">Entfernen</button>
+                    </div>
+                  </div>
+                </div>
+                <input id="dungeonMapInput" type="file" accept="image/*" class="hidden" />
+                <input id="dungeonPortraitInput" type="file" accept="image/*" class="hidden" />
               </span>
               <span class="map-zoom">
                 <button class="ghost" id="dungeonZoomOut" type="button" title="Verkleinern">−</button>
                 <button class="ghost" id="dungeonZoomReset" type="button" title="Zurücksetzen">100%</button>
                 <button class="ghost" id="dungeonZoomIn" type="button" title="Vergrößern">+</button>
               </span>
-              <span class="dm-only-tools">
-                <button class="ghost" id="dungeonUploadBtn" type="button">Karte hochladen</button>
-                <button class="ghost" id="dungeonFogBtn" type="button">Nebel</button>
-                <button class="danger" id="dungeonClearBtn" type="button">Karte entfernen</button>
-                <input id="dungeonMapInput" type="file" accept="image/*" class="hidden" />
-                <input id="dungeonPortraitInput" type="file" accept="image/*" class="hidden" />
-              </span>
             </div>
           </div>
           <div class="dungeon-stage-wrap">
             <div class="dungeon-card">
               <div class="battle-board" id="dungeonBoard">
+                <button class="dungeon-fog-toggle dm-only-tools hidden" id="dungeonFogBtn" type="button" title="Nebel an/aus" aria-label="Nebel an/aus">
+                  <svg class="dungeon-fog-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path fill="currentColor" d="M7.5 18a4.5 4.5 0 0 1-.4-9 6 6 0 0 1 11.5-1.6A4.2 4.2 0 0 1 19.5 18H7.5zm-2.2-2H19a2.2 2.2 0 0 0 .2-4.4 4 4 0 0 0-7.7-1.5A4 4 0 0 0 5.3 16z"/>
+                  </svg>
+                </button>
                 <p class="battle-empty" id="dungeonEmpty"></p>
                 <div class="battle-stage hidden" id="dungeonStage">
                   <img class="battle-map" id="dungeonImg" alt="Dungeon" draggable="false" />
@@ -1195,6 +1231,7 @@
   <script src="js/characters.js"></script>
   <script src="js/sound.js"></script>
   <script src="js/combat.js"></script>
+  <script src="js/dungeon-vision.js"></script>
   <script src="js/dungeon.js"></script>
   <script src="js/cloud.js"></script>
   <script src="js/ocr.js"></script>

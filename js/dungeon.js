@@ -1,4 +1,4 @@
-/* Thalarion – Dungeon (Karte + Fog of War) */
+/* Thalarion – Dungeon (Karte + BG3-Sicht / FoW) */
 
     function dungeonNewId(prefix) {
       return (prefix || 'd') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -10,35 +10,61 @@
       return Math.max(24, Math.min(80, Math.round(v)));
     }
 
-    function clampDungeonFogRadius(n) {
-      const v = Number(n);
-      if (!Number.isFinite(v)) return 9;
-      return Math.max(4, Math.min(18, Math.round(v)));
+    function dungeonVisionFromOwner(playerId) {
+      if (!playerId || typeof sheetOwnerRecord !== 'function') {
+        return parseDungeonVision('');
+      }
+      const rec = sheetOwnerRecord(playerId);
+      const dnd = rec && rec.sheet && rec.sheet.dnd;
+      const senses = dnd ? (dnd.senses || '') : '';
+      // Auch Notizen/Features durchsuchen, falls Sinne nur dort stehen
+      const blob = [
+        senses,
+        dnd && dnd.features ? dnd.features.map(f => (f && f.name) + ' ' + (f && f.text)).join(' ') : '',
+        dnd && dnd.extras ? dnd.extras : '',
+        rec && rec.sheet ? rec.sheet.extra : ''
+      ].join('\n');
+      return parseDungeonVision(blob || senses);
+    }
+
+    function resolveDungeonTokenVision(token) {
+      if (!token) return parseDungeonVision('');
+      if (token.playerId) {
+        const live = dungeonVisionFromOwner(token.playerId);
+        if (live.rangeFeet > 0) return live;
+      }
+      if (token.vision && Number(token.vision.rangeFeet) > 0) {
+        return parseDungeonVision('', token.vision);
+      }
+      return parseDungeonVision('');
     }
 
     function normalizeDungeonToken(t) {
       const raw = t && typeof t === 'object' ? t : {};
       const kind = raw.kind === 'player' || raw.kind === 'npc' ? raw.kind : 'custom';
+      let vision = parseDungeonVision('', raw.vision);
+      if (raw.playerId) {
+        const live = dungeonVisionFromOwner(raw.playerId);
+        if (live.rangeFeet > 0) vision = live;
+        else if (!(vision.rangeFeet > 0)) vision = live;
+      }
+      const light = dungeonTokenLightNorm(raw.lightSource);
+      if (raw.lightSource == null) {
+        light.enabled = vision.type === 'none';
+        light.range = DUNGEON_TORCH_FEET;
+      }
       return {
         id: raw.id || dungeonNewId('dt'),
         name: String(raw.name || '').trim() || 'Figur',
         kind: kind,
         playerId: String(raw.playerId || ''),
         portraitId: String(raw.portraitId || ''),
-        x: Math.max(0, Math.min(100, Number(raw.x) || 50)),
-        y: Math.max(0, Math.min(100, Number(raw.y) || 50)),
+        x: dungeonClampPct(raw.x != null ? raw.x : 50),
+        y: dungeonClampPct(raw.y != null ? raw.y : 50),
+        facing: Number.isFinite(Number(raw.facing)) ? Number(raw.facing) : -Math.PI / 2,
+        vision: vision,
+        lightSource: light,
         movedAt: stamp(raw.movedAt)
-      };
-    }
-
-    function normalizeDungeonFogReveal(r) {
-      const raw = r && typeof r === 'object' ? r : {};
-      return {
-        id: raw.id || dungeonNewId('fog'),
-        x: Math.max(0, Math.min(100, Number(raw.x) || 0)),
-        y: Math.max(0, Math.min(100, Number(raw.y) || 0)),
-        r: clampDungeonFogRadius(raw.r || dungeon.fogRadius),
-        updatedAt: stamp(raw.updatedAt)
       };
     }
 
@@ -47,12 +73,17 @@
         updatedAt: stamp(dungeon.updatedAt),
         layoutAt: stamp(dungeon.layoutAt),
         tokens: (dungeon.tokens || []).map(normalizeDungeonToken),
+        walls: (dungeon.walls || []).map(w => dungeonSegNorm(w, 'wall')),
+        doors: (dungeon.doors || []).map(dungeonDoorNorm),
+        lights: (dungeon.lights || []).map(dungeonLightNorm),
         fogOn: dungeon.fogOn !== false,
-        fogReveals: (dungeon.fogReveals || []).map(normalizeDungeonFogReveal),
-        fogRadius: clampDungeonFogRadius(dungeon.fogRadius),
+        scaleFt: dungeonScaleFt(),
+        exploredGen: Math.max(0, Number(dungeon.exploredGen) || 0),
         tokenSize: clampDungeonTokenSize(dungeon.tokenSize),
         removedTokens: Object.assign({}, dungeon.removedTokens || {}),
-        removedFog: Object.assign({}, dungeon.removedFog || {})
+        removedWalls: Object.assign({}, dungeon.removedWalls || {}),
+        removedDoors: Object.assign({}, dungeon.removedDoors || {}),
+        removedLights: Object.assign({}, dungeon.removedLights || {})
       };
     }
 
@@ -60,7 +91,9 @@
       a = a || {};
       b = b || {};
       const removedTokens = mergeStampMap(a.removedTokens, b.removedTokens);
-      const removedFog = mergeStampMap(a.removedFog, b.removedFog);
+      const removedWalls = mergeStampMap(a.removedWalls, b.removedWalls);
+      const removedDoors = mergeStampMap(a.removedDoors, b.removedDoors);
+      const removedLights = mergeStampMap(a.removedLights, b.removedLights);
       const layoutSrc = stamp(b.layoutAt) >= stamp(a.layoutAt) ? b : a;
       return {
         updatedAt: Math.max(stamp(a.updatedAt), stamp(b.updatedAt)),
@@ -71,21 +104,36 @@
           'movedAt',
           removedTokens
         ),
-        fogOn: layoutSrc.fogOn !== false,
-        fogReveals: mergeByStamp(
-          (Array.isArray(a.fogReveals) ? a.fogReveals : []).map(normalizeDungeonFogReveal),
-          (Array.isArray(b.fogReveals) ? b.fogReveals : []).map(normalizeDungeonFogReveal),
+        walls: mergeByStamp(
+          (Array.isArray(a.walls) ? a.walls : []).map(w => dungeonSegNorm(w, 'wall')),
+          (Array.isArray(b.walls) ? b.walls : []).map(w => dungeonSegNorm(w, 'wall')),
           'updatedAt',
-          removedFog
+          removedWalls
         ),
-        fogRadius: clampDungeonFogRadius(
-          stamp(b.layoutAt) >= stamp(a.layoutAt) ? (b.fogRadius != null ? b.fogRadius : a.fogRadius) : (a.fogRadius != null ? a.fogRadius : b.fogRadius)
+        doors: mergeByStamp(
+          (Array.isArray(a.doors) ? a.doors : []).map(dungeonDoorNorm),
+          (Array.isArray(b.doors) ? b.doors : []).map(dungeonDoorNorm),
+          'updatedAt',
+          removedDoors
         ),
+        lights: mergeByStamp(
+          (Array.isArray(a.lights) ? a.lights : []).map(dungeonLightNorm),
+          (Array.isArray(b.lights) ? b.lights : []).map(dungeonLightNorm),
+          'updatedAt',
+          removedLights
+        ),
+        fogOn: layoutSrc.fogOn !== false,
+        scaleFt: Number(layoutSrc.scaleFt) > 0 ? Number(layoutSrc.scaleFt) : dungeonScaleFt(),
+        exploredGen: Math.max(Number(a.exploredGen) || 0, Number(b.exploredGen) || 0),
         tokenSize: clampDungeonTokenSize(
-          stamp(b.layoutAt) >= stamp(a.layoutAt) ? (b.tokenSize != null ? b.tokenSize : a.tokenSize) : (a.tokenSize != null ? a.tokenSize : b.tokenSize)
+          stamp(b.layoutAt) >= stamp(a.layoutAt)
+            ? (b.tokenSize != null ? b.tokenSize : a.tokenSize)
+            : (a.tokenSize != null ? a.tokenSize : b.tokenSize)
         ),
         removedTokens: removedTokens,
-        removedFog: removedFog
+        removedWalls: removedWalls,
+        removedDoors: removedDoors,
+        removedLights: removedLights
       };
     }
 
@@ -93,13 +141,19 @@
       dungeon.updatedAt = stamp(next.updatedAt);
       dungeon.layoutAt = stamp(next.layoutAt);
       dungeon.tokens = next.tokens || [];
+      dungeon.walls = next.walls || [];
+      dungeon.doors = next.doors || [];
+      dungeon.lights = next.lights || [];
       dungeon.fogOn = next.fogOn !== false;
-      dungeon.fogReveals = next.fogReveals || [];
-      dungeon.fogRadius = clampDungeonFogRadius(next.fogRadius);
+      dungeon.scaleFt = Number(next.scaleFt) > 0 ? Number(next.scaleFt) : DUNGEON_DEFAULT_SCALE_FT;
+      dungeon.exploredGen = Math.max(0, Number(next.exploredGen) || 0);
       dungeon.tokenSize = clampDungeonTokenSize(next.tokenSize);
       dungeon.removedTokens = next.removedTokens || {};
-      dungeon.removedFog = next.removedFog || {};
+      dungeon.removedWalls = next.removedWalls || {};
+      dungeon.removedDoors = next.removedDoors || {};
+      dungeon.removedLights = next.removedLights || {};
       persistDungeonLocal();
+      ensureDungeonExploredBuffer(true);
       if (doRender !== false) renderDungeon();
     }
 
@@ -128,12 +182,17 @@
         dungeon.updatedAt = stamp(raw.updatedAt);
         dungeon.layoutAt = stamp(raw.layoutAt);
         dungeon.tokens = (Array.isArray(raw.tokens) ? raw.tokens : []).map(normalizeDungeonToken);
+        dungeon.walls = (Array.isArray(raw.walls) ? raw.walls : []).map(w => dungeonSegNorm(w, 'wall'));
+        dungeon.doors = (Array.isArray(raw.doors) ? raw.doors : []).map(dungeonDoorNorm);
+        dungeon.lights = (Array.isArray(raw.lights) ? raw.lights : []).map(dungeonLightNorm);
         dungeon.fogOn = raw.fogOn !== false;
-        dungeon.fogReveals = (Array.isArray(raw.fogReveals) ? raw.fogReveals : []).map(normalizeDungeonFogReveal);
-        dungeon.fogRadius = clampDungeonFogRadius(raw.fogRadius);
+        dungeon.scaleFt = Number(raw.scaleFt) > 0 ? Number(raw.scaleFt) : DUNGEON_DEFAULT_SCALE_FT;
+        dungeon.exploredGen = Math.max(0, Number(raw.exploredGen) || 0);
         dungeon.tokenSize = clampDungeonTokenSize(raw.tokenSize);
         dungeon.removedTokens = Object.assign({}, raw.removedTokens || {});
-        dungeon.removedFog = Object.assign({}, raw.removedFog || {});
+        dungeon.removedWalls = Object.assign({}, raw.removedWalls || {});
+        dungeon.removedDoors = Object.assign({}, raw.removedDoors || {});
+        dungeon.removedLights = Object.assign({}, raw.removedLights || {});
       } catch (err) {}
     }
 
@@ -241,51 +300,114 @@
       };
     }
 
-    function dungeonPointCovered(x, y, minR) {
-      const need = (minR != null ? minR : clampDungeonFogRadius(dungeon.fogRadius) * 0.55);
-      const drawR = clampDungeonFogRadius(dungeon.fogRadius);
-      return (dungeon.fogReveals || []).some(c => {
-        const dx = x - c.x;
-        const dy = y - c.y;
-        const r = Math.max(need, drawR);
-        return (dx * dx + dy * dy) <= (r * r);
-      });
-    }
-
-    function dungeonStampReveal(x, y, force) {
-      if (!dungeon.fogOn) return false;
-      const r = clampDungeonFogRadius(dungeon.fogRadius);
-      if (!force && dungeonPointCovered(x, y, r * 0.5)) return false;
-      dungeon.fogReveals.push({
-        id: dungeonNewId('fog'),
-        x: Math.max(0, Math.min(100, x)),
-        y: Math.max(0, Math.min(100, y)),
-        r: r,
-        updatedAt: stampNow()
-      });
-      dungeon.layoutAt = stampNow();
-      return true;
-    }
-
-    function setDungeonFogRadius(value, persist) {
-      dungeon.fogRadius = clampDungeonFogRadius(value);
-      const r = dungeon.fogRadius;
-      const now = stampNow();
-      (dungeon.fogReveals || []).forEach(c => {
-        c.r = r;
-        c.updatedAt = now;
-      });
-      dungeon.layoutAt = now;
-      syncDungeonFogControls();
-      renderDungeonFog();
-      if (persist) persistDungeonSoon();
-    }
-
     function canMoveDungeonToken(token) {
       if (!token) return false;
       if (isDM) return true;
       if (!currentPlayerId || !token.playerId) return false;
       return sheetAccountId(token.playerId) === currentPlayerId || token.playerId === currentPlayerId;
+    }
+
+    function dungeonViewerKey() {
+      if (isDM) return 'dm';
+      return currentPlayerId || 'guest';
+    }
+
+    function dungeonExploredStorageKey() {
+      return DUNGEON_EXPLORED_LOCAL_KEY + '_' + dungeonViewerKey() + '_g' + (Math.max(0, Number(dungeon.exploredGen) || 0));
+    }
+
+    function ensureDungeonExploredBuffer(forceReload) {
+      const size = 256;
+      const viewer = dungeonViewerKey();
+      const gen = Math.max(0, Number(dungeon.exploredGen) || 0);
+      if (!dungeonExploredCanvas) {
+        dungeonExploredCanvas = document.createElement('canvas');
+        dungeonExploredCanvas.width = size;
+        dungeonExploredCanvas.height = size;
+        dungeonExploredCtx = dungeonExploredCanvas.getContext('2d');
+      }
+      if (!forceReload && dungeonExploredLoadedGen === gen && dungeonExploredViewer === viewer) return;
+      dungeonExploredLoadedGen = gen;
+      dungeonExploredViewer = viewer;
+      dungeonExploredCtx.setTransform(1, 0, 0, 1, 0, 0);
+      dungeonExploredCtx.clearRect(0, 0, size, size);
+      try {
+        const raw = localStorage.getItem(dungeonExploredStorageKey());
+        if (!raw) return;
+        const img = new Image();
+        img.onload = () => {
+          dungeonExploredCtx.clearRect(0, 0, size, size);
+          dungeonExploredCtx.drawImage(img, 0, 0, size, size);
+          if (currentPage === 'dungeon') renderDungeonFog();
+        };
+        img.src = raw;
+      } catch (err) {}
+    }
+
+    function persistDungeonExploredSoon() {
+      if (!dungeonExploredCanvas || isDM) return;
+      try {
+        writeLocal(dungeonExploredStorageKey(), dungeonExploredCanvas.toDataURL('image/png'));
+      } catch (err) {}
+    }
+
+    function accumulateDungeonExplored(polys, w, h) {
+      if (isDM || !dungeonExploredCtx || !polys || !polys.length) return;
+      const size = dungeonExploredCanvas.width;
+      dungeonExploredCtx.save();
+      dungeonExploredCtx.fillStyle = '#fff';
+      dungeonExploredCtx.globalCompositeOperation = 'source-over';
+      polys.forEach(poly => {
+        if (!poly || poly.length < 3) return;
+        dungeonExploredCtx.beginPath();
+        dungeonExploredCtx.moveTo(poly[0].x / 100 * size, poly[0].y / 100 * size);
+        for (let i = 1; i < poly.length; i++) {
+          dungeonExploredCtx.lineTo(poly[i].x / 100 * size, poly[i].y / 100 * size);
+        }
+        dungeonExploredCtx.closePath();
+        dungeonExploredCtx.fill();
+      });
+      dungeonExploredCtx.restore();
+      clearTimeout(accumulateDungeonExplored._t);
+      accumulateDungeonExplored._t = setTimeout(persistDungeonExploredSoon, 400);
+    }
+
+    function collectDungeonVisiblePolys() {
+      const obstacles = dungeonObstacleSegments();
+      const polys = [];
+      (dungeon.lights || []).forEach(L => {
+        if (!L || !L.enabled) return;
+        const p = dungeonLightPolygon(L.x, L.y, L.range, obstacles);
+        if (p.length) polys.push(p);
+      });
+      (dungeon.tokens || []).forEach(token => {
+        if (token.lightSource && token.lightSource.enabled) {
+          const p = dungeonLightPolygon(token.x, token.y, token.lightSource.range || DUNGEON_TORCH_FEET, obstacles);
+          if (p.length) polys.push(p);
+        }
+      });
+      const visionTokens = (dungeon.tokens || []).filter(t => {
+        if (isDM) return false;
+        return canMoveDungeonToken(t);
+      });
+      visionTokens.forEach(token => {
+        const v = resolveDungeonTokenVision(token);
+        token.vision = v;
+        if (!v || v.type === 'none' || !(v.rangeFeet > 0)) return;
+        const p = dungeonVisionPolygon(token.x, token.y, token.facing || 0, v.rangeFeet, v.angleDeg, obstacles);
+        if (p.length) polys.push(p);
+      });
+      if (isDM) {
+        (dungeon.tokens || []).forEach(token => {
+          const v = resolveDungeonTokenVision(token);
+          token.vision = v;
+          if (v && v.type !== 'none' && v.rangeFeet > 0) {
+            const p = dungeonVisionPolygon(token.x, token.y, token.facing || 0, v.rangeFeet, v.angleDeg, obstacles);
+            if (p.length) polys.push(p);
+          }
+        });
+      }
+      return polys;
     }
 
     function applyDungeonTokenSize() {
@@ -303,23 +425,37 @@
     function syncDungeonFogControls() {
       const fogBtn = document.getElementById('dungeonFogBtn');
       if (fogBtn) {
-        fogBtn.classList.toggle('primary', !!dungeon.fogOn);
-        fogBtn.classList.toggle('ghost', !dungeon.fogOn);
+        fogBtn.classList.toggle('hidden', !isDM || !dungeon.image);
+        fogBtn.classList.toggle('is-on', !!dungeon.fogOn);
+        fogBtn.setAttribute('aria-pressed', dungeon.fogOn ? 'true' : 'false');
+        fogBtn.title = dungeon.fogOn ? 'Nebel aus' : 'Nebel an';
       }
-      const r = clampDungeonFogRadius(dungeon.fogRadius);
-      const radVal = document.getElementById('dungeonFogRadiusVal');
-      if (radVal) radVal.textContent = String(r);
-      const down = document.getElementById('dungeonFogRadiusDown');
-      const up = document.getElementById('dungeonFogRadiusUp');
-      if (down) down.disabled = r <= 4;
-      if (up) up.disabled = r >= 18;
+      const drawMenuBtn = document.getElementById('dungeonDrawMenuBtn');
+      if (drawMenuBtn) {
+        const drawing = !!dungeonDrawMode;
+        drawMenuBtn.classList.toggle('primary', drawing);
+        drawMenuBtn.classList.toggle('ghost', !drawing);
+      }
+      [
+        ['dungeonWallBtn', 'wall'],
+        ['dungeonDoorBtn', 'door'],
+        ['dungeonLightBtn', 'light'],
+        ['dungeonEraseBtn', 'erase']
+      ].forEach(([id, mode]) => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        const on = dungeonDrawMode === mode;
+        btn.classList.toggle('primary', on);
+        btn.classList.toggle('ghost', !on);
+      });
     }
 
     function closeDungeonMenus(exceptId) {
       [
-        ['dungeonPlayerPanel', 'dungeonPlayerMenuBtn'],
-        ['dungeonNpcPanel', 'dungeonNpcMenuBtn'],
-        ['dungeonTokenPanel', 'dungeonTokenMenuBtn']
+        ['dungeonFiguresPanel', 'dungeonFiguresMenuBtn'],
+        ['dungeonDrawPanel', 'dungeonDrawMenuBtn'],
+        ['dungeonGeoPanel', 'dungeonGeoMenuBtn'],
+        ['dungeonMapPanel', 'dungeonMapMenuBtn']
       ].forEach(([panelId, btnId]) => {
         if (exceptId && panelId === exceptId) return;
         const panel = document.getElementById(panelId);
@@ -327,10 +463,13 @@
         if (panel) panel.classList.add('hidden');
         if (btn) {
           btn.setAttribute('aria-expanded', 'false');
-          btn.classList.add('ghost');
-          btn.classList.remove('primary');
+          if (btnId !== 'dungeonDrawMenuBtn' || !dungeonDrawMode) {
+            btn.classList.add('ghost');
+            btn.classList.remove('primary');
+          }
         }
       });
+      syncDungeonFogControls();
     }
 
     function toggleDungeonMenu(panelId, btnId) {
@@ -341,9 +480,32 @@
       closeDungeonMenus(open ? panelId : '');
       panel.classList.toggle('hidden', !open);
       btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-      btn.classList.toggle('primary', open);
-      btn.classList.toggle('ghost', !open);
-      if (open && isDM) renderDungeonPickLists();
+      btn.classList.toggle('primary', open || (btnId === 'dungeonDrawMenuBtn' && !!dungeonDrawMode));
+      btn.classList.toggle('ghost', !(open || (btnId === 'dungeonDrawMenuBtn' && !!dungeonDrawMode)));
+      if (open && isDM) {
+        renderDungeonPickLists();
+        renderDungeonGeoLists();
+      }
+    }
+
+    function setDungeonFigTab(tab) {
+      const tabs = {
+        players: ['dungeonFigTabPlayers', 'dungeonFigPanePlayers'],
+        npcs: ['dungeonFigTabNpcs', 'dungeonFigPaneNpcs'],
+        tokens: ['dungeonFigTabTokens', 'dungeonFigPaneTokens']
+      };
+      Object.keys(tabs).forEach(key => {
+        const [tabId, paneId] = tabs[key];
+        const t = document.getElementById(tabId);
+        const p = document.getElementById(paneId);
+        const on = key === tab;
+        if (t) {
+          t.classList.toggle('primary', on);
+          t.classList.toggle('ghost', !on);
+        }
+        if (p) p.classList.toggle('hidden', !on);
+      });
+      if (isDM) renderDungeonPickLists();
     }
 
     function clampDungeonPan() {
@@ -429,7 +591,7 @@
       }, { passive: false });
       board.addEventListener('pointerdown', ev => {
         if (ev.button && ev.button !== 0) return;
-        if (dungeonTokenDrag || dungeonPlaceMode) return;
+        if (dungeonTokenDrag || dungeonPlaceMode || dungeonDrawMode) return;
         if (ev.target.closest && ev.target.closest('.battle-token')) return;
         if (dungeonScale <= 1) return;
         ev.preventDefault();
@@ -470,25 +632,170 @@
       if (!canvas || !stage) return;
       const on = !!dungeon.fogOn && !!dungeon.image;
       canvas.classList.toggle('hidden', !on);
-      if (!on) return;
+      if (!on) {
+        dungeonVisiblePolys = [];
+        return;
+      }
       const w = stage.clientWidth;
       const h = stage.clientHeight;
       if (!w || !h) return;
       if (canvas.width !== w) canvas.width = w;
       if (canvas.height !== h) canvas.height = h;
+      ensureDungeonExploredBuffer(false);
+      const polys = collectDungeonVisiblePolys();
+      dungeonVisiblePolys = polys;
+      if (!isDM) accumulateDungeonExplored(polys, w, h);
+
       const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, w, h);
-      // DM: halbtransparent (Karte noch lesbar). Spieler: undurchsichtches Schwarz.
-      ctx.fillStyle = isDM ? 'rgba(8,6,4,0.48)' : '#000';
-      ctx.fillRect(0, 0, w, h);
-      ctx.globalCompositeOperation = 'destination-out';
-      const holeR = clampDungeonFogRadius(dungeon.fogRadius);
-      (dungeon.fogReveals || []).forEach(c => {
-        ctx.beginPath();
-        ctx.arc(c.x / 100 * w, c.y / 100 * h, (holeR / 100) * w, 0, Math.PI * 2);
-        ctx.fill();
-      });
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalCompositeOperation = 'source-over';
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = isDM ? 'rgba(8,6,4,0.42)' : '#000';
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.globalCompositeOperation = 'destination-out';
+      if (!isDM && dungeonExploredCanvas) {
+        ctx.globalAlpha = 0.55;
+        ctx.drawImage(dungeonExploredCanvas, 0, 0, w, h);
+        ctx.globalAlpha = 1;
+      }
+      ctx.fillStyle = '#fff';
+      polys.forEach(poly => dungeonFillPolyPct(ctx, poly, w, h));
+      ctx.globalCompositeOperation = 'source-over';
+      renderDungeonGeometryOverlay();
+    }
+
+    function renderDungeonGeometryOverlay() {
+      let svg = document.getElementById('dungeonGeo');
+      const stage = document.getElementById('dungeonStage');
+      if (!stage) return;
+      if (!svg) {
+        svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('id', 'dungeonGeo');
+        svg.setAttribute('class', 'dungeon-geo');
+        svg.setAttribute('viewBox', '0 0 100 100');
+        svg.setAttribute('preserveAspectRatio', 'none');
+        stage.appendChild(svg);
+      }
+      const hasDoors = (dungeon.doors || []).length > 0;
+      const show = isDM || dungeonDrawMode || hasDoors;
+      svg.classList.toggle('hidden', !show);
+      if (!show) {
+        svg.innerHTML = '';
+        return;
+      }
+      let html = '';
+      if (isDM || dungeonDrawMode) {
+        (dungeon.walls || []).forEach(w => {
+          html += '<line class="dungeon-wall" data-id="' + w.id + '" x1="' + w.x1 + '" y1="' + w.y1 +
+            '" x2="' + w.x2 + '" y2="' + w.y2 + '" />';
+        });
+        (dungeon.lights || []).forEach(L => {
+          if (!L.enabled) return;
+          html += '<circle class="dungeon-light-dot" data-id="' + L.id + '" cx="' + L.x + '" cy="' + L.y + '" r="1.2" />';
+        });
+        dungeonDrawPoints.forEach((p, i) => {
+          html += '<circle class="dungeon-draw-pt" cx="' + p.x + '" cy="' + p.y + '" r="0.8" />';
+          if (i > 0) {
+            const prev = dungeonDrawPoints[i - 1];
+            html += '<line class="dungeon-draw-line" x1="' + prev.x + '" y1="' + prev.y +
+              '" x2="' + p.x + '" y2="' + p.y + '" />';
+          }
+        });
+      }
+      (dungeon.doors || []).forEach(d => {
+        if (!isDM && dungeon.fogOn) {
+          const mx = (d.x1 + d.x2) / 2;
+          const my = (d.y1 + d.y2) / 2;
+          if (!dungeonPointVisibleNow(mx, my) && !dungeonPointVisibleNow(d.x1, d.y1) && !dungeonPointVisibleNow(d.x2, d.y2)) {
+            return;
+          }
+        }
+        html += '<line class="dungeon-door' + (d.open ? ' is-open' : '') + '" data-id="' + d.id +
+          '" x1="' + d.x1 + '" y1="' + d.y1 + '" x2="' + d.x2 + '" y2="' + d.y2 + '" />';
+      });
+      svg.innerHTML = html;
+      svg.querySelectorAll('.dungeon-door').forEach(el => {
+        el.style.pointerEvents = 'stroke';
+        el.addEventListener('click', ev => {
+          ev.stopPropagation();
+          const id = el.getAttribute('data-id');
+          if (isDM && dungeonDrawMode === 'erase') {
+            removeDungeonDoor(id);
+            return;
+          }
+          toggleDungeonDoor(id);
+        });
+      });
+      if (isDM) {
+        svg.querySelectorAll('.dungeon-wall').forEach(el => {
+          el.style.pointerEvents = 'stroke';
+          el.classList.toggle('is-erasable', dungeonDrawMode === 'erase');
+          el.addEventListener('click', ev => {
+            ev.stopPropagation();
+            if (dungeonDrawMode === 'erase') {
+              removeDungeonWall(el.getAttribute('data-id'));
+              return;
+            }
+          });
+          el.addEventListener('dblclick', ev => {
+            ev.stopPropagation();
+            removeDungeonWall(el.getAttribute('data-id'));
+          });
+        });
+        svg.querySelectorAll('.dungeon-light-dot').forEach(el => {
+          el.style.pointerEvents = 'all';
+          el.addEventListener('click', ev => {
+            ev.stopPropagation();
+            if (dungeonDrawMode === 'erase') {
+              removeDungeonLight(el.getAttribute('data-id'));
+            }
+          });
+          el.addEventListener('dblclick', ev => {
+            ev.stopPropagation();
+            removeDungeonLight(el.getAttribute('data-id'));
+          });
+        });
+      }
+    }
+
+    function scheduleDungeonVision() {
+      if (dungeonVisionRaf) return;
+      dungeonVisionRaf = requestAnimationFrame(() => {
+        dungeonVisionRaf = 0;
+        renderDungeonFog();
+        if (dungeonFacingDirty) {
+          dungeonFacingDirty = false;
+          persistDungeonSoon();
+        }
+      });
+    }
+
+    function updateDungeonFacingFromEvent(ev) {
+      const stage = document.getElementById('dungeonStage');
+      if (!stage || !dungeon.image || dungeonDrawMode || dungeonPlaceMode) return;
+      const pct = dungeonPctFromEvent(stage, ev);
+      const focus = (dungeon.tokens || []).find(t => t.id === dungeonFocusTokenId);
+      const movers = (dungeon.tokens || []).filter(t => canMoveDungeonToken(t));
+      if (!movers.length) return;
+      // Fokus-Token folgt der Maus; andere eigene Tokens mit Dunkelsicht ebenfalls
+      let changed = false;
+      movers.forEach(token => {
+        const v = resolveDungeonTokenVision(token);
+        const isFocus = focus ? token.id === focus.id : token.id === movers[0].id;
+        if (!isFocus && !(v.rangeFeet > 0)) return;
+        const dx = pct.x - token.x;
+        const dy = pct.y - token.y;
+        if (Math.abs(dx) + Math.abs(dy) < 0.15) return;
+        const next = Math.atan2(dy, dx);
+        if (Math.abs(next - (token.facing || 0)) < 0.02) return;
+        token.facing = next;
+        token.movedAt = stampNow();
+        changed = true;
+      });
+      if (!changed) return;
+      dungeonFacingDirty = true;
+      scheduleDungeonVision();
     }
 
     function startDungeonTokenDrag(ev, token, stage, el) {
@@ -498,13 +805,12 @@
       ev.stopPropagation();
       try { el.setPointerCapture(ev.pointerId); } catch (err) {}
       dungeonTokenDragMoved = false;
+      dungeonFocusTokenId = token.id;
       const originX = ev.clientX;
       const originY = ev.clientY;
       const tapSlop = ev.pointerType === 'mouse' ? 8 : 16;
       dungeonTokenDrag = { id: token.id, pointerId: ev.pointerId, el: el, stage: stage };
       el.classList.add('is-dragging');
-      let lastReveal = { x: token.x, y: token.y };
-      dungeonStampReveal(token.x, token.y, false);
       const move = e => {
         if (!dungeonTokenDrag || e.pointerId !== dungeonTokenDrag.pointerId) return;
         if (Math.abs(e.clientX - originX) + Math.abs(e.clientY - originY) > tapSlop) {
@@ -517,15 +823,7 @@
         t.y = pct.y;
         el.style.left = t.x + '%';
         el.style.top = t.y + '%';
-        const dx = pct.x - lastReveal.x;
-        const dy = pct.y - lastReveal.y;
-        const step = clampDungeonFogRadius(dungeon.fogRadius) * 0.45;
-        if ((dx * dx + dy * dy) >= (step * step)) {
-          if (dungeonStampReveal(pct.x, pct.y, false)) {
-            lastReveal = { x: pct.x, y: pct.y };
-            renderDungeonFog();
-          }
-        }
+        renderDungeonFog();
       };
       const up = e => {
         if (!dungeonTokenDrag || e.pointerId !== dungeonTokenDrag.pointerId) return;
@@ -538,7 +836,6 @@
         if (t) {
           t.movedAt = stampNow();
           if (dungeon.removedTokens) delete dungeon.removedTokens[t.id];
-          dungeonStampReveal(t.x, t.y, false);
         }
         dungeon.layoutAt = stampNow();
         persistDungeonSoon();
@@ -561,14 +858,17 @@
       if (!box || !stage) return;
       box.innerHTML = '';
       dungeon.tokens.forEach(token => {
-        if (!isDM && dungeon.fogOn && !dungeonPointCovered(token.x, token.y, 1)) return;
+        const mine = canMoveDungeonToken(token);
+        if (!isDM && dungeon.fogOn && !mine && !dungeonPointVisibleNow(token.x, token.y)) return;
         const el = document.createElement('button');
         el.type = 'button';
         el.className = 'battle-token ' + (token.kind === 'player' ? 'is-player' : 'is-enemy');
-        if (canMoveDungeonToken(token)) el.classList.add('is-mine');
+        if (mine) el.classList.add('is-mine');
+        if (token.id === dungeonFocusTokenId) el.classList.add('is-focus');
         el.dataset.id = token.id;
         el.style.left = token.x + '%';
         el.style.top = token.y + '%';
+        el.style.setProperty('--dungeon-facing', (token.facing || 0) + 'rad');
         el.title = token.name;
         const face = document.createElement('div');
         face.className = 'battle-token-face';
@@ -577,6 +877,19 @@
         label.textContent = token.name || '—';
         el.appendChild(face);
         el.appendChild(label);
+        if (mine || isDM) {
+          const torch = document.createElement('span');
+          torch.className = 'dungeon-token-torch' + (token.lightSource && token.lightSource.enabled ? ' is-on' : '');
+          torch.textContent = 'L';
+          torch.title = token.lightSource && token.lightSource.enabled ? 'Fackel aus' : 'Fackel an';
+          torch.addEventListener('pointerdown', ev => ev.stopPropagation());
+          torch.addEventListener('click', ev => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            toggleDungeonTokenLight(token.id);
+          });
+          el.appendChild(torch);
+        }
         if (isDM) {
           const del = document.createElement('span');
           del.className = 'battle-token-del';
@@ -590,13 +903,26 @@
           });
           el.appendChild(del);
         }
-        if (canMoveDungeonToken(token)) {
+        if (mine) {
           el.addEventListener('pointerdown', ev => startDungeonTokenDrag(ev, token, stage, el));
+          el.addEventListener('click', () => { dungeonFocusTokenId = token.id; });
         } else {
           el.style.cursor = 'default';
         }
         box.appendChild(el);
       });
+    }
+
+    function toggleDungeonTokenLight(id) {
+      const t = (dungeon.tokens || []).find(x => x.id === id);
+      if (!t) return;
+      if (!isDM && !canMoveDungeonToken(t)) return;
+      if (!t.lightSource) t.lightSource = dungeonTokenLightNorm({ enabled: false });
+      t.lightSource.enabled = !t.lightSource.enabled;
+      t.movedAt = stampNow();
+      dungeon.layoutAt = stampNow();
+      persistDungeonSoon();
+      renderDungeon();
     }
 
     function removeDungeonToken(id) {
@@ -607,6 +933,213 @@
       dungeon.layoutAt = stampNow();
       persistDungeonSoon();
       renderDungeon();
+    }
+
+    function removeDungeonWall(id) {
+      if (!isDM || !id) return;
+      if (!dungeon.removedWalls) dungeon.removedWalls = {};
+      dungeon.removedWalls[id] = stampNow();
+      dungeon.walls = (dungeon.walls || []).filter(w => w.id !== id);
+      dungeon.layoutAt = stampNow();
+      persistDungeonSoon();
+      renderDungeon();
+    }
+
+    function removeDungeonDoor(id) {
+      if (!isDM || !id) return;
+      if (!dungeon.removedDoors) dungeon.removedDoors = {};
+      dungeon.removedDoors[id] = stampNow();
+      dungeon.doors = (dungeon.doors || []).filter(d => d.id !== id);
+      dungeon.layoutAt = stampNow();
+      persistDungeonSoon();
+      renderDungeon();
+    }
+
+    function removeDungeonLight(id) {
+      if (!isDM || !id) return;
+      if (!dungeon.removedLights) dungeon.removedLights = {};
+      dungeon.removedLights[id] = stampNow();
+      dungeon.lights = (dungeon.lights || []).filter(L => L.id !== id);
+      dungeon.layoutAt = stampNow();
+      persistDungeonSoon();
+      renderDungeon();
+    }
+
+    function toggleDungeonDoor(id) {
+      const door = (dungeon.doors || []).find(d => d.id === id);
+      if (!door) return;
+      if (!isDM) {
+        if (!dungeonPointVisibleNow((door.x1 + door.x2) / 2, (door.y1 + door.y2) / 2) &&
+            !dungeonPointVisibleNow(door.x1, door.y1) &&
+            !dungeonPointVisibleNow(door.x2, door.y2)) {
+          return toast('Tür nicht in Sicht.');
+        }
+      }
+      door.open = !door.open;
+      door.updatedAt = stampNow();
+      dungeon.layoutAt = stampNow();
+      persistDungeonSoon();
+      renderDungeon();
+      toast(door.open ? 'Tür geöffnet.' : 'Tür geschlossen.');
+    }
+
+    function setDungeonDrawMode(mode) {
+      if (!isDM) return;
+      const stage = document.getElementById('dungeonStage');
+      if (dungeonDrawMode === mode) {
+        dungeonDrawMode = null;
+        dungeonDrawPoints = [];
+      } else {
+        cancelDungeonPlace();
+        dungeonDrawMode = mode;
+        dungeonDrawPoints = [];
+        toast(mode === 'wall'
+          ? 'Wand: Punkte tippen (fast waagerecht/senkrecht wird begradigt). Doppelklick/Enter fertig.'
+          : mode === 'door'
+            ? 'Tür: zwei Punkte tippen (wird ggf. begradigt).'
+            : mode === 'erase'
+              ? 'Löschen: Wand, Tür oder Licht antippen.'
+              : 'Licht: auf die Karte tippen.');
+      }
+      if (stage) {
+        stage.classList.toggle('is-draw', !!dungeonDrawMode);
+        stage.classList.toggle('is-erase', dungeonDrawMode === 'erase');
+      }
+      syncDungeonFogControls();
+      renderDungeonGeometryOverlay();
+    }
+
+    function clearAllDungeonWalls() {
+      if (!isDM) return;
+      if (!(dungeon.walls || []).length) return toast('Keine Wände.');
+      if (!confirm('Alle Wände entfernen?')) return;
+      const now = stampNow();
+      if (!dungeon.removedWalls) dungeon.removedWalls = {};
+      (dungeon.walls || []).forEach(w => { dungeon.removedWalls[w.id] = now; });
+      dungeon.walls = [];
+      dungeon.layoutAt = now;
+      persistDungeonSoon();
+      renderDungeon();
+      toast('Alle Wände entfernt.');
+    }
+
+    function beautifyExistingDungeonWalls() {
+      if (!isDM) return;
+      const walls = dungeon.walls || [];
+      if (!walls.length) return toast('Keine Wände.');
+      let n = 0;
+      walls.forEach(w => {
+        const prev = { x: w.x1, y: w.y1 };
+        const snapped = dungeonSnapOrthoToPrev(prev, { x: w.x2, y: w.y2 });
+        if (Math.abs(snapped.x - w.x2) > 0.01 || Math.abs(snapped.y - w.y2) > 0.01) {
+          w.x2 = snapped.x;
+          w.y2 = snapped.y;
+          w.updatedAt = stampNow();
+          n++;
+        }
+      });
+      if (!n) return toast('Nichts zu begradigen.');
+      dungeon.layoutAt = stampNow();
+      persistDungeonSoon();
+      renderDungeon();
+      toast(n + ' Wandsegment(e) begradigt.');
+    }
+
+    // Winkel-Toleranz für Auto-Gerade (≈12°); Endpunkt-Snap in % der Karte
+    var DUNGEON_ORTHO_TOL_DEG = 12;
+    var DUNGEON_ENDPOINT_SNAP_PCT = 1.4;
+
+    function dungeonSnapToNearbyEndpoint(pt) {
+      if (!pt) return pt;
+      let best = null;
+      let bestD = DUNGEON_ENDPOINT_SNAP_PCT * DUNGEON_ENDPOINT_SNAP_PCT;
+      const consider = (x, y) => {
+        const dx = pt.x - x;
+        const dy = pt.y - y;
+        const d = dx * dx + dy * dy;
+        if (d <= bestD) {
+          bestD = d;
+          best = { x: x, y: y };
+        }
+      };
+      (dungeon.walls || []).forEach(w => {
+        consider(w.x1, w.y1);
+        consider(w.x2, w.y2);
+      });
+      (dungeon.doors || []).forEach(d => {
+        consider(d.x1, d.y1);
+        consider(d.x2, d.y2);
+      });
+      dungeonDrawPoints.forEach(p => consider(p.x, p.y));
+      return best || pt;
+    }
+
+    function dungeonSnapOrthoToPrev(prev, pt) {
+      if (!prev || !pt) return pt;
+      const dx = pt.x - prev.x;
+      const dy = pt.y - prev.y;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len < 0.05) return { x: prev.x, y: prev.y };
+      const ang = Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI;
+      // nahe waagerecht → gleiche Y; nahe senkrecht → gleiche X
+      if (ang <= DUNGEON_ORTHO_TOL_DEG) {
+        return { x: pt.x, y: prev.y };
+      }
+      if (ang >= 90 - DUNGEON_ORTHO_TOL_DEG) {
+        return { x: prev.x, y: pt.y };
+      }
+      return { x: pt.x, y: pt.y };
+    }
+
+    function dungeonBeautifyDrawPoint(raw) {
+      let pt = { x: dungeonClampPct(raw.x), y: dungeonClampPct(raw.y) };
+      pt = dungeonSnapToNearbyEndpoint(pt);
+      const prev = dungeonDrawPoints.length
+        ? dungeonDrawPoints[dungeonDrawPoints.length - 1]
+        : null;
+      if (prev) pt = dungeonSnapOrthoToPrev(prev, pt);
+      // Nach Ortho nochmal Endpunkt-Snap (saubere Ecken an bestehenden Wänden)
+      pt = dungeonSnapToNearbyEndpoint(pt);
+      if (prev) pt = dungeonSnapOrthoToPrev(prev, pt);
+      return { x: dungeonClampPct(pt.x), y: dungeonClampPct(pt.y) };
+    }
+
+    function dungeonBeautifyPolyline(points) {
+      if (!points || points.length < 2) return points || [];
+      const out = [{ x: points[0].x, y: points[0].y }];
+      out[0] = dungeonSnapToNearbyEndpoint(out[0]);
+      for (let i = 1; i < points.length; i++) {
+        let pt = { x: points[i].x, y: points[i].y };
+        pt = dungeonSnapOrthoToPrev(out[i - 1], pt);
+        pt = dungeonSnapToNearbyEndpoint(pt);
+        pt = dungeonSnapOrthoToPrev(out[i - 1], pt);
+        out.push({ x: dungeonClampPct(pt.x), y: dungeonClampPct(pt.y) });
+      }
+      return out;
+    }
+
+    function finishDungeonWall() {
+      if (dungeonDrawPoints.length < 2) {
+        dungeonDrawPoints = [];
+        return;
+      }
+      const pts = dungeonBeautifyPolyline(dungeonDrawPoints);
+      const now = stampNow();
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1];
+        const b = pts[i];
+        if (Math.abs(a.x - b.x) + Math.abs(a.y - b.y) < 0.08) continue;
+        dungeon.walls.push(dungeonSegNorm({
+          id: dungeonNewId('wall'),
+          x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+          updatedAt: now
+        }, 'wall'));
+      }
+      dungeonDrawPoints = [];
+      dungeon.layoutAt = now;
+      persistDungeonSoon();
+      renderDungeon();
+      toast('Wand gespeichert.');
     }
 
     function renderDungeonTokenList() {
@@ -624,13 +1157,97 @@
         const row = document.createElement('button');
         row.type = 'button';
         row.className = 'ghost';
-        row.textContent = token.name + (token.kind === 'player' ? ' · Spieler' : token.kind === 'npc' ? ' · NPC' : '');
+        const v = token.vision || {};
+        const bits = [token.name];
+        if (token.kind === 'player') bits.push('Spieler');
+        else if (token.kind === 'npc') bits.push('NPC');
+        if (v.type && v.type !== 'none') bits.push('DV ' + v.rangeFeet + 'ft');
+        if (token.lightSource && token.lightSource.enabled) bits.push('Fackel');
+        row.textContent = bits.join(' · ');
         row.onclick = () => {
           if (!confirm(token.name + ' entfernen?')) return;
           removeDungeonToken(token.id);
         };
         box.appendChild(row);
       });
+    }
+
+    function renderDungeonGeoLists() {
+      const wallsBox = document.getElementById('dungeonWallList');
+      const doorsBox = document.getElementById('dungeonDoorList');
+      const lightsBox = document.getElementById('dungeonLightList');
+      if (wallsBox) {
+        wallsBox.innerHTML = '';
+        (dungeon.walls || []).forEach((w, i) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'ghost';
+          btn.textContent = 'Wand ' + (i + 1);
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'danger';
+          del.textContent = '×';
+          del.title = 'Wand entfernen';
+          del.onclick = () => removeDungeonWall(w.id);
+          const row = document.createElement('div');
+          row.className = 'dungeon-geo-row';
+          row.appendChild(btn);
+          row.appendChild(del);
+          wallsBox.appendChild(row);
+        });
+      }
+      if (doorsBox) {
+        doorsBox.innerHTML = '';
+        (dungeon.doors || []).forEach((d, i) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'ghost';
+          btn.textContent = 'Tür ' + (i + 1) + (d.open ? ' (offen)' : ' (zu)');
+          btn.onclick = () => toggleDungeonDoor(d.id);
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'danger';
+          del.textContent = '×';
+          del.onclick = () => {
+            if (!confirm('Tür entfernen?')) return;
+            removeDungeonDoor(d.id);
+          };
+          const row = document.createElement('div');
+          row.className = 'dungeon-geo-row';
+          row.appendChild(btn);
+          row.appendChild(del);
+          doorsBox.appendChild(row);
+        });
+      }
+      if (lightsBox) {
+        lightsBox.innerHTML = '';
+        (dungeon.lights || []).forEach((L, i) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'ghost';
+          btn.textContent = (L.kind || 'Licht') + ' ' + (i + 1) + (L.enabled ? '' : ' (aus)');
+          btn.onclick = () => {
+            L.enabled = !L.enabled;
+            L.updatedAt = stampNow();
+            dungeon.layoutAt = stampNow();
+            persistDungeonSoon();
+            renderDungeon();
+          };
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'danger';
+          del.textContent = '×';
+          del.onclick = () => {
+            if (!confirm('Licht entfernen?')) return;
+            removeDungeonLight(L.id);
+          };
+          const row = document.createElement('div');
+          row.className = 'dungeon-geo-row';
+          row.appendChild(btn);
+          row.appendChild(del);
+          lightsBox.appendChild(row);
+        });
+      }
     }
 
     function renderDungeonPickLists() {
@@ -697,11 +1314,14 @@
     function beginDungeonPlace(draft) {
       if (!isDM) return;
       if (!dungeon.image) return toast('Zuerst eine Karte hochladen.');
+      dungeonDrawMode = null;
+      dungeonDrawPoints = [];
       dungeonPlaceDraft = draft;
       dungeonPlaceMode = true;
       const stage = document.getElementById('dungeonStage');
       if (stage) stage.classList.add('is-place');
       closeDungeonMenus();
+      syncDungeonFogControls();
       toast('Auf die Karte tippen, um „' + (draft.name || 'Token') + '“ zu setzen.');
     }
 
@@ -714,6 +1334,7 @@
 
     function placeDungeonTokenAt(x, y, draft) {
       if (!draft) return;
+      const vision = dungeonVisionFromOwner(draft.playerId || '');
       const token = normalizeDungeonToken({
         id: dungeonNewId('dt'),
         name: draft.name,
@@ -722,10 +1343,17 @@
         portraitId: draft.portraitId || '',
         x: x,
         y: y,
+        facing: -Math.PI / 2,
+        vision: vision,
+        lightSource: {
+          enabled: vision.type === 'none',
+          range: DUNGEON_TORCH_FEET,
+          kind: 'torch'
+        },
         movedAt: stampNow()
       });
       dungeon.tokens.push(token);
-      dungeonStampReveal(x, y, true);
+      dungeonFocusTokenId = token.id;
       dungeon.layoutAt = stampNow();
       cancelDungeonPlace();
       persistDungeonSoon();
@@ -741,9 +1369,64 @@
         return;
       }
       if (ev.target && ev.target.closest && ev.target.closest('.battle-token')) return;
-      if (!dungeonPlaceMode || !dungeonPlaceDraft) return;
       const pct = dungeonPctFromEvent(stage, ev);
+
+      if (dungeonDrawMode === 'light' && isDM) {
+        dungeon.lights.push(dungeonLightNorm({
+          id: dungeonNewId('light'),
+          x: pct.x,
+          y: pct.y,
+          range: DUNGEON_TORCH_FEET,
+          kind: 'torch',
+          enabled: true,
+          updatedAt: stampNow()
+        }));
+        dungeon.layoutAt = stampNow();
+        persistDungeonSoon();
+        renderDungeon();
+        toast('Lichtquelle gesetzt.');
+        return;
+      }
+
+      if (dungeonDrawMode === 'door' && isDM) {
+        const snapped = dungeonBeautifyDrawPoint(pct);
+        dungeonDrawPoints.push(snapped);
+        if (dungeonDrawPoints.length >= 2) {
+          const pts = dungeonBeautifyPolyline(dungeonDrawPoints);
+          const a = pts[0];
+          const b = pts[1];
+          dungeon.doors.push(dungeonDoorNorm({
+            id: dungeonNewId('door'),
+            x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+            open: false,
+            updatedAt: stampNow()
+          }));
+          dungeonDrawPoints = [];
+          dungeon.layoutAt = stampNow();
+          persistDungeonSoon();
+          renderDungeon();
+          toast('Tür gesetzt (geschlossen).');
+        } else {
+          renderDungeonGeometryOverlay();
+        }
+        return;
+      }
+
+      if (dungeonDrawMode === 'wall' && isDM) {
+        dungeonDrawPoints.push(dungeonBeautifyDrawPoint(pct));
+        renderDungeonGeometryOverlay();
+        return;
+      }
+
+      if (!dungeonPlaceMode || !dungeonPlaceDraft) return;
       placeDungeonTokenAt(pct.x, pct.y, dungeonPlaceDraft);
+    }
+
+    function onDungeonStageDblClick(ev) {
+      if (dungeonDrawMode === 'wall' && isDM) {
+        ev.preventDefault();
+        finishDungeonWall();
+      }
     }
 
     async function uploadDungeonMap(file) {
@@ -766,7 +1449,7 @@
     async function clearDungeonMap() {
       if (!isDM) return;
       if (!dungeon.image) return;
-      if (!confirm('Die Dungeon-Karte entfernen? Tokens und Aufdeckung bleiben.')) return;
+      if (!confirm('Die Dungeon-Karte entfernen? Tokens und Geometrie bleiben.')) return;
       dungeon.image = '';
       try {
         await persistDungeonMap();
@@ -789,17 +1472,15 @@
       renderDungeon();
     }
 
-    function clearDungeonReveals() {
+    function clearDungeonExplored() {
       if (!isDM) return;
-      if (!dungeon.fogReveals.length) return;
-      if (!confirm('Gesamte Aufdeckung zurücksetzen? Die Karte wird wieder vollständig verdeckt. Tokens bleiben.')) return;
-      const now = stampNow();
-      if (!dungeon.removedFog) dungeon.removedFog = {};
-      dungeon.fogReveals.forEach(r => { dungeon.removedFog[r.id] = now; });
-      dungeon.fogReveals = [];
-      dungeon.layoutAt = now;
+      if (!confirm('Erkundung für alle zurücksetzen? Die Karte wird wieder unbekannt (außer aktueller Sicht).')) return;
+      dungeon.exploredGen = Math.max(0, Number(dungeon.exploredGen) || 0) + 1;
+      dungeon.layoutAt = stampNow();
+      ensureDungeonExploredBuffer(true);
       persistDungeonSoon();
       renderDungeon();
+      toast('Erkundung zurückgesetzt.');
     }
 
     function renderDungeonBoard() {
@@ -835,7 +1516,10 @@
       syncDungeonFogControls();
       renderDungeonBoard();
       renderDungeonTokenList();
-      if (isDM) renderDungeonPickLists();
+      if (isDM) {
+        renderDungeonPickLists();
+        renderDungeonGeoLists();
+      }
     }
 
     function bindDungeonUi() {
@@ -844,6 +1528,8 @@
       if (stage && !stage.dataset.dungeonClickBound) {
         stage.dataset.dungeonClickBound = '1';
         stage.addEventListener('click', onDungeonStageClick);
+        stage.addEventListener('dblclick', onDungeonStageDblClick);
+        stage.addEventListener('pointermove', updateDungeonFacingFromEvent);
       }
       onClick('dungeonZoomIn', () => zoomDungeonBy(0.2));
       onClick('dungeonZoomOut', () => zoomDungeonBy(-0.2));
@@ -860,11 +1546,39 @@
       });
       onClick('dungeonClearBtn', clearDungeonMap);
       onClick('dungeonFogBtn', toggleDungeonFog);
-      onClick('dungeonPlayerMenuBtn', () => toggleDungeonMenu('dungeonPlayerPanel', 'dungeonPlayerMenuBtn'));
-      onClick('dungeonNpcMenuBtn', () => toggleDungeonMenu('dungeonNpcPanel', 'dungeonNpcMenuBtn'));
-      onClick('dungeonTokenMenuBtn', () => toggleDungeonMenu('dungeonTokenPanel', 'dungeonTokenMenuBtn'));
+      onClick('dungeonFiguresMenuBtn', () => toggleDungeonMenu('dungeonFiguresPanel', 'dungeonFiguresMenuBtn'));
+      onClick('dungeonDrawMenuBtn', () => toggleDungeonMenu('dungeonDrawPanel', 'dungeonDrawMenuBtn'));
+      onClick('dungeonGeoMenuBtn', () => toggleDungeonMenu('dungeonGeoPanel', 'dungeonGeoMenuBtn'));
+      onClick('dungeonMapMenuBtn', () => toggleDungeonMenu('dungeonMapPanel', 'dungeonMapMenuBtn'));
+      onClick('dungeonFigTabPlayers', () => setDungeonFigTab('players'));
+      onClick('dungeonFigTabNpcs', () => setDungeonFigTab('npcs'));
+      onClick('dungeonFigTabTokens', () => setDungeonFigTab('tokens'));
+      onClick('dungeonWallBtn', () => {
+        setDungeonDrawMode('wall');
+        closeDungeonMenus();
+      });
+      onClick('dungeonDoorBtn', () => {
+        setDungeonDrawMode('door');
+        closeDungeonMenus();
+      });
+      onClick('dungeonLightBtn', () => {
+        setDungeonDrawMode('light');
+        closeDungeonMenus();
+      });
+      onClick('dungeonEraseBtn', () => {
+        setDungeonDrawMode('erase');
+        closeDungeonMenus();
+      });
+      onClick('dungeonBeautifyWallsBtn', () => {
+        beautifyExistingDungeonWalls();
+        closeDungeonMenus();
+      });
+      onClick('dungeonClearWallsBtn', () => {
+        clearAllDungeonWalls();
+        closeDungeonMenus();
+      });
       onClick('dungeonClearRevealsBtn', () => {
-        clearDungeonReveals();
+        clearDungeonExplored();
         closeDungeonMenus();
       });
       onClick('dungeonCustomPortraitBtn', () => {
@@ -889,6 +1603,23 @@
           const tools = document.querySelector('.dungeon-add-tools');
           if (!tools || tools.contains(ev.target)) return;
           closeDungeonMenus();
+        });
+        document.addEventListener('keydown', ev => {
+          if (ev.key === 'Escape') {
+            if (dungeonDrawMode) {
+              dungeonDrawMode = null;
+              dungeonDrawPoints = [];
+              const st = document.getElementById('dungeonStage');
+              if (st) {
+                st.classList.remove('is-draw');
+                st.classList.remove('is-erase');
+              }
+              syncDungeonFogControls();
+              renderDungeonGeometryOverlay();
+            }
+            cancelDungeonPlace();
+          }
+          if (ev.key === 'Enter' && dungeonDrawMode === 'wall') finishDungeonWall();
         });
       }
       const mapInput = document.getElementById('dungeonMapInput');
@@ -934,18 +1665,17 @@
           renderDungeonTokens();
         });
       }
-      const fogDown = document.getElementById('dungeonFogRadiusDown');
-      const fogUp = document.getElementById('dungeonFogRadiusUp');
-      if (fogDown && !fogDown.dataset.bound) {
-        fogDown.dataset.bound = '1';
-        fogDown.addEventListener('click', () => {
-          setDungeonFogRadius(clampDungeonFogRadius(dungeon.fogRadius) - 1, true);
-        });
-      }
-      if (fogUp && !fogUp.dataset.bound) {
-        fogUp.dataset.bound = '1';
-        fogUp.addEventListener('click', () => {
-          setDungeonFogRadius(clampDungeonFogRadius(dungeon.fogRadius) + 1, true);
+      const scaleEl = document.getElementById('dungeonScaleFt');
+      if (scaleEl && !scaleEl.dataset.bound) {
+        scaleEl.dataset.bound = '1';
+        scaleEl.value = String(dungeonScaleFt());
+        scaleEl.addEventListener('change', () => {
+          const v = Number(scaleEl.value);
+          if (!(v > 0)) return;
+          dungeon.scaleFt = v;
+          dungeon.layoutAt = stampNow();
+          persistDungeonSoon();
+          renderDungeonFog();
         });
       }
       window.addEventListener('resize', () => {

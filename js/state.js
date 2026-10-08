@@ -152,15 +152,20 @@
     var dungeon = {
       image: '',
       tokens: [],
+      walls: [],
+      doors: [],
+      lights: [],
       fogOn: true,
-      fogReveals: [],
-      fogRadius: 9,
+      scaleFt: typeof DUNGEON_DEFAULT_SCALE_FT === 'number' ? DUNGEON_DEFAULT_SCALE_FT : 2,
+      exploredGen: 0,
       tokenSize: 48,
       updatedAt: 0,
       mapUpdatedAt: 0,
       layoutAt: 0,
       removedTokens: {},
-      removedFog: {}
+      removedWalls: {},
+      removedDoors: {},
+      removedLights: {}
     };
     var writingDungeon = false;
     var dungeonWriteQueued = false;
@@ -175,6 +180,16 @@
     var dungeonPan = null;
     var dungeonPendingPortrait = null;
     var dungeonPlaceMode = false;
+    var dungeonDrawMode = null;
+    var dungeonDrawPoints = [];
+    var dungeonFocusTokenId = '';
+    var dungeonFacingDirty = false;
+    var dungeonVisionRaf = 0;
+    var dungeonExploredCanvas = null;
+    var dungeonExploredCtx = null;
+    var dungeonExploredLoadedGen = -1;
+    var dungeonExploredViewer = '';
+    var dungeonVisiblePolys = [];
 
     var els = {
       sidebar: document.getElementById('sidebar'),
