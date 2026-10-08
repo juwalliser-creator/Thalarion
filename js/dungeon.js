@@ -431,17 +431,18 @@
     function collectDungeonVisiblePolys() {
       const obstacles = dungeonObstacleSegments();
       const polys = [];
+      const aspect = dungeonMapAspect();
       const asPlayer = dungeonViewerIsPlayerFog();
       (dungeon.lights || []).forEach(L => {
         if (!L || !L.enabled) return;
-        const p = dungeonLightPolygon(L.x, L.y, L.range, obstacles);
+        const p = dungeonLightPolygon(L.x, L.y, L.range, obstacles, aspect);
         if (p.length) polys.push(p);
       });
       (dungeon.tokens || []).forEach(token => {
         if (token.lightSource && token.lightSource.enabled) {
           const info = dungeonLightKindInfo(token.lightSource.kind);
           const range = token.lightSource.range || info.range || DUNGEON_TORCH_FEET;
-          const p = dungeonLightPolygon(token.x, token.y, range, obstacles);
+          const p = dungeonLightPolygon(token.x, token.y, range, obstacles, aspect);
           if (p.length) polys.push(p);
         }
       });
@@ -450,7 +451,7 @@
           const v = resolveDungeonTokenVision(token);
           token.vision = v;
           if (!v || v.type === 'none' || !(v.rangeFeet > 0)) return;
-          const p = dungeonVisionPolygon(token.x, token.y, token.facing || 0, v.rangeFeet, v.angleDeg, obstacles);
+          const p = dungeonVisionPolygon(token.x, token.y, token.facing || 0, v.rangeFeet, v.angleDeg, obstacles, aspect);
           if (p.length) polys.push(p);
         });
       } else {
@@ -458,7 +459,7 @@
           const v = resolveDungeonTokenVision(token);
           token.vision = v;
           if (v && v.type !== 'none' && v.rangeFeet > 0) {
-            const p = dungeonVisionPolygon(token.x, token.y, token.facing || 0, v.rangeFeet, v.angleDeg, obstacles);
+            const p = dungeonVisionPolygon(token.x, token.y, token.facing || 0, v.rangeFeet, v.angleDeg, obstacles, aspect);
             if (p.length) polys.push(p);
           }
         });
@@ -729,10 +730,11 @@
 
     function renderDungeonLightTints(ctx, w, h) {
       const obstacles = dungeonObstacleSegments();
+      const aspect = dungeonMapAspect();
       const flicker = 0.85 + 0.15 * Math.sin(dungeonLightFlickerPhase);
       const paint = (x, y, range, kind) => {
         const info = dungeonLightKindInfo(kind);
-        const poly = dungeonLightPolygon(x, y, range || info.range, obstacles);
+        const poly = dungeonLightPolygon(x, y, range || info.range, obstacles, aspect);
         if (poly.length < 3) return;
         ctx.save();
         ctx.globalCompositeOperation = 'source-over';
@@ -974,8 +976,11 @@
         const dx = pct.x - token.x;
         const dy = pct.y - token.y;
         if (Math.abs(dx) + Math.abs(dy) < 0.15) return;
-        const next = Math.atan2(dy, dx);
-        if (Math.abs(next - (token.facing || 0)) < 0.02) return;
+        const next = dungeonFacingFromDelta(dx, dy);
+        let delta = next - (token.facing || 0);
+        while (delta > Math.PI) delta -= Math.PI * 2;
+        while (delta < -Math.PI) delta += Math.PI * 2;
+        if (Math.abs(delta) < 0.02) return;
         token.facing = next;
         token.movedAt = stampNow();
         changed = true;

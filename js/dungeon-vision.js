@@ -50,6 +50,28 @@
       return Math.max(0, Number(feet) || 0) / dungeonScaleFt();
     }
 
+    function dungeonMapAspect() {
+      const stage = document.getElementById('dungeonStage');
+      const w = stage && stage.clientWidth;
+      const h = stage && stage.clientHeight;
+      if (!(w > 0) || !(h > 0)) return 1;
+      return w / h;
+    }
+
+    // Blickwinkel / Distanzen in Bildschirm-Pixeln (isotrop), nicht in %-Quadrat
+    function dungeonFacingFromDelta(dxPct, dyPct, aspect) {
+      const a = aspect > 0 ? aspect : dungeonMapAspect();
+      return Math.atan2(dyPct, dxPct * a);
+    }
+
+    function dungeonRayDirPct(angle, aspect) {
+      const a = aspect > 0 ? aspect : dungeonMapAspect();
+      return {
+        dx: Math.cos(angle),
+        dy: Math.sin(angle) * a
+      };
+    }
+
     function dungeonClampPct(n) {
       return Math.max(0, Math.min(100, Number(n) || 0));
     }
@@ -156,14 +178,16 @@
       return segs;
     }
 
-    function dungeonCastPolygon(ox, oy, rangePct, a0, a1, rayCount, obstacles) {
+    function dungeonCastPolygon(ox, oy, rangePct, a0, a1, rayCount, obstacles, aspect) {
       const pts = [];
       const n = Math.max(8, rayCount | 0);
       const span = a1 - a0;
+      const asp = aspect > 0 ? aspect : dungeonMapAspect();
       for (let i = 0; i <= n; i++) {
         const a = a0 + span * (i / n);
-        const dx = Math.cos(a);
-        const dy = Math.sin(a);
+        const dir = dungeonRayDirPct(a, asp);
+        const dx = dir.dx;
+        const dy = dir.dy;
         let best = rangePct;
         for (let s = 0; s < obstacles.length; s++) {
           const o = obstacles[s];
@@ -175,21 +199,21 @@
       return pts;
     }
 
-    function dungeonLightPolygon(x, y, rangeFeet, obstacles) {
+    function dungeonLightPolygon(x, y, rangeFeet, obstacles, aspect) {
       const r = dungeonFeetToPct(rangeFeet);
       if (r <= 0) return [];
       const rays = Math.max(24, Math.min(72, Math.round(28 + r)));
-      return dungeonCastPolygon(x, y, r, 0, Math.PI * 2, rays, obstacles);
+      return dungeonCastPolygon(x, y, r, 0, Math.PI * 2, rays, obstacles, aspect);
     }
 
-    function dungeonVisionPolygon(x, y, facing, rangeFeet, angleDeg, obstacles) {
+    function dungeonVisionPolygon(x, y, facing, rangeFeet, angleDeg, obstacles, aspect) {
       const r = dungeonFeetToPct(rangeFeet);
       if (r <= 0) return [];
       const half = ((angleDeg || DUNGEON_VISION_ANGLE) * Math.PI / 180) / 2;
       const a0 = facing - half;
       const a1 = facing + half;
       const rays = Math.max(16, Math.min(64, Math.round(20 + r * 0.8)));
-      const rim = dungeonCastPolygon(x, y, r, a0, a1, rays, obstacles);
+      const rim = dungeonCastPolygon(x, y, r, a0, a1, rays, obstacles, aspect);
       return [{ x: x, y: y }].concat(rim);
     }
 
