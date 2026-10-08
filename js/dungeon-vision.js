@@ -9,12 +9,12 @@
         return {
           type: type,
           rangeFeet: feet,
-          angleDeg: Math.max(20, Math.min(360, Number(override.angleDeg) || DUNGEON_VISION_ANGLE))
+          angleDeg: 90
         };
       }
       const s = String(sensesText || '');
       if (!s.trim()) {
-        return { type: 'none', rangeFeet: 0, angleDeg: DUNGEON_VISION_ANGLE };
+        return { type: 'none', rangeFeet: 0, angleDeg: 90 };
       }
       const superior = /superior\s*(dark\s*vision|dunkelsicht)|verbesserte\s*dunkelsicht/i.test(s);
       const label = '(?:dark\\s*vision|dunkelsicht|nachtsicht|infravision)';
@@ -22,11 +22,11 @@
       let m = s.match(new RegExp(label + '[^\\d]{0,12}(\\d+(?:[.,]\\d+)?)', 'i'));
       if (!m) m = s.match(new RegExp('(\\d+(?:[.,]\\d+)?)\\s*(?:ft\\.?|feet|fu(?:ß|ss)|m|meter)?[^\\n]{0,12}' + label, 'i'));
       if (!m) {
-        return { type: 'none', rangeFeet: 0, angleDeg: DUNGEON_VISION_ANGLE };
+        return { type: 'none', rangeFeet: 0, angleDeg: 90 };
       }
       let n = Number(String(m[1]).replace(',', '.'));
       if (!Number.isFinite(n) || n <= 0) {
-        return { type: 'none', rangeFeet: 0, angleDeg: DUNGEON_VISION_ANGLE };
+        return { type: 'none', rangeFeet: 0, angleDeg: 90 };
       }
       const around = s.slice(Math.max(0, (m.index || 0) - 8), (m.index || 0) + m[0].length + 12);
       const asMeters = /\bm(?:eter)?s?\b/i.test(around) && !/\bft\.?|\bfeet\b|fu(?:ß|ss)/i.test(around);
@@ -36,9 +36,9 @@
         feet = Math.round(n * 3.28084);
       }
       if (superior || feet >= 100) {
-        return { type: 'superior_darkvision', rangeFeet: feet, angleDeg: DUNGEON_VISION_ANGLE };
+        return { type: 'superior_darkvision', rangeFeet: feet, angleDeg: 90 };
       }
-      return { type: 'darkvision', rangeFeet: feet, angleDeg: DUNGEON_VISION_ANGLE };
+      return { type: 'darkvision', rangeFeet: feet, angleDeg: 90 };
     }
 
     function dungeonScaleFt() {
@@ -50,26 +50,18 @@
       return Math.max(0, Number(feet) || 0) / dungeonScaleFt();
     }
 
-    function dungeonMapAspect() {
+    function dungeonStageSize() {
       const stage = document.getElementById('dungeonStage');
       const w = stage && stage.clientWidth;
       const h = stage && stage.clientHeight;
-      if (!(w > 0) || !(h > 0)) return 1;
-      return w / h;
+      if (!(w > 0) || !(h > 0)) return { w: 1, h: 1 };
+      return { w: w, h: h };
     }
 
-    // Blickwinkel / Distanzen in Bildschirm-Pixeln (isotrop), nicht in %-Quadrat
-    function dungeonFacingFromDelta(dxPct, dyPct, aspect) {
-      const a = aspect > 0 ? aspect : dungeonMapAspect();
-      return Math.atan2(dyPct, dxPct * a);
-    }
-
-    function dungeonRayDirPct(angle, aspect) {
-      const a = aspect > 0 ? aspect : dungeonMapAspect();
-      return {
-        dx: Math.cos(angle),
-        dy: Math.sin(angle) * a
-      };
+    // Echter Bildschirmwinkel (Pixel), damit der Kegel starr 90° bleibt
+    function dungeonFacingFromDelta(dxPct, dyPct) {
+      const size = dungeonStageSize();
+      return Math.atan2(dyPct * size.h, dxPct * size.w);
     }
 
     function dungeonClampPct(n) {
@@ -178,42 +170,66 @@
       return segs;
     }
 
-    function dungeonCastPolygon(ox, oy, rangePct, a0, a1, rayCount, obstacles, aspect) {
+    function dungeonObstaclesToPx(obstacles, size) {
+      return (obstacles || []).map(o => ({
+        x1: o.x1 / 100 * size.w,
+        y1: o.y1 / 100 * size.h,
+        x2: o.x2 / 100 * size.w,
+        y2: o.y2 / 100 * size.h
+      }));
+    }
+
+    // Raycast in Pixelraum → Polygon zurück in % (Winkel sind echte Bildschirmwinkel)
+    function dungeonCastPolygonPx(oxPx, oyPx, rangePx, a0, a1, rayCount, segsPx) {
       const pts = [];
       const n = Math.max(8, rayCount | 0);
       const span = a1 - a0;
-      const asp = aspect > 0 ? aspect : dungeonMapAspect();
       for (let i = 0; i <= n; i++) {
         const a = a0 + span * (i / n);
-        const dir = dungeonRayDirPct(a, asp);
-        const dx = dir.dx;
-        const dy = dir.dy;
-        let best = rangePct;
-        for (let s = 0; s < obstacles.length; s++) {
-          const o = obstacles[s];
-          const t = dungeonRaySegHit(ox, oy, dx, dy, best, o.x1, o.y1, o.x2, o.y2);
+        const dx = Math.cos(a);
+        const dy = Math.sin(a);
+        let best = rangePx;
+        for (let s = 0; s < segsPx.length; s++) {
+          const o = segsPx[s];
+          const t = dungeonRaySegHit(oxPx, oyPx, dx, dy, best, o.x1, o.y1, o.x2, o.y2);
           if (t != null && t < best) best = t;
         }
-        pts.push({ x: ox + dx * best, y: oy + dy * best });
+        pts.push({ x: oxPx + dx * best, y: oyPx + dy * best });
       }
       return pts;
     }
 
-    function dungeonLightPolygon(x, y, rangeFeet, obstacles, aspect) {
-      const r = dungeonFeetToPct(rangeFeet);
-      if (r <= 0) return [];
-      const rays = Math.max(24, Math.min(72, Math.round(28 + r)));
-      return dungeonCastPolygon(x, y, r, 0, Math.PI * 2, rays, obstacles, aspect);
+    function dungeonLightPolygon(x, y, rangeFeet, obstacles) {
+      const rPct = dungeonFeetToPct(rangeFeet);
+      if (rPct <= 0) return [];
+      const size = dungeonStageSize();
+      const ox = x / 100 * size.w;
+      const oy = y / 100 * size.h;
+      const rangePx = rPct / 100 * size.w;
+      const rays = Math.max(24, Math.min(72, Math.round(28 + rPct)));
+      const segsPx = dungeonObstaclesToPx(obstacles, size);
+      return dungeonCastPolygonPx(ox, oy, rangePx, 0, Math.PI * 2, rays, segsPx).map(p => ({
+        x: p.x / size.w * 100,
+        y: p.y / size.h * 100
+      }));
     }
 
-    function dungeonVisionPolygon(x, y, facing, rangeFeet, angleDeg, obstacles, aspect) {
-      const r = dungeonFeetToPct(rangeFeet);
-      if (r <= 0) return [];
-      const half = ((angleDeg || DUNGEON_VISION_ANGLE) * Math.PI / 180) / 2;
-      const a0 = facing - half;
-      const a1 = facing + half;
-      const rays = Math.max(16, Math.min(64, Math.round(20 + r * 0.8)));
-      const rim = dungeonCastPolygon(x, y, r, a0, a1, rays, obstacles, aspect);
+    function dungeonVisionPolygon(x, y, facing, rangeFeet, angleDeg, obstacles) {
+      const rPct = dungeonFeetToPct(rangeFeet);
+      if (rPct <= 0) return [];
+      const size = dungeonStageSize();
+      const ox = x / 100 * size.w;
+      const oy = y / 100 * size.h;
+      const rangePx = rPct / 100 * size.w;
+      // Starrer Sichtkegel: immer exakt 90° Bildschirmwinkel
+      const coneDeg = 90;
+      const half = (coneDeg * Math.PI / 180) / 2;
+      const rays = Math.max(24, Math.min(72, Math.round(24 + rPct)));
+      const segsPx = dungeonObstaclesToPx(obstacles, size);
+      const rim = dungeonCastPolygonPx(ox, oy, rangePx, facing - half, facing + half, rays, segsPx).map(p => ({
+        x: p.x / size.w * 100,
+        y: p.y / size.h * 100
+      }));
       return [{ x: x, y: y }].concat(rim);
     }
 
