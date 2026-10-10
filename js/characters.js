@@ -1934,7 +1934,10 @@
       else if (!isDM) currentSheetOwner = null;
       updatePlayerChrome();
       if (currentPage === 'kampf') renderBattleBoards();
-      if (currentPage === 'dungeon' && typeof renderDungeon === 'function') renderDungeon();
+      if (currentPage === 'dungeon') {
+        if (typeof dungeonFocusTokenId !== 'undefined') dungeonFocusTokenId = '';
+        if (typeof renderDungeon === 'function') renderDungeon();
+      }
     }
 
     function setPlayerFormMode(mode) {

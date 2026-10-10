@@ -1005,28 +1005,23 @@
       if (dungeonDrawMode || dungeonPlaceMode) return;
       // DM-Übersicht: Blick der Spieler-Tokens nicht mit der Maus überschreiben/speichern
       if (isDM && !dungeonViewAsId) return;
-      const pct = dungeonPctFromEvent(stage, ev);
-      const focus = (dungeon.tokens || []).find(t => t.id === dungeonFocusTokenId);
       const movers = (dungeon.tokens || []).filter(t => canMoveDungeonToken(t));
       if (!movers.length) return;
-      // Nur eigener Fokus-Token folgt der Maus (Spieler bzw. DM-Spielersicht)
-      let changed = false;
-      movers.forEach(token => {
-        const isFocus = focus ? token.id === focus.id : token.id === movers[0].id;
-        if (!isFocus) return;
-        const dx = pct.x - token.x;
-        const dy = pct.y - token.y;
-        if (Math.abs(dx) + Math.abs(dy) < 0.15) return;
-        const next = dungeonFacingFromDelta(dx, dy);
-        let delta = next - (token.facing || 0);
-        while (delta > Math.PI) delta -= Math.PI * 2;
-        while (delta < -Math.PI) delta += Math.PI * 2;
-        if (Math.abs(delta) < 0.02) return;
-        token.facing = next;
-        token.movedAt = stampNow();
-        changed = true;
-      });
-      if (!changed) return;
+      // Fokus nur unter eigenen Tokens — sonst bleibt z. B. ein DM-Fokus hängen und blockiert die Maus
+      let token = movers.find(t => t.id === dungeonFocusTokenId) || movers[0];
+      if (!token) return;
+      if (dungeonFocusTokenId !== token.id) dungeonFocusTokenId = token.id;
+      const pct = dungeonPctFromEvent(stage, ev);
+      const dx = pct.x - token.x;
+      const dy = pct.y - token.y;
+      if (Math.abs(dx) + Math.abs(dy) < 0.15) return;
+      const next = dungeonFacingFromDelta(dx, dy);
+      let delta = next - (token.facing || 0);
+      while (delta > Math.PI) delta -= Math.PI * 2;
+      while (delta < -Math.PI) delta += Math.PI * 2;
+      if (Math.abs(delta) < 0.02) return;
+      token.facing = next;
+      token.movedAt = stampNow();
       dungeonFacingDirty = true;
       scheduleDungeonVision();
     }
