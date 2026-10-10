@@ -120,6 +120,7 @@
         setDrawingBorder(false);
         if (typeof cancelDungeonPlace === 'function') cancelDungeonPlace();
         if (typeof closeDungeonMenus === 'function') closeDungeonMenus();
+        if (typeof dungeonViewAsId !== 'undefined') dungeonViewAsId = '';
         stopSoundTrack();
         closeSoundDock();
         if (isDmNotesOwner(currentSheetOwner)) currentSheetOwner = currentPlayerId || null;

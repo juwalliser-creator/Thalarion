@@ -53,7 +53,6 @@
       dungeonViewAsId = playerId || '';
       const sel = document.getElementById('dungeonViewAsSelect');
       if (sel && sel.value !== dungeonViewAsId) sel.value = dungeonViewAsId;
-      ensureDungeonExploredBuffer(true);
       renderDungeon();
       toast(dungeonViewAsId
         ? 'Spielersicht: ' + (typeof combatOwnerLabel === 'function' ? combatOwnerLabel(dungeonViewAsId) : dungeonViewAsId)

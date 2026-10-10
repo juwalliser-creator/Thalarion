@@ -428,10 +428,54 @@
       }, 400);
     }
 
+    function dungeonPointInAnyPoly(x, y, polys) {
+      if (!polys || !polys.length) return false;
+      for (let i = 0; i < polys.length; i++) {
+        if (dungeonPointInPoly(x, y, polys[i])) return true;
+      }
+      return false;
+    }
+
     function collectDungeonVisiblePolys() {
       const obstacles = dungeonObstacleSegments();
       const polys = [];
       const asPlayer = dungeonViewerIsPlayerFog();
+
+      // Spieler: eigener Blickkegel; DM-Lichter nur, wenn die Lichtquelle im Kegel liegt
+      if (asPlayer) {
+        const ownSight = [];
+        (dungeon.tokens || []).filter(t => canMoveDungeonToken(t)).forEach(token => {
+          const v = resolveDungeonTokenVision(token);
+          token.vision = v;
+          if (v && v.type !== 'none' && v.rangeFeet > 0) {
+            const p = dungeonVisionPolygon(token.x, token.y, token.facing || 0, v.rangeFeet, 90, obstacles);
+            if (p.length) {
+              ownSight.push(p);
+              polys.push(p);
+            }
+            return;
+          }
+          // Ohne Dunkelsicht: eigene Fackel
+          if (token.lightSource && token.lightSource.enabled) {
+            const info = dungeonLightKindInfo(token.lightSource.kind);
+            const range = token.lightSource.range || info.range || DUNGEON_TORCH_FEET;
+            const p = dungeonLightPolygon(token.x, token.y, range, obstacles);
+            if (p.length) {
+              ownSight.push(p);
+              polys.push(p);
+            }
+          }
+        });
+        (dungeon.lights || []).forEach(L => {
+          if (!L || !L.enabled) return;
+          if (!dungeonPointInAnyPoly(L.x, L.y, ownSight)) return;
+          const p = dungeonLightPolygon(L.x, L.y, L.range, obstacles);
+          if (p.length) polys.push(p);
+        });
+        return polys;
+      }
+
+      // DM-Übersicht: Lichter + alle Sichtkegel zur Orientierung
       (dungeon.lights || []).forEach(L => {
         if (!L || !L.enabled) return;
         const p = dungeonLightPolygon(L.x, L.y, L.range, obstacles);
@@ -444,25 +488,13 @@
           const p = dungeonLightPolygon(token.x, token.y, range, obstacles);
           if (p.length) polys.push(p);
         }
-      });
-      if (asPlayer) {
-        (dungeon.tokens || []).filter(t => canMoveDungeonToken(t)).forEach(token => {
-          const v = resolveDungeonTokenVision(token);
-          token.vision = v;
-          if (!v || v.type === 'none' || !(v.rangeFeet > 0)) return;
+        const v = resolveDungeonTokenVision(token);
+        token.vision = v;
+        if (v && v.type !== 'none' && v.rangeFeet > 0) {
           const p = dungeonVisionPolygon(token.x, token.y, token.facing || 0, v.rangeFeet, 90, obstacles);
           if (p.length) polys.push(p);
-        });
-      } else {
-        (dungeon.tokens || []).forEach(token => {
-          const v = resolveDungeonTokenVision(token);
-          token.vision = v;
-          if (v && v.type !== 'none' && v.rangeFeet > 0) {
-            const p = dungeonVisionPolygon(token.x, token.y, token.facing || 0, v.rangeFeet, 90, obstacles);
-            if (p.length) polys.push(p);
-          }
-        });
-      }
+        }
+      });
       return polys;
     }
 
@@ -727,10 +759,11 @@
       dungeonLightFlickerRaf = requestAnimationFrame(tick);
     }
 
-    function renderDungeonLightTints(ctx, w, h) {
+    function renderDungeonLightTints(ctx, w, h, asPlayer) {
       const obstacles = dungeonObstacleSegments();
       const flicker = 0.85 + 0.15 * Math.sin(dungeonLightFlickerPhase);
       const paint = (x, y, range, kind) => {
+        if (asPlayer && !dungeonPointVisibleNow(x, y)) return;
         const info = dungeonLightKindInfo(kind);
         const poly = dungeonLightPolygon(x, y, range || info.range, obstacles);
         if (poly.length < 3) return;
@@ -741,6 +774,19 @@
         dungeonFillPolyPct(ctx, poly, w, h);
         ctx.restore();
       };
+      ctx.save();
+      if (asPlayer && dungeonVisiblePolys && dungeonVisiblePolys.length) {
+        ctx.beginPath();
+        dungeonVisiblePolys.forEach(poly => {
+          if (!poly || poly.length < 3) return;
+          ctx.moveTo(poly[0].x / 100 * w, poly[0].y / 100 * h);
+          for (let i = 1; i < poly.length; i++) {
+            ctx.lineTo(poly[i].x / 100 * w, poly[i].y / 100 * h);
+          }
+          ctx.closePath();
+        });
+        ctx.clip();
+      }
       (dungeon.lights || []).forEach(L => {
         if (!L || !L.enabled) return;
         paint(L.x, L.y, L.range, L.kind);
@@ -749,6 +795,7 @@
         if (!t.lightSource || !t.lightSource.enabled) return;
         paint(t.x, t.y, t.lightSource.range, t.lightSource.kind);
       });
+      ctx.restore();
     }
 
     function renderDungeonFog() {
@@ -766,11 +813,9 @@
       if (!w || !h) return;
       if (canvas.width !== w) canvas.width = w;
       if (canvas.height !== h) canvas.height = h;
-      ensureDungeonExploredBuffer(false);
       const polys = collectDungeonVisiblePolys();
       dungeonVisiblePolys = polys;
       const asPlayer = dungeonViewerIsPlayerFog();
-      if (asPlayer) accumulateDungeonExplored(polys, w, h);
 
       const ctx = canvas.getContext('2d');
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -779,16 +824,13 @@
       ctx.fillStyle = asPlayer ? '#000' : 'rgba(8,6,4,0.42)';
       ctx.fillRect(0, 0, w, h);
 
+      // Spieler: nur aktueller Blickkegel — keine gespeicherte Erkundung
       ctx.globalCompositeOperation = 'destination-out';
-      if (asPlayer && dungeonExploredCanvas) {
-        ctx.globalAlpha = 0.55;
-        ctx.drawImage(dungeonExploredCanvas, 0, 0, w, h);
-        ctx.globalAlpha = 1;
-      }
       ctx.fillStyle = '#fff';
       polys.forEach(poly => dungeonFillPolyPct(ctx, poly, w, h));
       ctx.globalCompositeOperation = 'source-over';
-      renderDungeonLightTints(ctx, w, h);
+      // Tints nach den Cutouts: dungeonVisiblePolys enthält bereits Blick + sichtbare Lichter
+      renderDungeonLightTints(ctx, w, h, asPlayer);
       renderDungeonGeometryOverlay();
       scheduleDungeonLightFlicker();
     }
@@ -961,16 +1003,17 @@
         return;
       }
       if (dungeonDrawMode || dungeonPlaceMode) return;
+      // DM-Übersicht: Blick der Spieler-Tokens nicht mit der Maus überschreiben/speichern
+      if (isDM && !dungeonViewAsId) return;
       const pct = dungeonPctFromEvent(stage, ev);
       const focus = (dungeon.tokens || []).find(t => t.id === dungeonFocusTokenId);
       const movers = (dungeon.tokens || []).filter(t => canMoveDungeonToken(t));
       if (!movers.length) return;
-      // Fokus-Token folgt der Maus; andere eigene Tokens mit Dunkelsicht ebenfalls
+      // Nur eigener Fokus-Token folgt der Maus (Spieler bzw. DM-Spielersicht)
       let changed = false;
       movers.forEach(token => {
-        const v = resolveDungeonTokenVision(token);
         const isFocus = focus ? token.id === focus.id : token.id === movers[0].id;
-        if (!isFocus && !(v.rangeFeet > 0)) return;
+        if (!isFocus) return;
         const dx = pct.x - token.x;
         const dy = pct.y - token.y;
         if (Math.abs(dx) + Math.abs(dy) < 0.15) return;
