@@ -990,10 +990,27 @@
       });
     }
 
+    function clearDungeonDmTools() {
+      dungeonDrawMode = null;
+      dungeonDrawPoints = [];
+      dungeonPreviewPt = null;
+      dungeonCalibratePts = [];
+      cancelDungeonPlace();
+      const st = document.getElementById('dungeonStage');
+      if (st) {
+        st.classList.remove('is-draw');
+        st.classList.remove('is-erase');
+        st.classList.remove('is-place');
+      }
+      if (typeof syncDungeonFogControls === 'function') syncDungeonFogControls();
+    }
+
     function updateDungeonFacingFromEvent(ev) {
       const stage = document.getElementById('dungeonStage');
-      if (!stage || !dungeon.image) return;
-      if (dungeonDrawMode && (dungeonDrawMode === 'wall' || dungeonDrawMode === 'door' ||
+      if (!stage || !dungeon.image || stage.classList.contains('hidden')) return;
+      // Spieler: hängengebliebene DM-Zeichenmodi dürfen die Blickrichtung nicht blockieren
+      if (!isDM && (dungeonDrawMode || dungeonPlaceMode)) clearDungeonDmTools();
+      if (isDM && dungeonDrawMode && (dungeonDrawMode === 'wall' || dungeonDrawMode === 'door' ||
           dungeonDrawMode === 'rect' || dungeonDrawMode === 'calibrate') && dungeonDrawPoints.length) {
         dungeonPreviewPt = dungeonPctFromEvent(stage, ev);
         if (dungeonDrawMode === 'wall' || dungeonDrawMode === 'door') {
@@ -1002,13 +1019,13 @@
         renderDungeonGeometryOverlay();
         return;
       }
-      if (dungeonDrawMode || dungeonPlaceMode) return;
+      if (isDM && (dungeonDrawMode || dungeonPlaceMode)) return;
       // DM-Übersicht: Blick der Spieler-Tokens nicht mit der Maus überschreiben/speichern
       if (isDM && !dungeonViewAsId) return;
       const movers = (dungeon.tokens || []).filter(t => canMoveDungeonToken(t));
       if (!movers.length) return;
       // Fokus nur unter eigenen Tokens — sonst bleibt z. B. ein DM-Fokus hängen und blockiert die Maus
-      let token = movers.find(t => t.id === dungeonFocusTokenId) || movers[0];
+      const token = movers.find(t => t.id === dungeonFocusTokenId) || movers[0];
       if (!token) return;
       if (dungeonFocusTokenId !== token.id) dungeonFocusTokenId = token.id;
       const pct = dungeonPctFromEvent(stage, ev);
@@ -1962,6 +1979,11 @@
         stage.addEventListener('click', onDungeonStageClick);
         stage.addEventListener('dblclick', onDungeonStageDblClick);
         stage.addEventListener('pointermove', updateDungeonFacingFromEvent);
+      }
+      const board = document.getElementById('dungeonBoard');
+      if (board && !board.dataset.dungeonFacingBound) {
+        board.dataset.dungeonFacingBound = '1';
+        board.addEventListener('pointermove', updateDungeonFacingFromEvent);
       }
       onClick('dungeonZoomIn', () => zoomDungeonBy(0.2));
       onClick('dungeonZoomOut', () => zoomDungeonBy(-0.2));

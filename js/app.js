@@ -59,6 +59,7 @@
       currentIndex = null;
       currentTitle = null;
       updateExtraToolbars();
+      if (!isDM && typeof clearDungeonDmTools === 'function') clearDungeonDmTools();
       if (typeof loadDungeonExploredCloud === 'function') loadDungeonExploredCloud();
       if (typeof fillDungeonViewAsSelect === 'function') fillDungeonViewAsSelect();
       if (typeof fillDungeonAmbientSelect === 'function') fillDungeonAmbientSelect();
@@ -118,9 +119,11 @@
         closeDmMenu();
         setPlacingPin(false);
         setDrawingBorder(false);
-        if (typeof cancelDungeonPlace === 'function') cancelDungeonPlace();
+        if (typeof clearDungeonDmTools === 'function') clearDungeonDmTools();
+        else if (typeof cancelDungeonPlace === 'function') cancelDungeonPlace();
         if (typeof closeDungeonMenus === 'function') closeDungeonMenus();
         if (typeof dungeonViewAsId !== 'undefined') dungeonViewAsId = '';
+        if (typeof dungeonFocusTokenId !== 'undefined') dungeonFocusTokenId = '';
         stopSoundTrack();
         closeSoundDock();
         if (isDmNotesOwner(currentSheetOwner)) currentSheetOwner = currentPlayerId || null;

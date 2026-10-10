@@ -13,8 +13,19 @@
       if (!token) return false;
       if (isDM && !dungeonViewAsId) return true;
       const vid = dungeonEffectiveViewerId();
-      if (!vid || !token.playerId) return false;
-      return sheetAccountId(token.playerId) === vid || token.playerId === vid;
+      if (!vid) return false;
+      if (token.playerId) {
+        if (sheetAccountId(token.playerId) === vid || token.playerId === vid) return true;
+      }
+      // Fallback: Spieler-Token ohne/mit abweichender playerId am eigenen Sheet erkennen
+      if (token.kind === 'player' && typeof sheetOwnerRecord === 'function') {
+        const rec = sheetOwnerRecord(vid);
+        if (rec && rec.sheet) {
+          if (token.portraitId && rec.sheet.portraitId && token.portraitId === rec.sheet.portraitId) return true;
+          if (token.name && rec.sheet.name && String(token.name).trim() === String(rec.sheet.name).trim()) return true;
+        }
+      }
+      return false;
     }
 
     function dungeonPushUndo() {

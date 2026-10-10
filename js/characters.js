@@ -1990,6 +1990,7 @@
         playerAccounts = previous;
         throw err;
       }
+      if (isDM && typeof setDM === 'function') setDM(false);
       setPlayer(id);
     }
 
@@ -1997,6 +1998,7 @@
       const id = accountIdFromLoginName(name);
       const acc = playerAccounts[id];
       if (!acc || acc.password !== encodeSecret(password)) throw new Error('Name oder Passwort stimmt nicht.');
+      if (isDM && typeof setDM === 'function') setDM(false);
       setPlayer(id);
     }
 
