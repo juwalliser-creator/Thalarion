@@ -138,6 +138,7 @@
       }
       renderMapPins();
       renderMapBorders();
+      if (typeof syncAtlasUi === 'function') syncAtlasUi();
       if (currentPage === 'dungeon') renderDungeon();
       if (!on && !els.editorView.classList.contains('hidden')) {
         if (currentIndex !== null && entries[currentIndex]?.type === STORY_CAT) showEntstehung();
@@ -1358,6 +1359,7 @@
           ev.target.value = '';
           uploadMapFile(file);
         });
+        if (typeof bindAtlasUi === 'function') bindAtlasUi();
       });
     }
 
@@ -1393,6 +1395,11 @@
       if (soundDockOpen) { closeSoundDock(); return; }
       const gallery = document.getElementById('battleGalleryOverlay');
       if (gallery && !gallery.classList.contains('hidden')) { closeBattleGallery(); return; }
+      const atlasGal = document.getElementById('atlasGalleryOverlay');
+      if (atlasGal && !atlasGal.classList.contains('hidden')) {
+        if (typeof closeAtlasGallery === 'function') closeAtlasGallery();
+        return;
+      }
       if (typeof dungeonPlaceMode !== 'undefined' && dungeonPlaceMode) {
         cancelDungeonPlace();
         return;
@@ -1454,6 +1461,7 @@
       loadDungeonLocal();
       loadDungeonMapLocal();
       if (typeof loadDungeonGalleryLocal === 'function') loadDungeonGalleryLocal();
+      if (typeof loadAtlasLocal === 'function') loadAtlasLocal();
       loadCombat();
       if (!initFirebase()) toast('Keine Verbindung zur Cloud.');
       const localPack = readLocalPack();
@@ -1490,6 +1498,9 @@
           console.warn(err);
           toast('Keine Verbindung zur Cloud.');
         }
+      }
+      if (typeof bootAtlas === 'function') {
+        try { await bootAtlas(); } catch (err) { console.warn(err); }
       }
 
       const remoteAt = remotePack ? Number(remotePack.updatedAt) || 0 : 0;
@@ -1542,6 +1553,7 @@
       listenWorld();
       listenMap();
       listenPins();
+      if (typeof listenAtlas === 'function') listenAtlas();
       listenPlayers();
       syncChatListeners();
       listenRoster();

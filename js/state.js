@@ -7,6 +7,11 @@
     var mapBorders = [];
     var mapPinsUpdatedAt = 0;
     var writingPins = false;
+    var atlasMaps = [];
+    var atlasUpdatedAt = 0;
+    var writingAtlas = false;
+    var activeAtlasMapId = ATLAS_WORLD_ID;
+    var atlasMapImage = '';
     var placingPin = false;
     var pendingPin = null;
     var pendingPinEntryId = null;

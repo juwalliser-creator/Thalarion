@@ -206,12 +206,18 @@
               <button class="ghost" id="mapZoomReset" type="button" title="Zurücksetzen">100%</button>
               <button class="ghost" id="mapZoomIn" type="button" title="Vergrößern">+</button>
             </span>
+            <label class="atlas-map-pick" for="atlasMapSelect">
+              <span id="atlasMapLabel" class="atlas-map-label">Weltkarte</span>
+              <select id="atlasMapSelect" title="Karte wählen"></select>
+            </label>
+            <button class="ghost" id="atlasGalleryBtn" type="button">Karten</button>
             <button class="ghost" id="mapLegendBtn" type="button">Legende</button>
             <button class="ghost" id="mapFullBtn" type="button">Vollbild</button>
             <span class="map-dm-tools hidden" id="mapToolbar">
               <button class="ghost" id="placePinBtn" type="button">Ort setzen</button>
               <button class="ghost" id="drawBorderBtn" type="button">Grenze zeichnen</button>
-              <button class="primary" id="uploadMapBtn" type="button">Neue Karte hochladen</button>
+              <button class="primary" id="uploadMapBtn" type="button">Bild ersetzen</button>
+              <button class="danger hidden" id="atlasDeleteBtn" type="button">Karte entfernen</button>
             </span>
           </div>
           <div class="map-legend hidden" id="mapLegend"></div>
@@ -1017,6 +1023,7 @@
   <input id="uploadAllInput" class="hidden" type="file" accept=".txt,.md,text/plain" />
   <input id="uploadOneInput" class="hidden" type="file" accept=".txt,.md,text/plain" />
   <input id="mapFileInput" class="hidden" type="file" accept="image/*" />
+  <input id="atlasGalleryInput" class="hidden" type="file" accept="image/*" />
   <input id="entryImageInput" class="hidden" type="file" accept="image/*" />
   <input id="sheetPortraitInput" class="hidden" type="file" accept="image/*" />
   <input id="veyrImageInput" class="hidden" type="file" accept="image/*" />
@@ -1046,6 +1053,20 @@
       <div class="battle-gallery-list" id="dungeonGalleryList"></div>
       <div class="editor-actions">
         <button class="ghost" id="dungeonGalleryCloseBtn" type="button">Schließen</button>
+      </div>
+    </div>
+  </div>
+  <div id="atlasGalleryOverlay" class="overlay hidden">
+    <div class="login-card battle-gallery-card" role="dialog" aria-modal="true" aria-labelledby="atlasGalleryTitle">
+      <h2 id="atlasGalleryTitle">Atlas</h2>
+      <p class="dungeon-side-note" style="margin-top:0">Weltkarte bleibt erhalten. Weitere Karten haben eigene Markierungen.</p>
+      <div class="battle-gallery-add" id="atlasGalleryAddRow">
+        <input id="atlasGalleryName" type="text" maxlength="80" placeholder="Name, z. B. Eisenhall" autocomplete="off" />
+        <button class="primary" id="atlasGalleryAddBtn" type="button">Hinzufügen</button>
+      </div>
+      <div class="battle-gallery-list" id="atlasGalleryList"></div>
+      <div class="editor-actions">
+        <button class="ghost" id="atlasGalleryCloseBtn" type="button">Schließen</button>
       </div>
     </div>
   </div>

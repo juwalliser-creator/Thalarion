@@ -2119,6 +2119,26 @@ aside.is-magic-in {
   gap: 0.5rem;
   align-items: center;
 }
+.atlas-map-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.atlas-map-pick select {
+  min-width: 8.5rem;
+  max-width: 12rem;
+}
+.atlas-map-label {
+  font-family: Cinzel, serif;
+  color: var(--gold);
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .atlas-map-label { display: none; }
+}
 .map-hint {
   margin: 0 auto 0 0;
   color: var(--gold);

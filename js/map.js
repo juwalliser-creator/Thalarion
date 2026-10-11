@@ -5,7 +5,18 @@
       const at = Number(data.updatedAt) || 0;
       if (at && at <= mapUpdatedAt) return;
       mapUpdatedAt = at;
-      document.getElementById('worldMap').src = data.image;
+      // Legacy-Weltkarte: Atlas-Eintrag spiegeln; UI nur wenn Weltkarte aktiv
+      const world = atlasMaps.find(m => m.id === ATLAS_WORLD_ID);
+      if (world) world.image = data.image;
+      else if (!atlasMaps.length) {
+        // vor Migration kurz zwischenspeichern
+      }
+      if (activeAtlasMapId === ATLAS_WORLD_ID) {
+        atlasMapImage = data.image;
+        const img = document.getElementById('worldMap');
+        if (img) img.src = data.image;
+      }
+      persistAtlasLocal();
     }
 
     function listenMap() {
@@ -14,6 +25,451 @@
         if (writingMap || !snap.exists) return;
         applyMap(snap.data());
       });
+    }
+
+    function atlasNewId(prefix) {
+      return (prefix || 'am') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    }
+
+    function normalizeAtlasMap(m) {
+      if (!m || typeof m !== 'object') return null;
+      const id = String(m.id || '').trim();
+      const name = String(m.name || '').trim();
+      if (!id || !name) return null;
+      const locked = id === ATLAS_WORLD_ID || !!m.locked;
+      return {
+        id: id,
+        name: locked ? ATLAS_WORLD_NAME : name,
+        image: typeof m.image === 'string' ? m.image : '',
+        imageId: String(m.imageId || ''),
+        pins: normalizePins(m.pins),
+        borders: normalizeBorders(m.borders),
+        locked: locked
+      };
+    }
+
+    function persistAtlasLocal() {
+      writeLocal(ATLAS_LOCAL_KEY, JSON.stringify({
+        updatedAt: atlasUpdatedAt,
+        maps: atlasMaps,
+        activeId: activeAtlasMapId
+      }));
+      try { localStorage.setItem(ATLAS_ACTIVE_KEY, activeAtlasMapId || ATLAS_WORLD_ID); } catch (err) {}
+    }
+
+    function loadAtlasLocal() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(ATLAS_LOCAL_KEY) || 'null');
+        if (!raw || typeof raw !== 'object') return;
+        atlasUpdatedAt = Number(raw.updatedAt) || 0;
+        atlasMaps = (Array.isArray(raw.maps) ? raw.maps : []).map(normalizeAtlasMap).filter(Boolean);
+        const saved = String(raw.activeId || localStorage.getItem(ATLAS_ACTIVE_KEY) || ATLAS_WORLD_ID);
+        if (atlasMaps.some(m => m.id === saved)) activeAtlasMapId = saved;
+        else activeAtlasMapId = ATLAS_WORLD_ID;
+      } catch (err) {}
+    }
+
+    function getActiveAtlasMap() {
+      return atlasMaps.find(m => m.id === activeAtlasMapId) || atlasMaps.find(m => m.id === ATLAS_WORLD_ID) || null;
+    }
+
+    function flushActiveAtlasToStore() {
+      const map = getActiveAtlasMap();
+      if (!map) return;
+      map.pins = normalizePins(mapPins);
+      map.borders = normalizeBorders(mapBorders);
+      map.image = atlasMapImage || map.image || '';
+      if (map.locked) map.name = ATLAS_WORLD_NAME;
+    }
+
+    function applyAtlasWorkingCopy(map) {
+      if (!map) return;
+      activeAtlasMapId = map.id;
+      atlasMapImage = map.image || (map.id === ATLAS_WORLD_ID ? atlasMapImage : '');
+      mapPins = normalizePins(map.pins);
+      mapBorders = normalizeBorders(map.borders);
+      migratePinEntryLinks();
+      const img = document.getElementById('worldMap');
+      if (img) {
+        if (atlasMapImage) {
+          img.src = atlasMapImage;
+          map.image = atlasMapImage;
+        } else if (map.imageId && typeof loadEntryImage === 'function') {
+          loadEntryImage(map.imageId).then(data => {
+            if (activeAtlasMapId !== map.id || !data) return;
+            atlasMapImage = data;
+            map.image = data;
+            img.src = data;
+            persistAtlasLocal();
+          }).catch(() => {});
+        } else if (map.id === ATLAS_WORLD_ID) {
+          // Fallback: vorhandenes/Default-Bild im img belassen
+          if (img.getAttribute('src')) atlasMapImage = img.src || atlasMapImage;
+        } else {
+          img.removeAttribute('src');
+        }
+      }
+      mapScale = 1;
+      mapPanX = 0;
+      mapPanY = 0;
+      setPlacingPin(false);
+      setDrawingBorder(false);
+      endBorderVertEdit(false);
+      renderMapPins();
+      renderMapBorders();
+      applyMapTransform();
+      syncAtlasUi();
+      persistAtlasLocal();
+    }
+
+    async function ensureAtlasSeeded() {
+      if (atlasMaps.some(m => m.id === ATLAS_WORLD_ID)) return false;
+      let image = atlasMapImage || '';
+      const imgEl = document.getElementById('worldMap');
+      if (!image && imgEl && imgEl.getAttribute('src') && !/^Thalarion/i.test(imgEl.getAttribute('src') || '')) {
+        image = imgEl.src || '';
+      }
+      if (!image && db) {
+        try {
+          const snap = await mapRef().get();
+          if (snap.exists && snap.data().image) image = snap.data().image;
+        } catch (err) {}
+      }
+      atlasMaps = [{
+        id: ATLAS_WORLD_ID,
+        name: ATLAS_WORLD_NAME,
+        image: image,
+        imageId: '',
+        pins: normalizePins(mapPins),
+        borders: normalizeBorders(mapBorders),
+        locked: true
+      }].concat(atlasMaps.filter(m => m.id !== ATLAS_WORLD_ID));
+      if (!activeAtlasMapId) activeAtlasMapId = ATLAS_WORLD_ID;
+      atlasMapImage = image || atlasMapImage;
+      return true;
+    }
+
+    function applyAtlas(data, opts) {
+      opts = opts || {};
+      if (!data) return;
+      const at = Number(data.updatedAt) || 0;
+      if (!opts.force && at && at <= atlasUpdatedAt) return;
+      const prevActive = activeAtlasMapId;
+      atlasUpdatedAt = at || atlasUpdatedAt;
+      const next = (Array.isArray(data.maps) ? data.maps : []).map(normalizeAtlasMap).filter(Boolean);
+      if (!next.some(m => m.id === ATLAS_WORLD_ID)) {
+        const localWorld = atlasMaps.find(m => m.id === ATLAS_WORLD_ID);
+        if (localWorld) next.unshift(localWorld);
+      }
+      // Lokale Bild-Caches (data-URLs) behalten, wenn Remote nur imageId liefert
+      next.forEach(m => {
+        if (m.image) return;
+        const prev = atlasMaps.find(x => x.id === m.id);
+        if (prev && prev.image) m.image = prev.image;
+      });
+      atlasMaps = next;
+      if (!atlasMaps.some(m => m.id === prevActive)) activeAtlasMapId = ATLAS_WORLD_ID;
+      else activeAtlasMapId = prevActive;
+      const active = getActiveAtlasMap();
+      if (active) {
+        if (active.image) atlasMapImage = active.image;
+        else if (active.id === ATLAS_WORLD_ID && atlasMapImage) active.image = atlasMapImage;
+        mapPins = normalizePins(active.pins);
+        mapBorders = normalizeBorders(active.borders);
+        migratePinEntryLinks();
+        const img = document.getElementById('worldMap');
+        if (img && atlasMapImage) img.src = atlasMapImage;
+        renderMapPins();
+        renderMapBorders();
+      }
+      persistAtlasLocal();
+      syncAtlasUi();
+      renderAtlasGalleryList();
+    }
+
+    function listenAtlas() {
+      if (!db) return;
+      atlasRef().onSnapshot(snap => {
+        if (writingAtlas || !snap.exists) return;
+        applyAtlas(snap.data());
+      });
+    }
+
+    async function persistAtlasRemote() {
+      flushActiveAtlasToStore();
+      persistAtlasLocal();
+      if (!db) {
+        atlasUpdatedAt = Date.now();
+        persistAtlasLocal();
+        return;
+      }
+      writingAtlas = true;
+      try {
+        const nextAt = Date.now();
+        const payload = {
+          updatedAt: nextAt,
+          maps: atlasMaps.map(m => ({
+            id: m.id,
+            name: m.locked ? ATLAS_WORLD_NAME : m.name,
+            // Weltkarte-Bild bleibt in world/map; Zusatzkarten über imageId/image
+            image: (m.id === ATLAS_WORLD_ID || m.imageId) ? '' : (m.image || ''),
+            imageId: m.id === ATLAS_WORLD_ID ? '' : (m.imageId || ''),
+            pins: m.pins || [],
+            borders: m.borders || [],
+            locked: !!m.locked || m.id === ATLAS_WORLD_ID
+          }))
+        };
+        await atlasRef().set(payload);
+        atlasUpdatedAt = nextAt;
+        persistAtlasLocal();
+      } finally {
+        writingAtlas = false;
+      }
+    }
+
+    async function switchAtlasMap(id) {
+      if (!id || id === activeAtlasMapId) {
+        closeAtlasGallery();
+        return;
+      }
+      const target = atlasMaps.find(m => m.id === id);
+      if (!target) return toast('Karte nicht gefunden.');
+      flushActiveAtlasToStore();
+      persistAtlasLocal();
+      if (target.imageId && !target.image && typeof loadEntryImage === 'function') {
+        toast('Karte wird geladen…');
+        try {
+          const img = await loadEntryImage(target.imageId);
+          if (img) target.image = img;
+        } catch (err) {}
+      }
+      applyAtlasWorkingCopy(target);
+      closeAtlasGallery();
+      toast('Karte: ' + target.name);
+    }
+
+    function syncAtlasUi() {
+      const sel = document.getElementById('atlasMapSelect');
+      if (sel) {
+        const cur = activeAtlasMapId;
+        sel.innerHTML = '';
+        atlasMaps.slice().sort((a, b) => {
+          if (a.id === ATLAS_WORLD_ID) return -1;
+          if (b.id === ATLAS_WORLD_ID) return 1;
+          return a.name.localeCompare(b.name, 'de');
+        }).forEach(m => {
+          const o = document.createElement('option');
+          o.value = m.id;
+          o.textContent = m.name;
+          sel.appendChild(o);
+        });
+        sel.value = atlasMaps.some(m => m.id === cur) ? cur : ATLAS_WORLD_ID;
+      }
+      const label = document.getElementById('atlasMapLabel');
+      const active = getActiveAtlasMap();
+      if (label) label.textContent = active ? active.name : ATLAS_WORLD_NAME;
+      const delBtn = document.getElementById('atlasDeleteBtn');
+      if (delBtn) {
+        const locked = !!(active && active.locked);
+        delBtn.classList.toggle('hidden', !isDM || locked);
+      }
+      const addBtn = document.getElementById('atlasGalleryBtn');
+      if (addBtn) addBtn.classList.toggle('hidden', false);
+    }
+
+    function renderAtlasGalleryList() {
+      const box = document.getElementById('atlasGalleryList');
+      if (!box) return;
+      box.innerHTML = '';
+      const list = atlasMaps.slice().sort((a, b) => {
+        if (a.id === ATLAS_WORLD_ID) return -1;
+        if (b.id === ATLAS_WORLD_ID) return 1;
+        return a.name.localeCompare(b.name, 'de');
+      });
+      list.forEach(map => {
+        const row = document.createElement('div');
+        row.className = 'battle-gallery-item';
+        const pick = document.createElement('button');
+        pick.type = 'button';
+        pick.className = 'ghost battle-gallery-name';
+        pick.textContent = map.name + (map.id === activeAtlasMapId ? ' · aktiv' : '');
+        pick.title = 'Diese Karte anzeigen';
+        pick.onclick = () => switchAtlasMap(map.id);
+        row.appendChild(pick);
+        if (isDM && !map.locked) {
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'danger';
+          del.textContent = '×';
+          del.title = 'Karte löschen';
+          del.onclick = () => deleteAtlasMap(map.id);
+          row.appendChild(del);
+        }
+        box.appendChild(row);
+      });
+    }
+
+    function openAtlasGallery() {
+      renderAtlasGalleryList();
+      const overlay = document.getElementById('atlasGalleryOverlay');
+      if (overlay) overlay.classList.remove('hidden');
+      const addRow = document.getElementById('atlasGalleryAddRow');
+      if (addRow) addRow.classList.toggle('hidden', !isDM);
+    }
+
+    function closeAtlasGallery() {
+      const overlay = document.getElementById('atlasGalleryOverlay');
+      if (overlay) overlay.classList.add('hidden');
+    }
+
+    function startAtlasGalleryAdd() {
+      if (!isDM) return;
+      const nameEl = document.getElementById('atlasGalleryName');
+      const name = ((nameEl && nameEl.value) || '').trim();
+      if (!name) return toast('Bitte zuerst einen Namen eingeben.');
+      if (name.toLowerCase() === ATLAS_WORLD_NAME.toLowerCase()) {
+        return toast('„Weltkarte“ ist reserviert.');
+      }
+      if (atlasMaps.some(m => (m.name || '').toLowerCase() === name.toLowerCase())) {
+        return toast('Diesen Namen gibt es schon.');
+      }
+      const input = document.getElementById('atlasGalleryInput');
+      if (input) input.click();
+    }
+
+    async function addAtlasMap(file) {
+      if (!isDM || !file) return;
+      const nameEl = document.getElementById('atlasGalleryName');
+      const name = ((nameEl && nameEl.value) || '').trim();
+      if (!name) return toast('Bitte zuerst einen Namen eingeben.');
+      if (name.toLowerCase() === ATLAS_WORLD_NAME.toLowerCase()) {
+        return toast('„Weltkarte“ ist reserviert.');
+      }
+      if (atlasMaps.some(m => (m.name || '').toLowerCase() === name.toLowerCase())) {
+        return toast('Diesen Namen gibt es schon.');
+      }
+      toast('Karte wird hinzugefügt…');
+      try {
+        await ensureAtlasSeeded();
+        flushActiveAtlasToStore();
+        const image = await fileToMapImage(file);
+        const id = atlasNewId('am');
+        let imageId = '';
+        let imageStored = image;
+        if (db) {
+          imageId = 'img_atlas_' + id;
+          await persistEntryImage(imageId, image);
+          imageStored = '';
+        }
+        atlasMaps = atlasMaps.concat([{
+          id: id,
+          name: name,
+          image: imageStored || image,
+          imageId: imageId,
+          pins: [],
+          borders: [],
+          locked: false
+        }]);
+        await persistAtlasRemote();
+        if (nameEl) nameEl.value = '';
+        renderAtlasGalleryList();
+        syncAtlasUi();
+        toast('„' + name + '“ ist im Atlas.');
+        await switchAtlasMap(id);
+      } catch (err) {
+        toast(err.message || 'Karte konnte nicht gespeichert werden.');
+      }
+    }
+
+    async function deleteAtlasMap(id) {
+      if (!isDM) return;
+      const map = atlasMaps.find(m => m.id === id);
+      if (!map) return;
+      if (map.locked || map.id === ATLAS_WORLD_ID) return toast('Die Weltkarte kann nicht gelöscht werden.');
+      if (!confirm('„' + map.name + '“ inkl. Markierungen löschen?')) return;
+      flushActiveAtlasToStore();
+      const wasActive = activeAtlasMapId === id;
+      atlasMaps = atlasMaps.filter(m => m.id !== id);
+      try {
+        await persistAtlasRemote();
+        if (map.imageId) {
+          try { await deleteEntryImage(map.imageId); } catch (err) {}
+        }
+        if (wasActive) {
+          const world = atlasMaps.find(m => m.id === ATLAS_WORLD_ID) || atlasMaps[0];
+          if (world) applyAtlasWorkingCopy(world);
+        }
+        renderAtlasGalleryList();
+        syncAtlasUi();
+        toast('„' + map.name + '“ gelöscht.');
+      } catch (err) {
+        toast(err.message || 'Löschen fehlgeschlagen.');
+      }
+    }
+
+    async function bootAtlas() {
+      loadAtlasLocal();
+      let remote = null;
+      if (db) {
+        try {
+          const snap = await atlasRef().get();
+          if (snap.exists) remote = snap.data();
+        } catch (err) {}
+      }
+      if (remote && Array.isArray(remote.maps) && remote.maps.length) {
+        applyAtlas(remote, { force: true });
+      } else {
+        const seeded = await ensureAtlasSeeded();
+        const active = getActiveAtlasMap();
+        if (active) applyAtlasWorkingCopy(active);
+        if (seeded) {
+          try { await persistAtlasRemote(); } catch (err) { persistAtlasLocal(); }
+        } else {
+          persistAtlasLocal();
+        }
+      }
+      // Aktive Karte ggf. per imageId nachladen
+      const cur = getActiveAtlasMap();
+      if (cur && !cur.image && cur.imageId && typeof loadEntryImage === 'function') {
+        try {
+          const data = await loadEntryImage(cur.imageId);
+          if (data) {
+            cur.image = data;
+            if (activeAtlasMapId === cur.id) {
+              atlasMapImage = data;
+              const img = document.getElementById('worldMap');
+              if (img) img.src = data;
+            }
+            persistAtlasLocal();
+          }
+        } catch (err) {}
+      }
+      syncAtlasUi();
+    }
+
+    function bindAtlasUi() {
+      onClick('atlasGalleryBtn', openAtlasGallery);
+      onClick('atlasGalleryCloseBtn', closeAtlasGallery);
+      onClick('atlasGalleryAddBtn', startAtlasGalleryAdd);
+      onClick('atlasDeleteBtn', () => deleteAtlasMap(activeAtlasMapId));
+      onEv('atlasGalleryOverlay', 'click', ev => {
+        if (ev.target && ev.target.id === 'atlasGalleryOverlay') closeAtlasGallery();
+      });
+      const sel = document.getElementById('atlasMapSelect');
+      if (sel && !sel.dataset.bound) {
+        sel.dataset.bound = '1';
+        sel.addEventListener('change', () => switchAtlasMap(sel.value));
+      }
+      const input = document.getElementById('atlasGalleryInput');
+      if (input && !input.dataset.bound) {
+        input.dataset.bound = '1';
+        input.addEventListener('change', () => {
+          const file = input.files && input.files[0];
+          input.value = '';
+          if (file) addAtlasMap(file);
+        });
+      }
+      syncAtlasUi();
     }
 
     function mapShapeById(id) {
@@ -215,8 +671,18 @@
       const at = Number(data.updatedAt) || 0;
       if (at && at <= mapPinsUpdatedAt) return;
       mapPinsUpdatedAt = at;
-      mapPins = normalizePins(data.pins);
-      mapBorders = normalizeBorders(data.borders);
+      const pins = normalizePins(data.pins);
+      const borders = normalizeBorders(data.borders);
+      // Legacy mapPins spiegelt immer die Weltkarte
+      let world = atlasMaps.find(m => m.id === ATLAS_WORLD_ID);
+      if (world) {
+        world.pins = pins;
+        world.borders = borders;
+        persistAtlasLocal();
+      }
+      if (activeAtlasMapId !== ATLAS_WORLD_ID) return;
+      mapPins = pins;
+      mapBorders = borders;
       migratePinEntryLinks();
       renderMapPins();
       renderMapBorders();
@@ -231,16 +697,20 @@
     }
 
     async function persistPins() {
-      if (!db) throw new Error('Keine Verbindung zur Cloud.');
+      flushActiveAtlasToStore();
       const nextAt = Date.now();
+      mapPinsUpdatedAt = nextAt;
       writingPins = true;
       try {
-        await pinsRef().set({
-          updatedAt: nextAt,
-          pins: mapPins,
-          borders: mapBorders
-        });
-        mapPinsUpdatedAt = nextAt;
+        if (activeAtlasMapId === ATLAS_WORLD_ID) {
+          if (!db) throw new Error('Keine Verbindung zur Cloud.');
+          await pinsRef().set({
+            updatedAt: nextAt,
+            pins: mapPins,
+            borders: mapBorders
+          });
+        }
+        await persistAtlasRemote();
       } finally {
         writingPins = false;
       }
@@ -1179,16 +1649,36 @@
 
     async function uploadMapFile(file) {
       if (!isDM || !file) return;
-      if (!db) return toast('Keine Verbindung zur Cloud.');
       toast('Karte wird hochgeladen…');
       try {
-        const image = await storeCloudImage('world-map', await fileToMapImage(file));
-        const updatedAt = Date.now();
-        writingMap = true;
-        await mapRef().set({ image: image, updatedAt: updatedAt });
-        mapUpdatedAt = updatedAt;
-        document.getElementById('worldMap').src = image;
-        toast('Neue Karte ist für alle Laptops gespeichert.');
+        await ensureAtlasSeeded();
+        const raw = await fileToMapImage(file);
+        const active = getActiveAtlasMap();
+        if (!active) throw new Error('Keine aktive Karte.');
+        let image = raw;
+        if (active.id === ATLAS_WORLD_ID) {
+          if (!db) throw new Error('Keine Verbindung zur Cloud.');
+          writingMap = true;
+          image = await storeCloudImage('world-map', raw);
+          const updatedAt = Date.now();
+          await mapRef().set({ image: image, updatedAt: updatedAt });
+          mapUpdatedAt = updatedAt;
+        } else if (db) {
+          const imageId = active.imageId || ('img_atlas_' + active.id);
+          await persistEntryImage(imageId, raw);
+          active.imageId = imageId;
+          image = raw;
+          active.image = '';
+        }
+        atlasMapImage = image || raw;
+        active.image = atlasMapImage;
+        const img = document.getElementById('worldMap');
+        if (img) img.src = atlasMapImage;
+        flushActiveAtlasToStore();
+        await persistAtlasRemote();
+        toast(active.id === ATLAS_WORLD_ID
+          ? 'Weltkarte ist für alle gespeichert.'
+          : 'Kartenbild für „' + active.name + '“ gespeichert.');
       } catch (err) {
         toast(err.message || 'Karte konnte nicht hochgeladen werden.');
       } finally {
@@ -1233,6 +1723,7 @@
       currentTitle = null;
       els.sitzungView.classList.add('hidden');
       renderSidebar();
+      syncAtlasUi();
       renderMapPins();
       renderMapBorders();
       applyMapTransform();

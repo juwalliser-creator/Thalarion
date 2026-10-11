@@ -103,6 +103,10 @@
       return db.collection('world').doc('mapPins');
     }
 
+    function atlasRef() {
+      return db.collection('world').doc(ATLAS_DOC);
+    }
+
     function playersRef() {
       return db.collection('world').doc(PLAYERS_DOC);
     }
