@@ -159,6 +159,24 @@ var DND_ABS = [
   { id: 'wis', label: 'Weisheit', short: 'WEI' },
   { id: 'cha', label: 'Charisma', short: 'CHA' }
 ];
+var DND_ITEM_CATEGORIES = [
+  { id: 'weapon', label: 'Waffe' },
+  { id: 'armor', label: 'Rüstung' },
+  { id: 'shield', label: 'Schild' },
+  { id: 'consumable', label: 'Verbrauchbar' },
+  { id: 'magic', label: 'Magisch' },
+  { id: 'tool', label: 'Werkzeug' },
+  { id: 'loot', label: 'Beute' },
+  { id: 'other', label: 'Sonstiges' }
+];
+var DND_ITEM_CONTAINERS = [
+  { id: 'carried', label: 'Getragen' },
+  { id: 'belt', label: 'Gürtel' },
+  { id: 'backpack', label: 'Rucksack' },
+  { id: 'mount', label: 'Pferd / Wagen' },
+  { id: 'camp', label: 'Lager' },
+  { id: 'quest', label: 'Quest' }
+];
 var DND_SKILLS = [
   { id: 'athletics', ability: 'str', label: 'Athletik' },
   { id: 'acrobatics', ability: 'dex', label: 'Akrobatik' },

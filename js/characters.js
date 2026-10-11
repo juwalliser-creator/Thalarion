@@ -594,10 +594,7 @@
         notes: dndMetersToFeetText(x.notes || ''),
         text: dndMetersToFeetText(x.text || '')
       });
-      base.items = list(src.items, x => x && {
-        id: x.id || combatNewId('i'), name: String(x.name || ''), qty: String(x.qty || '1'),
-        weight: String(x.weight || ''), equipped: !!x.equipped, attuned: !!x.attuned, notes: String(x.notes || '')
-      });
+      base.items = list(src.items, x => x && normalizeDndItem(x));
       base.features = list(src.features, x => x && {
         id: x.id || combatNewId('f'), name: String(x.name || ''), uses: String(x.uses || ''),
         used: String(x.used || ''), reset: /^(short|long|dawn)$/.test(x.reset) ? x.reset : 'long',
@@ -612,8 +609,352 @@
     var dndState = emptyDndSheet();
     var dndActFilter = 'all';
     var dndSpellFilter = 'all';
+    var dndInvFilter = 'all';
     var dndAttackEditId = '';
     var dndSpellEditId = '';
+    var dndItemEditId = '';
+    var dndItemPackId = '';
+
+    function dndItemCategoryId(raw) {
+      const id = String(raw || '');
+      return (DND_ITEM_CATEGORIES || []).some(c => c.id === id) ? id : 'other';
+    }
+
+    function dndItemContainerId(raw, equipped) {
+      const id = String(raw || '');
+      if ((DND_ITEM_CONTAINERS || []).some(c => c.id === id)) return id;
+      return equipped ? 'carried' : 'backpack';
+    }
+
+    function normalizeDndItem(raw) {
+      const x = raw && typeof raw === 'object' ? raw : {};
+      const equipped = !!x.equipped;
+      return {
+        id: x.id || combatNewId('i'),
+        name: String(x.name || ''),
+        qty: String(x.qty != null && x.qty !== '' ? x.qty : '1'),
+        weight: String(x.weight || ''),
+        category: dndItemCategoryId(x.category),
+        container: dndItemContainerId(x.container, equipped),
+        equipped: equipped,
+        attuned: !!x.attuned,
+        notes: String(x.notes || ''),
+        text: String(x.text || ''),
+        range: String(x.range || ''),
+        bonus: String(x.bonus || ''),
+        damage: String(x.damage || ''),
+        attackId: String(x.attackId || '')
+      };
+    }
+
+    function dndItemIsCombat(item) {
+      const c = item && item.category;
+      return c === 'weapon' || c === 'armor' || c === 'shield';
+    }
+
+    function dndItemIsUsable(item) {
+      return !!(item && item.category === 'consumable');
+    }
+
+    function dndItemNum(raw) {
+      const n = Number(String(raw == null ? '' : raw).replace(',', '.').trim());
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function dndItemUnitWeight(item) {
+      return Math.max(0, dndItemNum(item && item.weight));
+    }
+
+    function dndItemStackWeight(item) {
+      const qty = Math.max(0, dndItemNum(item && item.qty) || 0);
+      return qty * dndItemUnitWeight(item);
+    }
+
+    function dndCarryCapacityKg() {
+      const str = dndState && dndState.abilities && dndState.abilities.str
+        ? Number(dndState.abilities.str.score) || 10
+        : 10;
+      // 5e: 15 lb × ST, hier als kg (×0,5)
+      return Math.round(str * 7.5 * 10) / 10;
+    }
+
+    function dndItemMatchesInvFilter(item, filter) {
+      if (!item) return false;
+      const f = filter || 'all';
+      if (f === 'all') return true;
+      if (f === 'carried') return item.equipped || item.container === 'carried' || item.container === 'belt';
+      if (f === 'backpack') return item.container === 'backpack';
+      if (f === 'magic') return item.category === 'magic' || item.attuned;
+      if (f === 'consumable') return item.category === 'consumable';
+      return true;
+    }
+
+    function dndInvSelectHtml(kind, value) {
+      const list = kind === 'category' ? DND_ITEM_CATEGORIES : DND_ITEM_CONTAINERS;
+      const key = kind === 'category' ? 'category' : 'container';
+      return '<select data-k="' + key + '">' + (list || []).map(opt =>
+        '<option value="' + opt.id + '"' + (opt.id === value ? ' selected' : '') + '>' +
+        escapeAttr(opt.label) + '</option>'
+      ).join('') + '</select>';
+    }
+
+    function dndItemLabel(list, id) {
+      return ((list || []).find(c => c.id === id) || {}).label || id || '';
+    }
+
+    function dndItemIsOpen(row) {
+      return !String(row && row.name || '').trim() || (row && row.id) === dndItemEditId;
+    }
+
+    function commitDndItem(id) {
+      collectDndFields();
+      const item = (dndState.items || []).find(x => x.id === id);
+      if (!item || !String(item.name || '').trim()) {
+        toast('Zuerst einen Namen für den Gegenstand eintragen.');
+        return;
+      }
+      dndItemEditId = '';
+      dndItemPackId = '';
+      renderDndInventory();
+      sheetDirty = true;
+      saveSheet();
+    }
+
+    function useDndItem(id) {
+      collectDndFields();
+      const item = (dndState.items || []).find(x => x.id === id);
+      if (!item) return;
+      if (!dndItemIsUsable(item)) {
+        toast('Nur Verbrauchbares lässt sich so nutzen.');
+        return;
+      }
+      let qty = Math.max(0, Math.floor(dndItemNum(item.qty)));
+      if (!qty) qty = 0;
+      if (qty <= 0) {
+        toast((item.name || 'Gegenstand') + ' ist aufgebraucht.');
+        return;
+      }
+      qty -= 1;
+      item.qty = String(qty);
+      toast((item.name || 'Gegenstand') + ' genutzt · noch ' + qty + '.');
+      renderDndInventory();
+      sheetDirty = true;
+      saveSheet();
+      if (dndActionView && dndActionView.kind === 'items' && dndActionView.id === id) {
+        openDndActionInfo('items', id, currentSheetOwner);
+      }
+    }
+
+    function setDndItemContainer(id, containerId) {
+      collectDndFields();
+      const item = (dndState.items || []).find(x => x.id === id);
+      if (!item) return;
+      const next = dndItemContainerId(containerId, item.equipped);
+      item.container = next;
+      if (next === 'carried' || next === 'belt') {
+        if (dndItemIsCombat(item)) item.equipped = true;
+      } else {
+        item.equipped = false;
+      }
+      dndItemPackId = '';
+      renderDndInventory();
+      sheetDirty = true;
+      saveSheet();
+      toast((item.name || 'Gegenstand') + ' → ' + dndItemLabel(DND_ITEM_CONTAINERS, next));
+    }
+
+    function toggleDndItemPack(id) {
+      collectDndFields();
+      dndItemPackId = dndItemPackId === id ? '' : (id || '');
+      renderDndInventory();
+    }
+
+    function createDndAttackFromItem(id) {
+      collectDndFields();
+      const item = (dndState.items || []).find(x => x.id === id);
+      if (!item || !String(item.name || '').trim()) {
+        toast('Zuerst einen Namen für den Gegenstand eintragen.');
+        return;
+      }
+      let atk = item.attackId
+        ? (dndState.attacks || []).find(a => a.id === item.attackId)
+        : null;
+      if (!atk) {
+        const want = String(item.name || '').trim().toLowerCase();
+        atk = (dndState.attacks || []).find(a => String(a.name || '').trim().toLowerCase() === want);
+      }
+      if (atk) {
+        item.attackId = atk.id;
+        dndItemEditId = '';
+        dndItemPackId = '';
+        setDndTab('actions');
+        sheetDirty = true;
+        saveSheet();
+        toast('Angriff „' + (atk.name || item.name) + '“ ist unter Aktionen.');
+        return;
+      }
+      const newId = combatNewId('a');
+      const rangeDefault = item.category === 'weapon' ? '5 ft.' : '';
+      dndState.attacks.push({
+        id: newId,
+        name: item.name,
+        range: String(item.range || rangeDefault),
+        bonus: String(item.bonus || ''),
+        hitRoll: '',
+        damage: String(item.damage || ''),
+        dmgRoll: '',
+        notes: String(item.notes || ''),
+        text: String(item.text || '')
+      });
+      item.attackId = newId;
+      item.equipped = true;
+      item.container = 'carried';
+      dndAttackEditId = newId;
+      dndItemEditId = '';
+      dndItemPackId = '';
+      setDndTab('actions');
+      sheetDirty = true;
+      saveSheet();
+      toast('Angriff aus „' + item.name + '“ angelegt.');
+    }
+
+    function dndItemPackHtml(row) {
+      if (dndItemPackId !== row.id) return '';
+      return '<div class="dnd-inv-pack">' + (DND_ITEM_CONTAINERS || []).map(opt =>
+        '<button type="button" class="' + (opt.id === row.container ? 'active' : '') +
+        '" data-dnd-item-container="' + opt.id + '" data-id="' + row.id + '">' +
+        escapeAttr(opt.label) + '</button>'
+      ).join('') + '</div>';
+    }
+
+    function dndItemRowHtml(row) {
+      if (dndItemIsOpen(row)) {
+        const combat = dndItemIsCombat(row) || row.category === 'magic';
+        return '<div class="dnd-inv-edit" data-dnd-row="items" data-id="' + row.id + '">' +
+          '<div class="dnd-inv-edit-top">' +
+          '<input data-k="name" value="' + escapeAttr(row.name) + '" placeholder="Gegenstand" />' +
+          '<input data-k="qty" value="' + escapeAttr(row.qty) + '" placeholder="1" title="Menge" />' +
+          '<input data-k="weight" value="' + escapeAttr(row.weight) + '" placeholder="kg" title="Gewicht je Stück" /></div>' +
+          '<div class="dnd-inv-edit-grid">' +
+          dndInvSelectHtml('category', row.category) +
+          dndInvSelectHtml('container', row.container) +
+          '<label class="dnd-save" title="Ausgerüstet"><input class="dnd-check" type="checkbox" data-k="equipped"' +
+          (row.equipped ? ' checked' : '') + ' /> an</label>' +
+          '<label class="dnd-save" title="Eingestimmt"><input class="dnd-check" type="checkbox" data-k="attuned"' +
+          (row.attuned ? ' checked' : '') + ' /> ein</label></div>' +
+          (combat
+            ? '<div class="dnd-inv-edit-combat">' +
+              '<input data-k="range" value="' + escapeAttr(row.range) + '" placeholder="Reichweite" />' +
+              '<input data-k="bonus" value="' + escapeAttr(row.bonus) + '" placeholder="+5" title="Angriffsbonus" />' +
+              '<input data-k="damage" value="' + escapeAttr(row.damage) + '" placeholder="1W8+3" title="Schaden" /></div>'
+            : '') +
+          '<input data-k="notes" value="' + escapeAttr(row.notes) + '" placeholder="Kurznotiz" />' +
+          '<textarea data-k="text" class="dnd-inv-edit-text" placeholder="Wirkung / Beschreibung…">' +
+          escapeAttr(row.text) + '</textarea>' +
+          '<div class="dnd-atk-edit-foot">' +
+          '<button type="button" class="primary" data-dnd-item-save="' + row.id + '">Speichern</button>' +
+          '<button type="button" class="ghost" data-dnd-del="items">×</button></div></div>';
+      }
+      const qty = String(row.qty || '1').trim() || '1';
+      const w = Math.round(dndItemStackWeight(row) * 100) / 100;
+      const cat = dndItemLabel(DND_ITEM_CATEGORIES, row.category);
+      const bits = [cat];
+      if (qty !== '1') bits.push('×' + qty);
+      bits.push(w + ' kg');
+      if (row.equipped) bits.push('an');
+      if (row.attuned) bits.push('ein');
+      const meta = bits.join(' · ');
+      const actions = [];
+      if (dndItemIsUsable(row)) {
+        actions.push('<button type="button" class="primary" data-dnd-item-use="' + row.id +
+          '" title="Einen verbrauchen">Nutzen</button>');
+      }
+      if (dndItemIsCombat(row)) {
+        actions.push('<button type="button" class="ghost" data-dnd-item-attack="' + row.id +
+          '" title="Als Angriff unter Aktionen">' +
+          (row.attackId ? 'Angriff' : '→ Angriff') + '</button>');
+      }
+      actions.push('<button type="button" class="ghost" data-dnd-item-pack="' + row.id +
+        '" title="Umpacken">Packen</button>');
+      actions.push('<button type="button" class="ghost" data-dnd-item-edit="' + row.id +
+        '" title="Bearbeiten">Ändern</button>');
+      actions.push('<button type="button" class="ghost" data-dnd-del="items">×</button>');
+      return '<div class="dnd-inv-item" data-dnd-row="items" data-id="' + row.id + '">' +
+        '<div class="dnd-inv-id"><button type="button" class="dnd-atk-name" data-dnd-info title="Beschreibung">' +
+        escapeAttr(row.name || 'Gegenstand') + '</button>' +
+        '<span class="dnd-atk-kind">' + escapeAttr(meta) + '</span></div>' +
+        '<div class="dnd-atk-notes">' + escapeAttr(row.notes || '') + '</div>' +
+        '<div class="dnd-inv-actions">' +
+        '<label class="dnd-save" title="Ausgerüstet"><input class="dnd-check" type="checkbox" data-k="equipped"' +
+        (row.equipped ? ' checked' : '') + ' /> an</label>' +
+        '<label class="dnd-save" title="Eingestimmt"><input class="dnd-check" type="checkbox" data-k="attuned"' +
+        (row.attuned ? ' checked' : '') + ' /> ein</label>' +
+        actions.join('') + '</div>' +
+        dndItemPackHtml(row) + '</div>';
+    }
+
+    function setDndInvFilter(filter) {
+      collectDndFields();
+      dndInvFilter = filter || 'all';
+      renderDndInventory();
+    }
+
+    function refreshDndInvSummary() {
+      const items = (dndState.items || []).map(normalizeDndItem);
+      const total = items.reduce((sum, it) => sum + dndItemStackWeight(it), 0);
+      const cap = dndCarryCapacityKg();
+      const attuned = items.filter(it => it.attuned).length;
+      const weightEl = document.getElementById('dndInvWeight');
+      if (weightEl) {
+        const rounded = Math.round(total * 100) / 100;
+        weightEl.textContent = rounded + ' / ' + cap + ' kg';
+        weightEl.classList.toggle('is-warn', total > cap * 0.8 && total <= cap);
+        weightEl.classList.toggle('is-over', total > cap);
+      }
+      const attuneEl = document.getElementById('dndInvAttune');
+      if (attuneEl) {
+        attuneEl.textContent = attuned + ' / 3';
+        attuneEl.classList.toggle('is-over', attuned > 3);
+      }
+      document.querySelectorAll('#dndInvFilters [data-dnd-inv-filter]').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-dnd-inv-filter') === dndInvFilter);
+      });
+    }
+
+    function renderDndInventory() {
+      const box = document.getElementById('dndItemList');
+      if (!box) return;
+      const items = (dndState.items || []).map(normalizeDndItem);
+      dndState.items = items;
+      refreshDndInvSummary();
+      const visible = items.filter(it => dndItemMatchesInvFilter(it, dndInvFilter));
+      if (!visible.length) {
+        box.innerHTML = '<p class="dnd-inv-empty">' +
+          (items.length ? 'Keine Gegenstände in diesem Filter.' : 'Noch keine Gegenstände.') + '</p>';
+        return;
+      }
+      const order = (DND_ITEM_CONTAINERS || []).map(c => c.id);
+      const byContainer = {};
+      visible.forEach(it => {
+        const key = it.equipped && it.container !== 'mount' && it.container !== 'camp' && it.container !== 'quest'
+          ? 'carried'
+          : it.container;
+        if (!byContainer[key]) byContainer[key] = [];
+        byContainer[key].push(it);
+      });
+      let html = '';
+      order.forEach(cid => {
+        const rows = byContainer[cid];
+        if (!rows || !rows.length) return;
+        const label = ((DND_ITEM_CONTAINERS || []).find(c => c.id === cid) || {}).label || cid;
+        const sectionWeight = Math.round(rows.reduce((s, it) => s + dndItemStackWeight(it), 0) * 100) / 100;
+        html += '<div class="dnd-inv-section">' +
+          '<div class="dnd-inv-section-head"><span>' + escapeAttr(label) + '</span>' +
+          '<span class="dnd-inv-section-w">' + sectionWeight + ' kg</span></div>' +
+          rows.map(dndItemRowHtml).join('') + '</div>';
+      });
+      box.innerHTML = html || '<p class="dnd-inv-empty">Keine Gegenstände.</p>';
+    }
 
     function dndParseDice(raw) {
       const s = String(raw || '').replace(/\s/g, '').replace(',', '.');
@@ -1098,6 +1439,16 @@
         if (item.reset === 'short') bits.push('Kurzrast');
         else if (item.reset === 'dawn') bits.push('Morgengrauen');
         else if (item.reset === 'long' || (Number.isFinite(max) && max > 0)) bits.push('Langrast');
+      } else if (kind === 'items') {
+        bits.push(dndItemLabel(DND_ITEM_CATEGORIES, item.category));
+        bits.push(dndItemLabel(DND_ITEM_CONTAINERS, item.container));
+        const qty = String(item.qty || '1').trim() || '1';
+        if (qty !== '1') bits.push('×' + qty);
+        if (item.range) bits.push(item.range);
+        if (item.bonus) bits.push(item.bonus);
+        if (item.damage) bits.push(item.damage);
+        if (item.equipped) bits.push('angelegt');
+        if (item.attuned) bits.push('eingestimmt');
       } else {
         if (item.range) bits.push(item.range);
         if (item.bonus) bits.push(item.bonus);
@@ -1120,7 +1471,7 @@
     }
 
     function openDndActionInfo(kind, id, owner) {
-      if (kind !== 'spells' && kind !== 'attacks' && kind !== 'features') return;
+      if (kind !== 'spells' && kind !== 'attacks' && kind !== 'features' && kind !== 'items') return;
       if ((!owner || owner === currentSheetOwner) && usesDndSheet(currentSheetOwner)) collectDndFields();
       const found = findDndAction(kind, id, owner);
       if (!found.item) {
@@ -1133,18 +1484,32 @@
       const meta = document.getElementById('dndActionMeta');
       const ta = document.getElementById('dndActionText');
       const save = document.getElementById('dndActionSave');
-      if (title) title.textContent = found.item.name || (kind === 'spells' ? 'Zauber' : kind === 'features' ? 'Merkmal' : 'Angriff');
+      if (title) {
+        title.textContent = found.item.name || (
+          kind === 'spells' ? 'Zauber' :
+          kind === 'features' ? 'Merkmal' :
+          kind === 'items' ? 'Gegenstand' : 'Angriff'
+        );
+      }
       if (meta) meta.textContent = dndActionMetaLine(kind, found.item);
       const canEdit = canEditOwnerSheet(found.owner);
       if (ta) {
         ta.value = String(found.item.text || '');
+        ta.placeholder = kind === 'items' ? 'Wirkung / Beschreibung…' : 'Was tut diese Aktion?';
         ta.readOnly = !canEdit;
       }
       if (save) save.classList.toggle('hidden', !canEdit);
       const cast = document.getElementById('dndActionCast');
       if (cast) {
-        const canCast = canEdit && kind === 'spells' && dndSpellLevelNum(found.item.level) >= 1;
-        cast.classList.toggle('hidden', !canCast);
+        if (canEdit && kind === 'spells' && dndSpellLevelNum(found.item.level) >= 1) {
+          cast.textContent = 'Wirken';
+          cast.classList.remove('hidden');
+        } else if (canEdit && kind === 'items' && dndItemIsUsable(found.item)) {
+          cast.textContent = 'Nutzen';
+          cast.classList.remove('hidden');
+        } else {
+          cast.classList.add('hidden');
+        }
       }
       if (overlay) overlay.classList.remove('hidden');
       if (ta && canEdit) setTimeout(() => ta.focus(), 30);
@@ -1262,19 +1627,7 @@
         }
         spells.innerHTML = html;
       }
-      const items = document.getElementById('dndItemList');
-      if (items) {
-        items.innerHTML = dndState.items.map(row =>
-          '<div class="dnd-row dnd-row-item" data-dnd-row="items" data-id="' + row.id + '">' +
-          '<input data-k="name" value="' + escapeAttr(row.name) + '" placeholder="Gegenstand" />' +
-          '<input data-k="qty" value="' + escapeAttr(row.qty) + '" placeholder="1" />' +
-          '<input data-k="weight" value="' + escapeAttr(row.weight) + '" placeholder="kg" />' +
-          '<label class="dnd-save"><input class="dnd-check" type="checkbox" data-k="equipped"' + (row.equipped ? ' checked' : '') + ' /> an</label>' +
-          '<label class="dnd-save"><input class="dnd-check" type="checkbox" data-k="attuned"' + (row.attuned ? ' checked' : '') + ' /> ein</label>' +
-          '<input data-k="notes" value="' + escapeAttr(row.notes) + '" placeholder="Notiz" />' +
-          '<button type="button" class="ghost" data-dnd-del="items">×</button></div>'
-        ).join('');
-      }
+      renderDndInventory();
       const feats = document.getElementById('dndFeatureList');
       if (feats) {
         feats.innerHTML = dndState.features.map(row =>
@@ -1334,7 +1687,7 @@
       });
       const filters = document.getElementById('dndActionFilters');
       if (filters) filters.classList.toggle('hidden', tab !== 'actions');
-      if (tab === 'actions' || tab === 'features' || tab === 'spells') renderDndLists();
+      if (tab === 'actions' || tab === 'features' || tab === 'spells' || tab === 'inventory') renderDndLists();
       if (tab === 'spells') renderDndSlots();
     }
 
@@ -1377,6 +1730,7 @@
       const spellMod = dndMod(dndState.abilities[dndState.spellAbility] ? dndState.abilities[dndState.spellAbility].score : 10);
       setTxt('dndSpellDc', String(8 + prof + spellMod));
       setTxt('dndSpellAtk', dndSigned(prof + spellMod));
+      if (dndState.tab === 'inventory') refreshDndInvSummary();
     }
 
     function fillDndForm(sheet) {
@@ -1443,7 +1797,15 @@
         dndState.spells.push(emptyDndSpell(id, level));
         dndSpellEditId = id;
       }
-      if (kind === 'items') dndState.items.push({ id: combatNewId('i'), name: '', qty: '1', weight: '', equipped: false, attuned: false, notes: '' });
+      if (kind === 'items') {
+        dndInvFilter = 'all';
+        const id = combatNewId('i');
+        dndState.items.push(normalizeDndItem({
+          id: id, name: '', qty: '1', weight: '',
+          category: 'other', container: 'backpack', equipped: false, attuned: false, notes: ''
+        }));
+        dndItemEditId = id;
+      }
       if (kind === 'features') dndState.features.push({ id: combatNewId('f'), name: '', uses: '', used: '', reset: 'long', text: '' });
       renderDndLists();
       sheetDirty = true;
