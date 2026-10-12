@@ -956,6 +956,326 @@
       box.innerHTML = html || '<p class="dnd-inv-empty">Keine Gegenstände.</p>';
     }
 
+    function dndItemRarityId(raw) {
+      const id = String(raw || '');
+      return (DND_ITEM_RARITIES || []).some(r => r.id === id) ? id : '';
+    }
+
+    function normalizeCatalogItem(raw) {
+      const x = raw && typeof raw === 'object' ? raw : {};
+      return {
+        id: x.id || combatNewId('ic'),
+        name: String(x.name || ''),
+        category: dndItemCategoryId(x.category),
+        rarity: dndItemRarityId(x.rarity),
+        weight: String(x.weight || ''),
+        cost: String(x.cost || ''),
+        notes: String(x.notes || ''),
+        text: String(x.text || ''),
+        range: String(x.range || ''),
+        bonus: String(x.bonus || ''),
+        damage: String(x.damage || ''),
+        attunement: !!x.attunement,
+        tags: String(x.tags || ''),
+        source: String(x.source || '')
+      };
+    }
+
+    function persistItemCatalogLocal() {
+      writeLocal(ITEM_CATALOG_KEY, JSON.stringify({
+        updatedAt: itemCatalogUpdatedAt,
+        items: (itemCatalog || []).slice(0, ITEM_CATALOG_MAX)
+      }));
+    }
+
+    function loadItemCatalogLocal() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(ITEM_CATALOG_KEY) || 'null');
+        if (!raw || typeof raw !== 'object') return;
+        itemCatalogUpdatedAt = Number(raw.updatedAt) || 0;
+        itemCatalog = Array.isArray(raw.items)
+          ? raw.items.map(normalizeCatalogItem)
+          : [];
+      } catch (err) {
+        itemCatalog = [];
+      }
+    }
+
+    function applyItemCatalog(data) {
+      if (!data) return;
+      const at = Number(data.updatedAt) || 0;
+      if (at && at <= itemCatalogUpdatedAt) return;
+      itemCatalogUpdatedAt = at;
+      itemCatalog = Array.isArray(data.items)
+        ? data.items.map(normalizeCatalogItem)
+        : [];
+      persistItemCatalogLocal();
+      const overlay = document.getElementById('dndCatalogOverlay');
+      if (overlay && !overlay.classList.contains('hidden')) renderItemCatalog();
+    }
+
+    function listenItemCatalog() {
+      if (!db) return;
+      itemCatalogRef().onSnapshot(snap => {
+        if (writingItemCatalog || !snap.exists) return;
+        applyItemCatalog(snap.data());
+      });
+    }
+
+    async function persistItemCatalogRemote() {
+      if (!db) return;
+      const nextAt = Date.now();
+      writingItemCatalog = true;
+      try {
+        await itemCatalogRef().set({
+          updatedAt: nextAt,
+          items: (itemCatalog || []).slice(0, ITEM_CATALOG_MAX)
+        });
+        itemCatalogUpdatedAt = nextAt;
+        persistItemCatalogLocal();
+      } catch (err) {
+        toast('Katalog konnte nicht gespeichert werden: ' + (err && err.message ? err.message : err));
+      } finally {
+        writingItemCatalog = false;
+      }
+    }
+
+    function persistItemCatalogSoon() {
+      itemCatalogUpdatedAt = Date.now();
+      persistItemCatalogLocal();
+      clearTimeout(itemCatalogPersistTimer);
+      itemCatalogPersistTimer = setTimeout(() => { persistItemCatalogRemote(); }, 220);
+    }
+
+    function openItemCatalog() {
+      itemCatalogEditId = null;
+      if (!itemCatalogSelectedId && itemCatalog.length) {
+        itemCatalogSelectedId = itemCatalog[0].id;
+      }
+      const overlay = document.getElementById('dndCatalogOverlay');
+      if (overlay) overlay.classList.remove('hidden');
+      renderItemCatalog();
+      const search = document.getElementById('dndCatalogSearch');
+      if (search) {
+        search.value = itemCatalogQuery || '';
+        setTimeout(() => search.focus(), 30);
+      }
+    }
+
+    function closeItemCatalog() {
+      itemCatalogEditId = null;
+      const overlay = document.getElementById('dndCatalogOverlay');
+      if (overlay) overlay.classList.add('hidden');
+    }
+
+    function catalogMatchesQuery(item, q) {
+      if (!q) return true;
+      const hay = [
+        item.name, item.notes, item.text, item.tags, item.source, item.cost,
+        dndItemLabel(DND_ITEM_CATEGORIES, item.category),
+        dndItemLabel(DND_ITEM_RARITIES, item.rarity)
+      ].join(' ').toLowerCase();
+      return hay.indexOf(q) !== -1;
+    }
+
+    function filteredCatalogItems() {
+      const q = String(itemCatalogQuery || '').trim().toLowerCase();
+      const f = itemCatalogFilter || 'all';
+      return (itemCatalog || []).filter(it => {
+        if (f !== 'all' && it.category !== f) return false;
+        return catalogMatchesQuery(it, q);
+      }).slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'de'));
+    }
+
+    function catalogSelectHtml(kind, value) {
+      const list = kind === 'category' ? DND_ITEM_CATEGORIES : DND_ITEM_RARITIES;
+      const name = kind === 'category' ? 'category' : 'rarity';
+      return '<select data-cat-k="' + name + '">' + (list || []).map(opt =>
+        '<option value="' + opt.id + '"' + (opt.id === value ? ' selected' : '') + '>' +
+        escapeAttr(opt.label) + '</option>'
+      ).join('') + '</select>';
+    }
+
+    function catalogEditFormHtml(row) {
+      const isNew = !row || !row.id;
+      const r = row || normalizeCatalogItem({});
+      return '<div class="dnd-catalog-edit" data-cat-edit="' + escapeAttr(r.id || '') + '">' +
+        '<div class="dnd-catalog-edit-grid">' +
+        '<label>Name<input data-cat-k="name" value="' + escapeAttr(r.name) + '" placeholder="Name" /></label>' +
+        '<label>Kategorie' + catalogSelectHtml('category', r.category) + '</label>' +
+        '<label>Seltenheit' + catalogSelectHtml('rarity', r.rarity) + '</label>' +
+        '<label>Gewicht<input data-cat-k="weight" value="' + escapeAttr(r.weight) + '" placeholder="kg" /></label>' +
+        '<label>Preis<input data-cat-k="cost" value="' + escapeAttr(r.cost) + '" placeholder="z. B. 50 gp" /></label>' +
+        '<label>Quelle<input data-cat-k="source" value="' + escapeAttr(r.source) + '" placeholder="Kampagne / eigen" /></label>' +
+        '<label>Reichweite<input data-cat-k="range" value="' + escapeAttr(r.range) + '" placeholder="5 ft." /></label>' +
+        '<label>Bonus<input data-cat-k="bonus" value="' + escapeAttr(r.bonus) + '" placeholder="+5" /></label>' +
+        '<label>Schaden<input data-cat-k="damage" value="' + escapeAttr(r.damage) + '" placeholder="1W8" /></label>' +
+        '<label class="dnd-save dnd-catalog-attune"><input class="dnd-check" type="checkbox" data-cat-k="attunement"' +
+        (r.attunement ? ' checked' : '') + ' /> Einstimmung nötig</label>' +
+        '<label class="dnd-catalog-span">Tags<input data-cat-k="tags" value="' + escapeAttr(r.tags) + '" placeholder="z. B. trank, heilung" /></label>' +
+        '<label class="dnd-catalog-span">Kurznotiz<input data-cat-k="notes" value="' + escapeAttr(r.notes) + '" placeholder="Kurz" /></label>' +
+        '<label class="dnd-catalog-span">Beschreibung<textarea data-cat-k="text" class="dnd-catalog-text" placeholder="Wirkung / Text…">' +
+        escapeAttr(r.text) + '</textarea></label></div>' +
+        '<div class="editor-actions">' +
+        '<button type="button" class="primary" data-cat-save>' + (isNew ? 'Anlegen' : 'Speichern') + '</button>' +
+        (!isNew ? '<button type="button" class="ghost" data-cat-delete>Löschen</button>' : '') +
+        '<button type="button" class="ghost" data-cat-cancel>Abbrechen</button></div></div>';
+    }
+
+    function catalogDetailHtml(item) {
+      if (!item) return '<p class="dnd-inv-empty">Eintrag wählen oder neu anlegen.</p>';
+      const bits = [
+        dndItemLabel(DND_ITEM_CATEGORIES, item.category),
+        dndItemLabel(DND_ITEM_RARITIES, item.rarity),
+        item.weight ? item.weight + ' kg' : '',
+        item.cost || '',
+        item.attunement ? 'Einstimmung' : '',
+        item.source || ''
+      ].filter(Boolean);
+      const combat = [item.range, item.bonus, item.damage].filter(Boolean).join(' · ');
+      return '<div class="dnd-catalog-view" data-cat-id="' + escapeAttr(item.id) + '">' +
+        '<h3>' + escapeAttr(item.name || 'Gegenstand') + '</h3>' +
+        '<p class="dnd-action-meta">' + escapeAttr(bits.join(' · ')) + '</p>' +
+        (combat ? '<p class="dnd-catalog-combat">' + escapeAttr(combat) + '</p>' : '') +
+        (item.tags ? '<p class="dnd-catalog-tags">' + escapeAttr(item.tags) + '</p>' : '') +
+        (item.notes ? '<p class="dnd-catalog-notes">' + escapeAttr(item.notes) + '</p>' : '') +
+        '<div class="dnd-catalog-body-text">' + escapeAttr(item.text || 'Noch keine Beschreibung.') + '</div>' +
+        '<div class="editor-actions">' +
+        '<button type="button" class="primary" data-cat-add="' + escapeAttr(item.id) + '">Zum Inventar</button>' +
+        (typeof isDM !== 'undefined' && isDM
+          ? '<button type="button" class="ghost" data-cat-edit="' + escapeAttr(item.id) + '">Bearbeiten</button>'
+          : '') +
+        '</div></div>';
+    }
+
+    function renderItemCatalog() {
+      const filters = document.getElementById('dndCatalogFilters');
+      if (filters) {
+        const cats = [{ id: 'all', label: 'Alles' }].concat(DND_ITEM_CATEGORIES || []);
+        filters.innerHTML = cats.map(c =>
+          '<button type="button" class="' + (itemCatalogFilter === c.id ? 'active' : '') +
+          '" data-cat-filter="' + c.id + '">' + escapeAttr(c.label) + '</button>'
+        ).join('');
+      }
+      const list = document.getElementById('dndCatalogList');
+      const detail = document.getElementById('dndCatalogDetail');
+      const visible = filteredCatalogItems();
+      if (list) {
+        if (!visible.length) {
+          list.innerHTML = '<p class="dnd-inv-empty">' +
+            ((itemCatalog || []).length ? 'Keine Treffer.' : 'Katalog ist leer — DM kann Einträge anlegen.') +
+            '</p>';
+        } else {
+          list.innerHTML = visible.map(it => {
+            const sub = [
+              dndItemLabel(DND_ITEM_CATEGORIES, it.category),
+              dndItemLabel(DND_ITEM_RARITIES, it.rarity),
+              it.weight ? it.weight + ' kg' : ''
+            ].filter(Boolean).join(' · ');
+            return '<button type="button" class="dnd-catalog-row' +
+              (it.id === itemCatalogSelectedId ? ' is-on' : '') +
+              '" data-cat-select="' + escapeAttr(it.id) + '">' +
+              '<span class="dnd-catalog-row-name">' + escapeAttr(it.name || 'Ohne Namen') + '</span>' +
+              '<span class="dnd-catalog-row-meta">' + escapeAttr(sub) + '</span></button>';
+          }).join('');
+        }
+      }
+      if (!detail) return;
+      if (itemCatalogEditId !== null) {
+        const editing = itemCatalogEditId
+          ? (itemCatalog || []).find(x => x.id === itemCatalogEditId)
+          : normalizeCatalogItem({});
+        detail.innerHTML = catalogEditFormHtml(editing || normalizeCatalogItem({ id: itemCatalogEditId || '' }));
+        return;
+      }
+      const selected = (itemCatalog || []).find(x => x.id === itemCatalogSelectedId) || visible[0] || null;
+      if (selected) itemCatalogSelectedId = selected.id;
+      detail.innerHTML = catalogDetailHtml(selected);
+    }
+
+    function readCatalogForm(root) {
+      if (!root) return null;
+      const data = {};
+      root.querySelectorAll('[data-cat-k]').forEach(el => {
+        const key = el.getAttribute('data-cat-k');
+        if (!key) return;
+        data[key] = el.type === 'checkbox' ? el.checked : el.value;
+      });
+      return data;
+    }
+
+    function saveCatalogItemFromForm() {
+      if (!(typeof isDM !== 'undefined' && isDM)) {
+        toast('Nur der DM kann den Katalog bearbeiten.');
+        return;
+      }
+      const root = document.querySelector('#dndCatalogDetail [data-cat-edit]');
+      const raw = readCatalogForm(root);
+      if (!raw) return;
+      const id = itemCatalogEditId || combatNewId('ic');
+      const next = normalizeCatalogItem(Object.assign({}, raw, { id: id }));
+      if (!String(next.name || '').trim()) {
+        toast('Name fehlt.');
+        return;
+      }
+      const idx = (itemCatalog || []).findIndex(x => x.id === id);
+      if (idx >= 0) itemCatalog[idx] = next;
+      else itemCatalog.push(next);
+      itemCatalogSelectedId = id;
+      itemCatalogEditId = null;
+      persistItemCatalogSoon();
+      renderItemCatalog();
+      toast('Katalogeintrag gespeichert.');
+    }
+
+    function deleteCatalogItem(id) {
+      if (!(typeof isDM !== 'undefined' && isDM)) return;
+      const want = id || itemCatalogEditId || itemCatalogSelectedId;
+      if (!want) return;
+      itemCatalog = (itemCatalog || []).filter(x => x.id !== want);
+      if (itemCatalogSelectedId === want) itemCatalogSelectedId = itemCatalog[0] ? itemCatalog[0].id : '';
+      itemCatalogEditId = null;
+      persistItemCatalogSoon();
+      renderItemCatalog();
+      toast('Eintrag gelöscht.');
+    }
+
+    function addCatalogItemToInventory(id) {
+      if (!usesDndSheet(currentSheetOwner)) {
+        toast('Kein Charakterblatt geladen.');
+        return;
+      }
+      if (!canEditOwnerSheet(currentSheetOwner)) {
+        toast('Kein Schreibrecht auf diesem Blatt.');
+        return;
+      }
+      const cat = (itemCatalog || []).find(x => x.id === id);
+      if (!cat) return;
+      collectDndFields();
+      const row = normalizeDndItem({
+        id: combatNewId('i'),
+        name: cat.name,
+        qty: '1',
+        weight: cat.weight,
+        category: cat.category,
+        container: 'backpack',
+        equipped: false,
+        attuned: false,
+        notes: cat.notes,
+        text: cat.text,
+        range: cat.range,
+        bonus: cat.bonus,
+        damage: cat.damage
+      });
+      dndState.items.push(row);
+      dndInvFilter = 'all';
+      dndItemEditId = '';
+      renderDndInventory();
+      sheetDirty = true;
+      saveSheet();
+      toast('„' + (cat.name || 'Gegenstand') + '“ ins Inventar gelegt.');
+    }
+
     function dndParseDice(raw) {
       const s = String(raw || '').replace(/\s/g, '').replace(',', '.');
       const m = s.match(/^(\d*)[wWdD](\d+)([+-]\d+)?$/i);

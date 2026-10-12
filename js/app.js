@@ -1152,6 +1152,64 @@
         onEv('dndActionOverlay', 'click', ev => {
           if (ev.target === document.getElementById('dndActionOverlay')) closeDndActionInfo();
         });
+        onClick('dndCatalogOpen', openItemCatalog);
+        onClick('dndCatalogClose', closeItemCatalog);
+        onClick('dndCatalogDismiss', closeItemCatalog);
+        onClick('dndCatalogNew', () => {
+          if (!(typeof isDM !== 'undefined' && isDM)) {
+            toast('Nur der DM kann Katalogeinträge anlegen.');
+            return;
+          }
+          itemCatalogEditId = '';
+          renderItemCatalog();
+        });
+        onEv('dndCatalogSearch', 'input', ev => {
+          itemCatalogQuery = ev.target.value || '';
+          renderItemCatalog();
+        });
+        onEv('dndCatalogOverlay', 'click', ev => {
+          if (ev.target === document.getElementById('dndCatalogOverlay')) {
+            closeItemCatalog();
+            return;
+          }
+          const filterBtn = ev.target.closest('[data-cat-filter]');
+          if (filterBtn) {
+            itemCatalogFilter = filterBtn.getAttribute('data-cat-filter') || 'all';
+            renderItemCatalog();
+            return;
+          }
+          const selectBtn = ev.target.closest('[data-cat-select]');
+          if (selectBtn) {
+            itemCatalogSelectedId = selectBtn.getAttribute('data-cat-select') || '';
+            itemCatalogEditId = null;
+            renderItemCatalog();
+            return;
+          }
+          const addBtn = ev.target.closest('[data-cat-add]');
+          if (addBtn) {
+            addCatalogItemToInventory(addBtn.getAttribute('data-cat-add'));
+            return;
+          }
+          const editBtn = ev.target.closest('[data-cat-edit]');
+          if (editBtn) {
+            if (!(typeof isDM !== 'undefined' && isDM)) return;
+            itemCatalogEditId = editBtn.getAttribute('data-cat-edit') || '';
+            renderItemCatalog();
+            return;
+          }
+          if (ev.target.closest('[data-cat-save]')) {
+            saveCatalogItemFromForm();
+            return;
+          }
+          if (ev.target.closest('[data-cat-cancel]')) {
+            itemCatalogEditId = null;
+            renderItemCatalog();
+            return;
+          }
+          if (ev.target.closest('[data-cat-delete]')) {
+            deleteCatalogItem(itemCatalogEditId || itemCatalogSelectedId);
+          }
+        });
         onEv('loginForm', 'submit', ev => {
           ev.preventDefault();
           const userEl = els.dmUser;
@@ -1524,6 +1582,7 @@
     (async function boot() {
       loadRosterLocal();
       loadCombatTemplatesLocal();
+      if (typeof loadItemCatalogLocal === 'function') loadItemCatalogLocal();
       loadBattleLocal();
       loadBattleGalleryLocal();
       loadDungeonLocal();
@@ -1549,6 +1608,11 @@
           const tplSnap = await templatesRef().get();
           if (tplSnap.exists) applyCombatTemplates(tplSnap.data());
           else if (combatTemplates.length) persistCombatTemplatesRemote();
+          if (typeof itemCatalogRef === 'function' && typeof applyItemCatalog === 'function') {
+            const catSnap = await itemCatalogRef().get();
+            if (catSnap.exists) applyItemCatalog(catSnap.data());
+            else if (itemCatalog.length && typeof persistItemCatalogRemote === 'function') persistItemCatalogRemote();
+          }
           const battleSnap = await battleRef().get();
           if (battleSnap.exists) applyBattle(battleSnap.data());
           const battleMapSnap = await battleMapRef().get();
@@ -1626,6 +1690,7 @@
       syncChatListeners();
       listenRoster();
       listenCombatTemplates();
+      if (typeof listenItemCatalog === 'function') listenItemCatalog();
       listenBattle();
       listenBattleGallery();
       listenDungeon();

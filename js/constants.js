@@ -62,6 +62,9 @@ var WORLD_DOC = 'codex';
 var PLAYERS_DOC = 'players';
 var ROSTER_DOC = 'kampfKarten';
 var TEMPLATES_DOC = 'kampfVorlagen';
+var ITEM_CATALOG_DOC = 'itemKatalog';
+var ITEM_CATALOG_KEY = 'thalarion_item_katalog';
+var ITEM_CATALOG_MAX = 800;
 var ROSTER_LOCAL_KEY = 'thalarion_kampf_karten';
 var BATTLE_DOC = 'kampfFeld';
 var BATTLE_MAP_DOC = 'kampfFeldMap';
@@ -176,6 +179,15 @@ var DND_ITEM_CONTAINERS = [
   { id: 'mount', label: 'Pferd / Wagen' },
   { id: 'camp', label: 'Lager' },
   { id: 'quest', label: 'Quest' }
+];
+var DND_ITEM_RARITIES = [
+  { id: '', label: '—' },
+  { id: 'common', label: 'Gewöhnlich' },
+  { id: 'uncommon', label: 'Ungewöhnlich' },
+  { id: 'rare', label: 'Selten' },
+  { id: 'veryRare', label: 'Sehr selten' },
+  { id: 'legendary', label: 'Legendär' },
+  { id: 'artifact', label: 'Artefakt' }
 ];
 var DND_SKILLS = [
   { id: 'athletics', ability: 'str', label: 'Athletik' },

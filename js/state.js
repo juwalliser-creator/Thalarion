@@ -76,6 +76,14 @@
     var templatesUpdatedAt = 0;
     var writingTemplates = false;
     var templatesPersistTimer = null;
+    var itemCatalog = [];
+    var itemCatalogUpdatedAt = 0;
+    var writingItemCatalog = false;
+    var itemCatalogPersistTimer = null;
+    var itemCatalogQuery = '';
+    var itemCatalogFilter = 'all';
+    var itemCatalogSelectedId = '';
+    var itemCatalogEditId = null;
     var editingKarteId = null;
     var currentPlayerId = null;
     var currentSheetOwner = null;

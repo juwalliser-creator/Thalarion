@@ -447,6 +447,8 @@ body.is-dm.sound-dock-open .chat-panel {
   border-radius: 8px;
   padding: 0.45rem 0.6rem;
 }
+.dm-only { display: none !important; }
+body.is-dm .dm-only { display: inline-flex !important; }
 .dm-only-nav { display: none !important; }
 body.is-dm .dm-only-nav { display: inline-flex !important; }
 
@@ -1442,6 +1444,141 @@ button.dnd-atk-name:hover { filter: brightness(1.14); }
   margin: 0.4rem 0 0.6rem;
   color: var(--dnd-mute);
   font-size: 0.88rem;
+}
+.dnd-inv-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+.dnd-inv-toolbar .dnd-add { margin-top: 0; }
+.dnd-catalog-card {
+  width: min(56rem, 100%);
+  max-height: min(90vh, 44rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.dnd-catalog-tools {
+  display: grid;
+  gap: 0.45rem;
+}
+.dnd-catalog-tools input[type="search"] {
+  width: 100%;
+}
+.dnd-catalog-tools #dndCatalogNew {
+  justify-self: start;
+}
+.dnd-catalog-body {
+  display: grid;
+  grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr);
+  gap: 0.65rem;
+  min-height: 16rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+.dnd-catalog-list {
+  overflow: auto;
+  border: 1px solid var(--dnd-line);
+  border-radius: 8px;
+  background: var(--dnd-well);
+  padding: 0.25rem;
+  max-height: min(52vh, 28rem);
+}
+.dnd-catalog-row {
+  display: grid;
+  gap: 0.1rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.5rem;
+  margin: 0 0 0.15rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.dnd-catalog-row:hover { background: rgba(212, 175, 55, 0.08); }
+.dnd-catalog-row.is-on {
+  background: rgba(212, 175, 55, 0.16);
+  box-shadow: inset 2px 0 0 var(--dnd-gold);
+}
+.dnd-catalog-row-name {
+  font-weight: 650;
+  color: var(--dnd-gold);
+  font-size: 0.92rem;
+}
+.dnd-catalog-row-meta {
+  color: var(--dnd-mute);
+  font-size: 0.72rem;
+}
+.dnd-catalog-detail {
+  overflow: auto;
+  border: 1px solid var(--dnd-line);
+  border-radius: 8px;
+  background: var(--dnd-well);
+  padding: 0.7rem 0.8rem;
+  max-height: min(52vh, 28rem);
+  min-width: 0;
+}
+.dnd-catalog-view h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+  color: var(--dnd-gold);
+}
+.dnd-catalog-combat,
+.dnd-catalog-tags,
+.dnd-catalog-notes {
+  margin: 0.25rem 0;
+  color: var(--dnd-mute);
+  font-size: 0.85rem;
+}
+.dnd-catalog-body-text {
+  margin: 0.55rem 0 0.75rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.dnd-catalog-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+.dnd-catalog-edit-grid label {
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dnd-mute);
+}
+.dnd-catalog-edit-grid .dnd-catalog-span { grid-column: 1 / -1; }
+.dnd-catalog-edit-grid .dnd-catalog-attune {
+  align-content: end;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.85rem;
+}
+.dnd-catalog-text {
+  min-height: 7rem;
+  line-height: 1.45;
+  resize: vertical;
+  text-transform: none;
+  letter-spacing: 0;
+}
+@media (max-width: 720px) {
+  .dnd-catalog-body {
+    grid-template-columns: 1fr;
+  }
+  .dnd-catalog-list,
+  .dnd-catalog-detail {
+    max-height: 38vh;
+  }
+  .dnd-catalog-edit-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .dnd-row-feat { grid-template-columns: 1.2fr 4rem 4rem 7rem 1fr auto; }
 .dnd-spell-filters {

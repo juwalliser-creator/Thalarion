@@ -36,6 +36,10 @@
       return db.collection('world').doc(TEMPLATES_DOC);
     }
 
+    function itemCatalogRef() {
+      return db.collection('world').doc(ITEM_CATALOG_DOC);
+    }
+
     function cloudDiag(step, detail) {
       const line = { t: Date.now(), step: step, detail: detail || '' };
       cloudDiagLog.push(line);

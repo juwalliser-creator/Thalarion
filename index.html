@@ -501,7 +501,10 @@
                             <button type="button" data-dnd-inv-filter="consumable">Verbrauchbar</button>
                           </nav>
                           <div id="dndItemList"></div>
-                          <button class="ghost dnd-add" type="button" data-dnd-add="items">Gegenstand hinzufügen</button>
+                          <div class="dnd-inv-toolbar">
+                            <button class="ghost dnd-add" type="button" data-dnd-add="items">Gegenstand hinzufügen</button>
+                            <button class="primary dnd-add" type="button" id="dndCatalogOpen">Katalog</button>
+                          </div>
                           <label style="margin-top:0.75rem;display:block">Sonstiges / Chaos-Notizen</label>
                           <textarea data-dnd-field="gear" class="dnd-inv-gear" placeholder="Freitext für alles, was nicht in die Liste passt…"></textarea>
                         </div>
@@ -1026,6 +1029,29 @@
         <button class="primary hidden" id="dndActionCast" type="button">Wirken</button>
         <button class="primary" id="dndActionSave" type="button">Speichern</button>
         <button class="ghost" id="dndActionDismiss" type="button">Schließen</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="dndCatalogOverlay" class="overlay hidden">
+    <div class="login-card dnd-catalog-card" role="dialog" aria-modal="true" aria-labelledby="dndCatalogTitle">
+      <div class="dnd-action-head">
+        <h2 id="dndCatalogTitle">Gegenstandskatalog</h2>
+        <button class="ghost" id="dndCatalogClose" type="button" title="Schließen">×</button>
+      </div>
+      <div class="dnd-catalog-tools">
+        <input id="dndCatalogSearch" type="search" placeholder="Suchen…" autocomplete="off" />
+        <nav class="dnd-spell-filters" id="dndCatalogFilters"></nav>
+        <button class="ghost dm-only" type="button" id="dndCatalogNew">Neuer Eintrag</button>
+      </div>
+      <div class="dnd-catalog-body">
+        <div class="dnd-catalog-list" id="dndCatalogList"></div>
+        <div class="dnd-catalog-detail" id="dndCatalogDetail">
+          <p class="dnd-inv-empty">Eintrag wählen oder neu anlegen.</p>
+        </div>
+      </div>
+      <div class="editor-actions">
+        <button class="ghost" id="dndCatalogDismiss" type="button">Schließen</button>
       </div>
     </div>
   </div>
