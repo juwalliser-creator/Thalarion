@@ -823,15 +823,17 @@
         const displayTitle = i !== null ? entries[i].title : pin.title;
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'map-pin map-pin-tier-' + (pin.tier || 'marker');
+        btn.className = 'map-pin map-pin-tier-' + (pin.tier || 'marker') +
+          ' map-pin-shape-' + (pin.shape || 'landmark');
         if (pin.sessionFocus) btn.classList.add('is-session-focus');
         if (pin.visibility === 'dm') btn.classList.add('is-dm-secret');
         btn.style.left = pin.x + '%';
         btn.style.top = pin.y + '%';
-        btn.title = displayTitle + ' · ' + pinDescribe(pin) + (isDM ? ' · Doppelklick öffnet Codex' : '');
+        btn.title = displayTitle + ' · ' + pinDescribe(pin);
         btn.dataset.pinId = pin.id;
         btn.innerHTML = pinIconFromPin(pin);
-        btn.ondblclick = ev => {
+        btn.onclick = ev => {
+          if (ev.target.closest('.map-pin-del')) return;
           ev.preventDefault();
           ev.stopPropagation();
           openMapPin(pin.id);
@@ -1531,17 +1533,117 @@
       applyMapTransform();
     }
 
+    function closeMapPinDrawer() {
+      mapDrawerPinId = '';
+      mapDrawerEntryIndex = null;
+      const drawer = document.getElementById('mapPinDrawer');
+      if (!drawer) return;
+      drawer.classList.remove('is-open');
+      drawer.classList.add('hidden');
+    }
+
+    function openMapPinDrawer(pin, entryIndex) {
+      const drawer = document.getElementById('mapPinDrawer');
+      if (!drawer) return;
+      mapDrawerPinId = pin.id;
+      mapDrawerEntryIndex = entryIndex;
+      const entry = entryIndex != null ? entries[entryIndex] : null;
+      const title = entry ? entry.title : pin.title;
+      const titleEl = document.getElementById('mapDrawerTitle');
+      if (titleEl) titleEl.textContent = title || 'Ort';
+      const meta = document.getElementById('mapDrawerMeta');
+      if (meta) {
+        const bits = [pinDescribe(pin)];
+        if (entry && entry.type) bits.unshift(entry.type);
+        if (entry && entry.location) bits.push(entry.location);
+        if (pin.visibility === 'dm') bits.push('DM Only');
+        meta.textContent = bits.filter(Boolean).join(' · ');
+      }
+      const tldr = document.getElementById('mapDrawerTldr');
+      if (tldr) tldr.textContent = entry ? entryTldr(entry) : 'Noch kein verknüpfter Codex-Eintrag.';
+      const npcs = document.getElementById('mapDrawerNpcs');
+      if (npcs) {
+        npcs.innerHTML = '';
+        const names = entry && entry.relatedNpcs
+          ? entry.relatedNpcs.split(',').map(s => s.trim()).filter(Boolean)
+          : [];
+        names.forEach(name => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = name;
+          b.onclick = () => {
+            const ni = indexByTitle(name);
+            if (ni === null) return toast('Kein Eintrag für „' + name + '“.');
+            closeMapPinDrawer();
+            loadEntry(ni, true);
+          };
+          npcs.appendChild(b);
+        });
+      }
+      const media = document.getElementById('mapDrawerMedia');
+      const img = document.getElementById('mapDrawerImage');
+      const fallback = document.getElementById('mapDrawerFallback');
+      if (fallback) fallback.textContent = String(title || '?').charAt(0).toUpperCase();
+      const showEmpty = () => {
+        if (media) media.classList.add('is-empty');
+        if (img) {
+          img.classList.add('hidden');
+          img.removeAttribute('src');
+        }
+        if (fallback) fallback.classList.remove('hidden');
+      };
+      const showImg = data => {
+        if (!data) return showEmpty();
+        if (media) media.classList.remove('is-empty');
+        if (fallback) fallback.classList.add('hidden');
+        if (img) {
+          img.classList.remove('hidden');
+          img.src = data;
+          img.alt = title || '';
+        }
+      };
+      if (entry && entry.imageId) {
+        if (imageCache[entry.imageId]) showImg(imageCache[entry.imageId]);
+        else {
+          showEmpty();
+          loadEntryImage(entry.imageId).then(showImg).catch(showEmpty);
+        }
+      } else showEmpty();
+      const openBtn = document.getElementById('mapDrawerOpenEntry');
+      if (openBtn) {
+        openBtn.disabled = entryIndex == null;
+        openBtn.textContent = entryIndex == null ? 'Kein Codex-Eintrag' : 'Vollständigen Eintrag öffnen';
+      }
+      const editBtn = document.getElementById('mapDrawerEditPin');
+      if (editBtn) editBtn.classList.toggle('hidden', !isDM);
+      drawer.classList.remove('hidden');
+      requestAnimationFrame(() => drawer.classList.add('is-open'));
+    }
+
     function openMapPin(id) {
       const pin = mapPins.find(p => p.id === id);
       if (!pin) return;
       const i = resolvePinEntryIndex(pin);
       if (i === null) {
-        if (isDM) openPinEditor(id);
-        else toast(pin.linked || pin.entryId
-          ? 'Dieser Eintrag existiert nicht mehr.'
-          : 'Dieser Ort ist noch nicht mit einem Eintrag verknüpft.');
+        openMapPinDrawer(pin, null);
+        if (isDM) {
+          /* Drawer stays open; DM can still edit via button */
+        } else if (!(pin.linked || pin.entryId)) {
+          toast('Dieser Ort ist noch nicht mit einem Eintrag verknüpft.');
+        }
         return;
       }
+      openMapPinDrawer(pin, i);
+    }
+
+    function openMapPinFullEntry() {
+      if (mapDrawerEntryIndex == null) {
+        if (isDM && mapDrawerPinId) openPinEditor(mapDrawerPinId);
+        else toast('Kein verknüpfter Eintrag.');
+        return;
+      }
+      const i = mapDrawerEntryIndex;
+      closeMapPinDrawer();
       loadEntry(i, true);
     }
 

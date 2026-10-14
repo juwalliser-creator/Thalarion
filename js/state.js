@@ -54,6 +54,10 @@
     var currentPage = 'map';
     var selectedHomeCat = null;
     var selectedCodexSection = 'all';
+    var vaultBrowseFilter = 'all';
+    var vaultEntryTab = 'lore';
+    var mapDrawerPinId = '';
+    var mapDrawerEntryIndex = null;
     var titleKingdomFilter = '';
     var dirty = false;
     var imageCache = {};

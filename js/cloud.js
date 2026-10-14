@@ -296,29 +296,51 @@
     }
 
     function showViewImage(imageId, title) {
-      const fold = document.getElementById('viewImageFold');
       const wrap = document.getElementById('viewImageWrap');
       const img = document.getElementById('viewImage');
+      const fallback = document.getElementById('viewImageFallback');
       const token = ++viewImageToken;
-      if (!setImageFold(fold, wrap, img, imageId, title)) return;
-      if (imageCache[imageId]) {
-        img.src = imageCache[imageId];
+      const letter = String(title || 'T').trim().charAt(0).toUpperCase() || 'T';
+      if (fallback) fallback.textContent = letter;
+      if (!imageId) {
+        if (wrap) wrap.classList.add('is-empty');
+        if (img) {
+          img.classList.add('hidden');
+          img.removeAttribute('src');
+        }
+        if (fallback) fallback.classList.remove('hidden');
         return;
       }
-      img.removeAttribute('src');
-      loadEntryImage(imageId).then(data => {
-        if (token !== viewImageToken) return;
+      if (wrap) wrap.classList.remove('is-empty');
+      if (img) {
+        img.classList.remove('hidden');
+        img.alt = title || '';
+      }
+      if (fallback) fallback.classList.add('hidden');
+      const apply = data => {
+        if (token !== viewImageToken || !img) return;
         if (!data) {
-          if (fold) fold.classList.add('hidden');
-          wrap.classList.add('hidden');
+          if (wrap) wrap.classList.add('is-empty');
+          img.classList.add('hidden');
+          img.removeAttribute('src');
+          if (fallback) fallback.classList.remove('hidden');
           return;
         }
         img.src = data;
-      }).catch(() => {
-        if (token !== viewImageToken) return;
-        if (fold) fold.classList.add('hidden');
-        wrap.classList.add('hidden');
-      });
+      };
+      if (imageCache[imageId]) {
+        apply(imageCache[imageId]);
+        return;
+      }
+      if (img) img.removeAttribute('src');
+      loadEntryImage(imageId).then(apply).catch(() => apply(null));
+    }
+
+    function entryBodyHtml(e) {
+      const hasText = typeof htmlToText === 'function' && htmlToText(e.content || '').trim();
+      let html = hasText ? sanitizeHtml(e.content) : (e.imageId ? '' : '<p><em>Noch kein Text.</em></p>');
+      if (typeof linkifyWikiRefs === 'function') html = linkifyWikiRefs(html);
+      return html;
     }
 
     function attachEntryImage(parent, imageId, alt) {
@@ -346,13 +368,6 @@
         }
         img.src = data;
       }).catch(() => fold.remove());
-    }
-
-    function entryBodyHtml(e) {
-      const hasText = htmlToText(e.content || '').trim();
-      if (hasText) return sanitizeHtml(e.content);
-      if (e.imageId) return '';
-      return '<p><em>Noch kein Text.</em></p>';
     }
 
     function indexByTitle(title) {

@@ -1002,6 +1002,34 @@
           else showCodex();
         });
         onClick('editCurrent', editCurrent);
+        onClick('editorAdvancedToggle', () => {
+          const adv = document.getElementById('editorAdvanced');
+          const btn = document.getElementById('editorAdvancedToggle');
+          if (!adv) return;
+          const open = adv.classList.toggle('hidden') === false;
+          if (btn) btn.textContent = open ? 'Erweiterte Felder ausblenden' : 'Erweiterte Felder anzeigen';
+        });
+        onEv('viewTabs', 'click', ev => {
+          const tab = ev.target.closest('[data-vault-tab]');
+          if (!tab) return;
+          const id = tab.getAttribute('data-vault-tab');
+          if (id === 'secrets' && !isDM) return;
+          setVaultEntryTab(id);
+        });
+        onEv('viewer', 'click', ev => {
+          const wiki = ev.target.closest('[data-wiki-entry]');
+          if (!wiki) return;
+          const i = Number(wiki.getAttribute('data-wiki-entry'));
+          if (Number.isFinite(i)) loadEntry(i);
+        });
+        onClick('mapDrawerClose', closeMapPinDrawer);
+        onClick('mapDrawerOpenEntry', openMapPinFullEntry);
+        onClick('mapDrawerEditPin', () => {
+          if (mapDrawerPinId) {
+            closeMapPinDrawer();
+            openPinEditor(mapDrawerPinId);
+          }
+        });
         onClick('entryToKarteBtn', createKampfKarteFromEntry);
         onClick('downloadOneBtn', downloadOneEntry);
         onClick('uploadOneBtn', () => {
@@ -1502,9 +1530,26 @@
     }
 
     window.addEventListener('keydown', ev => {
+      if ((ev.ctrlKey || ev.metaKey) && String(ev.key || '').toLowerCase() === 'k') {
+        const tag = ev.target && ev.target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || (ev.target && ev.target.isContentEditable)) return;
+        ev.preventDefault();
+        const search = document.getElementById('globalSearch');
+        if (search) {
+          search.focus();
+          search.select();
+          if (typeof renderGlobalSearch === 'function') renderGlobalSearch();
+        }
+        return;
+      }
       if (ev.key !== 'Escape') return;
       if (ev.target && (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA' || ev.target.isContentEditable)) {
         if (ev.target.id === 'globalSearch') return;
+      }
+      const pinDrawer = document.getElementById('mapPinDrawer');
+      if (pinDrawer && !pinDrawer.classList.contains('hidden')) {
+        closeMapPinDrawer();
+        return;
       }
       if (chatOpen) { toggleChat(false); return; }
       const login = document.getElementById('loginOverlay');

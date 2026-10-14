@@ -21,6 +21,16 @@ var CODEX_SECTIONS = [
   { id: 'glossar', label: 'Glossar', cats: GLOSSAR_CATS, seal: 'G', title: 'Das Glossar', blurb: '' }
 ];
 var CODEX_GATES = CODEX_SECTIONS.filter(s => s.id !== 'all');
+var COMPENDIUM_FILTERS = [
+  { id: 'all', label: 'Alles', types: null },
+  { id: 'orte', label: 'Orte', types: ['Königreiche', 'Städte', 'Landschaften', 'Magische Orte'] },
+  { id: 'fraktionen', label: 'Fraktionen', types: ['Gilden', 'Religionen', 'Titel & Ämter'] },
+  { id: 'npcs', label: 'NPCs', types: ['NPCs'] },
+  { id: 'lore', label: 'Lore', types: ['Götter', 'Begriffe', 'Feste & Rituale', 'Sprachen'] },
+  { id: 'items', label: 'Items', types: ['Heilpflanzen', 'Gegenstände'] },
+  { id: 'bestiarium', label: 'Bestiarium', types: BESTIARIUM_CATS },
+  { id: 'sonstiges', label: 'Sonstiges', types: null }
+];
 var PAGE_HERO = {
   chronik: {
     seal: 'C',

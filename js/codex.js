@@ -106,6 +106,7 @@
     function leaveCodexSection() {
       selectedCodexSection = 'all';
       selectedHomeCat = null;
+      vaultBrowseFilter = 'all';
       titleKingdomFilter = '';
       applyCodexSectionHero();
       renderHome();
@@ -118,6 +119,7 @@
       const go = () => {
         selectedCodexSection = secId;
         selectedHomeCat = null;
+        vaultBrowseFilter = 'all';
         titleKingdomFilter = '';
         applyCodexSectionHero();
         renderHome();
@@ -340,9 +342,140 @@
           content: e.content || '',
           imageId: typeof e.imageId === 'string' ? e.imageId : '',
           sessionDate: /^\d{4}-\d{2}-\d{2}$/.test(e.sessionDate || '') ? e.sessionDate : '',
-          kingdom: String(e.kingdom || '').trim()
+          kingdom: String(e.kingdom || '').trim(),
+          tldr: String(e.tldr || '').trim(),
+          status: String(e.status || '').trim(),
+          location: String(e.location || '').trim(),
+          alignment: String(e.alignment || '').trim(),
+          faction: String(e.faction || '').trim(),
+          relatedNpcs: String(e.relatedNpcs || '').trim(),
+          events: String(e.events || '').trim(),
+          secrets: String(e.secrets || '').trim()
         };
       });
+    }
+
+    function entryTldr(e) {
+      if (!e) return '';
+      if (e.tldr) return e.tldr;
+      const text = htmlToText(e.content || '').replace(/\s+/g, ' ').trim();
+      if (!text) return '';
+      const cut = text.split(/(?<=[.!?])\s+/)[0] || text;
+      return cut.length > 160 ? cut.slice(0, 157) + '…' : cut;
+    }
+
+    function linkifyWikiRefs(html) {
+      return String(html || '').replace(/\[\[([^\[\]]+)\]\]/g, (_, raw) => {
+        const title = String(raw || '').trim();
+        if (!title) return '';
+        const i = indexByTitle(title);
+        if (i === null) return escapeHtml(title);
+        return '<button type="button" class="vault-wiki-link" data-wiki-entry="' + i + '">' + escapeHtml(title) + '</button>';
+      });
+    }
+
+    function vaultFilterTypes(filterId) {
+      const f = (COMPENDIUM_FILTERS || []).find(x => x.id === filterId);
+      return f && f.types ? f.types : null;
+    }
+
+    function entryMatchesVaultFilter(e, filterId) {
+      if (!filterId || filterId === 'all') return true;
+      if (filterId === 'sonstiges') {
+        const known = (COMPENDIUM_FILTERS || [])
+          .filter(f => f.types)
+          .reduce((acc, f) => acc.concat(f.types), []);
+        return known.indexOf(e.type) < 0;
+      }
+      const types = vaultFilterTypes(filterId);
+      return !types || types.indexOf(e.type) >= 0;
+    }
+
+    function appendVaultEntryCard(box, e, i) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'vault-card';
+      const tldr = entryTldr(e);
+      const media = document.createElement('div');
+      media.className = 'vault-card-media';
+      if (e.imageId && imageCache[e.imageId]) {
+        media.style.backgroundImage = 'url("' + imageCache[e.imageId].replace(/"/g, '\\"') + '")';
+      } else if (e.imageId) {
+        loadEntryImage(e.imageId).then(data => {
+          if (data) media.style.backgroundImage = 'url("' + data.replace(/"/g, '\\"') + '")';
+        }).catch(() => {});
+      }
+      btn.innerHTML =
+        '<div class="vault-card-body">' +
+        '<div class="vault-card-title">' + escapeHtml(e.title) + '</div>' +
+        '<div class="vault-card-badges">' +
+        '<span class="vault-badge">' + escapeHtml(e.type) + '</span>' +
+        '<span class="vault-badge ' + (e.visibility === 'dm' ? 'is-dm' : 'is-public') + '">' +
+        (e.visibility === 'dm' ? 'DM Only' : 'Public') + '</span></div>' +
+        (tldr ? '<p class="vault-card-tldr">' + escapeHtml(tldr) + '</p>' : '') +
+        '</div>';
+      btn.insertBefore(media, btn.firstChild);
+      btn.onclick = () => {
+        if (!confirmLeaveEditor()) return;
+        playMagicTransition(btn, () => loadEntry(i));
+      };
+      box.appendChild(btn);
+    }
+
+    function renderVaultFilterBar(nav) {
+      const wrap = document.createElement('div');
+      wrap.className = 'vault-browse-bar';
+      const tabs = document.createElement('nav');
+      tabs.className = 'vault-filter-tabs';
+      tabs.setAttribute('aria-label', 'Kompendium-Filter');
+      (COMPENDIUM_FILTERS || []).forEach(f => {
+        if (selectedCodexSection === 'kompendium' && (f.id === 'bestiarium')) return;
+        if (selectedCodexSection === 'bestiarium' && f.id !== 'all' && f.id !== 'bestiarium') return;
+        if (selectedCodexSection === 'glossar' && f.id !== 'all' && f.id !== 'lore' && f.id !== 'items' && f.id !== 'sonstiges') return;
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = f.label;
+        b.className = vaultBrowseFilter === f.id ? 'active' : '';
+        b.onclick = () => {
+          vaultBrowseFilter = f.id;
+          renderHome();
+        };
+        tabs.appendChild(b);
+      });
+      wrap.appendChild(tabs);
+      nav.appendChild(wrap);
+    }
+
+    function renderVaultEntryMeta(e) {
+      const box = document.getElementById('viewMeta');
+      if (!box) return;
+      const rows = [
+        ['Status', e.status],
+        ['Ort', e.location || e.kingdom],
+        ['Gesinnung', e.alignment],
+        ['Fraktion', e.faction],
+        ['NPCs', e.relatedNpcs],
+        ['Sichtbarkeit', e.visibility === 'dm' ? 'Nur DM' : 'Spieler']
+      ].filter(r => r[1]);
+      box.innerHTML = rows.map(r =>
+        '<div><dt>' + escapeHtml(r[0]) + '</dt><dd>' + escapeHtml(r[1]) + '</dd></div>'
+      ).join('');
+    }
+
+    function setVaultEntryTab(tab) {
+      vaultEntryTab = tab || 'lore';
+      document.querySelectorAll('#viewTabs [data-vault-tab]').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-vault-tab') === vaultEntryTab);
+      });
+      document.querySelectorAll('#viewer [data-vault-pane]').forEach(pane => {
+        pane.classList.toggle('hidden', pane.getAttribute('data-vault-pane') !== vaultEntryTab);
+      });
+    }
+
+    function plainToProseHtml(text) {
+      const t = String(text || '').trim();
+      if (!t) return '<p><em>Noch nichts hinterlegt.</em></p>';
+      return linkifyWikiRefs(textToHtml(t));
     }
 
     function formatSessionDate(iso) {
@@ -827,7 +960,7 @@
           seal.textContent = selectedHomeCat.charAt(0);
         }
         renderTitleKingdomBar();
-        els.homeCards.classList.add('is-codex-chapters');
+        els.homeCards.classList.add('is-vault-grid');
         const matching = applyTitleKingdomFilter(visibleEntriesInCat(selectedHomeCat), selectedHomeCat);
         if (!matching.length) {
           const empty = document.createElement('p');
@@ -837,20 +970,7 @@
             : 'Noch keine Einträge in dieser Kategorie.';
           els.homeCards.appendChild(empty);
         } else {
-          matching.forEach(({ e, i }) => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'codex-chapter-line';
-            const sub = e.kingdom || (e.visibility === 'dm' ? 'nur DM' : '');
-            btn.innerHTML =
-              '<span class="codex-chapter-name">' + escapeHtml(e.title) + '</span>' +
-              (sub ? '<span class="codex-chapter-count">' + escapeHtml(sub) + '</span>' : '');
-            btn.onclick = () => {
-              if (!confirmLeaveEditor()) return;
-              playMagicTransition(btn, () => loadEntry(i));
-            };
-            els.homeCards.appendChild(btn);
-          });
+          matching.forEach(({ e, i }) => appendVaultEntryCard(els.homeCards, e, i));
         }
         return;
       }
@@ -1102,11 +1222,29 @@
       els.sitzungView.classList.add('hidden');
       els.editorView.classList.add('hidden');
       els.viewer.classList.remove('hidden');
+      if (typeof closeMapPinDrawer === 'function') closeMapPinDrawer();
       document.getElementById('viewTitle').textContent = e.title;
       document.getElementById('viewType').textContent = e.type
         + (e.kingdom ? ' · ' + e.kingdom : '')
         + (e.visibility === 'dm' ? ' · nur DM' : '');
+      const tldrEl = document.getElementById('viewTldr');
+      const tldr = entryTldr(e);
+      if (tldrEl) {
+        tldrEl.textContent = tldr;
+        tldrEl.classList.toggle('is-empty', !tldr);
+      }
+      renderVaultEntryMeta(e);
       document.getElementById('viewContent').innerHTML = entryBodyHtml(e);
+      const eventsPane = document.getElementById('viewTabEvents');
+      if (eventsPane) eventsPane.innerHTML = plainToProseHtml(e.events);
+      const secretsPane = document.getElementById('viewTabSecrets');
+      if (secretsPane) {
+        secretsPane.innerHTML = '<div class="vault-secret-label">🔒 DM Only</div>' + plainToProseHtml(e.secrets);
+        secretsPane.classList.toggle('hidden', !isDM && vaultEntryTab === 'secrets');
+      }
+      const secretsTab = document.querySelector('#viewTabs [data-vault-tab="secrets"]');
+      if (secretsTab) secretsTab.classList.toggle('hidden', !isDM);
+      setVaultEntryTab(isDM ? vaultEntryTab : (vaultEntryTab === 'secrets' ? 'lore' : vaultEntryTab));
       showViewImage(e.imageId, e.title);
       els.playerToEdit.classList.toggle('hidden', !isDM);
       const mapActions = document.getElementById('viewerMapActions');
@@ -1137,6 +1275,20 @@
       else dateInput.value = e?.sessionDate || '';
       syncSessionDateField();
       syncTitleKingdomField(e?.kingdom || '');
+      const tldr = document.getElementById('tldrField');
+      if (tldr) tldr.value = e?.tldr || '';
+      const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+      setVal('entryStatus', e?.status);
+      setVal('entryLocation', e?.location);
+      setVal('entryAlignment', e?.alignment);
+      setVal('entryFaction', e?.faction);
+      setVal('entryRelatedNpcs', e?.relatedNpcs);
+      setVal('entryEvents', e?.events);
+      setVal('entrySecrets', e?.secrets);
+      const adv = document.getElementById('editorAdvanced');
+      const advBtn = document.getElementById('editorAdvancedToggle');
+      if (adv) adv.classList.add('hidden');
+      if (advBtn) advBtn.textContent = 'Erweiterte Felder anzeigen';
       els.content.innerHTML = e?.content || '';
       els.editorHeading.textContent = e?.title ? 'Eintrag bearbeiten' : 'Neuer Eintrag';
       document.getElementById('deleteBtn').disabled = currentIndex === null;
@@ -1216,6 +1368,10 @@
         toast('Bild konnte nicht gespeichert werden: ' + (err.message === 'timeout' ? 'Die Cloud hat nicht geantwortet.' : err.message));
         return;
       }
+      const val = id => {
+        const el = document.getElementById(id);
+        return el ? String(el.value || '').trim() : '';
+      };
       const e = {
         id: (previous && previous.id) || newEntryId(),
         title: title,
@@ -1224,7 +1380,15 @@
         content: sanitizeHtml(els.content.innerHTML),
         imageId: imageId,
         sessionDate: els.type.value === SESSION_CAT ? (document.getElementById('sessionDate').value || '') : '',
-        kingdom: els.type.value === TITLE_OFFICE_CAT ? (document.getElementById('titleKingdom').value || '').trim() : ''
+        kingdom: els.type.value === TITLE_OFFICE_CAT ? (document.getElementById('titleKingdom').value || '').trim() : '',
+        tldr: val('tldrField'),
+        status: val('entryStatus'),
+        location: val('entryLocation'),
+        alignment: val('entryAlignment'),
+        faction: val('entryFaction'),
+        relatedNpcs: val('entryRelatedNpcs'),
+        events: val('entryEvents'),
+        secrets: val('entrySecrets')
       };
       if (currentIndex === null) {
         entries.push(e);

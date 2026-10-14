@@ -6,8 +6,9 @@
   <title>Thalarion – Das Blutsiegel</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Lora:ital,wght@0,400;0,600;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/app.css" />
+  <link rel="stylesheet" href="css/vault.css" />
 </head>
 <body class="no-sidebar">
   <div class="app">
@@ -83,83 +84,141 @@
 
         <section id="viewer" class="panel hidden">
           <div class="page-toolbar hidden" id="viewerBackBar"></div>
-          <article class="article">
-            <div class="article-actions" id="viewerMapActions">
-              <button class="ghost" id="entryShowOnMapBtn" type="button">Auf Karte zeigen</button>
-              <button class="ghost hidden" id="entrySetPinBtn" type="button">Pin setzen</button>
-            </div>
-            <div class="article-actions hidden" id="playerToEdit">
-              <button class="ghost" id="editCurrent" type="button">Eintrag bearbeiten</button>
-              <button class="ghost hidden" id="entryToKarteBtn" type="button">Als Kampfkarte</button>
-              <button class="ghost" id="downloadOneBtn" type="button">Nur diesen Eintrag herunterladen</button>
-              <button class="ghost" id="uploadOneBtn" type="button">Hochladen</button>
-            </div>
-            <div class="kicker" id="viewType"></div>
-            <h2 id="viewTitle"></h2>
-            <details id="viewImageFold" class="entry-image-fold hidden">
-              <summary>Bild anzeigen</summary>
-              <div id="viewImageWrap" class="entry-image-wrap">
-                <img id="viewImage" alt="" />
+          <div class="vault-entry">
+            <aside class="vault-infobox">
+              <div id="viewImageWrap" class="vault-avatar is-empty">
+                <img id="viewImage" class="hidden" alt="" />
+                <span id="viewImageFallback">T</span>
               </div>
-            </details>
-            <div class="prose" id="viewContent"></div>
-          </article>
+              <div class="kicker" id="viewType"></div>
+              <h2 id="viewTitle"></h2>
+              <dl class="vault-meta" id="viewMeta"></dl>
+              <div class="viewer-actions-row" id="viewerMapActions">
+                <button class="ghost" id="entryShowOnMapBtn" type="button">Auf Karte</button>
+                <button class="ghost hidden" id="entrySetPinBtn" type="button">Pin setzen</button>
+              </div>
+              <div class="viewer-actions-row hidden" id="playerToEdit">
+                <button class="ghost" id="editCurrent" type="button">Bearbeiten</button>
+                <button class="ghost hidden" id="entryToKarteBtn" type="button">Kampfkarte</button>
+                <button class="ghost" id="downloadOneBtn" type="button">Download</button>
+                <button class="ghost" id="uploadOneBtn" type="button">Upload</button>
+              </div>
+            </aside>
+            <div class="vault-main">
+              <div class="vault-tldr" id="viewTldr"></div>
+              <div class="vault-tabs" id="viewTabs" role="tablist">
+                <button type="button" class="active" data-vault-tab="lore">Lore</button>
+                <button type="button" data-vault-tab="events">Ereignisse</button>
+                <button type="button" class="dm-only" data-vault-tab="secrets">Geheimnisse</button>
+              </div>
+              <div class="vault-tab-pane prose" id="viewTabLore" data-vault-pane="lore">
+                <div id="viewContent"></div>
+              </div>
+              <div class="vault-tab-pane prose hidden" id="viewTabEvents" data-vault-pane="events"></div>
+              <div class="vault-tab-pane prose is-secret hidden" id="viewTabSecrets" data-vault-pane="secrets"></div>
+            </div>
+          </div>
+          <details id="viewImageFold" class="entry-image-fold hidden" hidden>
+            <summary>Bild</summary>
+          </details>
         </section>
 
         <section id="editorView" class="panel hidden">
           <div class="editor-card">
             <h2 id="editorHeading">Neuer Eintrag</h2>
-            <div class="grid-2">
-              <div class="field">
-                <label for="title">Name</label>
-                <input id="title" placeholder="z. B. Caldeum" />
+            <div class="editor-essentials">
+              <div class="grid-2">
+                <div class="field">
+                  <label for="title">Name</label>
+                  <input id="title" placeholder="z. B. Caldeum" />
+                </div>
+                <div class="field">
+                  <label for="type">Kategorie</label>
+                  <select id="type"></select>
+                </div>
               </div>
-              <div class="field">
-                <label for="type">Kategorie</label>
-                <select id="type"></select>
-              </div>
-            </div>
-            <div class="field hidden" id="sessionDateWrap">
-              <label for="sessionDate">Datum der Sitzung</label>
-              <input id="sessionDate" type="date" />
-            </div>
-            <div class="field hidden" id="titleKingdomWrap">
-              <label for="titleKingdom">Königreich</label>
-              <select id="titleKingdom"></select>
-            </div>
-            <div class="field">
-              <label for="visibility">Sichtbarkeit</label>
-              <select id="visibility">
-                <option value="player">Für Spieler sichtbar</option>
-                <option value="dm">Nur für den DM</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Bild</label>
-              <div class="entry-image-tools">
-                <button class="ghost" id="uploadEntryImageBtn" type="button">Bild hochladen</button>
-                <button class="ghost hidden" id="ocrEntryImageBtn" type="button">Text aus Stat-Sheet lesen</button>
-                <button class="ghost hidden" id="removeEntryImageBtn" type="button">Bild entfernen</button>
+              <div class="grid-2">
+                <div class="field">
+                  <label for="visibility">Sichtbarkeit</label>
+                  <select id="visibility">
+                    <option value="player">Spieler sichtbar</option>
+                    <option value="dm">Nur DM</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Bild</label>
+                  <div class="entry-image-tools">
+                    <button class="ghost" id="uploadEntryImageBtn" type="button">Hochladen</button>
+                    <button class="ghost hidden" id="ocrEntryImageBtn" type="button">OCR</button>
+                    <button class="ghost hidden" id="removeEntryImageBtn" type="button">Entfernen</button>
+                  </div>
+                </div>
               </div>
               <div id="entryImagePreview" class="entry-image-preview hidden">
                 <img id="entryImagePreviewImg" alt="Vorschau" />
               </div>
+              <div class="field">
+                <label for="tldrField">TL;DR / Kurzfassung</label>
+                <textarea id="tldrField" placeholder="1–2 Sätze für Karten und Schnellblick…"></textarea>
+                <p class="field-hint">Wird auf Karten und im Pin-Drawer angezeigt.</p>
+              </div>
+              <div class="toolbar-label">Haupttext (Lore)</div>
+              <div class="toolbar">
+                <button type="button" onclick="fmt('bold')"><b>B</b></button>
+                <button type="button" onclick="fmt('italic')"><i>I</i></button>
+                <button type="button" onclick="fmt('underline')"><u>U</u></button>
+                <select onchange="fmtValue('fontSize', this.value)">
+                  <option value="">Größe</option>
+                  <option value="2">Klein</option>
+                  <option value="3">Normal</option>
+                  <option value="5">Groß</option>
+                  <option value="7">Sehr groß</option>
+                </select>
+                <input type="color" onchange="fmtValue('foreColor', this.value)" title="Textfarbe" value="#e8eaef" />
+              </div>
+              <div id="content" class="editor-canvas" contenteditable="true"></div>
             </div>
-            <div class="toolbar-label">Text</div>
-            <div class="toolbar">
-              <button type="button" onclick="fmt('bold')"><b>B</b></button>
-              <button type="button" onclick="fmt('italic')"><i>I</i></button>
-              <button type="button" onclick="fmt('underline')"><u>U</u></button>
-              <select onchange="fmtValue('fontSize', this.value)">
-                <option value="">Größe</option>
-                <option value="2">Klein</option>
-                <option value="3">Normal</option>
-                <option value="5">Groß</option>
-                <option value="7">Sehr groß</option>
-              </select>
-              <input type="color" onchange="fmtValue('foreColor', this.value)" title="Textfarbe" value="#f3ead8" />
+            <button class="ghost editor-advanced-toggle" id="editorAdvancedToggle" type="button">Erweiterte Felder anzeigen</button>
+            <div class="editor-advanced hidden" id="editorAdvanced">
+              <div class="field hidden" id="sessionDateWrap">
+                <label for="sessionDate">Datum der Sitzung</label>
+                <input id="sessionDate" type="date" />
+              </div>
+              <div class="field hidden" id="titleKingdomWrap">
+                <label for="titleKingdom">Königreich</label>
+                <select id="titleKingdom"></select>
+              </div>
+              <div class="grid-2">
+                <div class="field">
+                  <label for="entryStatus">Status</label>
+                  <input id="entryStatus" placeholder="z. B. aktiv, zerstört…" />
+                </div>
+                <div class="field">
+                  <label for="entryLocation">Ort / Lage</label>
+                  <input id="entryLocation" placeholder="z. B. Nordmark" />
+                </div>
+                <div class="field">
+                  <label for="entryAlignment">Gesinnung</label>
+                  <input id="entryAlignment" placeholder="z. B. neutral" />
+                </div>
+                <div class="field">
+                  <label for="entryFaction">Fraktion</label>
+                  <input id="entryFaction" placeholder="Zugehörigkeit" />
+                </div>
+              </div>
+              <div class="field">
+                <label for="entryRelatedNpcs">Wichtige NPCs</label>
+                <input id="entryRelatedNpcs" placeholder="Namen, kommagetrennt" />
+              </div>
+              <div class="field">
+                <label for="entryEvents">Aktuelle Ereignisse / Quest-Hooks</label>
+                <textarea id="entryEvents" rows="4" placeholder="Was läuft gerade? Hooks für die Session…"></textarea>
+              </div>
+              <div class="field">
+                <label for="entrySecrets">DM-Geheimnisse</label>
+                <textarea id="entrySecrets" rows="4" placeholder="Nur für den DM sichtbar…"></textarea>
+              </div>
             </div>
-            <div id="content" class="editor-canvas" contenteditable="true"></div>
             <div class="editor-actions">
               <button class="primary" id="saveBtn" type="button">Speichern</button>
               <button class="ghost" id="cancelEdit" type="button">Abbrechen</button>
@@ -230,6 +289,24 @@
             </div>
           </div>
         </section>
+
+        <aside id="mapPinDrawer" class="map-drawer hidden" aria-label="Ort-Vorschau">
+          <div class="map-drawer-head">
+            <h3 id="mapDrawerTitle">Ort</h3>
+            <button class="ghost" id="mapDrawerClose" type="button" title="Schließen">×</button>
+          </div>
+          <div class="map-drawer-media is-empty" id="mapDrawerMedia">
+            <img id="mapDrawerImage" class="hidden" alt="" />
+            <span id="mapDrawerFallback">?</span>
+          </div>
+          <p class="map-drawer-meta" id="mapDrawerMeta"></p>
+          <p class="map-drawer-tldr" id="mapDrawerTldr"></p>
+          <div class="map-drawer-npcs" id="mapDrawerNpcs"></div>
+          <div class="map-drawer-actions">
+            <button class="primary" id="mapDrawerOpenEntry" type="button">Vollständigen Eintrag öffnen</button>
+            <button class="ghost hidden" id="mapDrawerEditPin" type="button">Pin bearbeiten</button>
+          </div>
+        </aside>
 
         <section id="charView" class="panel hidden">
           <div id="charGuest">
