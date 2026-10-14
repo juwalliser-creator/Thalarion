@@ -2342,7 +2342,11 @@
       const rec = sheetOwnerRecord(row.playerId);
       const dnd = rec && rec.sheet && rec.sheet.dnd;
       if (!dnd || !dnd.abilities || !dnd.abilities.dex) return 0;
-      return dndMod(dnd.abilities.dex.score) + dndParseBonus(dnd.initiativeBonus);
+      const dexMod = (typeof currentSheetOwner !== 'undefined' && currentSheetOwner === row.playerId &&
+        typeof dndAbilityMod === 'function')
+        ? dndAbilityMod('dex')
+        : dndMod(dnd.abilities.dex.score);
+      return dexMod + dndParseBonus(dnd.initiativeBonus);
     }
 
     function combatTargetAc() {

@@ -578,7 +578,11 @@
         id: x.id || combatNewId('a'), name: String(x.name || ''), range: dndMetersToFeetText(x.range || ''),
         bonus: String(x.bonus || ''), hitRoll: String(x.hitRoll || ''),
         damage: String(x.damage || ''), dmgRoll: String(x.dmgRoll || ''),
-        notes: dndMetersToFeetText(x.notes || ''), text: dndMetersToFeetText(x.text || '')
+        notes: dndMetersToFeetText(x.notes || ''), text: dndMetersToFeetText(x.text || ''),
+        fromItemId: String(x.fromItemId || ''),
+        ability: /^(auto|str|dex|con|int|wis|cha|finesse)$/i.test(String(x.ability || ''))
+          ? String(x.ability).toLowerCase()
+          : 'auto'
       });
       base.spells = list(src.spells, x => x && {
         id: x.id || combatNewId('s'),
@@ -626,15 +630,87 @@
       return equipped ? 'carried' : 'backpack';
     }
 
+    var DND_ITEM_MOD_STATS = [
+      { id: 'str', label: 'STÄ' }, { id: 'dex', label: 'GES' }, { id: 'con', label: 'KON' },
+      { id: 'int', label: 'INT' }, { id: 'wis', label: 'WEI' }, { id: 'cha', label: 'CHA' },
+      { id: 'ac', label: 'RK' }, { id: 'attack', label: 'Angriff' }, { id: 'damage', label: 'Schaden' }
+    ];
+
+    function dndItemModStatLabel(stat) {
+      const id = String(stat || '').toLowerCase();
+      const hit = (DND_ITEM_MOD_STATS || []).find(s => s.id === id);
+      return hit ? hit.label : (id || '—');
+    }
+
+    function normalizeDndModifiers(raw) {
+      const allowed = new Set((DND_ITEM_MOD_STATS || []).map(s => s.id));
+      return (Array.isArray(raw) ? raw : []).map(m => {
+        if (!m || typeof m !== 'object') return null;
+        const stat = String(m.stat || '').trim().toLowerCase();
+        if (!stat || !allowed.has(stat)) return null;
+        return {
+          stat: stat,
+          value: String(m.value != null ? m.value : '').trim(),
+          mode: String(m.mode || 'flat')
+        };
+      }).filter(Boolean);
+    }
+
+    function collectDndItemModifiers(rowEl, item) {
+      if (!rowEl || !item) return;
+      const mods = [];
+      rowEl.querySelectorAll('[data-mod-i]').forEach(modEl => {
+        const statEl = modEl.querySelector('[data-mod-k="stat"]');
+        const valEl = modEl.querySelector('[data-mod-k="value"]');
+        const stat = statEl ? String(statEl.value || '').trim().toLowerCase() : '';
+        const value = valEl ? String(valEl.value || '').trim() : '';
+        if (!stat) return;
+        mods.push({ stat: stat, value: value, mode: 'flat' });
+      });
+      item.modifiers = normalizeDndModifiers(mods);
+    }
+
+    function dndItemModsHtml(row) {
+      const mods = Array.isArray(row.modifiers) ? row.modifiers.slice() : [];
+      const rows = mods.map((m, i) => {
+        const opts = (DND_ITEM_MOD_STATS || []).map(s =>
+          '<option value="' + s.id + '"' + (m.stat === s.id ? ' selected' : '') + '>' +
+          escapeAttr(s.label) + '</option>'
+        ).join('');
+        return '<div class="dnd-inv-mod" data-mod-i="' + i + '">' +
+          '<select data-mod-k="stat" title="Was der Bonus betrifft">' + opts + '</select>' +
+          '<input data-mod-k="value" value="' + escapeAttr(m.value) + '" placeholder="+1" inputmode="numeric" title="Bonus (angelegt)" />' +
+          '<button type="button" class="ghost" data-dnd-mod-del="' + i + '" title="Bonus entfernen">×</button></div>';
+      }).join('');
+      return '<div class="dnd-inv-mods">' +
+        '<div class="dnd-inv-mods-head"><span>Boni (nur angelegt)</span>' +
+        '<button type="button" class="ghost" data-dnd-mod-add="' + row.id + '" title="Bonus hinzufügen">＋</button></div>' +
+        (rows || '<p class="dnd-inv-mods-empty">z. B. Angriff +1, STÄ +2</p>') +
+        '</div>';
+    }
+
+    function dndItemModsSummary(row) {
+      return (row.modifiers || []).filter(m => String(m.value || '').trim()).map(m => {
+        const n = dndItemNum(m.value);
+        return dndItemModStatLabel(m.stat) + (n >= 0 ? '+' : '') + n;
+      }).join(' · ');
+    }
+
     function normalizeDndItem(raw) {
       const x = raw && typeof raw === 'object' ? raw : {};
       const equipped = !!x.equipped;
+      const category = dndItemCategoryId(x.category);
+      let armorBase = String(x.armorBase != null ? x.armorBase : '');
+      let acBonus = String(x.acBonus != null ? x.acBonus : '');
+      let maxDex = String(x.maxDex != null ? x.maxDex : '');
+      // Defaults: Schild +2 RK, wenn nichts eingetragen
+      if (category === 'shield' && !acBonus.trim()) acBonus = '2';
       return {
         id: x.id || combatNewId('i'),
         name: String(x.name || ''),
         qty: String(x.qty != null && x.qty !== '' ? x.qty : '1'),
         weight: String(x.weight || ''),
-        category: dndItemCategoryId(x.category),
+        category: category,
         container: dndItemContainerId(x.container, equipped),
         equipped: equipped,
         attuned: !!x.attuned,
@@ -643,7 +719,13 @@
         range: String(x.range || ''),
         bonus: String(x.bonus || ''),
         damage: String(x.damage || ''),
-        attackId: String(x.attackId || '')
+        attackId: String(x.attackId || ''),
+        armorBase: armorBase,
+        acBonus: acBonus,
+        maxDex: maxDex,
+        heal: String(x.heal != null ? x.heal : ''),
+        healDice: String(x.healDice || ''),
+        modifiers: normalizeDndModifiers(x.modifiers)
       };
     }
 
@@ -654,6 +736,202 @@
 
     function dndItemIsUsable(item) {
       return !!(item && item.category === 'consumable');
+    }
+
+    function dndEquippedItems() {
+      return (dndState.items || []).filter(it => it && it.equipped);
+    }
+
+    function dndItemModTotal(stat) {
+      const want = String(stat || '').toLowerCase();
+      let sum = 0;
+      dndEquippedItems().forEach(it => {
+        (it.modifiers || []).forEach(m => {
+          if (m.stat !== want) return;
+          sum += dndItemNum(m.value);
+        });
+        if (want === 'ac' && it.category !== 'armor') {
+          // acBonus on shield/magic/etc. (armor uses armorBase separately)
+          if (it.category === 'shield' || it.category === 'magic' || it.category === 'other' || it.category === 'tool') {
+            sum += dndItemNum(it.acBonus);
+          }
+        }
+      });
+      return sum;
+    }
+
+    /** Effective sheet stats including equipped item bonuses. */
+    function getEffectiveStat(statName) {
+      const stat = String(statName || '').toLowerCase();
+      if (stat === 'ac') {
+        const equipped = dndEquippedItems();
+        const armor = equipped.find(it => it.category === 'armor' && dndItemNum(it.armorBase) > 0);
+        const dexMod = dndAbilityMod('dex');
+        let total;
+        let fromItems = 0;
+        let unarmored = false;
+        if (armor) {
+          const base = dndItemNum(armor.armorBase);
+          let dexAdd = dexMod;
+          if (String(armor.maxDex).trim() !== '') {
+            const cap = dndItemNum(armor.maxDex);
+            dexAdd = Math.min(dexMod, cap);
+          }
+          total = base + dexAdd;
+          fromItems = base; // armor contribution marker
+          equipped.forEach(it => {
+            if (it.id === armor.id) return;
+            if (it.category === 'shield' || it.category === 'magic' || it.category === 'other') {
+              const b = dndItemNum(it.acBonus);
+              total += b;
+              fromItems += b;
+            }
+            (it.modifiers || []).forEach(m => {
+              if (m.stat === 'ac') {
+                const v = dndItemNum(m.value);
+                total += v;
+                fromItems += v;
+              }
+            });
+          });
+          (armor.modifiers || []).forEach(m => {
+            if (m.stat === 'ac') {
+              const v = dndItemNum(m.value);
+              total += v;
+              fromItems += v;
+            }
+          });
+        } else {
+          const bonus = dndItemModTotal('ac');
+          const manualRaw = String(dndState.ac || '').trim();
+          const manual = dndItemNum(dndState.ac);
+          // Beyond-like unarmored: 10 + DEX when no armor and no manual AC
+          if (!manualRaw) {
+            total = 10 + dexMod + bonus;
+            unarmored = true;
+            fromItems = bonus;
+          } else {
+            total = manual + bonus;
+            fromItems = bonus;
+          }
+        }
+        return {
+          value: Math.max(0, Math.round(total)),
+          fromItems: fromItems,
+          armor: !!armor,
+          unarmored: unarmored
+        };
+      }
+      if (stat === 'attack') {
+        const v = dndItemModTotal('attack');
+        return { value: v, fromItems: v };
+      }
+      if (DND_ABS.some(a => a.id === stat)) {
+        const base = dndState.abilities[stat] ? Number(dndState.abilities[stat].score) || 10 : 10;
+        const bonus = dndItemModTotal(stat);
+        return { value: base + bonus, fromItems: bonus, base: base };
+      }
+      return { value: 0, fromItems: 0 };
+    }
+
+    function getAvailableCombatActions() {
+      const items = dndState.items || [];
+      return (dndState.attacks || []).filter(atk => {
+        if (!atk || !atk.fromItemId) return true;
+        const src = items.find(it => it.id === atk.fromItemId);
+        return !!(src && src.equipped);
+      });
+    }
+
+    function ensureLinkedAttackForItem(item) {
+      if (!item || item.category !== 'weapon') return null;
+      if (!String(item.name || '').trim()) return null;
+      let atk = item.attackId
+        ? (dndState.attacks || []).find(a => a.id === item.attackId)
+        : null;
+      if (!atk) {
+        const want = String(item.name || '').trim().toLowerCase();
+        atk = (dndState.attacks || []).find(a =>
+          a.fromItemId === item.id ||
+          String(a.name || '').trim().toLowerCase() === want
+        );
+      }
+      if (!atk) {
+        atk = {
+          id: combatNewId('a'),
+          name: item.name,
+          range: String(item.range || '5 ft.'),
+          bonus: String(item.bonus || ''),
+          hitRoll: '',
+          damage: String(item.damage || ''),
+          dmgRoll: '',
+          notes: String(item.notes || ''),
+          text: String(item.text || ''),
+          fromItemId: item.id,
+          ability: 'auto'
+        };
+        dndState.attacks.push(atk);
+      } else {
+        atk.fromItemId = item.id;
+        if (item.range) atk.range = item.range;
+        if (item.bonus) atk.bonus = item.bonus;
+        if (item.damage) atk.damage = item.damage;
+        if (!atk.name) atk.name = item.name;
+      }
+      item.attackId = atk.id;
+      return atk;
+    }
+
+    function equipDndItem(itemId, equipped) {
+      collectDndFields();
+      const item = (dndState.items || []).find(x => x.id === itemId);
+      if (!item) return;
+      const on = !!equipped;
+      item.equipped = on;
+      if (on) {
+        item.container = 'carried';
+        if (item.category === 'armor' || item.category === 'shield') {
+          (dndState.items || []).forEach(other => {
+            if (other.id === item.id) return;
+            if (other.category === item.category && other.equipped) other.equipped = false;
+          });
+        }
+        if (item.category === 'weapon') ensureLinkedAttackForItem(item);
+      }
+      refreshDndEquipmentState();
+      toast((item.name || 'Gegenstand') + (on ? ' angelegt.' : ' abgelegt.'));
+    }
+
+    function refreshDndEquipmentState() {
+      // Keep weapon attacks in sync while equipped
+      dndEquippedItems().forEach(it => {
+        if (it.category === 'weapon') ensureLinkedAttackForItem(it);
+      });
+      refreshDndCalcs();
+      if (typeof renderDndLists === 'function') renderDndLists();
+      if (typeof renderDndInventory === 'function') renderDndInventory();
+      sheetDirty = true;
+    }
+
+    function refreshDndAcDisplay() {
+      const eff = getEffectiveStat('ac');
+      const el = document.getElementById('dndAcEffective');
+      const input = document.querySelector('#charDndBlock [data-dnd-field="ac"]');
+      if (!el) return;
+      if (eff.armor || eff.fromItems || eff.unarmored) {
+        el.classList.remove('hidden');
+        let tag = '';
+        if (eff.armor) tag = 'Rüstung';
+        else if (eff.unarmored) tag = '10+GES';
+        else if (eff.fromItems) tag = 'Items';
+        el.innerHTML = 'Effektiv <strong>' + eff.value + '</strong>' +
+          (tag ? ' <span class="dnd-ac-bonus">' + tag + '</span>' : '');
+        if (input) input.classList.toggle('has-item-bonus', !!(eff.armor || eff.fromItems || eff.unarmored));
+      } else {
+        el.classList.add('hidden');
+        el.innerHTML = '';
+        if (input) input.classList.remove('has-item-bonus');
+      }
     }
 
     function dndItemNum(raw) {
@@ -671,9 +949,7 @@
     }
 
     function dndCarryCapacityKg() {
-      const str = dndState && dndState.abilities && dndState.abilities.str
-        ? Number(dndState.abilities.str.score) || 10
-        : 10;
+      const str = dndAbilityScore('str');
       // 5e: 15 lb × ST, hier als kg (×0,5)
       return Math.round(str * 7.5 * 10) / 10;
     }
@@ -715,8 +991,8 @@
       }
       dndItemEditId = '';
       dndItemPackId = '';
-      renderDndInventory();
-      sheetDirty = true;
+      if (item.equipped && item.category === 'weapon') ensureLinkedAttackForItem(item);
+      refreshDndEquipmentState();
       saveSheet();
     }
 
@@ -736,7 +1012,22 @@
       }
       qty -= 1;
       item.qty = String(qty);
-      toast((item.name || 'Gegenstand') + ' genutzt · noch ' + qty + '.');
+      let healMsg = '';
+      let healed = dndItemNum(item.heal);
+      if (item.healDice && dndParseDice(item.healDice)) {
+        const roll = dndRollDice(item.healDice);
+        if (roll != null) healed += roll;
+      }
+      if (healed > 0) {
+        const max = Math.max(0, dndItemNum(dndState.hpMax));
+        const cur = Math.max(0, dndItemNum(dndState.hpCurrent));
+        const next = max ? Math.min(max, cur + healed) : cur + healed;
+        dndState.hpCurrent = String(next);
+        const hpInput = document.querySelector('#charDndBlock [data-dnd-field="hpCurrent"]');
+        if (hpInput) hpInput.value = dndState.hpCurrent;
+        healMsg = ' · +' + healed + ' TP';
+      }
+      toast((item.name || 'Gegenstand') + ' genutzt · noch ' + qty + healMsg + '.');
       renderDndInventory();
       sheetDirty = true;
       saveSheet();
@@ -749,17 +1040,26 @@
       collectDndFields();
       const item = (dndState.items || []).find(x => x.id === id);
       if (!item) return;
-      const next = dndItemContainerId(containerId, item.equipped);
+      const next = dndItemContainerId(containerId, false);
       item.container = next;
-      if (next === 'carried' || next === 'belt') {
-        if (dndItemIsCombat(item)) item.equipped = true;
-      } else {
-        item.equipped = false;
-      }
       dndItemPackId = '';
-      renderDndInventory();
-      sheetDirty = true;
-      saveSheet();
+      if (next === 'carried' || next === 'belt') {
+        if (dndItemIsCombat(item) && !item.equipped) {
+          equipDndItem(item.id, true);
+          return;
+        }
+        item.container = next;
+        refreshDndEquipmentState();
+        saveSheet();
+        toast((item.name || 'Gegenstand') + ' → ' + dndItemLabel(DND_ITEM_CONTAINERS, next));
+        return;
+      }
+      item.container = next;
+      if (item.equipped) equipDndItem(item.id, false);
+      else {
+        refreshDndEquipmentState();
+        saveSheet();
+      }
       toast((item.name || 'Gegenstand') + ' → ' + dndItemLabel(DND_ITEM_CONTAINERS, next));
     }
 
@@ -804,16 +1104,23 @@
         damage: String(item.damage || ''),
         dmgRoll: '',
         notes: String(item.notes || ''),
-        text: String(item.text || '')
+        text: String(item.text || ''),
+        fromItemId: item.id,
+        ability: 'auto'
       });
       item.attackId = newId;
       item.equipped = true;
       item.container = 'carried';
+      if (item.category === 'weapon') {
+        (dndState.items || []).forEach(other => {
+          /* keep multiple weapons equippable */
+        });
+      }
       dndAttackEditId = newId;
       dndItemEditId = '';
       dndItemPackId = '';
+      refreshDndEquipmentState();
       setDndTab('actions');
-      sheetDirty = true;
       saveSheet();
       toast('Angriff aus „' + item.name + '“ angelegt.');
     }
@@ -844,10 +1151,22 @@
           (row.attuned ? ' checked' : '') + ' /> ein</label></div>' +
           (combat
             ? '<div class="dnd-inv-edit-combat">' +
-              '<input data-k="range" value="' + escapeAttr(row.range) + '" placeholder="Reichweite" />' +
-              '<input data-k="bonus" value="' + escapeAttr(row.bonus) + '" placeholder="+5" title="Angriffsbonus" />' +
-              '<input data-k="damage" value="' + escapeAttr(row.damage) + '" placeholder="1W8+3" title="Schaden" /></div>'
+              '<input data-k="range" value="' + escapeAttr(row.range) + '" placeholder="5 ft. / 80 ft." title="Nahkampf / Fernkampf" />' +
+              '<input data-k="bonus" value="' + escapeAttr(row.bonus) + '" placeholder="leer = auto" title="Leer = Attr+Übung; nur Override oder Magie über Boni" />' +
+              '<input data-k="damage" value="' + escapeAttr(row.damage) + '" placeholder="1W8" title="Nur Würfel; Attr-Mod wird automatisch addiert" /></div>' +
+              (row.category === 'armor' || row.category === 'shield' || row.category === 'magic'
+                ? '<div class="dnd-inv-edit-combat">' +
+                  '<input data-k="armorBase" value="' + escapeAttr(row.armorBase) + '" placeholder="RK-Basis" title="Rüstungs-Basis-RK (z. B. 14)" />' +
+                  '<input data-k="acBonus" value="' + escapeAttr(row.acBonus) + '" placeholder="RK-Bonus" title="Flat RK-Bonus (Schild +2)" />' +
+                  '<input data-k="maxDex" value="' + escapeAttr(row.maxDex) + '" placeholder="max GES" title="Max. Geschick-Bonus (mittel=2, schwer=0)" /></div>'
+                : '')
             : '') +
+          (row.category === 'consumable'
+            ? '<div class="dnd-inv-edit-combat">' +
+              '<input data-k="heal" value="' + escapeAttr(row.heal) + '" placeholder="Heilung +" title="Flache TP" />' +
+              '<input data-k="healDice" value="' + escapeAttr(row.healDice) + '" placeholder="2W4+2" title="Heilungswürfel" /></div>'
+            : '') +
+          dndItemModsHtml(row) +
           '<input data-k="notes" value="' + escapeAttr(row.notes) + '" placeholder="Kurznotiz" />' +
           '<textarea data-k="text" class="dnd-inv-edit-text" placeholder="Wirkung / Beschreibung…">' +
           escapeAttr(row.text) + '</textarea>' +
@@ -863,6 +1182,8 @@
       bits.push(w + ' kg');
       if (row.equipped) bits.push('an');
       if (row.attuned) bits.push('ein');
+      const modSum = dndItemModsSummary(row);
+      if (modSum) bits.push(modSum);
       const meta = bits.join(' · ');
       const actions = [];
       if (dndItemIsUsable(row)) {
@@ -1365,12 +1686,27 @@
     }
 
     function dndMod(score) {
-      return Math.floor((Number(score) - 10) / 2);
+      const n = Number(score);
+      if (!Number.isFinite(n)) return 0;
+      return Math.floor((n - 10) / 2);
     }
 
     function dndSigned(n) {
       const v = Number(n) || 0;
       return (v >= 0 ? '+' : '') + v;
+    }
+
+    /** Base ability score + equipped item modifiers (Beyond-style effective score). */
+    function dndAbilityScore(abilityId) {
+      const id = String(abilityId || '').toLowerCase();
+      const base = dndState.abilities && dndState.abilities[id]
+        ? Number(dndState.abilities[id].score) || 10
+        : 10;
+      return base + dndItemModTotal(id);
+    }
+
+    function dndAbilityMod(abilityId) {
+      return dndMod(dndAbilityScore(abilityId));
     }
 
     function dndProficiency() {
@@ -1386,13 +1722,71 @@
     function dndSkillBonus(skillId) {
       const sk = DND_SKILLS.find(s => s.id === skillId);
       if (!sk) return 0;
-      const mod = dndMod(dndState.abilities[sk.ability].score);
+      const mod = dndAbilityMod(sk.ability);
       const rank = dndState.skills[skillId] || 0;
       const prof = dndProficiency();
       if (rank === 2) return mod + prof * 2;
       if (rank === 1) return mod + prof;
       if (dndState.jackOfAllTrades) return mod + Math.floor(prof / 2);
       return mod;
+    }
+
+    /** Which ability drives an attack (Beyond: STR / DEX / Finesse = higher). */
+    function getAttackAbilityId(atk) {
+      const mode = String((atk && atk.ability) || 'auto').toLowerCase();
+      if (mode === 'str' || mode === 'dex' || mode === 'con' || mode === 'int' || mode === 'wis' || mode === 'cha') {
+        return mode;
+      }
+      if (mode === 'finesse') {
+        return dndAbilityMod('str') >= dndAbilityMod('dex') ? 'str' : 'dex';
+      }
+      const blob = [
+        atk && atk.name, atk && atk.notes, atk && atk.range,
+        atk && atk.fromItemId
+          ? (((dndState.items || []).find(it => it.id === atk.fromItemId) || {}).notes || '')
+          : ''
+      ].join(' ').toLowerCase();
+      if (/finesse|feinwaffe/.test(blob)) {
+        return dndAbilityMod('str') >= dndAbilityMod('dex') ? 'str' : 'dex';
+      }
+      const rangeNum = parseInt(String((atk && atk.range) || '').replace(',', '.'), 10);
+      if (Number.isFinite(rangeNum) && rangeNum > 5) return 'dex';
+      if (/fern|range|bogen|armbrust|wurf|geschoss|pfeil/.test(blob)) return 'dex';
+      return 'str';
+    }
+
+    /**
+     * Hit bonus like Beyond: Attr-Mod + Übung + Item-Angriffsboni,
+     * unless the attack has a manual numeric bonus (override).
+     */
+    function getAttackHitBonus(atk) {
+      const manual = String((atk && atk.bonus) || '').trim();
+      if (manual && dndHitIsAttack(manual)) {
+        return Number(String(manual).replace(',', '.').replace(/^\+/, '')) || 0;
+      }
+      return dndAbilityMod(getAttackAbilityId(atk)) + dndProficiency() + dndItemModTotal('attack');
+    }
+
+    function getAttackDamageAbilityBonus(atk) {
+      const raw = String((atk && atk.damage) || '').replace(/\s/g, '');
+      if (!raw) return 0;
+      // Manual flat already in the dice string → don't double-add ability
+      if (/[+-]\d+$/.test(raw)) return dndItemModTotal('damage');
+      return dndAbilityMod(getAttackAbilityId(atk)) + dndItemModTotal('damage');
+    }
+
+    function getAttackDamageDisplay(atk) {
+      const raw = String((atk && atk.damage) || '').trim();
+      if (!raw) return '—';
+      const add = getAttackDamageAbilityBonus(atk);
+      if (!add) return raw;
+      if (/[+-]\d+\s*$/.test(raw.replace(/\s/g, ''))) {
+        // already has flat; still append only extra item damage if ability already baked in
+        const itemOnly = dndItemModTotal('damage');
+        if (!itemOnly) return raw;
+        return raw + (itemOnly >= 0 ? '+' : '') + itemOnly;
+      }
+      return raw + (add >= 0 ? '+' : '') + add;
     }
 
     function collectDndFields() {
@@ -1426,7 +1820,33 @@
           if (!key) return;
           item[key] = el.type === 'checkbox' ? el.checked : el.value;
         });
+        if (kind === 'items') collectDndItemModifiers(row, item);
       });
+    }
+
+    function addDndItemModifier(itemId) {
+      collectDndFields();
+      const item = (dndState.items || []).find(x => x.id === itemId);
+      if (!item) return;
+      if (!Array.isArray(item.modifiers)) item.modifiers = [];
+      item.modifiers.push({ stat: 'attack', value: '1', mode: 'flat' });
+      dndItemEditId = itemId;
+      renderDndInventory();
+      refreshDndEquipmentState();
+      sheetDirty = true;
+    }
+
+    function removeDndItemModifier(itemId, index) {
+      collectDndFields();
+      const item = (dndState.items || []).find(x => x.id === itemId);
+      if (!item || !Array.isArray(item.modifiers)) return;
+      const i = Number(index);
+      if (!Number.isFinite(i) || i < 0 || i >= item.modifiers.length) return;
+      item.modifiers.splice(i, 1);
+      dndItemEditId = itemId;
+      renderDndInventory();
+      refreshDndEquipmentState();
+      sheetDirty = true;
     }
 
     function applyDndFields() {
@@ -1689,9 +2109,11 @@
       const flags = [];
       if (row.concentration) flags.push('Konz.');
       if (row.ritual) flags.push('Ritual');
-      const hit = String(row.hit || '').trim() || '—';
+      const manualHit = String(row.hit || '').trim();
+      const spellAtk = dndSigned(dndProficiency() + dndAbilityMod(dndState.spellAbility || 'int'));
+      const hit = manualHit || spellAtk;
       const dmg = String(row.damage || '').trim() || '—';
-      const hitBtn = dndHitIsAttack(row.hit);
+      const hitBtn = !manualHit || dndHitIsAttack(row.hit);
       const dmgBtn = !!dndParseDice(String(row.damage || '').replace(/\s/g, ''));
       return '<div class="dnd-spell-item" data-dnd-row="spells" data-id="' + row.id + '">' +
         '<label class="dnd-spell-prep" title="Vorbereitet"><input class="dnd-check" type="checkbox" data-k="prepared"' + (row.prepared ? ' checked' : '') + ' /></label>' +
@@ -1866,23 +2288,38 @@
         const anyOpen = dndState.attacks.some(dndAttackIsOpen);
         const head = document.querySelector('#charDndBlock .dnd-atk-head');
         if (head) head.classList.toggle('hidden', !anyOpen);
-        const hasSaved = dndState.attacks.some(row => !dndAttackIsOpen(row));
+        const available = getAvailableCombatActions();
+        const availableIds = new Set(available.map(a => a.id));
+        const ordered = (dndState.attacks || []).slice().sort((a, b) => {
+          const ae = availableIds.has(a.id) ? 0 : 1;
+          const be = availableIds.has(b.id) ? 0 : 1;
+          return ae - be;
+        });
+        const hasSaved = ordered.some(row => !dndAttackIsOpen(row));
         const cols = hasSaved
           ? '<div class="dnd-atk-cols"><span>Angriff</span><span>Reichweite</span><span>Treffer</span><span>Schaden</span><span></span><span></span></div>'
           : '';
-        atk.innerHTML = cols + dndState.attacks.map(row => {
+        atk.innerHTML = cols + ordered.map(row => {
           if (dndAttackIsOpen(row)) {
+            const abil = String(row.ability || 'auto');
+            const abilOpts = [
+              ['auto', 'Auto'], ['str', 'STÄ'], ['dex', 'GES'], ['finesse', 'Finesse'],
+              ['con', 'KON'], ['int', 'INT'], ['wis', 'WEI'], ['cha', 'CHA']
+            ].map(o =>
+              '<option value="' + o[0] + '"' + (abil === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'
+            ).join('');
             return '<div class="dnd-atk-edit" data-dnd-row="attacks" data-id="' + row.id + '">' +
               '<div class="dnd-atk-edit-top">' +
               '<input data-k="name" value="' + escapeAttr(row.name) + '" placeholder="Aktion" />' +
-              '<input data-k="range" value="' + escapeAttr(row.range) + '" placeholder="5 ft." /></div>' +
+              '<input data-k="range" value="' + escapeAttr(row.range) + '" placeholder="5 ft." />' +
+              '<select data-k="ability" title="Attribut für Treffer/Schaden">' + abilOpts + '</select></div>' +
               '<div class="dnd-atk-roll-row">' +
-              '<input data-k="bonus" value="' + escapeAttr(row.bonus) + '" placeholder="+5" />' +
+              '<input data-k="bonus" value="' + escapeAttr(row.bonus) + '" placeholder="auto / +5" title="Leer = Attr+Übung" />' +
               '<span class="dnd-atk-roll-wrap">' +
               '<input class="dnd-atk-result" data-k="hitRoll" value="' + escapeAttr(row.hitRoll) + '" placeholder="Trefferwurf" readonly />' +
               '<button type="button" class="dnd-mini-roll" data-dnd-roll="attack" title="Treffer würfeln">W20</button></span></div>' +
               '<div class="dnd-atk-roll-row">' +
-              '<input data-k="damage" value="' + escapeAttr(row.damage) + '" placeholder="1W8+3" />' +
+              '<input data-k="damage" value="' + escapeAttr(row.damage) + '" placeholder="1W8 (+Attr auto)" />' +
               '<span class="dnd-atk-roll-wrap">' +
               '<input class="dnd-atk-result" data-k="dmgRoll" value="' + escapeAttr(row.dmgRoll) + '" placeholder="Schaden" readonly />' +
               '<button type="button" class="dnd-mini-roll" data-dnd-roll="damage" title="Schaden würfeln">W</button></span></div>' +
@@ -1893,17 +2330,32 @@
           }
           const kind = dndAttackKind(row);
           const range = dndFormatRange(row.range);
-          const bonus = String(row.bonus || '').trim() || '—';
-          const dmg = String(row.damage || '').trim() || '—';
-          return '<div class="dnd-atk-item" data-dnd-row="attacks" data-id="' + row.id + '">' +
+          const hitBonus = getAttackHitBonus(row);
+          const bonusShow = dndSigned(hitBonus);
+          const dmg = getAttackDamageDisplay(row);
+          const autoHit = !String(row.bonus || '').trim() || !dndHitIsAttack(row.bonus);
+          const stowed = row.fromItemId && !availableIds.has(row.id);
+          const fromItem = row.fromItemId
+            ? ((dndState.items || []).find(it => it.id === row.fromItemId) || {}).name
+            : '';
+          const abilShort = ({ str: 'STÄ', dex: 'GES', finesse: 'Fin', auto: 'Auto' })[getAttackAbilityId(row)] ||
+            String(getAttackAbilityId(row)).toUpperCase();
+          const kindLabel = stowed
+            ? 'Nicht ausgerüstet'
+            : [kind.label, fromItem, autoHit ? abilShort : null].filter(Boolean).join(' · ');
+          return '<div class="dnd-atk-item' + (stowed ? ' is-stowed' : '') +
+            (row.fromItemId && !stowed ? ' is-from-item' : '') +
+            '" data-dnd-row="attacks" data-id="' + row.id + '">' +
             '<div class="dnd-atk-id">' + dndAtkIcon(kind.icon) +
             '<span class="dnd-atk-id-text"><button type="button" class="dnd-atk-name" data-dnd-info title="Beschreibung">' + escapeAttr(row.name || 'Angriff') + '</button>' +
-            '<span class="dnd-atk-kind">' + escapeAttr(kind.label) + '</span></span></div>' +
+            '<span class="dnd-atk-kind">' + escapeAttr(kindLabel) + '</span></span></div>' +
             '<div class="dnd-atk-range">' + escapeAttr(range.main) +
             (range.extra ? ' <span class="dnd-atk-range-far">(' + escapeAttr(range.extra) + ')</span>' : '') +
             '</div>' +
-            '<button type="button" class="dnd-atk-stat" data-dnd-roll="attack" title="Treffer würfeln, bei Treffer Schaden">' + escapeAttr(bonus) + '</button>' +
-            '<button type="button" class="dnd-atk-stat" data-dnd-roll="damage" title="Nur Schaden würfeln">' + escapeAttr(dmg) + '</button>' +
+            '<button type="button" class="dnd-atk-stat" data-dnd-roll="attack" title="Treffer würfeln, bei Treffer Schaden"' +
+            (stowed ? ' disabled' : '') + '>' + escapeAttr(bonusShow) + '</button>' +
+            '<button type="button" class="dnd-atk-stat" data-dnd-roll="damage" title="Nur Schaden würfeln"' +
+            (stowed ? ' disabled' : '') + '>' + escapeAttr(dmg) + '</button>' +
             '<div class="dnd-atk-notes">' + escapeAttr(row.notes || '') + '</div>' +
             '<button type="button" class="ghost" data-dnd-atk-edit="' + row.id + '" title="Bearbeiten">Ändern</button>' +
             '<button type="button" class="ghost" data-dnd-del="attacks">×</button></div>';
@@ -2016,19 +2468,25 @@
       const setTxt = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
       setTxt('dndProfOut', dndSigned(prof));
       DND_ABS.forEach(a => {
-        const score = dndState.abilities[a.id].score;
-        const mod = dndMod(score);
+        const eff = getEffectiveStat(a.id);
+        const mod = dndAbilityMod(a.id);
         const save = mod + (dndState.abilities[a.id].save ? prof : 0);
         const modEl = document.querySelector('#charDndBlock [data-dnd-mod="' + a.id + '"]');
         const saveEl = document.querySelector('#charDndBlock [data-dnd-save-mod="' + a.id + '"]');
-        if (modEl) modEl.textContent = dndSigned(mod);
+        if (modEl) {
+          modEl.textContent = dndSigned(mod);
+          modEl.title = eff.fromItems
+            ? ('Wert ' + eff.value + ' (Basis ' + eff.base + dndSigned(eff.fromItems) + ' Item)')
+            : ('Wert ' + eff.value);
+          modEl.classList.toggle('has-item-bonus', !!eff.fromItems);
+        }
         if (saveEl) saveEl.textContent = dndSigned(save);
       });
       DND_SKILLS.forEach(s => {
         const el = document.querySelector('#charDndBlock [data-skill-mod="' + s.id + '"]');
         if (el) el.textContent = dndSigned(dndSkillBonus(s.id));
       });
-      const init = dndMod(dndState.abilities.dex.score) + (Number(String(dndState.initiativeBonus || '').replace(',', '.')) || 0);
+      const init = dndAbilityMod('dex') + (Number(String(dndState.initiativeBonus || '').replace(',', '.')) || 0);
       setTxt('dndInitOut', dndSigned(init));
       setTxt('dndInitBox', dndSigned(init));
       setTxt('dndSpeedOut', dndState.speed || '30 ft.');
@@ -2047,9 +2505,10 @@
           '<div>Passive Nachforschung <strong>' + (10 + dndSkillBonus('investigation')) + '</strong></div>' +
           '<div>Passive Einsicht <strong>' + (10 + dndSkillBonus('insight')) + '</strong></div>';
       }
-      const spellMod = dndMod(dndState.abilities[dndState.spellAbility] ? dndState.abilities[dndState.spellAbility].score : 10);
+      const spellMod = dndAbilityMod(dndState.spellAbility || 'int');
       setTxt('dndSpellDc', String(8 + prof + spellMod));
       setTxt('dndSpellAtk', dndSigned(prof + spellMod));
+      refreshDndAcDisplay();
       if (dndState.tab === 'inventory') refreshDndInvSummary();
     }
 
@@ -2083,8 +2542,8 @@
       collectDndFields();
       const name = (dndState.name || dndOwnerName()).trim();
       const stats = DND_ABS.map(a => {
-        const score = dndState.abilities[a.id].score;
-        return a.label.slice(0, 2).toUpperCase() + ' ' + score + ' (' + dndSigned(dndMod(score)) + ')';
+        const score = dndAbilityScore(a.id);
+        return a.label.slice(0, 2).toUpperCase() + ' ' + score + ' (' + dndSigned(dndAbilityMod(a.id)) + ')';
       }).join(' — ');
       const hp = [dndState.hpCurrent, dndState.hpMax].filter(Boolean).join(' / ');
       return {
@@ -2107,7 +2566,8 @@
       if (kind === 'attacks') {
         const id = combatNewId('a');
         dndState.attacks.push({
-          id: id, name: '', range: '', bonus: '', hitRoll: '', damage: '', dmgRoll: '', notes: '', text: ''
+          id: id, name: '', range: '', bonus: '', hitRoll: '', damage: '', dmgRoll: '', notes: '', text: '',
+          ability: 'auto'
         });
         dndAttackEditId = id;
       }

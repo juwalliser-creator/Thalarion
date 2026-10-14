@@ -627,24 +627,39 @@
               const kind = row.getAttribute('data-dnd-row');
               const id = row.getAttribute('data-id');
               const key = ev.target.getAttribute('data-k');
+              const modKey = ev.target.getAttribute('data-mod-k');
               const item = (dndState[kind] || []).find(x => x.id === id);
               if (item && key) {
                 item[key] = ev.target.type === 'checkbox' ? ev.target.checked : ev.target.value;
                 if (kind === 'items') {
                   invKey = key;
-                  if (key === 'equipped' && item.equipped) {
-                    item.container = 'carried';
-                    const sel = row.querySelector('select[data-k="container"]');
-                    if (sel) sel.value = 'carried';
+                  if (key === 'equipped') {
+                    equipDndItem(id, !!item.equipped);
+                    return;
                   }
                 }
+              }
+              if (item && kind === 'items' && modKey) {
+                collectDndItemModifiers(row, item);
+                invKey = 'modifiers';
               }
             }
             collectDndFields();
             refreshDndCalcs();
-            if (invKey === 'container' || invKey === 'equipped' || invKey === 'category' || invKey === 'attuned') {
-              if (typeof renderDndInventory === 'function') renderDndInventory();
-            } else if (invKey === 'qty' || invKey === 'weight' || invKey === 'bonus' || invKey === 'damage' || invKey === 'range') {
+            if (invKey === 'container' || invKey === 'category' || invKey === 'attuned' ||
+                invKey === 'armorBase' || invKey === 'acBonus' || invKey === 'maxDex') {
+              if (typeof refreshDndEquipmentState === 'function') refreshDndEquipmentState();
+              else if (typeof renderDndInventory === 'function') renderDndInventory();
+            } else if (invKey === 'modifiers') {
+              if (typeof renderDndLists === 'function') renderDndLists();
+            } else if (invKey === 'qty' || invKey === 'weight' || invKey === 'bonus' || invKey === 'damage' || invKey === 'range' || invKey === 'heal' || invKey === 'healDice') {
+              if (invKey === 'bonus' || invKey === 'damage' || invKey === 'range') {
+                const it = (dndState.items || []).find(x => x.id === (row && row.getAttribute('data-id')));
+                if (it && it.equipped && it.category === 'weapon' && typeof ensureLinkedAttackForItem === 'function') {
+                  ensureLinkedAttackForItem(it);
+                  if (typeof renderDndLists === 'function') renderDndLists();
+                }
+              }
               if (typeof refreshDndInvSummary === 'function') refreshDndInvSummary();
             }
           };
@@ -715,14 +730,14 @@
             if (rollAb) {
               const id = rollAb.getAttribute('data-dnd-roll-ab');
               const ab = DND_ABS.find(a => a.id === id);
-              dndRoll(ab ? ab.label : id, dndMod(dndState.abilities[id].score));
+              dndRoll(ab ? ab.label : id, dndAbilityMod(id));
               return;
             }
             const rollSave = ev.target.closest('[data-dnd-roll-save]');
             if (rollSave) {
               const id = rollSave.getAttribute('data-dnd-roll-save');
               const ab = DND_ABS.find(a => a.id === id);
-              const bonus = dndMod(dndState.abilities[id].score) + (dndState.abilities[id].save ? dndProficiency() : 0);
+              const bonus = dndAbilityMod(id) + (dndState.abilities[id].save ? dndProficiency() : 0);
               dndRoll('Rettung ' + (ab ? ab.label : id), bonus);
               return;
             }
@@ -736,7 +751,7 @@
             const rollInit = ev.target.closest('[data-dnd-roll="init"]');
             if (rollInit) {
               collectDndFields();
-              const bonus = dndMod(dndState.abilities.dex.score) + dndParseBonus(dndState.initiativeBonus);
+              const bonus = dndAbilityMod('dex') + dndParseBonus(dndState.initiativeBonus);
               dndRoll('Initiative', bonus);
               return;
             }
@@ -752,14 +767,30 @@
             if (rollAtk) {
               const wrap = rollAtk.closest('[data-dnd-row]');
               const id = wrap && wrap.getAttribute('data-id');
+              const rowKind = wrap && wrap.getAttribute('data-dnd-row');
               collectDndFields();
               const item = (dndState.attacks || []).find(x => x.id === id)
                 || (dndState.spells || []).find(x => x.id === id);
               if (!item) return;
               const kind = rollAtk.getAttribute('data-dnd-roll');
-              const rollItem = Object.assign({}, item, { bonus: dndItemAttackBonus(item) || item.bonus });
+              let bonus;
+              let damage = item.damage;
+              if (rowKind === 'attacks') {
+                bonus = dndSigned(getAttackHitBonus(item));
+                damage = getAttackDamageDisplay(item);
+                if (damage === '—') damage = item.damage;
+              } else {
+                bonus = dndItemAttackBonus(item) || item.hit || item.bonus;
+                if (!String(bonus || '').trim() || !dndHitIsAttack(bonus)) {
+                  bonus = dndSigned(dndProficiency() + dndAbilityMod(dndState.spellAbility || 'int'));
+                }
+              }
+              const rollItem = Object.assign({}, item, { bonus: bonus, damage: damage });
               if (kind === 'attack') rollDndAttack(rollItem, wrap, true);
               else rollDndDamageOnly(rollItem, wrap, false);
+              // Persist roll results onto the real row
+              item.hitRoll = rollItem.hitRoll;
+              item.dmgRoll = rollItem.dmgRoll;
               sheetDirty = true;
               if (!dndAttackIsOpen(item) && !dndSpellIsOpen(item)) renderDndLists();
               return;
@@ -795,6 +826,18 @@
               collectDndFields();
               dndAttackEditId = atkEdit.getAttribute('data-dnd-atk-edit') || '';
               renderDndLists();
+              return;
+            }
+            const modAdd = ev.target.closest('[data-dnd-mod-add]');
+            if (modAdd) {
+              addDndItemModifier(modAdd.getAttribute('data-dnd-mod-add'));
+              return;
+            }
+            const modDel = ev.target.closest('[data-dnd-mod-del]');
+            if (modDel) {
+              const modRow = modDel.closest('[data-dnd-row]');
+              const itemId = modRow && modRow.getAttribute('data-id');
+              if (itemId) removeDndItemModifier(itemId, modDel.getAttribute('data-dnd-mod-del'));
               return;
             }
             const itemSave = ev.target.closest('[data-dnd-item-save]');
