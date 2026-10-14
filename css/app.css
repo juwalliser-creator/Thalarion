@@ -449,6 +449,55 @@ body.is-dm.sound-dock-open .chat-panel {
 }
 .dm-only { display: none !important; }
 body.is-dm .dm-only { display: inline-flex !important; }
+.sheet-readonly-hint {
+  margin: 0 0 0.55rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid rgba(212, 179, 106, 0.35);
+  border-radius: 8px;
+  background: rgba(212, 179, 106, 0.08);
+  color: var(--dnd-gold, #d4b36a);
+  font-size: 0.85rem;
+}
+#charMainCard.is-sheet-readonly .dnd-add,
+#charMainCard.is-sheet-readonly #dndShortRest,
+#charMainCard.is-sheet-readonly #dndLongRest,
+#charMainCard.is-sheet-readonly #dndDawn,
+#charMainCard.is-sheet-readonly #dndHealBtn,
+#charMainCard.is-sheet-readonly #dndDmgBtn,
+#charMainCard.is-sheet-readonly #dndHpDelta,
+#charMainCard.is-sheet-readonly [data-dnd-del],
+#charMainCard.is-sheet-readonly [data-dnd-atk-edit],
+#charMainCard.is-sheet-readonly [data-dnd-spell-edit],
+#charMainCard.is-sheet-readonly [data-dnd-item-edit],
+#charMainCard.is-sheet-readonly [data-dnd-item-use],
+#charMainCard.is-sheet-readonly [data-dnd-item-attack],
+#charMainCard.is-sheet-readonly [data-dnd-item-pack],
+#charMainCard.is-sheet-readonly [data-dnd-mod-add],
+#charMainCard.is-sheet-readonly [data-dnd-mod-del],
+#charMainCard.is-sheet-readonly [data-dnd-slot-max-delta],
+#charMainCard.is-sheet-readonly [data-dnd-spell-cast] {
+  display: none !important;
+}
+#charMainCard.is-sheet-readonly input:not([data-dnd-roll]),
+#charMainCard.is-sheet-readonly textarea,
+#charMainCard.is-sheet-readonly select {
+  pointer-events: none;
+  caret-color: transparent;
+}
+#charMainCard.is-sheet-readonly .dnd-check,
+#charMainCard.is-sheet-readonly .dnd-prof,
+#charMainCard.is-sheet-readonly #dndInsp,
+#charMainCard.is-sheet-readonly #dndPortraitBtn.is-locked,
+#charMainCard.is-sheet-readonly [data-dnd-death],
+#charMainCard.is-sheet-readonly [data-dnd-slot-pip] {
+  pointer-events: none;
+}
+#charMainCard.is-sheet-readonly .dnd-inv-flag {
+  font-size: 0.72rem;
+  color: var(--dnd-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 .dm-only-nav { display: none !important; }
 body.is-dm .dm-only-nav { display: inline-flex !important; }
 

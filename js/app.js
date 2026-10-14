@@ -570,10 +570,12 @@
 
       safeBind('char', () => {
         onClick('uploadSheetPortraitBtn', () => {
+          if (!canEditOwnerSheet(currentSheetOwner)) return;
           const input = document.getElementById('sheetPortraitInput');
           if (input) input.click();
         });
         onClick('removeSheetPortraitBtn', () => {
+          if (!canEditOwnerSheet(currentSheetOwner)) return;
           pendingSheetPortrait = null;
           sheetPortraitId = '';
           setSheetPortraitPreview(null);
@@ -583,7 +585,7 @@
         onEv('sheetPortraitInput', 'change', async ev => {
           const file = ev.target.files[0];
           ev.target.value = '';
-          if (!file) return;
+          if (!file || !canEditOwnerSheet(currentSheetOwner)) return;
           try {
             pendingSheetPortrait = currentSheetOwner === VEYR_OWNER
               ? await fileToEntryImage(file)
@@ -601,10 +603,12 @@
         onClick('saveDmNotesBtn', saveDmNotes);
         onClick('deletePlayerBtn', deletePlayerAccount);
         onClick('dndPortraitBtn', () => {
+          if (!canEditOwnerSheet(currentSheetOwner)) return;
           const input = document.getElementById('sheetPortraitInput');
           if (input) input.click();
         });
         onClick('dndInsp', () => {
+          if (!canEditOwnerSheet(currentSheetOwner)) return;
           collectDndFields();
           dndState.inspiration = !dndState.inspiration;
           refreshDndCalcs();
@@ -620,6 +624,7 @@
           dndBlock.dataset.bound = '1';
           const syncDnd = ev => {
             if (!usesDndSheet(currentSheetOwner)) return;
+            if (!canEditOwnerSheet(currentSheetOwner)) return;
             sheetDirty = true;
             const row = ev.target.closest && ev.target.closest('[data-dnd-row]');
             let invKey = '';
@@ -667,6 +672,17 @@
           dndBlock.addEventListener('change', syncDnd);
           dndBlock.addEventListener('click', ev => {
             if (!usesDndSheet(currentSheetOwner)) return;
+            const mutate = ev.target.closest(
+              '[data-dnd-add],[data-dnd-del],[data-dnd-atk-save],[data-dnd-atk-edit],' +
+              '[data-dnd-spell-save],[data-dnd-spell-edit],[data-dnd-item-save],[data-dnd-item-edit],' +
+              '[data-dnd-item-use],[data-dnd-item-attack],[data-dnd-item-pack],[data-dnd-item-container],' +
+              '[data-dnd-mod-add],[data-dnd-mod-del],[data-dnd-save-toggle],[data-skill],' +
+              '[data-dnd-slot-pip],[data-dnd-slot-max-delta],[data-dnd-death],[data-dnd-spell-cast]'
+            );
+            if (mutate && !canEditOwnerSheet(currentSheetOwner)) {
+              toast('Nur der DM kann das Blatt bearbeiten.');
+              return;
+            }
             const tab = ev.target.closest('[data-dnd-tab]');
             if (tab) {
               collectDndFields();
@@ -789,9 +805,11 @@
               if (kind === 'attack') rollDndAttack(rollItem, wrap, true);
               else rollDndDamageOnly(rollItem, wrap, false);
               // Persist roll results onto the real row
-              item.hitRoll = rollItem.hitRoll;
-              item.dmgRoll = rollItem.dmgRoll;
-              sheetDirty = true;
+              if (canEditOwnerSheet(currentSheetOwner)) {
+                item.hitRoll = rollItem.hitRoll;
+                item.dmgRoll = rollItem.dmgRoll;
+                sheetDirty = true;
+              }
               if (!dndAttackIsOpen(item) && !dndSpellIsOpen(item)) renderDndLists();
               return;
             }
@@ -920,9 +938,15 @@
         }
         onEv('dmNotesContent', 'input', () => { sheetDirty = true; });
         ['sheetName', 'sheetVolk', 'sheetKlasse', 'sheetStufe', 'sheetHp', 'sheetArmor', 'sheetStats', 'sheetNotes'].forEach(id => {
-          onEv(id, 'input', () => { sheetDirty = true; });
+          onEv(id, 'input', () => {
+            if (!canEditOwnerSheet(currentSheetOwner)) return;
+            sheetDirty = true;
+          });
         });
-        onEv('sheetContent', 'input', () => { sheetDirty = true; });
+        onEv('sheetContent', 'input', () => {
+          if (!canEditOwnerSheet(currentSheetOwner)) return;
+          sheetDirty = true;
+        });
         onClick('charLoginBtn', () => openPlayerLogin('login'));
         onClick('charRegisterBtn', () => openPlayerLogin('register'));
         onClick('editVeyrBtn', openVeyrEditor);

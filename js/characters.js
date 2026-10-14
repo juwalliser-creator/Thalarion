@@ -331,11 +331,42 @@
       playerAccounts[rec.accountId].alts[String(owner).split(':')[1]].sheet = sheet;
     }
 
+    /** Structural sheet edits: DM only. Players may view and roll. */
     function canEditOwnerSheet(owner) {
-      if (isDM) return true;
-      if (isNpcOwner(owner)) return false;
-      if (!currentPlayerId || !owner) return false;
-      return sheetAccountId(owner) === currentPlayerId;
+      return !!(typeof isDM !== 'undefined' && isDM && owner);
+    }
+
+    function applySheetEditLock() {
+      const canEdit = canEditOwnerSheet(currentSheetOwner);
+      const main = document.getElementById('charMainCard');
+      if (main) main.classList.toggle('is-sheet-readonly', !canEdit);
+      const hint = document.getElementById('sheetReadonlyHint');
+      if (hint) {
+        const show = !canEdit && !!currentSheetOwner && !isDmNotesOwner(currentSheetOwner);
+        hint.classList.toggle('hidden', !show);
+      }
+      const saveBtn = document.getElementById('saveSheetBtn');
+      if (saveBtn) {
+        const notes = isDmNotesOwner(currentSheetOwner);
+        saveBtn.classList.toggle('hidden', !canEdit || notes);
+      }
+      const classicIds = [
+        'sheetName', 'sheetVolk', 'sheetKlasse', 'sheetStufe',
+        'sheetHp', 'sheetArmor', 'sheetStats', 'sheetNotes'
+      ];
+      classicIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.readOnly = !canEdit;
+      });
+      const content = document.getElementById('sheetContent');
+      if (content) content.contentEditable = canEdit ? 'true' : 'false';
+      if (!canEdit) {
+        document.querySelectorAll(
+          '#uploadSheetPortraitBtn, #removeSheetPortraitBtn, #ocrSheetPortraitBtn'
+        ).forEach(el => el.classList.add('hidden'));
+      }
+      const dndPortrait = document.getElementById('dndPortraitBtn');
+      if (dndPortrait) dndPortrait.classList.toggle('is-locked', !canEdit);
     }
 
     function isOwnCombatOwner(ownerId) {
@@ -883,6 +914,10 @@
     }
 
     function equipDndItem(itemId, equipped) {
+      if (!canEditOwnerSheet(currentSheetOwner)) {
+        toast('Nur der DM kann das Blatt bearbeiten.');
+        return;
+      }
       collectDndFields();
       const item = (dndState.items || []).find(x => x.id === itemId);
       if (!item) return;
@@ -979,10 +1014,12 @@
     }
 
     function dndItemIsOpen(row) {
+      if (!canEditOwnerSheet(currentSheetOwner)) return false;
       return !String(row && row.name || '').trim() || (row && row.id) === dndItemEditId;
     }
 
     function commitDndItem(id) {
+      if (!canEditOwnerSheet(currentSheetOwner)) return;
       collectDndFields();
       const item = (dndState.items || []).find(x => x.id === id);
       if (!item || !String(item.name || '').trim()) {
@@ -997,6 +1034,10 @@
     }
 
     function useDndItem(id) {
+      if (!canEditOwnerSheet(currentSheetOwner)) {
+        toast('Nur der DM kann das Blatt bearbeiten.');
+        return;
+      }
       collectDndFields();
       const item = (dndState.items || []).find(x => x.id === id);
       if (!item) return;
@@ -1037,6 +1078,7 @@
     }
 
     function setDndItemContainer(id, containerId) {
+      if (!canEditOwnerSheet(currentSheetOwner)) return;
       collectDndFields();
       const item = (dndState.items || []).find(x => x.id === id);
       if (!item) return;
@@ -1070,6 +1112,10 @@
     }
 
     function createDndAttackFromItem(id) {
+      if (!canEditOwnerSheet(currentSheetOwner)) {
+        toast('Nur der DM kann das Blatt bearbeiten.');
+        return;
+      }
       collectDndFields();
       const item = (dndState.items || []).find(x => x.id === id);
       if (!item || !String(item.name || '').trim()) {
@@ -1185,33 +1231,39 @@
       const modSum = dndItemModsSummary(row);
       if (modSum) bits.push(modSum);
       const meta = bits.join(' · ');
+      const canEdit = canEditOwnerSheet(currentSheetOwner);
       const actions = [];
-      if (dndItemIsUsable(row)) {
+      if (canEdit && dndItemIsUsable(row)) {
         actions.push('<button type="button" class="primary" data-dnd-item-use="' + row.id +
           '" title="Einen verbrauchen">Nutzen</button>');
       }
-      if (dndItemIsCombat(row)) {
+      if (canEdit && dndItemIsCombat(row)) {
         actions.push('<button type="button" class="ghost" data-dnd-item-attack="' + row.id +
           '" title="Als Angriff unter Aktionen">' +
           (row.attackId ? 'Angriff' : '→ Angriff') + '</button>');
       }
-      actions.push('<button type="button" class="ghost" data-dnd-item-pack="' + row.id +
-        '" title="Umpacken">Packen</button>');
-      actions.push('<button type="button" class="ghost" data-dnd-item-edit="' + row.id +
-        '" title="Bearbeiten">Ändern</button>');
-      actions.push('<button type="button" class="ghost" data-dnd-del="items">×</button>');
+      if (canEdit) {
+        actions.push('<button type="button" class="ghost" data-dnd-item-pack="' + row.id +
+          '" title="Umpacken">Packen</button>');
+        actions.push('<button type="button" class="ghost" data-dnd-item-edit="' + row.id +
+          '" title="Bearbeiten">Ändern</button>');
+        actions.push('<button type="button" class="ghost" data-dnd-del="items">×</button>');
+      }
       return '<div class="dnd-inv-item" data-dnd-row="items" data-id="' + row.id + '">' +
         '<div class="dnd-inv-id"><button type="button" class="dnd-atk-name" data-dnd-info title="Beschreibung">' +
         escapeAttr(row.name || 'Gegenstand') + '</button>' +
         '<span class="dnd-atk-kind">' + escapeAttr(meta) + '</span></div>' +
         '<div class="dnd-atk-notes">' + escapeAttr(row.notes || '') + '</div>' +
         '<div class="dnd-inv-actions">' +
-        '<label class="dnd-save" title="Ausgerüstet"><input class="dnd-check" type="checkbox" data-k="equipped"' +
-        (row.equipped ? ' checked' : '') + ' /> an</label>' +
-        '<label class="dnd-save" title="Eingestimmt"><input class="dnd-check" type="checkbox" data-k="attuned"' +
-        (row.attuned ? ' checked' : '') + ' /> ein</label>' +
+        (canEdit
+          ? '<label class="dnd-save" title="Ausgerüstet"><input class="dnd-check" type="checkbox" data-k="equipped"' +
+            (row.equipped ? ' checked' : '') + ' /> an</label>' +
+            '<label class="dnd-save" title="Eingestimmt"><input class="dnd-check" type="checkbox" data-k="attuned"' +
+            (row.attuned ? ' checked' : '') + ' /> ein</label>'
+          : (row.equipped ? '<span class="dnd-inv-flag">an</span>' : '') +
+            (row.attuned ? '<span class="dnd-inv-flag">ein</span>' : '')) +
         actions.join('') + '</div>' +
-        dndItemPackHtml(row) + '</div>';
+        (canEdit ? dndItemPackHtml(row) : '') + '</div>';
     }
 
     function setDndInvFilter(filter) {
@@ -1462,7 +1514,9 @@
         (item.notes ? '<p class="dnd-catalog-notes">' + escapeAttr(item.notes) + '</p>' : '') +
         '<div class="dnd-catalog-body-text">' + escapeAttr(item.text || 'Noch keine Beschreibung.') + '</div>' +
         '<div class="editor-actions">' +
-        '<button type="button" class="primary" data-cat-add="' + escapeAttr(item.id) + '">Zum Inventar</button>' +
+        (canEditOwnerSheet(currentSheetOwner)
+          ? '<button type="button" class="primary" data-cat-add="' + escapeAttr(item.id) + '">Zum Inventar</button>'
+          : '') +
         (typeof isDM !== 'undefined' && isDM
           ? '<button type="button" class="ghost" data-cat-edit="' + escapeAttr(item.id) + '">Bearbeiten</button>'
           : '') +
@@ -1567,7 +1621,7 @@
         return;
       }
       if (!canEditOwnerSheet(currentSheetOwner)) {
-        toast('Kein Schreibrecht auf diesem Blatt.');
+        toast('Nur der DM kann das Blatt bearbeiten.');
         return;
       }
       const cat = (itemCatalog || []).find(x => x.id === id);
@@ -1637,6 +1691,10 @@
     }
 
     function applyDndHpChange(kind) {
+      if (!canEditOwnerSheet(currentSheetOwner)) {
+        toast('Nur der DM kann das Blatt bearbeiten.');
+        return;
+      }
       collectDndFields();
       const n = Math.max(0, Number(document.getElementById('dndHpDelta') && document.getElementById('dndHpDelta').value) || 0);
       if (!n) {
@@ -1825,6 +1883,7 @@
     }
 
     function addDndItemModifier(itemId) {
+      if (!canEditOwnerSheet(currentSheetOwner)) return;
       collectDndFields();
       const item = (dndState.items || []).find(x => x.id === itemId);
       if (!item) return;
@@ -1837,6 +1896,7 @@
     }
 
     function removeDndItemModifier(itemId, index) {
+      if (!canEditOwnerSheet(currentSheetOwner)) return;
       collectDndFields();
       const item = (dndState.items || []).find(x => x.id === itemId);
       if (!item || !Array.isArray(item.modifiers)) return;
@@ -1898,6 +1958,7 @@
     }
 
     function dndAttackIsOpen(row) {
+      if (!canEditOwnerSheet(currentSheetOwner)) return false;
       return !String(row && row.name || '').trim() || (row && row.id) === dndAttackEditId;
     }
 
@@ -1937,6 +1998,7 @@
     }
 
     function commitDndAttack(id) {
+      if (!canEditOwnerSheet(currentSheetOwner)) return;
       collectDndFields();
       const item = (dndState.attacks || []).find(x => x.id === id);
       if (!item || !String(item.name || '').trim()) {
@@ -1972,6 +2034,7 @@
     }
 
     function dndSpellIsOpen(row) {
+      if (!canEditOwnerSheet(currentSheetOwner)) return false;
       return !String(row && row.name || '').trim() || (row && row.id) === dndSpellEditId;
     }
 
@@ -1981,6 +2044,7 @@
     }
 
     function commitDndSpell(id) {
+      if (!canEditOwnerSheet(currentSheetOwner)) return;
       collectDndFields();
       const item = (dndState.spells || []).find(x => x.id === id);
       if (!item || !String(item.name || '').trim()) {
@@ -2128,11 +2192,14 @@
           ? '<button type="button" class="dnd-atk-stat" data-dnd-roll="damage" title="Nur Schaden würfeln">' + escapeAttr(dmg) + '</button>'
           : '<div class="dnd-atk-stat" style="cursor:default;">' + escapeAttr(dmg) + '</div>') +
         '<div class="dnd-atk-notes">' + escapeAttr(row.notes || '') + '</div>' +
-        (dndSpellLevelNum(row.level) >= 1
+        (canEditOwnerSheet(currentSheetOwner) && dndSpellLevelNum(row.level) >= 1
           ? '<button type="button" class="primary dnd-spell-cast" data-dnd-spell-cast="' + row.id + '" title="Zauber wirken und einen Platz verbrauchen">Wirken</button>'
           : '<span></span>') +
-        '<button type="button" class="ghost" data-dnd-spell-edit="' + row.id + '" title="Bearbeiten">Ändern</button>' +
-        '<button type="button" class="ghost" data-dnd-del="spells">×</button></div>';
+        (canEditOwnerSheet(currentSheetOwner)
+          ? '<button type="button" class="ghost" data-dnd-spell-edit="' + row.id + '" title="Bearbeiten">Ändern</button>' +
+            '<button type="button" class="ghost" data-dnd-del="spells">×</button>'
+          : '<span></span><span></span>') +
+        '</div>';
     }
 
     function dndSpellLevelLabel(level) {
@@ -2357,8 +2424,11 @@
             '<button type="button" class="dnd-atk-stat" data-dnd-roll="damage" title="Nur Schaden würfeln"' +
             (stowed ? ' disabled' : '') + '>' + escapeAttr(dmg) + '</button>' +
             '<div class="dnd-atk-notes">' + escapeAttr(row.notes || '') + '</div>' +
-            '<button type="button" class="ghost" data-dnd-atk-edit="' + row.id + '" title="Bearbeiten">Ändern</button>' +
-            '<button type="button" class="ghost" data-dnd-del="attacks">×</button></div>';
+            (canEditOwnerSheet(currentSheetOwner)
+              ? '<button type="button" class="ghost" data-dnd-atk-edit="' + row.id + '" title="Bearbeiten">Ändern</button>' +
+                '<button type="button" class="ghost" data-dnd-del="attacks">×</button>'
+              : '<span></span><span></span>') +
+            '</div>';
         }).join('');
       }
       const limited = document.getElementById('dndLimitedList');
@@ -2402,16 +2472,20 @@
       renderDndInventory();
       const feats = document.getElementById('dndFeatureList');
       if (feats) {
+        const canEdit = canEditOwnerSheet(currentSheetOwner);
         feats.innerHTML = dndState.features.map(row =>
           '<div class="dnd-row dnd-row-feat" data-dnd-row="features" data-id="' + row.id + '">' +
-          '<input data-k="name" value="' + escapeAttr(row.name) + '" placeholder="Merkmal" />' +
-          '<input data-k="used" value="' + escapeAttr(row.used) + '" placeholder="verbr." />' +
-          '<input data-k="uses" value="' + escapeAttr(row.uses) + '" placeholder="max" />' +
-          '<select data-k="reset"><option value="short"' + (row.reset === 'short' ? ' selected' : '') + '>Kurzrast</option>' +
+          '<input data-k="name" value="' + escapeAttr(row.name) + '" placeholder="Merkmal"' + (canEdit ? '' : ' readonly') + ' />' +
+          '<input data-k="used" value="' + escapeAttr(row.used) + '" placeholder="verbr."' + (canEdit ? '' : ' readonly') + ' />' +
+          '<input data-k="uses" value="' + escapeAttr(row.uses) + '" placeholder="max"' + (canEdit ? '' : ' readonly') + ' />' +
+          '<select data-k="reset"' + (canEdit ? '' : ' disabled') + '><option value="short"' + (row.reset === 'short' ? ' selected' : '') + '>Kurzrast</option>' +
           '<option value="long"' + (row.reset === 'long' ? ' selected' : '') + '>Langrast</option>' +
           '<option value="dawn"' + (row.reset === 'dawn' ? ' selected' : '') + '>Morgengrauen</option></select>' +
-          '<input data-k="text" value="' + escapeAttr(row.text) + '" placeholder="Beschreibung" />' +
-          '<button type="button" class="ghost" data-dnd-del="features">×</button></div>'
+          '<input data-k="text" value="' + escapeAttr(row.text) + '" placeholder="Beschreibung"' + (canEdit ? '' : ' readonly') + ' />' +
+          (canEdit
+            ? '<button type="button" class="ghost" data-dnd-del="features">×</button>'
+            : '<span></span>') +
+          '</div>'
         ).join('');
       }
     }
@@ -2536,6 +2610,7 @@
       setDndTab(dndState.tab || 'actions');
       setDndActFilter(dndActFilter || 'all');
       refreshDndCalcs();
+      applySheetEditLock();
     }
 
     function readDndForm() {
@@ -2562,6 +2637,10 @@
     }
 
     function addDndRow(kind) {
+      if (!canEditOwnerSheet(currentSheetOwner)) {
+        toast('Nur der DM kann das Blatt bearbeiten.');
+        return;
+      }
       collectDndFields();
       if (kind === 'attacks') {
         const id = combatNewId('a');
@@ -2592,6 +2671,10 @@
     }
 
     async function applyDndRest(kind) {
+      if (!canEditOwnerSheet(currentSheetOwner)) {
+        toast('Nur der DM kann das Blatt bearbeiten.');
+        return;
+      }
       collectDndFields();
       dndState.features.forEach(f => {
         if (kind === 'short' && f.reset === 'short') f.used = '0';
@@ -3382,6 +3465,7 @@
       app.classList.toggle('hidden', !canUse);
       if (!canUse) {
         document.getElementById('charView').classList.remove('is-dnd-wide');
+        applySheetEditLock();
         return;
       }
 
@@ -3525,15 +3609,18 @@
           const box = document.getElementById('dmNotesContent');
           if (box) box.innerHTML = sanitizeHtml(dmNotes);
         }
+        applySheetEditLock();
         return;
       }
       if (!rec) {
         document.getElementById('charHeading').textContent = 'Charakterblatt';
         clearSheetForm();
+        applySheetEditLock();
         return;
       }
       document.getElementById('charHeading').textContent = 'Charakterblatt · ' + rec.name;
       if (!sheetDirty) fillSheetForm(rec.sheet);
+      applySheetEditLock();
     }
 
     async function saveDmNotes() {
