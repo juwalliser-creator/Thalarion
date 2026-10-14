@@ -948,25 +948,36 @@
       sheetDirty = true;
     }
 
+    function commitAcFromShield() {
+      const shield = document.getElementById('dndAcShield');
+      const baseEl = document.querySelector('#charDndBlock [data-dnd-field="ac"]');
+      if (!shield) return;
+      const hasArmor = dndEquippedItems().some(it => it.category === 'armor');
+      if (hasArmor) {
+        refreshDndAcDisplay();
+        return;
+      }
+      const raw = String(shield.value || '').trim();
+      const bonus = dndItemModTotal('ac');
+      if (!raw) dndState.ac = '';
+      else dndState.ac = String(Math.max(0, Math.round(dndItemNum(raw) - bonus)));
+      if (baseEl) baseEl.value = dndState.ac;
+    }
+
     function refreshDndAcDisplay() {
       const eff = getEffectiveStat('ac');
-      const el = document.getElementById('dndAcEffective');
-      const input = document.querySelector('#charDndBlock [data-dnd-field="ac"]');
-      if (!el) return;
-      if (eff.armor || eff.fromItems || eff.unarmored) {
-        el.classList.remove('hidden');
-        let tag = '';
-        if (eff.armor) tag = 'Rüstung';
-        else if (eff.unarmored) tag = '10+GES';
-        else if (eff.fromItems) tag = 'Items';
-        el.innerHTML = 'Effektiv <strong>' + eff.value + '</strong>' +
-          (tag ? ' <span class="dnd-ac-bonus">' + tag + '</span>' : '');
-        if (input) input.classList.toggle('has-item-bonus', !!(eff.armor || eff.fromItems || eff.unarmored));
-      } else {
-        el.classList.add('hidden');
-        el.innerHTML = '';
-        if (input) input.classList.remove('has-item-bonus');
+      const shield = document.getElementById('dndAcShield');
+      if (!shield) return;
+      if (document.activeElement !== shield) {
+        shield.value = String(eff.value);
       }
+      const locked = !!eff.armor;
+      shield.readOnly = locked;
+      shield.title = locked
+        ? 'Aktuelle RK (aus angelegter Rüstung)'
+        : 'Aktuelle Rüstungsklasse';
+      shield.classList.toggle('is-locked', locked);
+      shield.classList.toggle('has-item-bonus', !!(eff.armor || eff.fromItems || eff.unarmored));
     }
 
     function dndItemNum(raw) {
@@ -1066,6 +1077,7 @@
         dndState.hpCurrent = String(next);
         const hpInput = document.querySelector('#charDndBlock [data-dnd-field="hpCurrent"]');
         if (hpInput) hpInput.value = dndState.hpCurrent;
+        refreshDndHpBar();
         healMsg = ' · +' + healed + ' TP';
       }
       toast((item.name || 'Gegenstand') + ' genutzt · noch ' + qty + healMsg + '.');
@@ -1718,6 +1730,7 @@
       }
       applyDndFields();
       refreshDndCalcs();
+      refreshDndHpBar();
       sheetDirty = true;
     }
 
@@ -1853,6 +1866,13 @@
         if (el.type === 'checkbox') dndState[key] = el.checked;
         else dndState[key] = el.value;
       });
+      const stufeRaw = String(dndState.stufe == null ? '' : dndState.stufe).replace(/\D/g, '');
+      if (stufeRaw) {
+        const lvl = Math.min(99, Math.max(1, Number(stufeRaw) || 1));
+        dndState.stufe = String(lvl);
+        const stufeEl = document.querySelector('#charDndBlock [data-dnd-field="stufe"]');
+        if (stufeEl && stufeEl.value !== dndState.stufe) stufeEl.value = dndState.stufe;
+      }
       document.querySelectorAll('#charDndBlock [data-dnd-attune]').forEach(el => {
         dndState.attunement[Number(el.getAttribute('data-dnd-attune'))] = el.value;
       });
@@ -2494,6 +2514,34 @@
       return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
     }
 
+    function dndHpSegmentsFilled() {
+      const cur = Math.max(0, Number(dndState.hpCurrent) || 0);
+      const max = Math.max(0, Number(dndState.hpMax) || 0);
+      if (cur <= 0 || max <= 0) return 0;
+      if (cur >= max) return 10;
+      return Math.min(10, Math.max(1, Math.ceil((cur / max) * 10)));
+    }
+
+    function refreshDndHpBar() {
+      const track = document.getElementById('dndHpBar');
+      const heartVal = document.querySelector('#charDndBlock .dnd-life-heart-val');
+      const filled = dndHpSegmentsFilled();
+      const cur = Math.max(0, Number(dndState.hpCurrent) || 0);
+      const max = Math.max(0, Number(dndState.hpMax) || 0);
+      if (heartVal && document.activeElement !== heartVal) {
+        heartVal.value = dndState.hpCurrent != null && dndState.hpCurrent !== ''
+          ? String(dndState.hpCurrent)
+          : (cur ? String(cur) : '');
+      }
+      if (!track) return;
+      track.setAttribute('aria-valuenow', String(filled));
+      track.setAttribute('aria-valuetext', cur + ' / ' + max + ' TP');
+      track.title = cur + ' / ' + max + ' TP';
+      track.innerHTML = Array.from({ length: 10 }, (_, i) =>
+        '<span class="dnd-life-seg' + (i < filled ? ' is-on' : '') + '"></span>'
+      ).join('');
+    }
+
     function renderDndPips() {
       const ok = document.getElementById('dndDeathOk');
       const fail = document.getElementById('dndDeathFail');
@@ -2507,6 +2555,7 @@
           '<button type="button" class="dnd-pip is-fail' + (dndState.deathFail >= i ? ' is-on' : '') + '" data-dnd-death="fail" data-n="' + i + '"></button>'
         ).join('');
       }
+      refreshDndHpBar();
     }
 
     function renderDndSlots() {
@@ -2565,11 +2614,6 @@
       setTxt('dndInitBox', dndSigned(init));
       setTxt('dndSpeedOut', dndState.speed || '30 ft.');
       setTxt('dndInspOut', dndState.inspiration ? 'Ja' : '—');
-      const classLine = document.getElementById('dndClassLine');
-      if (classLine) {
-        const bits = [dndState.klasse, dndState.stufe ? 'Stufe ' + dndState.stufe : '', dndState.volk, dndState.background].filter(Boolean);
-        classLine.textContent = bits.join(' · ') || 'Klasse, Volk und Stufe eintragen';
-      }
       const insp = document.getElementById('dndInsp');
       if (insp) insp.classList.toggle('is-on', !!dndState.inspiration);
       const senses = document.getElementById('dndSensesOut');
@@ -2583,6 +2627,7 @@
       setTxt('dndSpellDc', String(8 + prof + spellMod));
       setTxt('dndSpellAtk', dndSigned(prof + spellMod));
       refreshDndAcDisplay();
+      refreshDndHpBar();
       if (dndState.tab === 'inventory') refreshDndInvSummary();
     }
 
@@ -2671,8 +2716,8 @@
     }
 
     async function applyDndRest(kind) {
-      if (!canEditOwnerSheet(currentSheetOwner)) {
-        toast('Nur der DM kann das Blatt bearbeiten.');
+      if (!canEditOwnerSheet(currentSheetOwner) && !isOwnCombatOwner(currentSheetOwner)) {
+        toast('Nur DM oder Besitzer können rasten.');
         return;
       }
       collectDndFields();

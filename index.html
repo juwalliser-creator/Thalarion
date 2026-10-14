@@ -6,9 +6,28 @@
   <title>Thalarion – Das Blutsiegel</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Lora:ital,wght@0,400;0,600;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Almendra:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@500;700&family=Comic+Neue:wght@400;700&family=IM+Fell+English:ital@0;1&family=Lora:ital,wght@0,400;0,600;1,400&family=Share+Tech+Mono&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/app.css" />
   <link rel="stylesheet" href="css/vault.css" />
+  <link rel="stylesheet" href="css/themes.css" />
+  <link rel="stylesheet" href="css/fonts.css" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('thalarion-theme');
+        if (t === 'classic') t = 'thalarion';
+        var ok = {
+          thalarion: 1, emerald: 1, ruby: 1, sapphire: 1,
+          purple: 1, yellow: 1, orange: 1, white: 1, brown: 1
+        };
+        if (ok[t]) document.documentElement.setAttribute('data-theme', t);
+        else document.documentElement.setAttribute('data-theme', 'thalarion');
+        var f = localStorage.getItem('thalarion-font');
+        var fonts = { normal: 1, medieval: 1, comic: 1, machine: 1 };
+        document.documentElement.setAttribute('data-font', fonts[f] ? f : 'normal');
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body class="no-sidebar">
   <div class="app">
@@ -36,6 +55,7 @@
       </div>
       <div class="header-spacer"></div>
       <button class="ghost chat-btn" id="chatBtn" type="button">Chat <span class="chat-badge hidden" id="chatBadge">0</span></button>
+      <button class="ghost" id="themeLabBtn" type="button" aria-expanded="false" aria-controls="themeLab" title="Eigene Ansicht (Farben & Schrift)">Stil</button>
       <span class="player-chip" id="playerChip">Spieler</span>
       <button class="ghost" id="playerButton" type="button">Spieler Login</button>
       <div class="dm-menu" id="dmMenuWrap">
@@ -398,16 +418,56 @@
                       </div>
                       <div class="dnd-id">
                         <input data-dnd-field="name" placeholder="Charaktername" />
-                        <div class="dnd-class-line" id="dndClassLine">Klasse, Volk und Stufe eintragen</div>
-                        <div class="dnd-meta">
-                          <div><label>Klasse</label><input data-dnd-field="klasse" /></div>
-                          <div><label>Stufe</label><input data-dnd-field="stufe" inputmode="numeric" /></div>
-                          <div><label>Spezies</label><input data-dnd-field="volk" /></div>
-                          <div><label>Hintergrund</label><input data-dnd-field="background" /></div>
-                          <div><label>Gesinnung</label><input data-dnd-field="alignment" /></div>
-                          <div><label>EP</label><input data-dnd-field="xp" /></div>
-                          <div><label>Spieler</label><input data-dnd-field="playerName" /></div>
-                          <div><label>Übungsbonus</label><input data-dnd-field="profBonus" placeholder="auto" /></div>
+                        <div class="dnd-id-row">
+                          <div class="dnd-meta">
+                            <div><label>Klasse</label><input data-dnd-field="klasse" /></div>
+                            <div><label>Spezies</label><input data-dnd-field="volk" /></div>
+                          </div>
+                          <div class="dnd-emblems" aria-label="Stufe und Rüstungsklasse">
+                            <div class="dnd-emblem dnd-emblem-stufe" title="Stufe">
+                              <img src="img/stufe-pergament.png?v=4" alt="" aria-hidden="true" draggable="false" />
+                              <input data-dnd-field="stufe" inputmode="numeric" min="1" max="99" maxlength="2" placeholder="1" aria-label="Stufe" title="Stufe (1–99)" />
+                            </div>
+                            <div class="dnd-emblem dnd-emblem-ac" title="Rüstungsklasse">
+                              <img src="img/rk-schild.png?v=4" alt="" aria-hidden="true" draggable="false" />
+                              <input type="hidden" data-dnd-field="ac" />
+                              <input id="dndAcShield" inputmode="numeric" aria-label="Rüstungsklasse" title="Aktuelle Rüstungsklasse" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="dnd-stat dnd-card is-hp is-hp-head">
+                        <div class="dnd-life" title="Trefferpunkte">
+                          <div class="dnd-life-bar">
+                            <span class="dnd-life-heart">
+                              <svg viewBox="0 0 32 30" width="52" height="48" focusable="false" aria-hidden="true">
+                                <path fill="#e0232c" stroke="#1a0808" stroke-width="1.2" d="M16 27.2C16 27.2 3.2 18.4 3.2 10.6 3.2 6.4 6.4 3.4 10.4 3.4c2.4 0 4.5 1.2 5.6 3 1.1-1.8 3.2-3 5.6-3 4 0 7.2 3 7.2 7.2 0 7.8-12.8 16.6-12.8 16.6z"/>
+                              </svg>
+                              <input class="dnd-life-heart-val" data-dnd-field="hpCurrent" inputmode="numeric" title="Aktuelle TP" aria-label="Aktuelle Trefferpunkte" />
+                            </span>
+                            <div class="dnd-life-track" id="dndHpBar" role="meter" aria-label="Trefferpunkte" aria-valuemin="0" aria-valuemax="10" aria-valuenow="10"></div>
+                          </div>
+                        </div>
+                        <div class="dnd-hp-tools">
+                          <input id="dndHpDelta" inputmode="numeric" placeholder="0" />
+                          <button type="button" class="is-heal" id="dndHealBtn">Heilen</button>
+                          <button type="button" class="is-dmg" id="dndDmgBtn">Schaden</button>
+                        </div>
+                        <div class="dnd-inline">
+                          <label>Max</label>
+                          <input data-dnd-field="hpMax" placeholder="max" title="Maximale TP" />
+                          <label>Temp.</label>
+                          <input data-dnd-field="hpTemp" />
+                        </div>
+                        <div class="dnd-death">
+                          <div>
+                            <label>Erfolge</label>
+                            <div class="dnd-pips" id="dndDeathOk"></div>
+                          </div>
+                          <div>
+                            <label>Fehlschläge</label>
+                            <div class="dnd-pips" id="dndDeathFail"></div>
+                          </div>
                         </div>
                       </div>
                       <div class="dnd-rests-head">
@@ -436,42 +496,6 @@
                           <span id="dndInitOut">+0</span>
                         </button>
                         <input data-dnd-field="initiativeBonus" placeholder="Bonus" />
-                      </div>
-                      <div class="dnd-stat dnd-card">
-                        <label>Rüstungsklasse</label>
-                        <input data-dnd-field="ac" title="Basis-RK (ohne Item-Boni)" />
-                        <div class="dnd-ac-eff hidden" id="dndAcEffective"></div>
-                      </div>
-                      <div class="dnd-stat dnd-card is-hp">
-                        <label>Trefferpunkte</label>
-                        <div class="dnd-hp-row">
-                          <input data-dnd-field="hpCurrent" placeholder="akt" />
-                          <span>/</span>
-                          <input data-dnd-field="hpMax" placeholder="max" />
-                        </div>
-                        <div class="dnd-hp-tools">
-                          <input id="dndHpDelta" inputmode="numeric" placeholder="0" />
-                          <button type="button" class="is-heal" id="dndHealBtn">Heilen</button>
-                          <button type="button" class="is-dmg" id="dndDmgBtn">Schaden</button>
-                        </div>
-                        <div class="dnd-inline">
-                          <label>Temp.</label>
-                          <input data-dnd-field="hpTemp" />
-                          <label>TW</label>
-                          <input data-dnd-field="hitDiceUsed" placeholder="0" />
-                          <span>/</span>
-                          <input data-dnd-field="hitDice" placeholder="ges." />
-                        </div>
-                        <div class="dnd-death">
-                          <div>
-                            <label>Erfolge</label>
-                            <div class="dnd-pips" id="dndDeathOk"></div>
-                          </div>
-                          <div>
-                            <label>Fehlschläge</label>
-                            <div class="dnd-pips" id="dndDeathFail"></div>
-                          </div>
-                        </div>
                       </div>
                       <div class="dnd-def-grid">
                         <div class="dnd-def-box dnd-card">
@@ -585,6 +609,17 @@
                           </div>
                           <label style="margin-top:0.75rem;display:block">Sonstiges / Chaos-Notizen</label>
                           <textarea data-dnd-field="gear" class="dnd-inv-gear" placeholder="Freitext für alles, was nicht in die Liste passt…"></textarea>
+                          <div class="dnd-inv-weiteres">
+                            <div class="dnd-sec-title">Weiteres</div>
+                            <div class="dnd-inv-weiteres-grid">
+                              <div><label>Hintergrund</label><input data-dnd-field="background" /></div>
+                              <div><label>Gesinnung</label><input data-dnd-field="alignment" /></div>
+                              <div><label>EP</label><input data-dnd-field="xp" inputmode="numeric" /></div>
+                              <div><label>Spieler</label><input data-dnd-field="playerName" /></div>
+                              <div><label>TW verbraucht</label><input data-dnd-field="hitDiceUsed" placeholder="0" inputmode="numeric" /></div>
+                              <div><label>Trefferwürfel</label><input data-dnd-field="hitDice" placeholder="z. B. 5d10" /></div>
+                            </div>
+                          </div>
                         </div>
                         <div class="dnd-pane dnd-card hidden" data-dnd-pane="features">
                           <label>Klassenmerkmale, Spezies, Talente</label>
@@ -1387,6 +1422,72 @@
   </div>
   <div id="toast" class="toast hidden"></div>
 
+  <div id="themeLab" class="theme-lab hidden" aria-label="Stil" role="dialog">
+    <div class="theme-lab-head">
+      <div>
+        <h3>Stil</h3>
+        <p class="theme-lab-note">Nur für dich · dieses Gerät</p>
+      </div>
+      <button class="ghost icon-btn" id="themeLabClose" type="button" title="Schließen" aria-label="Schließen">×</button>
+    </div>
+    <div class="theme-lab-body">
+      <div class="theme-lab-section">Farben</div>
+      <button type="button" class="theme-lab-opt" data-theme-id="thalarion">
+        <span class="theme-lab-swatch is-thalarion" aria-hidden="true"></span>
+        <span><b>Thalarion</b><span>Pergament · Siegelgold</span></span>
+      </button>
+      <button type="button" class="theme-lab-opt" data-theme-id="emerald">
+        <span class="theme-lab-swatch is-emerald" aria-hidden="true"></span>
+        <span><b>Smaragd</b><span>Tiefes Smaragdgrün</span></span>
+      </button>
+      <button type="button" class="theme-lab-opt" data-theme-id="ruby">
+        <span class="theme-lab-swatch is-ruby" aria-hidden="true"></span>
+        <span><b>Rubin</b><span>Tiefes Rubinrot</span></span>
+      </button>
+      <button type="button" class="theme-lab-opt" data-theme-id="sapphire">
+        <span class="theme-lab-swatch is-sapphire" aria-hidden="true"></span>
+        <span><b>Saphir</b><span>Tiefes Saphirblau</span></span>
+      </button>
+      <button type="button" class="theme-lab-opt" data-theme-id="purple">
+        <span class="theme-lab-swatch is-purple" aria-hidden="true"></span>
+        <span><b>Lila</b><span>Tiefes Violett</span></span>
+      </button>
+      <button type="button" class="theme-lab-opt" data-theme-id="yellow">
+        <span class="theme-lab-swatch is-yellow" aria-hidden="true"></span>
+        <span><b>Gelb</b><span>Tiefes Gelb</span></span>
+      </button>
+      <button type="button" class="theme-lab-opt" data-theme-id="orange">
+        <span class="theme-lab-swatch is-orange" aria-hidden="true"></span>
+        <span><b>Orange</b><span>Tiefes Orange</span></span>
+      </button>
+      <button type="button" class="theme-lab-opt" data-theme-id="white">
+        <span class="theme-lab-swatch is-white" aria-hidden="true"></span>
+        <span><b>Weiß</b><span>Silberweiß</span></span>
+      </button>
+      <button type="button" class="theme-lab-opt" data-theme-id="brown">
+        <span class="theme-lab-swatch is-brown" aria-hidden="true"></span>
+        <span><b>Braun</b><span>Tiefes Braun</span></span>
+      </button>
+      <div class="theme-lab-section">Schreibstil</div>
+      <button type="button" class="theme-lab-opt is-font" data-font-id="normal">
+        <span class="theme-lab-swatch is-font is-normal" aria-hidden="true">Aa</span>
+        <span><b>Normal</b><span>Cinzel · Source Serif</span></span>
+      </button>
+      <button type="button" class="theme-lab-opt is-font" data-font-id="medieval">
+        <span class="theme-lab-swatch is-font is-medieval" aria-hidden="true">Aa</span>
+        <span><b>Mittelalter</b><span>Almendra · überall</span></span>
+      </button>
+      <button type="button" class="theme-lab-opt is-font" data-font-id="comic">
+        <span class="theme-lab-swatch is-font is-comic" aria-hidden="true">Aa</span>
+        <span><b>Comic Sans</b><span>Comic Neue / Comic Sans</span></span>
+      </button>
+      <button type="button" class="theme-lab-opt is-font" data-font-id="machine">
+        <span class="theme-lab-swatch is-font is-machine" aria-hidden="true">Aa</span>
+        <span><b>Maschine</b><span>Monospace · technisch</span></span>
+      </button>
+    </div>
+  </div>
+
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
@@ -1406,5 +1507,6 @@
   <script src="js/cloud.js"></script>
   <script src="js/ocr.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/theme-lab.js"></script>
 </body>
 </html>

@@ -649,6 +649,9 @@
                 invKey = 'modifiers';
               }
             }
+            if (ev.target && ev.target.id === 'dndAcShield' && typeof commitAcFromShield === 'function') {
+              commitAcFromShield();
+            }
             collectDndFields();
             refreshDndCalcs();
             if (invKey === 'container' || invKey === 'category' || invKey === 'attuned' ||

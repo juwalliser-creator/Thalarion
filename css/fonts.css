@@ -1,0 +1,152 @@
+/* Schreibstile – Theme Lab: gewählte Schrift gilt überall */
+
+:root,
+html[data-font="normal"],
+html:not([data-font]) {
+  --font-display: Cinzel, serif;
+  --font-body: "Source Serif 4", Lora, Georgia, serif;
+  --font-scale: 1;
+  --font-letter: 0.01em;
+}
+
+/* Mittelalter – Almendra auf der gesamten Oberfläche */
+html[data-font="medieval"] {
+  --font-display: Almendra, "IM Fell English", Georgia, serif;
+  --font-body: Almendra, "IM Fell English", Georgia, serif;
+  --font-scale: 1.06;
+  --font-letter: 0.02em;
+}
+
+/* Comic Sans */
+html[data-font="comic"] {
+  --font-display: "Comic Neue", "Comic Sans MS", cursive;
+  --font-body: "Comic Neue", "Comic Sans MS", cursive;
+  --font-scale: 1.02;
+  --font-letter: 0;
+}
+
+/* Maschine */
+html[data-font="machine"] {
+  --font-display: "Share Tech Mono", "Courier New", monospace;
+  --font-body: "Share Tech Mono", "Courier New", monospace;
+  --font-scale: 0.98;
+  --font-letter: 0.04em;
+}
+
+html[data-font="normal"] body,
+html:not([data-font]) body {
+  font-family: var(--font-body);
+}
+
+html[data-font="medieval"] body,
+html[data-font="comic"] body,
+html[data-font="machine"] body {
+  font-family: var(--font-body) !important;
+  font-size: calc(1rem * var(--font-scale));
+  letter-spacing: var(--font-letter);
+}
+
+/* Eine Schrift für alles: App, Overlays, Docks, Lab, Chat, Würfel … */
+html[data-font="medieval"] .app,
+html[data-font="medieval"] .app *,
+html[data-font="comic"] .app,
+html[data-font="comic"] .app *,
+html[data-font="machine"] .app,
+html[data-font="machine"] .app *,
+html[data-font="medieval"] .overlay,
+html[data-font="medieval"] .overlay *,
+html[data-font="comic"] .overlay,
+html[data-font="comic"] .overlay *,
+html[data-font="machine"] .overlay,
+html[data-font="machine"] .overlay *,
+html[data-font="medieval"] .toast,
+html[data-font="comic"] .toast,
+html[data-font="machine"] .toast,
+html[data-font="medieval"] .dice-stage,
+html[data-font="medieval"] .dice-stage *,
+html[data-font="comic"] .dice-stage,
+html[data-font="comic"] .dice-stage *,
+html[data-font="machine"] .dice-stage,
+html[data-font="machine"] .dice-stage *,
+html[data-font="medieval"] .dice-tools-wrap,
+html[data-font="medieval"] .dice-tools-wrap *,
+html[data-font="comic"] .dice-tools-wrap,
+html[data-font="comic"] .dice-tools-wrap *,
+html[data-font="machine"] .dice-tools-wrap,
+html[data-font="machine"] .dice-tools-wrap *,
+html[data-font="medieval"] .sound-dock-wrap,
+html[data-font="medieval"] .sound-dock-wrap *,
+html[data-font="comic"] .sound-dock-wrap,
+html[data-font="comic"] .sound-dock-wrap *,
+html[data-font="machine"] .sound-dock-wrap,
+html[data-font="machine"] .sound-dock-wrap *,
+html[data-font="medieval"] .theme-lab,
+html[data-font="medieval"] .theme-lab *,
+html[data-font="comic"] .theme-lab,
+html[data-font="comic"] .theme-lab *,
+html[data-font="machine"] .theme-lab,
+html[data-font="machine"] .theme-lab *,
+html[data-font="medieval"] .chat-panel,
+html[data-font="medieval"] .chat-panel *,
+html[data-font="comic"] .chat-panel,
+html[data-font="comic"] .chat-panel *,
+html[data-font="machine"] .chat-panel,
+html[data-font="machine"] .chat-panel *,
+html[data-font="medieval"] .map-drawer,
+html[data-font="medieval"] .map-drawer *,
+html[data-font="comic"] .map-drawer,
+html[data-font="comic"] .map-drawer *,
+html[data-font="machine"] .map-drawer,
+html[data-font="machine"] .map-drawer *,
+html[data-font="medieval"] .battle-power-overlay,
+html[data-font="medieval"] .battle-power-overlay *,
+html[data-font="comic"] .battle-power-overlay,
+html[data-font="comic"] .battle-power-overlay *,
+html[data-font="machine"] .battle-power-overlay,
+html[data-font="machine"] .battle-power-overlay *,
+html[data-font="medieval"] .kampf-action-panel,
+html[data-font="medieval"] .kampf-action-panel *,
+html[data-font="comic"] .kampf-action-panel,
+html[data-font="comic"] .kampf-action-panel *,
+html[data-font="machine"] .kampf-action-panel,
+html[data-font="machine"] .kampf-action-panel * {
+  font-family: inherit !important;
+  letter-spacing: inherit;
+}
+
+/* Lab: Vorschau der Schrift-Optionen bleibt unterscheidbar */
+.theme-lab-section {
+  margin: 0.15rem 0 0.1rem;
+  font-family: Cinzel, serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.theme-lab-opt[data-font-id="normal"] b {
+  font-family: Cinzel, serif !important;
+}
+.theme-lab-opt[data-font-id="medieval"] b {
+  font-family: Almendra, "IM Fell English", serif !important;
+  font-weight: 700;
+}
+.theme-lab-opt[data-font-id="comic"] b {
+  font-family: "Comic Neue", "Comic Sans MS", cursive !important;
+}
+.theme-lab-opt[data-font-id="machine"] b {
+  font-family: "Share Tech Mono", monospace !important;
+  letter-spacing: 0.06em;
+}
+.theme-lab-swatch.is-font {
+  display: grid;
+  place-items: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: var(--panel-2);
+  color: var(--gold);
+  border-radius: 6px;
+}
+.theme-lab-swatch.is-font.is-normal { font-family: Cinzel, serif !important; }
+.theme-lab-swatch.is-font.is-medieval { font-family: Almendra, "IM Fell English", serif !important; }
+.theme-lab-swatch.is-font.is-comic { font-family: "Comic Neue", "Comic Sans MS", cursive !important; }
+.theme-lab-swatch.is-font.is-machine { font-family: "Share Tech Mono", monospace !important; }

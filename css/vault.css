@@ -6,8 +6,7 @@
   --panel-2: #252a34;
   --ink: #e8eaef;
   --muted: #9aa3b2;
-  --gold: #d4af37;
-  --gold-dim: #a88b2c;
+  /* --gold / --gold-dim / --dnd-gold kommen aus app.css + Theme-Lab */
   --blood: #8b0000;
   --blood-deep: #5c0000;
   --dm-secret: #5a189a;
@@ -18,9 +17,11 @@
   --dnd-ink: #e8eaef;
   --dnd-mute: #9aa3b2;
   --dnd-line: rgba(255, 255, 255, 0.08);
-  --dnd-gold: #d4af37;
+  --dnd-gold: var(--gold);
   --dnd-red: #8b0000;
   --dnd-well: #161a20;
+  --header-bg: rgba(18, 20, 24, 0.94);
+  --glow: rgba(212, 175, 55, 0.14);
 }
 
 body {
@@ -30,15 +31,15 @@ body {
 }
 
 header {
-  background: rgba(18, 20, 24, 0.94);
+  background: var(--header-bg, rgba(18, 20, 24, 0.94));
   border-bottom: 1px solid var(--line);
 }
 
 .top-nav .nav-group button.active { color: var(--gold); }
 .primary {
-  background: linear-gradient(180deg, #e0c04a, #b8922a);
-  color: #14110a;
-  border-color: #f0d978;
+  background: linear-gradient(180deg, var(--accent-hi), var(--accent-lo));
+  color: var(--accent-ink);
+  border-color: var(--accent-hi);
 }
 
 .ghost, .icon-btn {
