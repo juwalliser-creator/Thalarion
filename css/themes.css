@@ -32,9 +32,7 @@ html:not([data-theme]) {
 
 html[data-theme="thalarion"] body,
 html:not([data-theme]) body {
-  background:
-    radial-gradient(ellipse 90% 55% at 50% -10%, var(--glow), transparent 58%),
-    var(--bg);
+  background: var(--bg);
   color: var(--ink);
 }
 
@@ -194,10 +192,7 @@ html[data-theme="yellow"] body,
 html[data-theme="orange"] body,
 html[data-theme="white"] body,
 html[data-theme="brown"] body {
-  background:
-    radial-gradient(ellipse 90% 55% at 50% -10%, var(--glow), transparent 58%),
-    radial-gradient(ellipse 70% 40% at 100% 100%, var(--glow), transparent 50%),
-    var(--bg);
+  background: var(--bg);
   color: var(--ink);
 }
 
