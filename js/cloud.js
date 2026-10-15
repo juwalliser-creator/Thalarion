@@ -38,7 +38,16 @@
     }
 
     function auth() {
-      return window.firebase && firebase.auth ? firebase.auth() : null;
+      if (!window.firebase || !firebase.auth) return null;
+      // firebase.auth() throws if initializeApp has not run yet.
+      if (!firebase.apps || !firebase.apps.length) {
+        if (!initFirebase()) return null;
+      }
+      try {
+        return firebase.auth();
+      } catch (err) {
+        return null;
+      }
     }
 
     function dmAuthEmail() {
@@ -61,20 +70,23 @@
     }
 
     async function ensureAuthUser(email, password) {
+      if (!initFirebase()) throw new Error('Firebase Auth ist nicht geladen.');
       const a = auth();
       if (!a) throw new Error('Firebase Auth ist nicht geladen.');
+      const mail = String(email || '').trim().toLowerCase();
+      if (!mail || !password) throw new Error('E-Mail oder Passwort fehlt.');
       try {
-        await a.signInWithEmailAndPassword(email, password);
+        await a.signInWithEmailAndPassword(mail, password);
         return a.currentUser;
       } catch (err) {
         const code = err && err.code;
         if (code === 'auth/user-not-found' || code === 'auth/invalid-login-credentials' || code === 'auth/wrong-password') {
           try {
-            await a.createUserWithEmailAndPassword(email, password);
+            await a.createUserWithEmailAndPassword(mail, password);
             return a.currentUser;
           } catch (createErr) {
             if (createErr && createErr.code === 'auth/email-already-in-use') {
-              await a.signInWithEmailAndPassword(email, password);
+              await a.signInWithEmailAndPassword(mail, password);
               return a.currentUser;
             }
             throw createErr;

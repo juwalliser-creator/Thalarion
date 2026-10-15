@@ -1342,6 +1342,7 @@
             return;
           }
           try {
+            if (typeof initFirebase === 'function') initFirebase();
             const email = typeof dmAuthEmail === 'function' ? dmAuthEmail() : (window.THALARION_DM_AUTH_EMAIL || '');
             if (!email) throw new Error('DM-Auth-E-Mail fehlt in der Konfiguration.');
             await ensureAuthUser(email, pass);
@@ -1350,7 +1351,10 @@
             toast('Angemeldet als DM.');
           } catch (err) {
             if (els.loginError) {
-              els.loginError.textContent = (err && err.message) ? err.message : 'Benutzername oder Passwort stimmt nicht.';
+              const msg = (err && err.message) ? String(err.message) : '';
+              els.loginError.textContent = msg && !/password|credential|user-not-found|wrong-password|invalid/i.test(msg)
+                ? msg
+                : 'Benutzername oder Passwort stimmt nicht.';
             }
           }
         });
@@ -1626,6 +1630,8 @@
     renderDiceLog();
     syncSoundUi();
     applyDiceToolsUi();
+    // Auth listeners need an initialized app — boot() also calls this, but login can happen early.
+    if (typeof initFirebase === 'function') initFirebase();
     if (typeof bindAuthState === 'function') {
       bindAuthState(user => {
         if (!user) {
