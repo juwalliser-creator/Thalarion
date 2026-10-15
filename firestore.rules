@@ -1,11 +1,25 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isDm() {
+      return signedIn()
+        && request.auth.token.email != null
+        && request.auth.token.email == 'dm@thalarion-69cd1.firebaseapp.com';
+    }
+    function isPlayerMail() {
+      return signedIn()
+        && request.auth.token.email.matches('player-.*@thalarion-69cd1[.]firebaseapp[.]com');
+    }
+
     match /world/{document=**} {
-      allow read: if true;
-      // GitHub Pages hat kein Firebase-Login. Schreiben bleibt offen,
-      // solange der DM-Schalter nur im Browser sitzt.
-      allow write: if true;
+      // Authenticated campaign members may read shared world data.
+      allow read: if signedIn();
+      // Writes require login. DM has full write; players may write shared live docs.
+      // (Field-level DM secrets still need separate docs for hard isolation.)
+      allow write: if isDm() || isPlayerMail();
     }
   }
 }

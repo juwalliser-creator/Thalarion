@@ -29,7 +29,70 @@
       if (!window.firebase || !window.FIREBASE_CONFIG) return false;
       if (!firebase.apps.length) firebase.initializeApp(window.FIREBASE_CONFIG);
       db = firebase.firestore();
+      if (firebase.auth) {
+        try {
+          firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+        } catch (err) { /* ignore */ }
+      }
       return true;
+    }
+
+    function auth() {
+      return window.firebase && firebase.auth ? firebase.auth() : null;
+    }
+
+    function dmAuthEmail() {
+      return String(window.THALARION_DM_AUTH_EMAIL || 'dm@thalarion-69cd1.firebaseapp.com').toLowerCase();
+    }
+
+    function authEmail() {
+      const u = auth() && auth().currentUser;
+      return u && u.email ? String(u.email).toLowerCase() : '';
+    }
+
+    function isFirebaseDmUser() {
+      const mail = authEmail();
+      return !!(mail && mail === dmAuthEmail());
+    }
+
+    function playerIdFromAuthEmail(email) {
+      const m = String(email || '').toLowerCase().match(/^player-([a-z0-9_-]+)@thalarion-69cd1\.firebaseapp\.com$/);
+      return m ? m[1] : '';
+    }
+
+    async function ensureAuthUser(email, password) {
+      const a = auth();
+      if (!a) throw new Error('Firebase Auth ist nicht geladen.');
+      try {
+        await a.signInWithEmailAndPassword(email, password);
+        return a.currentUser;
+      } catch (err) {
+        const code = err && err.code;
+        if (code === 'auth/user-not-found' || code === 'auth/invalid-login-credentials' || code === 'auth/wrong-password') {
+          try {
+            await a.createUserWithEmailAndPassword(email, password);
+            return a.currentUser;
+          } catch (createErr) {
+            if (createErr && createErr.code === 'auth/email-already-in-use') {
+              await a.signInWithEmailAndPassword(email, password);
+              return a.currentUser;
+            }
+            throw createErr;
+          }
+        }
+        throw err;
+      }
+    }
+
+    async function signOutAuth() {
+      const a = auth();
+      if (a && a.currentUser) await a.signOut();
+    }
+
+    function bindAuthState(handler) {
+      const a = auth();
+      if (!a || typeof handler !== 'function') return;
+      a.onAuthStateChanged(handler);
     }
 
     function templatesRef() {

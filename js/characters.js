@@ -149,13 +149,12 @@
         const want = Number(slots[key]);
         if (!(level >= 1 && level <= 9) || !(want > 0)) return;
         if (!dnd.spellSlots[level]) dnd.spellSlots[level] = { max: '', used: '' };
-        const cur = Number(String(dnd.spellSlots[level].max || '').replace(',', '.'));
-        if (!Number.isFinite(cur) || cur < want) {
-          dnd.spellSlots[level].max = String(want);
-          const used = Math.max(0, Number(String(dnd.spellSlots[level].used || '').replace(',', '.')) || 0);
-          if (used > want) dnd.spellSlots[level].used = String(want);
-          changed = true;
-        }
+        const raw = String(dnd.spellSlots[level].max || '').trim();
+        // Only seed empty slots — never raise an intentional lower max.
+        if (raw) return;
+        dnd.spellSlots[level].max = String(want);
+        dnd.spellSlots[level].used = dnd.spellSlots[level].used || '0';
+        changed = true;
       });
       return changed;
     }
@@ -209,9 +208,9 @@
             for (let i = 1; i <= 9; i++) {
               if (!src.spellSlots[i]) continue;
               if (!dndState.spellSlots[i]) dndState.spellSlots[i] = { max: '', used: '' };
-              const liveMax = Number(String(dndState.spellSlots[i].max || '').replace(',', '.')) || 0;
-              const srcMax = Number(String(src.spellSlots[i].max || '').replace(',', '.')) || 0;
-              if (srcMax > liveMax) dndState.spellSlots[i].max = src.spellSlots[i].max;
+              const liveRaw = String(dndState.spellSlots[i].max || '').trim();
+              const srcRaw = String(src.spellSlots[i].max || '').trim();
+              if (!liveRaw && srcRaw) dndState.spellSlots[i].max = src.spellSlots[i].max;
             }
           }
           (src.spells || []).forEach(s => {
@@ -336,10 +335,79 @@
       return !!(typeof isDM !== 'undefined' && isDM && owner);
     }
 
+    /** Combat HP (current / max / temp): DM or sheet owner. */
+    function canEditCombatHp(owner) {
+      return !!(owner && (canEditOwnerSheet(owner) || isOwnCombatOwner(owner)));
+    }
+
+    /** Slots, death saves, rests: DM or sheet owner. */
+    function canEditCombatResources(owner) {
+      return canEditCombatHp(owner);
+    }
+
+    /** Persist live dndState combat fields without requiring full DM saveSheet. */
+    function persistDndCombatState(opts) {
+      const options = opts || {};
+      const owner = options.owner || currentSheetOwner;
+      const rec = sheetOwnerRecord(owner);
+      if (!rec || !rec.sheet) return;
+      collectDndFields();
+      rec.sheet.dnd = normalizeDndSheet(dndState);
+      const cur = Math.max(0, Number(dndState.hpCurrent) || 0);
+      const max = Math.max(0, Number(dndState.hpMax) || 0);
+      if (cur || max) rec.sheet.hp = max ? (cur + '/' + max) : String(cur);
+      if (options.syncCombat !== false && typeof syncSheetHpToCombat === 'function') {
+        syncSheetHpToCombat(owner);
+      }
+      if (options.clearDirty !== false) sheetDirty = false;
+      persistPlayersSoon();
+    }
+
+    function syncSheetHpToCombat(owner) {
+      if (typeof combat === 'undefined' || !combat || !Array.isArray(combat.combatants)) return;
+      const id = owner || currentSheetOwner;
+      if (!id) return;
+      const cur = Math.max(0, Number(dndState.hpCurrent) || 0);
+      const max = Math.max(0, Number(dndState.hpMax) || 0);
+      const temp = Math.max(0, Number(dndState.hpTemp) || 0);
+      let changed = false;
+      combat.combatants.forEach(c => {
+        if (!c || c.kind !== 'player' || c.playerId !== id) return;
+        c.hp = cur;
+        c.hpMax = max || c.hpMax;
+        c.tempHp = temp;
+        if (typeof getEffectiveStat === 'function') {
+          try {
+            const prevOwner = currentSheetOwner;
+            // getEffectiveStat reads dndState — already current for this sheet
+            c.ac = String(getEffectiveStat('ac').value || c.ac || '');
+          } catch (err) { /* ignore */ }
+        }
+        if (typeof touchCombatant === 'function') touchCombatant(c);
+        if (typeof upsertBattleToken === 'function') upsertBattleToken(c);
+        changed = true;
+      });
+      if (changed) {
+        if (typeof persistCombat === 'function') persistCombat();
+        else if (typeof persistCombatSoon === 'function') persistCombatSoon();
+        if (typeof refreshCombatantVisual === 'function') {
+          combat.combatants.forEach(c => {
+            if (c && c.kind === 'player' && c.playerId === id) refreshCombatantVisual(c);
+          });
+        }
+      }
+    }
+
     function applySheetEditLock() {
       const canEdit = canEditOwnerSheet(currentSheetOwner);
+      const canCombatHp = canEditCombatHp(currentSheetOwner);
+      const canCombatRes = canEditCombatResources(currentSheetOwner);
       const main = document.getElementById('charMainCard');
-      if (main) main.classList.toggle('is-sheet-readonly', !canEdit);
+      if (main) {
+        main.classList.toggle('is-sheet-readonly', !canEdit);
+        main.classList.toggle('is-combat-hp-edit', canCombatHp && !canEdit);
+        main.classList.toggle('is-combat-res-edit', canCombatRes && !canEdit);
+      }
       const hint = document.getElementById('sheetReadonlyHint');
       if (hint) {
         const show = !canEdit && !!currentSheetOwner && !isDmNotesOwner(currentSheetOwner);
@@ -576,8 +644,20 @@
       });
       for (let i = 1; i <= 9; i++) {
         const s = src.spellSlots && src.spellSlots[i];
-        base.spellSlots[i] = { max: s && s.max != null ? String(s.max) : '', used: s && s.used != null ? String(s.used) : '' };
+        const maxRaw = s && s.max != null ? String(s.max) : '';
+        const usedRaw = s && s.used != null ? String(s.used) : '';
+        const maxN = Math.max(0, Math.min(12, Number(String(maxRaw).replace(',', '.')) || 0));
+        const usedN = Math.max(0, Number(String(usedRaw).replace(',', '.')) || 0);
+        base.spellSlots[i] = {
+          max: maxRaw.trim() ? String(maxN || '') : '',
+          used: maxRaw.trim() ? String(Math.min(usedN, maxN || usedN)) : (usedRaw ? String(usedN) : '')
+        };
       }
+      const hpMaxN = Math.max(0, Number(String(base.hpMax || '').replace(',', '.')) || 0);
+      const hpCurN = Math.max(0, Number(String(base.hpCurrent || '').replace(',', '.')) || 0);
+      if (hpMaxN && hpCurN > hpMaxN) base.hpCurrent = String(hpMaxN);
+      if (base.hpMax != null && base.hpMax !== '') base.hpMax = String(hpMaxN || base.hpMax);
+      if (base.hpCurrent != null && base.hpCurrent !== '') base.hpCurrent = String(Math.max(0, Number(String(base.hpCurrent).replace(',', '.')) || 0) || base.hpCurrent);
       base.attunement = [0, 1, 2].map(i => String((src.attunement && src.attunement[i]) || ''));
       base.gear = String(src.gear != null ? src.gear : '');
       if (!base.gear.trim()) {
@@ -803,13 +883,14 @@
         let unarmored = false;
         if (armor) {
           const base = dndItemNum(armor.armorBase);
+          const armorBonus = dndItemNum(armor.acBonus);
           let dexAdd = dexMod;
           if (String(armor.maxDex).trim() !== '') {
             const cap = dndItemNum(armor.maxDex);
             dexAdd = Math.min(dexMod, cap);
           }
-          total = base + dexAdd;
-          fromItems = base; // armor contribution marker
+          total = base + dexAdd + armorBonus;
+          fromItems = base + armorBonus; // armor contribution marker
           equipped.forEach(it => {
             if (it.id === armor.id) return;
             if (it.category === 'shield' || it.category === 'magic' || it.category === 'other') {
@@ -1703,8 +1784,8 @@
     }
 
     function applyDndHpChange(kind) {
-      if (!canEditOwnerSheet(currentSheetOwner)) {
-        toast('Nur der DM kann das Blatt bearbeiten.');
+      if (!canEditCombatHp(currentSheetOwner)) {
+        toast('Nur DM oder Besitzer können TP ändern.');
         return;
       }
       collectDndFields();
@@ -1731,7 +1812,7 @@
       applyDndFields();
       refreshDndCalcs();
       refreshDndHpBar();
-      sheetDirty = true;
+      persistDndCombatState({ syncCombat: true, clearDirty: true });
     }
 
     function setDndActFilter(filter) {
@@ -1882,12 +1963,6 @@
         if (score) dndState.abilities[a.id].score = Math.max(1, Number(score.value) || 10);
         if (save) dndState.abilities[a.id].save = save.checked;
       });
-      for (let i = 1; i <= 9; i++) {
-        const max = document.querySelector('#charDndBlock [data-dnd-slot-max="' + i + '"]');
-        const used = document.querySelector('#charDndBlock [data-dnd-slot-used="' + i + '"]');
-        if (max) dndState.spellSlots[i].max = max.value;
-        if (used) dndState.spellSlots[i].used = used.value;
-      }
       document.querySelectorAll('#charDndBlock [data-dnd-row]').forEach(row => {
         const kind = row.getAttribute('data-dnd-row');
         const id = row.getAttribute('data-id');
@@ -2109,7 +2184,7 @@
     }
 
     function dndCastSpell(item) {
-      if (!item || !canEditOwnerSheet(currentSheetOwner)) return false;
+      if (!item || !canEditCombatResources(currentSheetOwner)) return false;
       collectDndFields();
       const min = dndSpellLevelNum(item.level);
       if (!min) {
@@ -2130,6 +2205,7 @@
       persistPlayersSoon();
       renderDndLists();
       renderDndSlots();
+      renderDndLifeSlots();
       toast((item.name || 'Zauber') + ' gewirkt · Platz Grad ' + lvl + '.');
       return true;
     }
@@ -2151,13 +2227,15 @@
       if (!(level >= 1 && level <= 9)) return '';
       const max = dndSlotMax(level);
       const used = Math.min(dndSlotUsed(level), max);
-      const canEdit = canEditOwnerSheet(currentSheetOwner);
+      const canEdit = canEditCombatResources(currentSheetOwner);
+      const canMax = canEditOwnerSheet(currentSheetOwner);
       let html = '<div class="dnd-spell-slots">';
       for (let i = 1; i <= max; i++) {
-        html += '<button type="button" class="dnd-slot-box' + (i <= used ? ' is-on' : '') + '" data-dnd-slot-pip="' + level + '" data-n="' + i + '"' +
-          (canEdit ? '' : ' disabled') + ' title="Platz verbrauchen"></button>';
+        // Filled = available (same semantics as life-bar water drops).
+        html += '<button type="button" class="dnd-slot-box' + (i > used ? ' is-on' : '') + '" data-dnd-slot-pip="' + level + '" data-n="' + i + '"' +
+          (canEdit ? '' : ' disabled') + ' title="' + (i > used ? 'Verfügbar — klicken zum Verbrauchen' : 'Verbraucht — klicken zum Freigeben') + '"></button>';
       }
-      if (canEdit) {
+      if (canMax) {
         html += '<button type="button" class="ghost dnd-slot-step" data-dnd-slot-max-delta="' + level + '" data-delta="-1" title="Platz entfernen">−</button>';
         html += '<button type="button" class="ghost dnd-slot-step" data-dnd-slot-max-delta="' + level + '" data-delta="1" title="Platz hinzufügen">+</button>';
       }
@@ -2556,6 +2634,40 @@
         ).join('');
       }
       refreshDndHpBar();
+      renderDndLifeSlots();
+    }
+
+    function dndSlotDropSvg() {
+      return '<svg viewBox="0 0 16 20" aria-hidden="true" focusable="false">' +
+        '<path class="drop-fill" d="M8 1.2C8 1.2 2.2 8.2 2.2 12.2a5.8 5.8 0 0 0 11.6 0C13.8 8.2 8 1.2 8 1.2z"/>' +
+        '</svg>';
+    }
+
+    function renderDndLifeSlots() {
+      const box = document.getElementById('dndLifeSlots');
+      if (!box) return;
+      const canEdit = canEditCombatResources(currentSheetOwner);
+      const groups = [];
+      for (let level = 1; level <= 9; level++) {
+        const max = dndSlotMax(level);
+        if (!max) continue;
+        const used = Math.min(dndSlotUsed(level), max);
+        let drops = '';
+        for (let i = 1; i <= max; i++) {
+          const spent = i <= used;
+          drops += '<button type="button" class="dnd-slot-drop' + (spent ? ' is-used' : ' is-ready') + '"' +
+            ' data-dnd-slot-pip="' + level + '" data-n="' + i + '"' +
+            (canEdit ? '' : ' disabled') +
+            ' title="Grad ' + level + (spent ? ' · verbraucht' : ' · verfügbar') + '"' +
+            ' aria-label="Zauberplatz Grad ' + level + ' ' + i + ' von ' + max + (spent ? ', verbraucht' : '') + '">' +
+            dndSlotDropSvg() + '</button>';
+        }
+        groups.push('<div class="dnd-slot-drop-group" data-level="' + level + '" title="Grad ' + level + '">' + drops + '</div>');
+      }
+      box.hidden = !groups.length;
+      box.innerHTML = groups.length
+        ? '<span class="dnd-slot-legend" title="Gefüllt = verfügbar, leer = verbraucht">gefüllt = verfügbar</span>' + groups.join('')
+        : '';
     }
 
     function renderDndSlots() {
@@ -2570,6 +2682,7 @@
         const on = String(dndSpellFilter) === f;
         return '<button type="button" data-dnd-spell-filter="' + f + '"' + (on ? ' class="active"' : '') + '>' + label + '</button>';
       }).join('');
+      renderDndLifeSlots();
     }
 
     function setDndTab(tab) {
@@ -2715,8 +2828,27 @@
       sheetDirty = true;
     }
 
+    function parseDndHitDice(hitDiceRaw, stufeRaw) {
+      const raw = String(hitDiceRaw || '').trim().toLowerCase();
+      const stufe = Math.max(1, Number(stufeRaw) || 1);
+      const m = raw.match(/^(\d+)\s*d\s*(\d+)$/) || raw.match(/^d\s*(\d+)$/);
+      let pool = stufe;
+      let die = 8;
+      if (m) {
+        if (m.length === 3) {
+          pool = Math.max(1, Number(m[1]) || stufe);
+          die = Math.max(4, Number(m[2]) || 8);
+        } else {
+          die = Math.max(4, Number(m[1]) || 8);
+        }
+      } else if (/^\d+$/.test(raw)) {
+        pool = Math.max(1, Number(raw) || stufe);
+      }
+      return { pool, die };
+    }
+
     async function applyDndRest(kind) {
-      if (!canEditOwnerSheet(currentSheetOwner) && !isOwnCombatOwner(currentSheetOwner)) {
+      if (!canEditCombatResources(currentSheetOwner)) {
         toast('Nur DM oder Besitzer können rasten.');
         return;
       }
@@ -2727,14 +2859,30 @@
         if (kind === 'dawn' && f.reset === 'dawn') f.used = '0';
       });
       if (kind === 'short') {
+        // Spend one hit die (avg of die size + CON) when available.
         const max = Math.max(0, Number(dndState.hpMax) || 0);
         const cur = Math.max(0, Number(dndState.hpCurrent) || 0);
-        if (max) dndState.hpCurrent = String(Math.min(max, cur + Math.floor(max / 2)));
+        const hd = parseDndHitDice(dndState.hitDice, dndState.stufe);
+        const used = Math.max(0, Number(dndState.hitDiceUsed) || 0);
+        const left = Math.max(0, hd.pool - used);
+        if (left > 0 && max) {
+          const conMod = dndAbilityMod('con');
+          const dieAvg = Math.floor(hd.die / 2) + 1; // d8→5, d10→6, d12→7
+          const heal = Math.max(1, dieAvg + conMod);
+          dndState.hpCurrent = String(Math.min(max, cur + heal));
+          dndState.hitDiceUsed = String(used + 1);
+        } else if (max) {
+          dndState.hpCurrent = String(Math.min(max, cur + Math.max(1, Math.floor(max / 8))));
+        }
       }
       if (kind === 'long') {
         dndState.hpCurrent = dndState.hpMax || dndState.hpCurrent;
         dndState.hpTemp = '';
-        dndState.hitDiceUsed = '0';
+        const hd = parseDndHitDice(dndState.hitDice, dndState.stufe);
+        const used = Math.max(0, Number(dndState.hitDiceUsed) || 0);
+        // Recover half of total hit dice (rounded up), not the full pool.
+        const recover = Math.max(1, Math.ceil(hd.pool / 2));
+        dndState.hitDiceUsed = String(Math.max(0, used - recover));
         dndState.deathSuccess = 0;
         dndState.deathFail = 0;
         for (let i = 1; i <= 9; i++) dndState.spellSlots[i].used = '0';
@@ -2744,9 +2892,8 @@
       applyDndFields();
       renderDndSlots();
       refreshDndCalcs();
-      sheetDirty = true;
+      persistDndCombatState({ syncCombat: true, clearDirty: true });
       toast(kind === 'short' ? 'Kurzrast verrechnet.' : kind === 'long' ? 'Langrast verrechnet.' : 'Morgengrauen verrechnet.');
-      if (kind === 'short' || kind === 'long') await saveSheet();
     }
 
     function normalizeAlts(raw) {
@@ -2870,7 +3017,11 @@
     function listenPlayers() {
       if (!db) return;
       playersRef().onSnapshot(snap => {
-        if (writingPlayers || !snap.exists) return;
+        if (!snap.exists) return;
+        if (writingPlayers) {
+          pendingPlayersSnap = snap.data();
+          return;
+        }
         applyPlayers(snap.data());
       });
     }
@@ -2882,8 +3033,51 @@
       }, 420);
     }
 
+    async function mergePlayersFromCloudSnap(raw) {
+      if (!raw || typeof raw !== 'object') return;
+      const cloudAcc = normalizeAccounts(raw.accounts);
+      Object.keys(cloudAcc).forEach(id => {
+        if (!playerAccounts[id]) playerAccounts[id] = cloudAcc[id];
+      });
+      const cloudNpcs = normalizeNpcAccounts(raw.npcs);
+      Object.keys(cloudNpcs).forEach(id => {
+        if (!npcAccounts[id]) npcAccounts[id] = cloudNpcs[id];
+      });
+      if (!(sheetDirty && isDmNotesOwner(currentSheetOwner)) && typeof raw.dmNotes === 'string' && !dmNotes) {
+        dmNotes = raw.dmNotes;
+      }
+    }
+
+    async function refreshPlayersFromCloud() {
+      if (!db) return false;
+      const snap = await playersRef().get();
+      if (!snap.exists) return false;
+      const raw = snap.data();
+      const at = Number(raw.updatedAt) || 0;
+      // Prefer full apply when we have nothing local yet.
+      if (!Object.keys(playerAccounts).length || at > playersUpdatedAt) {
+        applyPlayers(raw);
+      } else {
+        await mergePlayersFromCloudSnap(raw);
+      }
+      return true;
+    }
+
     async function persistPlayers() {
       if (!db) throw new Error('Keine Verbindung zur Cloud.');
+      // Never overwrite cloud character data with an empty/partial in-memory map
+      // (common after Auth: boot couldn't read players until login).
+      try {
+        const snap = await playersRef().get();
+        if (snap.exists) await mergePlayersFromCloudSnap(snap.data());
+      } catch (err) {
+        if (!Object.keys(playerAccounts).length) {
+          throw new Error('Charakterdaten nicht geladen — Speichern abgebrochen.');
+        }
+      }
+      if (!Object.keys(playerAccounts).length) {
+        throw new Error('Leere Charakterliste — Speichern abgebrochen.');
+      }
       renameReptileToBjoern(playerAccounts);
       ensureBjoernFighterExtras(playerAccounts);
       ensureVeyrDrakeSheet(playerAccounts);
@@ -2897,10 +3091,16 @@
           accounts: playerAccounts,
           npcs: npcAccounts,
           dmNotes: typeof dmNotes === 'string' ? dmNotes : ''
-        });
+        }, { merge: true });
         playersUpdatedAt = nextAt;
       } finally {
         writingPlayers = false;
+        if (pendingPlayersSnap) {
+          const pending = pendingPlayersSnap;
+          pendingPlayersSnap = null;
+          const pendingAt = Number(pending.updatedAt) || 0;
+          if (pendingAt > playersUpdatedAt) applyPlayers(pending);
+        }
       }
     }
 
@@ -3245,12 +3445,20 @@
       if (id.length < 2) throw new Error('Bitte einen Namen mit mindestens 2 Zeichen wählen.');
       if (id === DM_USER) throw new Error('Dieser Name ist reserviert.');
       if (!password) throw new Error('Bitte ein Passwort setzen.');
+      const email = typeof thalarionPlayerAuthEmail === 'function'
+        ? thalarionPlayerAuthEmail(id)
+        : ('player-' + id + '@thalarion-69cd1.firebaseapp.com');
+      await ensureAuthUser(email, password);
+      // Auth unlocks reads — pull cloud accounts before creating anyone.
+      try { await refreshPlayersFromCloud(); } catch (err) {}
       if (playerAccounts[id]) throw new Error('Diesen Namen gibt es schon.');
       const previous = playerAccounts;
       playerAccounts = Object.assign({}, playerAccounts);
       playerAccounts[id] = {
         name: name.trim().replace(/\s+/g, ' '),
-        password: encodeSecret(password),
+        // Passwords live in Firebase Auth — do not store Base64 copies.
+        password: '',
+        authUid: (auth() && auth().currentUser && auth().currentUser.uid) || '',
         sheet: Object.assign({}, EMPTY_SHEET),
         createdAt: Date.now()
       };
@@ -3264,10 +3472,22 @@
       setPlayer(id);
     }
 
-    function loginPlayer(name, password) {
+    async function loginPlayer(name, password) {
       const id = accountIdFromLoginName(name);
+      const email = typeof thalarionPlayerAuthEmail === 'function'
+        ? thalarionPlayerAuthEmail(id)
+        : ('player-' + id + '@thalarion-69cd1.firebaseapp.com');
+      await ensureAuthUser(email, password);
+      try { await refreshPlayersFromCloud(); } catch (err) {}
       const acc = playerAccounts[id];
-      if (!acc || acc.password !== encodeSecret(password)) throw new Error('Name oder Passwort stimmt nicht.');
+      if (!acc) throw new Error('Name oder Passwort stimmt nicht.');
+      if (acc.password) {
+        acc.password = '';
+        acc.authUid = (auth() && auth().currentUser && auth().currentUser.uid) || '';
+        persistPlayersSoon();
+      } else {
+        acc.authUid = (auth() && auth().currentUser && auth().currentUser.uid) || acc.authUid || '';
+      }
       if (isDM && typeof setDM === 'function') setDM(false);
       setPlayer(id);
     }

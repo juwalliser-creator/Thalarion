@@ -73,6 +73,10 @@
       return {
         updatedAt: stamp(dungeon.updatedAt),
         layoutAt: stamp(dungeon.layoutAt),
+        fogAt: stamp(dungeon.fogAt),
+        ambientAt: stamp(dungeon.ambientAt),
+        scaleAt: stamp(dungeon.scaleAt),
+        tokensAt: stamp(dungeon.tokensAt),
         tokens: (dungeon.tokens || []).map(normalizeDungeonToken),
         walls: (dungeon.walls || []).map(w => dungeonSegNorm(w, 'wall')),
         doors: (dungeon.doors || []).map(dungeonDoorNorm),
@@ -105,9 +109,16 @@
       const removedNotes = mergeStampMap(a.removedNotes, b.removedNotes);
       const removedZones = mergeStampMap(a.removedZones, b.removedZones);
       const layoutSrc = stamp(b.layoutAt) >= stamp(a.layoutAt) ? b : a;
+      const fogSrc = stamp(b.fogAt || b.layoutAt) >= stamp(a.fogAt || a.layoutAt) ? b : a;
+      const ambientSrc = stamp(b.ambientAt || b.layoutAt) >= stamp(a.ambientAt || a.layoutAt) ? b : a;
+      const scaleSrc = stamp(b.scaleAt || b.layoutAt) >= stamp(a.scaleAt || a.layoutAt) ? b : a;
       return {
         updatedAt: Math.max(stamp(a.updatedAt), stamp(b.updatedAt)),
         layoutAt: Math.max(stamp(a.layoutAt), stamp(b.layoutAt)),
+        fogAt: Math.max(stamp(a.fogAt || a.layoutAt), stamp(b.fogAt || b.layoutAt)),
+        ambientAt: Math.max(stamp(a.ambientAt || a.layoutAt), stamp(b.ambientAt || b.layoutAt)),
+        scaleAt: Math.max(stamp(a.scaleAt || a.layoutAt), stamp(b.scaleAt || b.layoutAt)),
+        tokensAt: Math.max(stamp(a.tokensAt), stamp(b.tokensAt)),
         tokens: mergeByStamp(
           (Array.isArray(a.tokens) ? a.tokens : []).map(normalizeDungeonToken),
           (Array.isArray(b.tokens) ? b.tokens : []).map(normalizeDungeonToken),
@@ -144,9 +155,9 @@
           'updatedAt',
           removedZones
         ),
-        ambientId: layoutSrc.ambientId != null ? String(layoutSrc.ambientId) : '',
-        fogOn: layoutSrc.fogOn !== false,
-        scaleFt: Number(layoutSrc.scaleFt) > 0 ? Number(layoutSrc.scaleFt) : dungeonScaleFt(),
+        ambientId: ambientSrc.ambientId != null ? String(ambientSrc.ambientId) : '',
+        fogOn: fogSrc.fogOn !== false,
+        scaleFt: Number(scaleSrc.scaleFt) > 0 ? Number(scaleSrc.scaleFt) : dungeonScaleFt(),
         exploredGen: Math.max(Number(a.exploredGen) || 0, Number(b.exploredGen) || 0),
         tokenSize: clampDungeonTokenSize(
           stamp(b.layoutAt) >= stamp(a.layoutAt)
@@ -167,6 +178,10 @@
     function applyDungeonState(next, doRender) {
       dungeon.updatedAt = stamp(next.updatedAt);
       dungeon.layoutAt = stamp(next.layoutAt);
+      dungeon.fogAt = stamp(next.fogAt || next.layoutAt);
+      dungeon.ambientAt = stamp(next.ambientAt || next.layoutAt);
+      dungeon.scaleAt = stamp(next.scaleAt || next.layoutAt);
+      dungeon.tokensAt = stamp(next.tokensAt);
       dungeon.tokens = next.tokens || [];
       dungeon.walls = next.walls || [];
       dungeon.doors = next.doors || [];
@@ -396,36 +411,11 @@
     }
 
     function persistDungeonExploredSoon() {
-      if (!dungeonExploredCanvas) return;
-      if (isDM && !dungeonViewAsId) return;
-      try {
-        writeLocal(dungeonExploredStorageKey(), dungeonExploredCanvas.toDataURL('image/png'));
-      } catch (err) {}
+      // Cone-only fog: no persistent exploration map.
     }
 
-    function accumulateDungeonExplored(polys, w, h) {
-      if (!dungeonViewerIsPlayerFog() || !dungeonExploredCtx || !polys || !polys.length) return;
-      if (isDM && !dungeonViewAsId) return;
-      const size = dungeonExploredCanvas.width;
-      dungeonExploredCtx.save();
-      dungeonExploredCtx.fillStyle = '#fff';
-      dungeonExploredCtx.globalCompositeOperation = 'source-over';
-      polys.forEach(poly => {
-        if (!poly || poly.length < 3) return;
-        dungeonExploredCtx.beginPath();
-        dungeonExploredCtx.moveTo(poly[0].x / 100 * size, poly[0].y / 100 * size);
-        for (let i = 1; i < poly.length; i++) {
-          dungeonExploredCtx.lineTo(poly[i].x / 100 * size, poly[i].y / 100 * size);
-        }
-        dungeonExploredCtx.closePath();
-        dungeonExploredCtx.fill();
-      });
-      dungeonExploredCtx.restore();
-      clearTimeout(accumulateDungeonExplored._t);
-      accumulateDungeonExplored._t = setTimeout(() => {
-        persistDungeonExploredSoon();
-        if (typeof persistDungeonExploredCloud === 'function') persistDungeonExploredCloud();
-      }, 400);
+    function accumulateDungeonExplored() {
+      // Dead path removed — visibility is the current view cone only.
     }
 
     function dungeonPointInAnyPoly(x, y, polys) {
@@ -754,7 +744,8 @@
       const tick = () => {
         dungeonLightFlickerRaf = 0;
         dungeonLightFlickerPhase = (dungeonLightFlickerPhase + 0.08) % (Math.PI * 2);
-        renderDungeonFog();
+        // Reuse cached visibility polys — only repaint light tints.
+        renderDungeonFog(true);
       };
       dungeonLightFlickerRaf = requestAnimationFrame(tick);
     }
@@ -798,7 +789,7 @@
       ctx.restore();
     }
 
-    function renderDungeonFog() {
+    function renderDungeonFog(flickerOnly) {
       const canvas = document.getElementById('dungeonFog');
       const stage = document.getElementById('dungeonStage');
       if (!canvas || !stage) return;
@@ -813,8 +804,10 @@
       if (!w || !h) return;
       if (canvas.width !== w) canvas.width = w;
       if (canvas.height !== h) canvas.height = h;
-      const polys = collectDungeonVisiblePolys();
-      dungeonVisiblePolys = polys;
+      const polys = (flickerOnly && dungeonVisiblePolys && dungeonVisiblePolys.length)
+        ? dungeonVisiblePolys
+        : collectDungeonVisiblePolys();
+      if (!flickerOnly) dungeonVisiblePolys = polys;
       const asPlayer = dungeonViewerIsPlayerFog();
 
       const ctx = canvas.getContext('2d');
@@ -831,7 +824,7 @@
       ctx.globalCompositeOperation = 'source-over';
       // Tints nach den Cutouts: dungeonVisiblePolys enthält bereits Blick + sichtbare Lichter
       renderDungeonLightTints(ctx, w, h, asPlayer);
-      renderDungeonGeometryOverlay();
+      if (!flickerOnly) renderDungeonGeometryOverlay();
       scheduleDungeonLightFlicker();
     }
 
@@ -867,7 +860,7 @@
         });
         (dungeon.notes || []).forEach(n => {
           html += '<circle class="dungeon-note-mark" data-id="' + n.id + '" cx="' + n.x + '" cy="' + n.y +
-            '" r="1.1" title="' + String(n.title || '').replace(/"/g, '') + '" />';
+            '" r="1.1" title="' + escapeAttr(n.title || '') + '" />';
         });
         (dungeon.zones || []).forEach(z => {
           html += '<circle class="dungeon-zone-ring" data-id="' + z.id + '" cx="' + z.x + '" cy="' + z.y +
@@ -984,8 +977,14 @@
         dungeonVisionRaf = 0;
         renderDungeonFog();
         if (dungeonFacingDirty) {
-          dungeonFacingDirty = false;
-          persistDungeonSoon();
+          // Debounce facing cloud writes harder than generic persist.
+          clearTimeout(scheduleDungeonVision._facingT);
+          scheduleDungeonVision._facingT = setTimeout(() => {
+            if (!dungeonFacingDirty) return;
+            dungeonFacingDirty = false;
+            dungeon.tokensAt = stampNow();
+            persistDungeonSoon();
+          }, 480);
         }
       });
     }
@@ -1082,7 +1081,7 @@
           t.movedAt = stampNow();
           if (dungeon.removedTokens) delete dungeon.removedTokens[t.id];
         }
-        dungeon.layoutAt = stampNow();
+        dungeon.tokensAt = stampNow();
         persistDungeonSoon();
         renderDungeonFog();
         renderDungeonTokenList();
@@ -1911,20 +1910,23 @@
     function toggleDungeonFog() {
       if (!isDM) return;
       dungeon.fogOn = !dungeon.fogOn;
-      dungeon.layoutAt = stampNow();
+      dungeon.fogAt = stampNow();
       persistDungeonSoon();
       renderDungeon();
     }
 
     function clearDungeonExplored() {
       if (!isDM) return;
-      if (!confirm('Erkundung für alle zurücksetzen? Die Karte wird wieder unbekannt (außer aktueller Sicht).')) return;
+      // Fog is cone-only now — bump gen so any leftover explored buffers are discarded.
+      if (!confirm('Sicht-Cache zurücksetzen? (Es gibt keine dauerhafte Erkundungskarte mehr — nur der aktuelle Blickkegel zählt.)')) return;
       dungeon.exploredGen = Math.max(0, Number(dungeon.exploredGen) || 0) + 1;
-      dungeon.layoutAt = stampNow();
-      ensureDungeonExploredBuffer(true);
+      dungeon.fogAt = stampNow();
+      dungeonExploredLoadedGen = -1;
+      dungeonExploredCanvas = null;
+      dungeonExploredCtx = null;
       persistDungeonSoon();
-      renderDungeon();
-      toast('Erkundung zurückgesetzt.');
+      renderDungeonFog();
+      toast('Sicht-Cache zurückgesetzt.');
     }
 
     function renderDungeonBoard() {

@@ -110,9 +110,11 @@
       document.body.classList.toggle('is-dm', on);
       els.dmButton.textContent = on ? 'DM Logout' : 'DM Login';
       if (on) {
-        sessionStorage.setItem(SESSION_KEY, '1');
         warmupSoundPlayers();
-      } else sessionStorage.removeItem(SESSION_KEY);
+      } else if (typeof signOutAuth === 'function' && typeof isFirebaseDmUser === 'function' && isFirebaseDmUser()) {
+        signOutAuth().catch(() => {});
+      }
+      try { sessionStorage.removeItem(SESSION_KEY); } catch (err) {}
       document.getElementById('mapToolbar').classList.toggle('hidden', !on);
       updateSidebarVisibility(currentPage);
       if (!on) {
@@ -136,6 +138,7 @@
         syncChatListeners();
         renderChatChrome();
       }
+      if (typeof applySheetEditLock === 'function') applySheetEditLock();
       renderMapPins();
       renderMapBorders();
       if (typeof syncAtlasUi === 'function') syncAtlasUi();
@@ -624,7 +627,18 @@
           dndBlock.dataset.bound = '1';
           const syncDnd = ev => {
             if (!usesDndSheet(currentSheetOwner)) return;
-            if (!canEditOwnerSheet(currentSheetOwner)) return;
+            const fieldKey = ev.target && ev.target.getAttribute && ev.target.getAttribute('data-dnd-field');
+            const isOwnerCombatHp = fieldKey === 'hpTemp' || fieldKey === 'hpCurrent';
+            const isDmOnlyHp = fieldKey === 'hpMax';
+            if (!canEditOwnerSheet(currentSheetOwner)) {
+              if (isDmOnlyHp) return;
+              if (!(isOwnerCombatHp && typeof canEditCombatHp === 'function' && canEditCombatHp(currentSheetOwner))) return;
+              if (typeof persistDndCombatState === 'function') {
+                persistDndCombatState({ syncCombat: true, clearDirty: true });
+              }
+              if (typeof refreshDndHpBar === 'function') refreshDndHpBar();
+              return;
+            }
             sheetDirty = true;
             const row = ev.target.closest && ev.target.closest('[data-dnd-row]');
             let invKey = '';
@@ -675,6 +689,9 @@
           dndBlock.addEventListener('change', syncDnd);
           dndBlock.addEventListener('click', ev => {
             if (!usesDndSheet(currentSheetOwner)) return;
+            const combatResMutate = ev.target.closest(
+              '[data-dnd-slot-pip],[data-dnd-death],[data-dnd-spell-cast]'
+            );
             const mutate = ev.target.closest(
               '[data-dnd-add],[data-dnd-del],[data-dnd-atk-save],[data-dnd-atk-edit],' +
               '[data-dnd-spell-save],[data-dnd-spell-edit],[data-dnd-item-save],[data-dnd-item-edit],' +
@@ -682,7 +699,9 @@
               '[data-dnd-mod-add],[data-dnd-mod-del],[data-dnd-save-toggle],[data-skill],' +
               '[data-dnd-slot-pip],[data-dnd-slot-max-delta],[data-dnd-death],[data-dnd-spell-cast]'
             );
-            if (mutate && !canEditOwnerSheet(currentSheetOwner)) {
+            if (combatResMutate && typeof canEditCombatResources === 'function' && canEditCombatResources(currentSheetOwner)) {
+              // Owner/DM may toggle slots, death saves, and cast — handled below.
+            } else if (mutate && !canEditOwnerSheet(currentSheetOwner)) {
               toast('Nur der DM kann das Blatt bearbeiten.');
               return;
             }
@@ -710,14 +729,15 @@
             }
             const slotPip = ev.target.closest('[data-dnd-slot-pip]');
             if (slotPip) {
-              if (!canEditOwnerSheet(currentSheetOwner)) return;
+              if (!(typeof canEditCombatResources === 'function' && canEditCombatResources(currentSheetOwner))) return;
               const level = Number(slotPip.getAttribute('data-dnd-slot-pip'));
               const n = Number(slotPip.getAttribute('data-n'));
               if (!dndState.spellSlots[level]) dndState.spellSlots[level] = { max: '', used: '' };
               const used = dndSlotUsed(level);
               dndState.spellSlots[level].used = String(used === n ? Math.max(0, n - 1) : n);
               renderDndLists();
-              sheetDirty = true;
+              if (typeof renderDndLifeSlots === 'function') renderDndLifeSlots();
+              if (typeof persistDndCombatState === 'function') persistDndCombatState({ syncCombat: false, clearDirty: true });
               return;
             }
             const slotDelta = ev.target.closest('[data-dnd-slot-max-delta]');
@@ -731,6 +751,7 @@
               if (dndSlotUsed(level) > max) dndState.spellSlots[level].used = max ? String(max) : '0';
               renderDndLists();
               renderDndSlots();
+              if (typeof renderDndLifeSlots === 'function') renderDndLifeSlots();
               sheetDirty = true;
               return;
             }
@@ -930,12 +951,13 @@
             }
             const death = ev.target.closest('[data-dnd-death]');
             if (death) {
+              if (!(typeof canEditCombatResources === 'function' && canEditCombatResources(currentSheetOwner))) return;
               const n = Number(death.getAttribute('data-n'));
               const which = death.getAttribute('data-dnd-death');
               if (which === 'success') dndState.deathSuccess = dndState.deathSuccess === n ? n - 1 : n;
               else dndState.deathFail = dndState.deathFail === n ? n - 1 : n;
               renderDndPips();
-              sheetDirty = true;
+              if (typeof persistDndCombatState === 'function') persistDndCombatState({ syncCombat: false, clearDirty: true });
             }
           });
         }
@@ -1201,7 +1223,7 @@
               closePlayerLogin();
               toast('Willkommen, ' + playerAccounts[currentPlayerId].name + '.');
             } else {
-              loginPlayer(name, password);
+              await loginPlayer(name, password);
               closePlayerLogin();
               toast('Angemeldet als ' + playerAccounts[currentPlayerId].name + '.');
             }
@@ -1308,19 +1330,28 @@
             deleteCatalogItem(itemCatalogEditId || itemCatalogSelectedId);
           }
         });
-        onEv('loginForm', 'submit', ev => {
+        onEv('loginForm', 'submit', async ev => {
           ev.preventDefault();
           const userEl = els.dmUser;
           const passEl = els.dmPassword;
           if (!userEl || !passEl) return;
           const userOk = (userEl.value || '').trim().toLowerCase() === DM_USER;
-          const passOk = encodeSecret(passEl.value) === DM_PASS;
-          if (userOk && passOk) {
+          const pass = passEl.value || '';
+          if (!userOk || !pass) {
+            if (els.loginError) els.loginError.textContent = 'Benutzername oder Passwort stimmt nicht.';
+            return;
+          }
+          try {
+            const email = typeof dmAuthEmail === 'function' ? dmAuthEmail() : (window.THALARION_DM_AUTH_EMAIL || '');
+            if (!email) throw new Error('DM-Auth-E-Mail fehlt in der Konfiguration.');
+            await ensureAuthUser(email, pass);
             closeLogin();
             setDM(true);
             toast('Angemeldet als DM.');
-          } else if (els.loginError) {
-            els.loginError.textContent = 'Benutzername oder Passwort stimmt nicht.';
+          } catch (err) {
+            if (els.loginError) {
+              els.loginError.textContent = (err && err.message) ? err.message : 'Benutzername oder Passwort stimmt nicht.';
+            }
           }
         });
       });
@@ -1593,11 +1624,28 @@
     renderSoundFxButtons();
     renderDiceTray();
     renderDiceLog();
-    if (sessionStorage.getItem(SESSION_KEY) === '1') setDM(true);
-    else {
-      syncSoundUi();
-      applyDiceToolsUi();
+    syncSoundUi();
+    applyDiceToolsUi();
+    if (typeof bindAuthState === 'function') {
+      bindAuthState(user => {
+        if (!user) {
+          if (isDM) setDM(false);
+          return;
+        }
+        // Rules require auth — reload players/npcs once signed in.
+        if (typeof refreshPlayersFromCloud === 'function') {
+          refreshPlayersFromCloud().catch(() => {});
+        }
+        const mail = String(user.email || '').toLowerCase();
+        if (typeof isFirebaseDmUser === 'function' && isFirebaseDmUser()) {
+          if (!isDM) setDM(true);
+          return;
+        }
+        const pid = typeof playerIdFromAuthEmail === 'function' ? playerIdFromAuthEmail(mail) : '';
+        if (pid && playerAccounts[pid] && currentPlayerId !== pid) setPlayer(pid);
+      });
     }
+    try { sessionStorage.removeItem(SESSION_KEY); } catch (err) {}
 
     window.addEventListener('keydown', ev => {
       if ((ev.ctrlKey || ev.metaKey) && String(ev.key || '').toLowerCase() === 'k') {
@@ -1791,10 +1839,7 @@
         }
       }
 
-      const savedPlayer = sessionStorage.getItem(PLAYER_SESSION_KEY) || (function () {
-        try { return localStorage.getItem(PLAYER_SESSION_KEY); } catch (err) { return null; }
-      })();
-      if (savedPlayer && playerAccounts[savedPlayer]) setPlayer(savedPlayer);
+      // Player/DM session is restored via Firebase Auth (bindAuthState), not localStorage alone.
 
       restoreSessionView();
       listenWorld();

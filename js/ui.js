@@ -44,7 +44,11 @@
       const doc = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html');
       const root = doc.body && doc.body.firstElementChild;
       if (!root) return '';
-      const blocked = { script: 1, iframe: 1, object: 1, embed: 1, link: 1, meta: 1, form: 1, input: 1, button: 1, textarea: 1, base: 1 };
+      const blocked = {
+        script: 1, iframe: 1, object: 1, embed: 1, link: 1, meta: 1, form: 1,
+        input: 1, button: 1, textarea: 1, base: 1, style: 1, svg: 1, math: 1,
+        foreignobject: 1, video: 1, audio: 1, source: 1, frame: 1, frameset: 1, applet: 1
+      };
       const walk = node => {
         [...node.children].forEach(child => {
           const tag = child.tagName.toLowerCase();
@@ -55,7 +59,16 @@
           [...child.attributes].forEach(attr => {
             const name = attr.name.toLowerCase();
             const val = attr.value || '';
-            if (name.startsWith('on') || name === 'srcdoc' || /javascript:/i.test(val) || /data:text\/html/i.test(val)) {
+            if (
+              name.startsWith('on') ||
+              name === 'style' ||
+              name === 'srcdoc' ||
+              name === 'xlink:href' ||
+              name === 'href' && /^\s*javascript:/i.test(val) ||
+              /javascript:/i.test(val) ||
+              /data:text\/html/i.test(val) ||
+              /data:image\/svg\+xml/i.test(val)
+            ) {
               child.removeAttribute(attr.name);
             }
           });
@@ -64,6 +77,15 @@
       };
       walk(root);
       return root.innerHTML;
+    }
+
+    function escapeAttr(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
     }
 
     function onClick(id, handler) {

@@ -1289,7 +1289,7 @@
       const advBtn = document.getElementById('editorAdvancedToggle');
       if (adv) adv.classList.add('hidden');
       if (advBtn) advBtn.textContent = 'Erweiterte Felder anzeigen';
-      els.content.innerHTML = e?.content || '';
+      els.content.innerHTML = sanitizeHtml(e?.content || '');
       els.editorHeading.textContent = e?.title ? 'Eintrag bearbeiten' : 'Neuer Eintrag';
       document.getElementById('deleteBtn').disabled = currentIndex === null;
       pendingEntryImage = null;

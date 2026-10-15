@@ -116,7 +116,7 @@ var BATTLE_HAZARDS = {
   oil: { label: 'Öl', fill: 'rgba(42, 32, 12, 0.5)', stroke: '#c4a35a' }
 };
 var DM_USER = 'dm';
-var DM_PASS = 'bWVpbmV3ZWx0';
+/* DM credentials live in Firebase Auth (THALARION_DM_AUTH_EMAIL). */
 var PLAYER_SESSION_KEY = 'thalarion_player';
 var COMBAT_KEY = 'thalarion_combat';
 var COMBAT_TEMPLATES_KEY = 'thalarion_combat_templates';

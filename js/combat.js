@@ -1161,7 +1161,8 @@
         if (row && combatantDown(row)) el.classList.add('is-down');
         if (row && combatantBloodied(row)) el.classList.add('is-bloodied');
         if (row && combatantIsConcentrating(row)) el.classList.add('is-conc');
-        const hiddenByFog = battle.fogOn && !isDM && row && row.kind !== 'player' && !isOwnCombatOwner(token.playerId) && !battlePointRevealed(token.x, token.y);
+        const ownToken = !!(token.playerId && isOwnCombatOwner(token.playerId));
+        const hiddenByFog = battle.fogOn && !isDM && !ownToken && !battlePointRevealed(token.x, token.y);
         if (hiddenByFog) return;
         const movable = canMoveBattleToken(token);
         if (!movable) el.classList.add('is-locked');
@@ -2285,11 +2286,26 @@
       touchCombatant(row);
     }
 
+    function combatEffectiveAcFromDnd(dnd, sheet) {
+      if (!dnd || typeof getEffectiveStat !== 'function') {
+        return String((dnd && dnd.ac) || (sheet && sheet.armor) || '').trim();
+      }
+      // Temporarily evaluate against this sheet's dnd without clobbering UI state permanently.
+      const prev = dndState;
+      try {
+        dndState = normalizeDndSheet(dnd);
+        const eff = getEffectiveStat('ac');
+        if (eff && Number.isFinite(eff.value) && eff.value > 0) return String(eff.value);
+      } catch (err) { /* fall through */ }
+      finally { dndState = prev; }
+      return String((dnd && dnd.ac) || (sheet && sheet.armor) || '').trim();
+    }
+
     function combatHpFromOwner(playerId) {
       const rec = sheetOwnerRecord(playerId);
       const sheet = rec && rec.sheet || {};
       const dnd = sheet.dnd || {};
-      const ac = String(dnd.ac || sheet.armor || '').trim();
+      const ac = combatEffectiveAcFromDnd(dnd, sheet);
       const cur = Number(dnd.hpCurrent);
       const max = Number(dnd.hpMax);
       if (Number.isFinite(cur) || Number.isFinite(max)) {
@@ -2309,17 +2325,15 @@
       const rec = sheetOwnerRecord(row.playerId);
       if (!rec || !rec.sheet) return;
       rec.sheet.hp = row.hpMax ? (row.hp + '/' + row.hpMax) : String(row.hp || '');
-      if (row.ac) rec.sheet.armor = row.ac;
+      // Do not write combat AC into base dnd.ac (would double-count item bonuses).
       rec.sheet.dnd = normalizeDndSheet(rec.sheet.dnd);
       rec.sheet.dnd.hpCurrent = String(row.hp || 0);
       rec.sheet.dnd.hpMax = String(row.hpMax || 0);
       rec.sheet.dnd.hpTemp = row.tempHp ? String(row.tempHp) : '';
-      if (row.ac) rec.sheet.dnd.ac = row.ac;
       if (currentSheetOwner === row.playerId) {
         dndState.hpCurrent = rec.sheet.dnd.hpCurrent;
         dndState.hpMax = rec.sheet.dnd.hpMax;
         dndState.hpTemp = rec.sheet.dnd.hpTemp;
-        if (row.ac) dndState.ac = row.ac;
         applyDndFields();
         refreshDndCalcs();
       }

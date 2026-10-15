@@ -423,17 +423,17 @@
                             <div><label>Klasse</label><input data-dnd-field="klasse" /></div>
                             <div><label>Spezies</label><input data-dnd-field="volk" /></div>
                           </div>
-                          <div class="dnd-emblems" aria-label="Stufe und Rüstungsklasse">
-                            <div class="dnd-emblem dnd-emblem-stufe" title="Stufe">
-                              <img src="img/stufe-pergament.png?v=4" alt="" aria-hidden="true" draggable="false" />
-                              <input data-dnd-field="stufe" inputmode="numeric" min="1" max="99" maxlength="2" placeholder="1" aria-label="Stufe" title="Stufe (1–99)" />
-                            </div>
-                            <div class="dnd-emblem dnd-emblem-ac" title="Rüstungsklasse">
-                              <img src="img/rk-schild.png?v=4" alt="" aria-hidden="true" draggable="false" />
-                              <input type="hidden" data-dnd-field="ac" />
-                              <input id="dndAcShield" inputmode="numeric" aria-label="Rüstungsklasse" title="Aktuelle Rüstungsklasse" />
-                            </div>
-                          </div>
+                        </div>
+                      </div>
+                      <div class="dnd-emblems" aria-label="Stufe und Rüstungsklasse">
+                        <div class="dnd-emblem dnd-emblem-stufe" title="Stufe">
+                          <img src="img/stufe-pergament.png?v=4" alt="" aria-hidden="true" draggable="false" />
+                          <input data-dnd-field="stufe" inputmode="numeric" min="1" max="99" maxlength="2" placeholder="1" aria-label="Stufe" title="Stufe (1–99)" />
+                        </div>
+                        <div class="dnd-emblem dnd-emblem-ac" title="Rüstungsklasse">
+                          <img src="img/rk-schild.png?v=4" alt="" aria-hidden="true" draggable="false" />
+                          <input type="hidden" data-dnd-field="ac" />
+                          <input id="dndAcShield" inputmode="numeric" aria-label="Rüstungsklasse" title="Aktuelle Rüstungsklasse" />
                         </div>
                       </div>
                       <div class="dnd-stat dnd-card is-hp is-hp-head">
@@ -447,26 +447,31 @@
                             </span>
                             <div class="dnd-life-track" id="dndHpBar" role="meter" aria-label="Trefferpunkte" aria-valuemin="0" aria-valuemax="10" aria-valuenow="10"></div>
                           </div>
+                          <div class="dnd-life-slots" id="dndLifeSlots" aria-label="Verfügbare Zauberplätze" hidden></div>
                         </div>
-                        <div class="dnd-hp-tools">
-                          <input id="dndHpDelta" inputmode="numeric" placeholder="0" />
-                          <button type="button" class="is-heal" id="dndHealBtn">Heilen</button>
-                          <button type="button" class="is-dmg" id="dndDmgBtn">Schaden</button>
-                        </div>
-                        <div class="dnd-inline">
-                          <label>Max</label>
-                          <input data-dnd-field="hpMax" placeholder="max" title="Maximale TP" />
-                          <label>Temp.</label>
-                          <input data-dnd-field="hpTemp" />
-                        </div>
-                        <div class="dnd-death">
-                          <div>
-                            <label>Erfolge</label>
-                            <div class="dnd-pips" id="dndDeathOk"></div>
+                        <div class="dnd-hp-left">
+                          <div class="dnd-inline dnd-hp-max-temp">
+                            <label>Max</label>
+                            <input data-dnd-field="hpMax" placeholder="max" inputmode="numeric" title="Maximale TP" />
+                            <label>Temp.</label>
+                            <input data-dnd-field="hpTemp" placeholder="0" inputmode="numeric" title="Temporäre TP" />
                           </div>
-                          <div>
-                            <label>Fehlschläge</label>
-                            <div class="dnd-pips" id="dndDeathFail"></div>
+                          <div class="dnd-hp-tools">
+                            <input id="dndHpDelta" inputmode="numeric" placeholder="0" />
+                            <button type="button" class="is-heal" id="dndHealBtn">Heilen</button>
+                            <button type="button" class="is-dmg" id="dndDmgBtn">Schaden</button>
+                          </div>
+                        </div>
+                        <div class="dnd-hp-side">
+                          <div class="dnd-death">
+                            <div>
+                              <label>Erfolge</label>
+                              <div class="dnd-pips" id="dndDeathOk"></div>
+                            </div>
+                            <div>
+                              <label>Fehlschläge</label>
+                              <div class="dnd-pips" id="dndDeathFail"></div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1489,6 +1494,7 @@
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <script src="js/firebase-config.js"></script>

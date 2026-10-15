@@ -500,9 +500,32 @@ body.is-dm .dm-only { display: inline-flex !important; }
 #charMainCard.is-sheet-readonly .dnd-prof,
 #charMainCard.is-sheet-readonly #dndInsp,
 #charMainCard.is-sheet-readonly #dndPortraitBtn.is-locked,
-#charMainCard.is-sheet-readonly [data-dnd-death],
-#charMainCard.is-sheet-readonly [data-dnd-slot-pip] {
+#charMainCard.is-sheet-readonly:not(.is-combat-res-edit) [data-dnd-death],
+#charMainCard.is-sheet-readonly:not(.is-combat-res-edit) [data-dnd-slot-pip] {
   pointer-events: none;
+}
+#charMainCard.is-combat-res-edit [data-dnd-death],
+#charMainCard.is-combat-res-edit [data-dnd-slot-pip],
+body.is-dm #charMainCard [data-dnd-death],
+body.is-dm #charMainCard [data-dnd-slot-pip] {
+  pointer-events: auto;
+}
+#charMainCard.is-sheet-readonly:not(.is-combat-res-edit) #dndShortRest,
+#charMainCard.is-sheet-readonly:not(.is-combat-res-edit) #dndLongRest {
+  pointer-events: none;
+  opacity: 0.55;
+}
+#charMainCard.is-combat-res-edit #dndShortRest,
+#charMainCard.is-combat-res-edit #dndLongRest,
+body.is-dm #charMainCard #dndShortRest,
+body.is-dm #charMainCard #dndLongRest {
+  pointer-events: auto;
+  opacity: 1;
+}
+#charMainCard.is-combat-hp-edit [data-dnd-field="hpMax"] {
+  pointer-events: none !important;
+  caret-color: transparent;
+  opacity: 0.75;
 }
 #charMainCard.is-sheet-readonly .dnd-inv-flag {
   font-size: 0.72rem;
@@ -697,16 +720,22 @@ body.is-dm .dm-only-nav { display: inline-flex !important; }
 }
 .dnd-head {
   display: grid;
-  grid-template-columns: 92px auto minmax(14rem, 1fr) minmax(7.6rem, auto);
+  grid-template-columns: 92px auto minmax(17rem, 20rem) minmax(14rem, 1fr) minmax(7.6rem, auto);
+  grid-template-areas: "portrait id emblems hp rests";
   gap: 0.75rem 0.9rem;
   align-items: center;
   padding: 0.75rem 0.9rem;
   margin-bottom: 0.65rem;
 }
+.dnd-head > .dnd-portrait { grid-area: portrait; }
+.dnd-head > .dnd-id { grid-area: id; }
+.dnd-head > .dnd-emblems { grid-area: emblems; }
 .dnd-head > .is-hp-head {
+  grid-area: hp;
   min-width: 0;
   align-self: stretch;
 }
+.dnd-head > .dnd-rests-head { grid-area: rests; }
 .dnd-portrait {
   width: 88px;
   height: 88px;
@@ -770,15 +799,19 @@ body.is-dm .dm-only-nav { display: inline-flex !important; }
 .dnd-emblems {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  flex: 0 0 auto;
+  justify-content: center;
+  gap: 0.65rem;
+  min-width: 0;
+  width: 100%;
+  align-self: center;
+  justify-self: stretch;
 }
 .dnd-emblem {
   position: relative;
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  overflow: hidden;
+  overflow: visible;
 }
 .dnd-emblem img {
   display: block;
@@ -793,10 +826,7 @@ body.is-dm .dm-only-nav { display: inline-flex !important; }
 .dnd-emblem input:not([type="hidden"]) {
   position: absolute;
   z-index: 1;
-  width: 2.1rem !important;
   min-width: 0 !important;
-  max-width: 2.4rem !important;
-  height: 1.45rem !important;
   min-height: 0 !important;
   margin: 0;
   padding: 0 !important;
@@ -808,7 +838,6 @@ body.is-dm .dm-only-nav { display: inline-flex !important; }
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
-  font-size: 1.15rem;
 }
 .dnd-emblem input:not([type="hidden"]):hover,
 .dnd-emblem input:not([type="hidden"]):focus {
@@ -817,43 +846,49 @@ body.is-dm .dm-only-nav { display: inline-flex !important; }
   outline: none;
 }
 .dnd-emblem-stufe {
-  width: 6.2rem;
-  height: 5.4rem;
+  width: 9.4rem;
+  height: 8rem;
   align-self: center;
+  /* Zahlenhöhen angleichen (5 bei 50%, 16 bei 45%) — Innenlage unverändert */
+  top: calc((0.45 - 0.5) * 8rem);
 }
 .dnd-emblem-stufe img {
   width: auto;
-  height: 3.9rem;
-  max-height: 3.9rem;
+  height: 7.1rem;
+  max-height: 7.1rem;
   margin: 0;
   filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.35));
   object-fit: contain;
 }
-.dnd-emblem-stufe input {
+.dnd-emblem.dnd-emblem-stufe input:not([type="hidden"]) {
   top: 50%;
-  left: 50%;
+  left: 55%;
   transform: translate(-50%, -50%);
   color: #3a2418 !important;
   text-shadow: 0 1px 0 rgba(255, 245, 220, 0.55);
-  font-size: 1.4rem;
-  width: 2.6rem !important;
+  font-size: 2.325rem !important;
+  width: 3.3rem !important;
+  max-width: 3.6rem !important;
+  height: 2.325rem !important;
 }
 .dnd-emblem-ac {
-  width: 5.1rem;
-  height: 5.4rem;
+  width: 7.6rem;
+  height: 8rem;
 }
 .dnd-emblem-ac img {
   filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55));
 }
-.dnd-emblem-ac input {
-  top: 42%;
+.dnd-emblem.dnd-emblem-ac input:not([type="hidden"]) {
+  top: 45%;
   left: 50%;
   transform: translate(-50%, -50%);
   color: #f3ead8 !important;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.45);
   font-family: Cinzel, serif;
-  font-size: 1.5rem;
-  width: 2.5rem !important;
+  font-size: 2.44rem !important;
+  width: 3.3rem !important;
+  max-width: 3.6rem !important;
+  height: 2.325rem !important;
 }
 .dnd-emblem-ac input.is-locked {
   cursor: default;
@@ -1047,6 +1082,94 @@ body.is-dm .dm-only-nav { display: inline-flex !important; }
   min-width: 0;
   padding: 0.4rem 0.5rem;
 }
+.dnd-stat.is-hp.is-hp-head {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "life life"
+    "left side";
+  align-items: start;
+}
+.dnd-stat.is-hp.is-hp-head > .dnd-life {
+  grid-area: life;
+  grid-column: 1 / -1;
+}
+.dnd-stat.is-hp.is-hp-head > .dnd-hp-left {
+  grid-area: left;
+  align-self: end;
+}
+.dnd-stat.is-hp.is-hp-head > .dnd-hp-side {
+  grid-area: side;
+  align-self: end;
+}
+.dnd-hp-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 0.28rem;
+  min-width: 0;
+  padding-left: 1.85rem;
+}
+.dnd-stat.is-hp.is-hp-head .dnd-hp-max-temp {
+  grid-column: auto;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+.dnd-stat.is-hp.is-hp-head .dnd-hp-max-temp input {
+  width: 2.55rem !important;
+  min-width: 2.55rem !important;
+  max-width: 2.55rem !important;
+  background: var(--dnd-well) !important;
+  border: 1px solid color-mix(in srgb, var(--dnd-line) 60%, transparent) !important;
+  box-shadow: none !important;
+  pointer-events: auto !important;
+  caret-color: auto;
+}
+#charMainCard.is-sheet-readonly:not(.is-combat-hp-edit) .dnd-stat.is-hp.is-hp-head .dnd-hp-max-temp input {
+  background: transparent !important;
+  border-color: transparent !important;
+  pointer-events: none !important;
+  caret-color: transparent;
+}
+#charMainCard.is-combat-hp-edit .dnd-stat.is-hp.is-hp-head .dnd-hp-max-temp input,
+body.is-dm #charMainCard .dnd-stat.is-hp.is-hp-head .dnd-hp-max-temp input {
+  background: var(--dnd-well) !important;
+  border: 1px solid color-mix(in srgb, var(--dnd-line) 60%, transparent) !important;
+  pointer-events: auto !important;
+  caret-color: auto;
+}
+#charMainCard.is-combat-hp-edit [data-dnd-field="hpCurrent"],
+body.is-dm #charMainCard [data-dnd-field="hpCurrent"] {
+  pointer-events: auto !important;
+  caret-color: auto;
+}
+.dnd-stat.is-hp.is-hp-head .dnd-hp-tools {
+  grid-column: auto;
+  justify-content: flex-start;
+}
+#charMainCard.is-sheet-readonly:not(.is-combat-hp-edit) .dnd-stat.is-hp.is-hp-head .dnd-hp-tools {
+  display: none !important;
+}
+#charMainCard.is-combat-hp-edit .dnd-stat.is-hp.is-hp-head .dnd-hp-tools,
+body.is-dm #charMainCard.is-sheet-readonly .dnd-stat.is-hp.is-hp-head .dnd-hp-tools {
+  display: flex !important;
+}
+#charMainCard.is-combat-hp-edit #dndHealBtn,
+#charMainCard.is-combat-hp-edit #dndDmgBtn,
+body.is-dm #charMainCard #dndHealBtn,
+body.is-dm #charMainCard #dndDmgBtn {
+  display: inline-flex !important;
+  pointer-events: auto !important;
+}
+#charMainCard.is-combat-hp-edit #dndHpDelta,
+body.is-dm #charMainCard #dndHpDelta {
+  display: inline-block !important;
+  pointer-events: auto !important;
+  caret-color: auto;
+  background: var(--dnd-well) !important;
+  border: 1px solid color-mix(in srgb, var(--dnd-line) 60%, transparent) !important;
+  box-shadow: none !important;
+}
 .dnd-stat.is-hp input {
   width: 2.55rem;
   min-width: 2.55rem;
@@ -1059,6 +1182,79 @@ body.is-dm .dm-only-nav { display: inline-flex !important; }
   display: grid;
   gap: 0.28rem;
   min-width: 0;
+}
+.dnd-life-slots {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.55rem;
+  min-height: 1.15rem;
+  padding-left: 1.85rem;
+}
+.dnd-life-slots[hidden] { display: none !important; }
+.dnd-slot-legend {
+  font-size: 0.62rem;
+  letter-spacing: 0.02em;
+  opacity: 0.55;
+  margin-right: 0.15rem;
+  white-space: nowrap;
+}
+.dnd-slot-drop-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.14rem;
+}
+.dnd-slot-drop {
+  width: 1.05rem;
+  height: 1.3rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  line-height: 0;
+  cursor: pointer;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+}
+.dnd-slot-drop:disabled { cursor: default; }
+.dnd-slot-drop svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.dnd-slot-drop .drop-fill {
+  stroke: #5aa2ff;
+  stroke-width: 1.35;
+}
+.dnd-slot-drop.is-ready .drop-fill {
+  fill: #0f52ba;
+}
+.dnd-slot-drop.is-used .drop-fill {
+  fill: transparent;
+  stroke: #3d5f8a;
+  stroke-width: 1.2;
+}
+.dnd-hp-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  min-width: 7.2rem;
+  padding-top: 0.55rem;
+}
+.dnd-stat.is-hp.is-hp-head .dnd-death {
+  grid-column: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 0.28rem;
+  font-size: 0.7rem;
+}
+.dnd-stat.is-hp.is-hp-head .dnd-death > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.12rem;
 }
 .dnd-life-bar {
   position: relative;
@@ -2091,12 +2287,14 @@ button.dnd-atk-name:hover { filter: brightness(1.14); }
   .dnd-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dnd-head {
     grid-template-columns: 72px 1fr;
+    grid-template-areas:
+      "portrait id"
+      "emblems emblems"
+      "hp hp"
+      "rests rests";
   }
-  .dnd-head > .is-hp-head {
-    grid-column: 1 / -1;
-  }
-  .dnd-rests-head {
-    grid-column: 1 / -1;
+  .dnd-head > .dnd-emblems {
+    justify-content: center;
   }
 }
 @media (max-width: 1100px) {

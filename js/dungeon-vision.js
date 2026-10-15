@@ -160,11 +160,14 @@
 
     function dungeonObstacleSegments() {
       const segs = [];
+      const asPlayer = typeof dungeonFogAsPlayer === 'function' ? dungeonFogAsPlayer() : (!isDM || !!dungeonViewAsId);
       (dungeon.walls || []).forEach(w => {
         segs.push({ x1: w.x1, y1: w.y1, x2: w.x2, y2: w.y2 });
       });
       (dungeon.doors || []).forEach(d => {
         if (d.open) return;
+        // Secret doors must not silhouette for players via LoS blockers.
+        if (asPlayer && d.kind === 'secret') return;
         segs.push({ x1: d.x1, y1: d.y1, x2: d.x2, y2: d.y2 });
       });
       return segs;

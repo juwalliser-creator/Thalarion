@@ -73,6 +73,8 @@
     var dmNotes = '';
     var playersUpdatedAt = 0;
     var writingPlayers = false;
+    var pendingPlayersSnap = null;
+    var writingDiceLog = false;
     var rosterCards = [];
     var rosterUpdatedAt = 0;
     var writingRoster = false;
@@ -184,6 +186,10 @@
       updatedAt: 0,
       mapUpdatedAt: 0,
       layoutAt: 0,
+      fogAt: 0,
+      ambientAt: 0,
+      scaleAt: 0,
+      tokensAt: 0,
       removedTokens: {},
       removedWalls: {},
       removedDoors: {},

@@ -1,5 +1,5 @@
 /* Thalarion – Würfel (Tray, Log, 3D-Animation) – Phase 1.3 */
-var writingDiceLog = false;
+/* writingDiceLog lives in state.js */
 
     function dieShapeForSides(sides) {
       const n = Number(sides) || 20;
