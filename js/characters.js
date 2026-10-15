@@ -3451,7 +3451,16 @@
       await ensureAuthUser(email, password);
       // Auth unlocks reads — pull cloud accounts before creating anyone.
       try { await refreshPlayersFromCloud(); } catch (err) {}
-      if (playerAccounts[id]) throw new Error('Diesen Namen gibt es schon.');
+      if (playerAccounts[id]) {
+        // Existing campaign account: Auth is linked — just sign in.
+        const acc = playerAccounts[id];
+        acc.password = '';
+        acc.authUid = (auth() && auth().currentUser && auth().currentUser.uid) || '';
+        persistPlayersSoon();
+        if (isDM && typeof setDM === 'function') setDM(false);
+        setPlayer(id);
+        return;
+      }
       const previous = playerAccounts;
       playerAccounts = Object.assign({}, playerAccounts);
       playerAccounts[id] = {
@@ -3484,9 +3493,10 @@
       try {
         await ensureAuthUser(email, password);
       } catch (err) {
+        if (err && err.message && /Passwort stimmt nicht/i.test(err.message)) throw err;
         const code = err && err.code;
         if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found' || code === 'auth/invalid-login-credentials') {
-          throw new Error('Name oder Passwort stimmt nicht. Beim ersten Mal nach dem Auth-Umbau: Tab „Registrieren“ mit demselben Namen + Passwort.');
+          throw new Error('Name oder Passwort stimmt nicht. Beim ersten Mal: Tab „Registrieren“ mit demselben Namen + Passwort.');
         }
         throw err;
       }

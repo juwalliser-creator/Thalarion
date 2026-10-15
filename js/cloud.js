@@ -69,6 +69,14 @@
       return m ? m[1] : '';
     }
 
+    function isAuthMissingOrWrong(err) {
+      const code = err && err.code;
+      return code === 'auth/user-not-found'
+        || code === 'auth/invalid-login-credentials'
+        || code === 'auth/invalid-credential'
+        || code === 'auth/wrong-password';
+    }
+
     async function ensureAuthUser(email, password) {
       if (!initFirebase()) throw new Error('Firebase Auth ist nicht geladen.');
       const a = auth();
@@ -79,20 +87,23 @@
         await a.signInWithEmailAndPassword(mail, password);
         return a.currentUser;
       } catch (err) {
-        const code = err && err.code;
-        if (code === 'auth/user-not-found' || code === 'auth/invalid-login-credentials' || code === 'auth/wrong-password') {
-          try {
-            await a.createUserWithEmailAndPassword(mail, password);
-            return a.currentUser;
-          } catch (createErr) {
-            if (createErr && createErr.code === 'auth/email-already-in-use') {
+        // With email-enumeration protection Firebase often returns invalid-credential
+        // for unknown users — try create, then sign-in again if the mail already exists.
+        if (!isAuthMissingOrWrong(err)) throw err;
+        try {
+          await a.createUserWithEmailAndPassword(mail, password);
+          return a.currentUser;
+        } catch (createErr) {
+          if (createErr && createErr.code === 'auth/email-already-in-use') {
+            try {
               await a.signInWithEmailAndPassword(mail, password);
               return a.currentUser;
+            } catch (signErr) {
+              throw new Error('Passwort stimmt nicht (Auth-Konto existiert schon).');
             }
-            throw createErr;
           }
+          throw createErr;
         }
-        throw err;
       }
     }
 
