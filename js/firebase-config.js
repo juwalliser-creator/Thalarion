@@ -1,5 +1,5 @@
 window.FIREBASE_CONFIG = {
-  apiKey: "AIzaSyCxI6zRZAIOQ0lVAUczlHT_wiRTRDaKTZ4",
+  apiKey: "AIzaSyCxI6zRZAI0Q0lVAUcZlHT_wIRTRDaKTZ4",
   authDomain: "thalarion-69cd1.firebaseapp.com",
   projectId: "thalarion-69cd1",
   storageBucket: "thalarion-69cd1.firebasestorage.app",
