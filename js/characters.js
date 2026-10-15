@@ -3443,7 +3443,7 @@
     async function registerPlayer(name, password) {
       const id = playerIdFromName(name);
       if (id.length < 2) throw new Error('Bitte einen Namen mit mindestens 2 Zeichen wählen.');
-      if (id === DM_USER) throw new Error('Dieser Name ist reserviert.');
+      if (id === DM_USER) throw new Error('„dm“ ist der Spielleiter — bitte „DM Login“ nutzen, nicht Spieler-Login.');
       if (!password) throw new Error('Bitte ein Passwort setzen.');
       const email = typeof thalarionPlayerAuthEmail === 'function'
         ? thalarionPlayerAuthEmail(id)
@@ -3474,13 +3474,25 @@
 
     async function loginPlayer(name, password) {
       const id = accountIdFromLoginName(name);
+      if (!id || id === DM_USER) {
+        throw new Error('„dm“ ist der Spielleiter — bitte „DM Login“ nutzen, nicht Spieler-Login.');
+      }
+      if (!password) throw new Error('Bitte Passwort eingeben.');
       const email = typeof thalarionPlayerAuthEmail === 'function'
         ? thalarionPlayerAuthEmail(id)
         : ('player-' + id + '@thalarion-69cd1.firebaseapp.com');
-      await ensureAuthUser(email, password);
+      try {
+        await ensureAuthUser(email, password);
+      } catch (err) {
+        const code = err && err.code;
+        if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found' || code === 'auth/invalid-login-credentials') {
+          throw new Error('Name oder Passwort stimmt nicht. Beim ersten Mal nach dem Auth-Umbau: Tab „Registrieren“ mit demselben Namen + Passwort.');
+        }
+        throw err;
+      }
       try { await refreshPlayersFromCloud(); } catch (err) {}
       const acc = playerAccounts[id];
-      if (!acc) throw new Error('Name oder Passwort stimmt nicht.');
+      if (!acc) throw new Error('Diesen Spieler gibt es nicht in der Kampagne. Namen prüfen (z. B. amy, chris, yuvi).');
       if (acc.password) {
         acc.password = '';
         acc.authUid = (auth() && auth().currentUser && auth().currentUser.uid) || '';
