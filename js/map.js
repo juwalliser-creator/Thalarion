@@ -1091,7 +1091,15 @@
       selectedPinSessionFocus = false;
       document.getElementById('pinOverlayTitle').textContent = 'Ort setzen';
       const openHint = document.getElementById('pinOverlayHint');
-      if (openHint) { openHint.textContent = ''; openHint.classList.add('hidden'); }
+      if (openHint) {
+        if (pendingPinEntryId) {
+          openHint.textContent = 'Wird mit dem geöffneten Codex-Eintrag verknüpft.';
+          openHint.classList.remove('hidden');
+        } else {
+          openHint.textContent = 'Name = Codex-Titel → Klick auf der Karte öffnet den Eintrag.';
+          openHint.classList.remove('hidden');
+        }
+      }
       document.getElementById('pinSaveEdit').classList.add('hidden');
       let label = '';
       if (pendingPinEntryId) {
@@ -1623,17 +1631,23 @@
     function openMapPin(id) {
       const pin = mapPins.find(p => p.id === id);
       if (!pin) return;
+      // Guard against pointerup + click both firing.
+      const now = Date.now();
+      if (openMapPin._lastId === id && now - (openMapPin._lastAt || 0) < 450) return;
+      openMapPin._lastId = id;
+      openMapPin._lastAt = now;
       const i = resolvePinEntryIndex(pin);
       if (i === null) {
         openMapPinDrawer(pin, null);
-        if (isDM) {
-          /* Drawer stays open; DM can still edit via button */
-        } else if (!(pin.linked || pin.entryId)) {
+        if (!isDM && !(pin.linked || pin.entryId)) {
           toast('Dieser Ort ist noch nicht mit einem Eintrag verknüpft.');
         }
         return;
       }
-      openMapPinDrawer(pin, i);
+      // Linked pin → open Codex entry directly (drawer for unlinked / missing).
+      closeMapPinDrawer();
+      if (typeof loadEntry === 'function') loadEntry(i, true);
+      else openMapPinDrawer(pin, i);
     }
 
     function openMapPinFullEntry() {

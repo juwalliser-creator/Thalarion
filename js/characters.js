@@ -2170,6 +2170,21 @@
       return Math.max(0, Number(String((slot && slot.used) || '').replace(',', '.')) || 0);
     }
 
+    /** Spell slots deplete right→left: rightmost pips are spent first. */
+    function dndSlotPipIsSpent(i, used, max) {
+      const m = Math.max(0, Number(max) || 0);
+      const u = Math.max(0, Math.min(m, Number(used) || 0));
+      return i > (m - u);
+    }
+
+    /** Toggle used count when clicking pip n (1..max from left). */
+    function dndSlotPipToggleUsed(n, used, max) {
+      const m = Math.max(0, Number(max) || 0);
+      const u = Math.max(0, Math.min(m, Number(used) || 0));
+      const target = Math.max(0, m - Number(n) + 1);
+      return u === target ? Math.max(0, target - 1) : target;
+    }
+
     function dndAvailableSlotLevel(dnd, minLevel) {
       const min = Math.max(1, Number(minLevel) || 1);
       if (!dnd || !dnd.spellSlots) return 0;
@@ -2231,9 +2246,10 @@
       const canMax = canEditOwnerSheet(currentSheetOwner);
       let html = '<div class="dnd-spell-slots">';
       for (let i = 1; i <= max; i++) {
-        // Filled = available (same semantics as life-bar water drops).
-        html += '<button type="button" class="dnd-slot-box' + (i > used ? ' is-on' : '') + '" data-dnd-slot-pip="' + level + '" data-n="' + i + '"' +
-          (canEdit ? '' : ' disabled') + ' title="' + (i > used ? 'Verfügbar — klicken zum Verbrauchen' : 'Verbraucht — klicken zum Freigeben') + '"></button>';
+        const spent = dndSlotPipIsSpent(i, used, max);
+        // Filled = available; deplete right→left.
+        html += '<button type="button" class="dnd-slot-box' + (spent ? '' : ' is-on') + '" data-dnd-slot-pip="' + level + '" data-n="' + i + '" data-slot-max="' + max + '"' +
+          (canEdit ? '' : ' disabled') + ' title="' + (spent ? 'Verbraucht — klicken zum Freigeben' : 'Verfügbar — klicken zum Verbrauchen') + '"></button>';
       }
       if (canMax) {
         html += '<button type="button" class="ghost dnd-slot-step" data-dnd-slot-max-delta="' + level + '" data-delta="-1" title="Platz entfernen">−</button>';
@@ -2654,9 +2670,9 @@
         const used = Math.min(dndSlotUsed(level), max);
         let drops = '';
         for (let i = 1; i <= max; i++) {
-          const spent = i <= used;
+          const spent = dndSlotPipIsSpent(i, used, max);
           drops += '<button type="button" class="dnd-slot-drop' + (spent ? ' is-used' : ' is-ready') + '"' +
-            ' data-dnd-slot-pip="' + level + '" data-n="' + i + '"' +
+            ' data-dnd-slot-pip="' + level + '" data-n="' + i + '" data-slot-max="' + max + '"' +
             (canEdit ? '' : ' disabled') +
             ' title="Grad ' + level + (spent ? ' · verbraucht' : ' · verfügbar') + '"' +
             ' aria-label="Zauberplatz Grad ' + level + ' ' + i + ' von ' + max + (spent ? ', verbraucht' : '') + '">' +
@@ -2666,7 +2682,7 @@
       }
       box.hidden = !groups.length;
       box.innerHTML = groups.length
-        ? '<span class="dnd-slot-legend" title="Gefüllt = verfügbar, leer = verbraucht">gefüllt = verfügbar</span>' + groups.join('')
+        ? '<span class="dnd-slot-legend" title="Gefüllt = verfügbar; Verbrauch von rechts nach links">gefüllt = verfügbar · rechts zuerst</span>' + groups.join('')
         : '';
     }
 

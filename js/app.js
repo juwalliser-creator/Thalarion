@@ -733,8 +733,11 @@
               const level = Number(slotPip.getAttribute('data-dnd-slot-pip'));
               const n = Number(slotPip.getAttribute('data-n'));
               if (!dndState.spellSlots[level]) dndState.spellSlots[level] = { max: '', used: '' };
+              const max = dndSlotMax(level) || Number(slotPip.getAttribute('data-slot-max')) || 0;
               const used = dndSlotUsed(level);
-              dndState.spellSlots[level].used = String(used === n ? Math.max(0, n - 1) : n);
+              dndState.spellSlots[level].used = String(
+                typeof dndSlotPipToggleUsed === 'function' ? dndSlotPipToggleUsed(n, used, max) : (used === n ? Math.max(0, n - 1) : n)
+              );
               renderDndLists();
               if (typeof renderDndLifeSlots === 'function') renderDndLifeSlots();
               if (typeof persistDndCombatState === 'function') persistDndCombatState({ syncCombat: false, clearDirty: true });
@@ -1499,6 +1502,8 @@
             return;
           }
           if ((drag.type === 'pin' || drag.type === 'pin-click') && !drag.moved) {
+            // Pointer-capture swallows the button click — open explicitly.
+            if (drag.id && typeof openMapPin === 'function') openMapPin(drag.id);
             return;
           }
           if (drag.type === 'border-vert' && drag.moved) {

@@ -4295,9 +4295,9 @@
         const used = Math.min(Math.max(0, Number(String((slot && slot.used) || '').replace(',', '.')) || 0), max);
         let drops = '';
         for (let i = 1; i <= max; i++) {
-          const spent = i <= used;
+          const spent = typeof dndSlotPipIsSpent === 'function' ? dndSlotPipIsSpent(i, used, max) : (i > (max - used));
           drops += '<button type="button" class="dnd-slot-drop' + (spent ? ' is-used' : ' is-ready') + '"' +
-            ' data-kampf-slot-pip="' + level + '" data-n="' + i + '"' +
+            ' data-kampf-slot-pip="' + level + '" data-n="' + i + '" data-slot-max="' + max + '"' +
             (canRes ? '' : ' disabled') +
             ' title="Grad ' + level + (spent ? ' · verbraucht' : ' · verfügbar') + '">' +
             dropSvg + '</button>';
@@ -4318,9 +4318,12 @@
           ev.stopPropagation();
           const level = Number(btn.getAttribute('data-kampf-slot-pip'));
           const n = Number(btn.getAttribute('data-n'));
+          const maxN = Number(btn.getAttribute('data-slot-max')) || 0;
           if (!dnd.spellSlots[level]) dnd.spellSlots[level] = { max: '', used: '0' };
           const usedNow = Math.max(0, Number(String(dnd.spellSlots[level].used || '').replace(',', '.')) || 0);
-          dnd.spellSlots[level].used = String(usedNow === n ? Math.max(0, n - 1) : n);
+          dnd.spellSlots[level].used = String(
+            typeof dndSlotPipToggleUsed === 'function' ? dndSlotPipToggleUsed(n, usedNow, maxN) : (usedNow === n ? Math.max(0, n - 1) : n)
+          );
           persistKampfPlayerDnd(row, dnd);
           renderKampf();
         });
