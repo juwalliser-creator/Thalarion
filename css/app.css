@@ -4697,6 +4697,102 @@ body.is-dm #kampfAdd.hidden { display: none !important; }
   display: grid;
   gap: 0.4rem;
 }
+.kampf-card .kampf-player-life.dnd-stat.is-hp.is-hp-head {
+  gap: 0.35rem 0.55rem;
+  padding: 0.15rem 0 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "life life"
+    "left side";
+}
+.kampf-card .kampf-player-life .dnd-life {
+  gap: 0.2rem;
+}
+.kampf-card .kampf-player-life .dnd-life-bar {
+  padding-left: 1.55rem;
+}
+.kampf-card .kampf-player-life .dnd-life-heart {
+  width: 2.55rem;
+  height: 2.35rem;
+}
+.kampf-card .kampf-player-life .dnd-life-heart-val {
+  width: 1.9rem !important;
+  max-width: 2rem !important;
+  height: 1.2rem !important;
+  font-size: 0.95rem;
+}
+.kampf-card .kampf-player-life .dnd-life-track {
+  height: 1.65rem;
+}
+.kampf-card .kampf-player-life .dnd-life-slots {
+  padding-left: 1.55rem;
+  min-height: 0.95rem;
+  gap: 0.15rem 0.4rem;
+}
+.kampf-card .kampf-player-life .dnd-slot-drop {
+  width: 0.88rem;
+  height: 1.1rem;
+}
+.kampf-card .kampf-player-life .dnd-hp-left {
+  padding-left: 1.55rem;
+  gap: 0.22rem;
+}
+.kampf-card .kampf-player-life .dnd-hp-max-temp input,
+.kampf-card .kampf-player-life .kampf-life-ac input,
+.kampf-card .kampf-player-life .dnd-hp-tools input {
+  width: 2.35rem !important;
+  min-width: 2.35rem !important;
+  max-width: 2.35rem !important;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 6px;
+  padding: 0.18rem 0.28rem;
+}
+.kampf-card .kampf-player-life .kampf-life-ac {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.kampf-card .kampf-player-life .dnd-hp-side {
+  min-width: 6.4rem;
+  padding-top: 0.15rem;
+}
+.kampf-card .kampf-player-life .dnd-death {
+  font-size: 0.65rem;
+}
+.kampf-card .kampf-player-life .dnd-pip {
+  width: 0.78rem;
+  height: 0.78rem;
+}
+.kampf-card .kampf-player-life.is-readonly .dnd-hp-tools {
+  opacity: 0.55;
+}
+.kampf-card .kampf-player-life .dnd-hp-tools button {
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--ink);
+}
+.kampf-card .kampf-player-life .dnd-hp-tools .is-heal {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+.kampf-card .kampf-player-life .dnd-hp-tools .is-dmg {
+  border-color: var(--blood);
+  color: var(--blood);
+}
+.kampf-card .kampf-player-life .dnd-hp-tools button:disabled,
+.kampf-card .kampf-player-life input:disabled,
+.kampf-card .kampf-player-life .dnd-pip:disabled,
+.kampf-card .kampf-player-life .dnd-slot-drop:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
 .kampf-hp-row {
   display: flex;
   flex-wrap: wrap;

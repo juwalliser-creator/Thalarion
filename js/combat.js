@@ -4180,6 +4180,300 @@
       return bar;
     }
 
+    function kampfHpSegmentsFilled(hp, hpMax) {
+      const cur = Math.max(0, Number(hp) || 0);
+      const max = Math.max(0, Number(hpMax) || 0);
+      if (cur <= 0 || max <= 0) return 0;
+      if (cur >= max) return 10;
+      return Math.min(10, Math.max(1, Math.ceil((cur / max) * 10)));
+    }
+
+    function kampfPlayerSheetDnd(row) {
+      const rec = row && row.playerId ? sheetOwnerRecord(row.playerId) : null;
+      const dnd = normalizeDndSheet(rec && rec.sheet && rec.sheet.dnd);
+      return { rec: rec, dnd: dnd };
+    }
+
+    function syncKampfPlayerSheetUi(playerId, dnd) {
+      if (!playerId || !dnd || currentSheetOwner !== playerId) return;
+      dndState.hpCurrent = dnd.hpCurrent;
+      dndState.hpMax = dnd.hpMax;
+      dndState.hpTemp = dnd.hpTemp;
+      dndState.deathSuccess = dnd.deathSuccess;
+      dndState.deathFail = dnd.deathFail;
+      if (dnd.spellSlots) dndState.spellSlots = dnd.spellSlots;
+      if (typeof applyDndFields === 'function') applyDndFields();
+      if (typeof renderDndPips === 'function') renderDndPips();
+      else if (typeof refreshDndHpBar === 'function') refreshDndHpBar();
+    }
+
+    function persistKampfPlayerDnd(row, dnd) {
+      const rec = sheetOwnerRecord(row && row.playerId);
+      if (!rec || !rec.sheet) return;
+      rec.sheet.dnd = normalizeDndSheet(dnd);
+      const cur = Math.max(0, Number(rec.sheet.dnd.hpCurrent) || 0);
+      const max = Math.max(0, Number(rec.sheet.dnd.hpMax) || 0);
+      if (cur || max) rec.sheet.hp = max ? (cur + '/' + max) : String(cur);
+      syncKampfPlayerSheetUi(row.playerId, rec.sheet.dnd);
+      persistPlayersSoon();
+    }
+
+    function kampfPlayerLifeBlock(row) {
+      const canHp = typeof canEditCombatHp === 'function' && canEditCombatHp(row.playerId);
+      const canRes = typeof canEditCombatResources === 'function' && canEditCombatResources(row.playerId);
+      const canMax = !!(typeof isDM !== 'undefined' && isDM);
+      const pack = kampfPlayerSheetDnd(row);
+      const dnd = pack.dnd;
+      const hp = Math.max(0, Number(row.hp) || Number(dnd.hpCurrent) || 0);
+      const hpMax = Math.max(0, Number(row.hpMax) || Number(dnd.hpMax) || 0);
+      const tempHp = Math.max(0, Number(row.tempHp) || Number(dnd.hpTemp) || 0);
+      const deathOk = Math.max(0, Math.min(3, Number(dnd.deathSuccess) || 0));
+      const deathFail = Math.max(0, Math.min(3, Number(dnd.deathFail) || 0));
+
+      const box = document.createElement('div');
+      box.className = 'kampf-hp kampf-player-life dnd-stat is-hp is-hp-head';
+      if (canHp) box.classList.add('is-combat-hp-edit');
+      if (canRes) box.classList.add('is-combat-res-edit');
+      if (!canHp) box.classList.add('is-readonly');
+
+      const life = document.createElement('div');
+      life.className = 'dnd-life';
+      life.title = 'Trefferpunkte';
+
+      const lifeBar = document.createElement('div');
+      lifeBar.className = 'dnd-life-bar';
+      const heart = document.createElement('span');
+      heart.className = 'dnd-life-heart';
+      heart.innerHTML = '<svg viewBox="0 0 32 30" width="52" height="48" focusable="false" aria-hidden="true">' +
+        '<path fill="#e0232c" stroke="#1a0808" stroke-width="1.2" d="M16 27.2C16 27.2 3.2 18.4 3.2 10.6 3.2 6.4 6.4 3.4 10.4 3.4c2.4 0 4.5 1.2 5.6 3 1.1-1.8 3.2-3 5.6-3 4 0 7.2 3 7.2 7.2 0 7.8-12.8 16.6-12.8 16.6z"/>' +
+        '</svg>';
+      const heartVal = document.createElement('input');
+      heartVal.className = 'dnd-life-heart-val';
+      heartVal.inputMode = 'numeric';
+      heartVal.title = 'Aktuelle TP';
+      heartVal.setAttribute('aria-label', 'Aktuelle Trefferpunkte');
+      heartVal.value = String(hp);
+      heartVal.disabled = !canHp;
+      heartVal.onchange = () => {
+        if (!canHp) return;
+        row.hp = Math.max(0, Number(heartVal.value) || 0);
+        dnd.hpCurrent = String(row.hp);
+        persistKampfPlayerDnd(row, dnd);
+        refreshCombatantVisual(row);
+        renderKampf();
+      };
+      heart.appendChild(heartVal);
+
+      const track = document.createElement('div');
+      track.className = 'dnd-life-track';
+      track.setAttribute('role', 'meter');
+      track.setAttribute('aria-label', 'Trefferpunkte');
+      track.setAttribute('aria-valuemin', '0');
+      track.setAttribute('aria-valuemax', '10');
+      const filled = kampfHpSegmentsFilled(hp, hpMax);
+      track.setAttribute('aria-valuenow', String(filled));
+      track.setAttribute('aria-valuetext', hp + ' / ' + hpMax + ' TP');
+      track.title = hp + ' / ' + hpMax + ' TP';
+      track.innerHTML = Array.from({ length: 10 }, (_, i) =>
+        '<span class="dnd-life-seg' + (i < filled ? ' is-on' : '') + '"></span>'
+      ).join('');
+
+      lifeBar.appendChild(heart);
+      lifeBar.appendChild(track);
+
+      const slots = document.createElement('div');
+      slots.className = 'dnd-life-slots';
+      slots.setAttribute('aria-label', 'Verfügbare Zauberplätze');
+      const dropSvg = typeof dndSlotDropSvg === 'function'
+        ? dndSlotDropSvg()
+        : '<svg viewBox="0 0 16 20" aria-hidden="true" focusable="false"><path class="drop-fill" d="M8 1.2C8 1.2 2.2 8.2 2.2 12.2a5.8 5.8 0 0 0 11.6 0C13.8 8.2 8 1.2 8 1.2z"/></svg>';
+      const groups = [];
+      for (let level = 1; level <= 9; level++) {
+        const slot = dnd.spellSlots && dnd.spellSlots[level];
+        const max = Math.max(0, Math.min(12, Number(String((slot && slot.max) || '').replace(',', '.')) || 0));
+        if (!max) continue;
+        const used = Math.min(Math.max(0, Number(String((slot && slot.used) || '').replace(',', '.')) || 0), max);
+        let drops = '';
+        for (let i = 1; i <= max; i++) {
+          const spent = i <= used;
+          drops += '<button type="button" class="dnd-slot-drop' + (spent ? ' is-used' : ' is-ready') + '"' +
+            ' data-kampf-slot-pip="' + level + '" data-n="' + i + '"' +
+            (canRes ? '' : ' disabled') +
+            ' title="Grad ' + level + (spent ? ' · verbraucht' : ' · verfügbar') + '">' +
+            dropSvg + '</button>';
+        }
+        groups.push('<div class="dnd-slot-drop-group" data-level="' + level + '" title="Grad ' + level + '">' + drops + '</div>');
+      }
+      if (groups.length) {
+        slots.hidden = false;
+        slots.innerHTML = groups.join('');
+      } else {
+        slots.hidden = true;
+      }
+      if (canRes) {
+        slots.addEventListener('click', ev => {
+          const btn = ev.target.closest('[data-kampf-slot-pip]');
+          if (!btn || btn.disabled) return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          const level = Number(btn.getAttribute('data-kampf-slot-pip'));
+          const n = Number(btn.getAttribute('data-n'));
+          if (!dnd.spellSlots[level]) dnd.spellSlots[level] = { max: '', used: '0' };
+          const usedNow = Math.max(0, Number(String(dnd.spellSlots[level].used || '').replace(',', '.')) || 0);
+          dnd.spellSlots[level].used = String(usedNow === n ? Math.max(0, n - 1) : n);
+          persistKampfPlayerDnd(row, dnd);
+          renderKampf();
+        });
+      }
+
+      life.appendChild(lifeBar);
+      life.appendChild(slots);
+
+      const left = document.createElement('div');
+      left.className = 'dnd-hp-left';
+      const maxTemp = document.createElement('div');
+      maxTemp.className = 'dnd-inline dnd-hp-max-temp';
+      const maxLabel = document.createElement('label');
+      maxLabel.textContent = 'Max';
+      const maxInput = document.createElement('input');
+      maxInput.inputMode = 'numeric';
+      maxInput.placeholder = 'max';
+      maxInput.title = 'Maximale TP';
+      maxInput.value = hpMax ? String(hpMax) : '';
+      maxInput.disabled = !canMax;
+      maxInput.onchange = () => {
+        if (!canMax) return;
+        row.hpMax = Math.max(0, Number(maxInput.value) || 0);
+        dnd.hpMax = row.hpMax ? String(row.hpMax) : '';
+        if (row.hpMax && row.hp > row.hpMax) row.hp = row.hpMax;
+        dnd.hpCurrent = String(row.hp);
+        persistKampfPlayerDnd(row, dnd);
+        refreshCombatantVisual(row);
+        renderKampf();
+      };
+      const tempLabel = document.createElement('label');
+      tempLabel.textContent = 'Temp.';
+      const tempInput = document.createElement('input');
+      tempInput.inputMode = 'numeric';
+      tempInput.placeholder = '0';
+      tempInput.title = 'Temporäre TP';
+      tempInput.value = tempHp ? String(tempHp) : '';
+      tempInput.disabled = !canHp;
+      tempInput.onchange = () => {
+        if (!canHp) return;
+        row.tempHp = Math.max(0, Number(tempInput.value) || 0);
+        dnd.hpTemp = row.tempHp ? String(row.tempHp) : '';
+        persistKampfPlayerDnd(row, dnd);
+        refreshCombatantVisual(row);
+        renderKampf();
+      };
+      maxTemp.appendChild(maxLabel);
+      maxTemp.appendChild(maxInput);
+      maxTemp.appendChild(tempLabel);
+      maxTemp.appendChild(tempInput);
+
+      const tools = document.createElement('div');
+      tools.className = 'dnd-hp-tools';
+      const delta = document.createElement('input');
+      delta.inputMode = 'numeric';
+      delta.placeholder = '0';
+      delta.title = 'Heilung / Schaden';
+      delta.disabled = !canHp;
+      const healBtn = document.createElement('button');
+      healBtn.type = 'button';
+      healBtn.className = 'is-heal';
+      healBtn.textContent = 'Heilen';
+      healBtn.disabled = !canHp;
+      healBtn.onclick = ev => {
+        ev.stopPropagation();
+        if (!canHp) return;
+        applyCombatDamage(row.id, Math.max(0, Number(delta.value) || 0), true);
+      };
+      const dmgBtn = document.createElement('button');
+      dmgBtn.type = 'button';
+      dmgBtn.className = 'is-dmg';
+      dmgBtn.textContent = 'Schaden';
+      dmgBtn.disabled = !canHp;
+      dmgBtn.onclick = ev => {
+        ev.stopPropagation();
+        if (!canHp) return;
+        applyCombatDamage(row.id, Math.max(0, Number(delta.value) || 0), false);
+      };
+      delta.onkeydown = ev => {
+        if (ev.key !== 'Enter' || !canHp) return;
+        ev.preventDefault();
+        applyCombatDamage(row.id, Math.max(0, Number(delta.value) || 0), false);
+      };
+      tools.appendChild(delta);
+      tools.appendChild(healBtn);
+      tools.appendChild(dmgBtn);
+
+      const acRow = document.createElement('div');
+      acRow.className = 'dnd-inline kampf-life-ac';
+      const acLabel = document.createElement('label');
+      acLabel.textContent = 'RK';
+      const acInput = document.createElement('input');
+      acInput.value = row.ac || '';
+      acInput.placeholder = '—';
+      acInput.title = 'Rüstungsklasse';
+      acInput.disabled = !(typeof isDM !== 'undefined' && isDM);
+      acInput.onchange = () => {
+        row.ac = (acInput.value || '').trim();
+        touchCombatant(row);
+        persistCombat();
+      };
+      acRow.appendChild(acLabel);
+      acRow.appendChild(acInput);
+
+      left.appendChild(maxTemp);
+      left.appendChild(tools);
+      left.appendChild(acRow);
+
+      const side = document.createElement('div');
+      side.className = 'dnd-hp-side';
+      const death = document.createElement('div');
+      death.className = 'dnd-death';
+      const mkPips = (label, kind, value, fail) => {
+        const wrap = document.createElement('div');
+        const lab = document.createElement('label');
+        lab.textContent = label;
+        const pips = document.createElement('div');
+        pips.className = 'dnd-pips';
+        for (let i = 1; i <= 3; i++) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'dnd-pip' + (fail ? ' is-fail' : '') + (value >= i ? ' is-on' : '');
+          btn.disabled = !canRes;
+          btn.setAttribute('data-kampf-death', kind);
+          btn.setAttribute('data-n', String(i));
+          btn.onclick = ev => {
+            ev.stopPropagation();
+            if (!canRes) return;
+            const cur = kind === 'success' ? (Number(dnd.deathSuccess) || 0) : (Number(dnd.deathFail) || 0);
+            const next = cur === i ? Math.max(0, i - 1) : i;
+            if (kind === 'success') dnd.deathSuccess = next;
+            else dnd.deathFail = next;
+            persistKampfPlayerDnd(row, dnd);
+            renderKampf();
+          };
+          pips.appendChild(btn);
+        }
+        wrap.appendChild(lab);
+        wrap.appendChild(pips);
+        return wrap;
+      };
+      death.appendChild(mkPips('Erfolge', 'success', deathOk, false));
+      death.appendChild(mkPips('Fehlschläge', 'fail', deathFail, true));
+      side.appendChild(death);
+
+      box.appendChild(life);
+      box.appendChild(left);
+      box.appendChild(side);
+      box.addEventListener('click', ev => ev.stopPropagation());
+      box.addEventListener('pointerdown', ev => ev.stopPropagation());
+      return box;
+    }
+
     function kampfCompactItem(row) {
       const el = document.createElement('div');
       el.className = 'kampf-side-item ' + (row.kind === 'player' ? 'is-player' : 'is-enemy');
@@ -4727,6 +5021,20 @@
           const fill = bar.querySelector('span');
           if (fill) fill.style.width = pct + '%';
         }
+        const lifeTrack = el.querySelector('.kampf-player-life .dnd-life-track');
+        if (lifeTrack) {
+          const filled = kampfHpSegmentsFilled(row.hp, row.hpMax);
+          lifeTrack.setAttribute('aria-valuenow', String(filled));
+          lifeTrack.setAttribute('aria-valuetext', (Number(row.hp) || 0) + ' / ' + (Number(row.hpMax) || 0) + ' TP');
+          lifeTrack.title = (Number(row.hp) || 0) + ' / ' + (Number(row.hpMax) || 0) + ' TP';
+          lifeTrack.innerHTML = Array.from({ length: 10 }, (_, i) =>
+            '<span class="dnd-life-seg' + (i < filled ? ' is-on' : '') + '"></span>'
+          ).join('');
+        }
+        const heartVal = el.querySelector('.kampf-player-life .dnd-life-heart-val');
+        if (heartVal && document.activeElement !== heartVal) {
+          heartVal.value = String(Number(row.hp) || 0);
+        }
         const hp = el.querySelector('.kampf-side-hp');
         if (hp) {
           hp.textContent = (Number(row.hp) || 0) + '/' + (Number(row.hpMax) || 0);
@@ -5032,90 +5340,95 @@
         top.appendChild(who);
         top.appendChild(tools);
 
-        const hpBox = document.createElement('div');
-        hpBox.className = 'kampf-hp';
-        const hpRow = document.createElement('div');
-        hpRow.className = 'kampf-hp-row';
-        const hpNow = kampfNumberInput(row.hp, el => {
-          row.hp = Number(el.value) || 0;
-          refreshCombatantVisual(row);
-        });
-        const hpMax = kampfNumberInput(row.hpMax, el => {
-          row.hpMax = Math.max(0, Number(el.value) || 0);
-          refreshCombatantVisual(row);
-        });
-        const acInput = document.createElement('input');
-        acInput.value = row.ac;
-        acInput.placeholder = '—';
-        acInput.onchange = () => {
-          row.ac = (acInput.value || '').trim();
-          touchCombatant(row);
-          persistCombat();
-        };
-        const tempInput = kampfNumberInput(row.tempHp, el => {
-          row.tempHp = Math.max(0, Number(el.value) || 0);
-          refreshCombatantVisual(row);
-        }, { min: '0' });
-        hpRow.appendChild(kampfLabeledInput('TP', hpNow));
-        const slash = document.createElement('span');
-        slash.textContent = '/';
-        slash.style.color = 'var(--muted)';
-        hpRow.appendChild(slash);
-        hpRow.appendChild(hpMax);
-        hpRow.appendChild(kampfLabeledInput('Temp', tempInput));
-        hpRow.appendChild(kampfLabeledInput('Rüstung', acInput));
-        if (!combat.started) {
-          const dmg = kampfNumberInput('', () => {}, { min: '0', placeholder: '0' });
-          dmg.value = '';
-          dmg.onkeydown = ev => {
-            if (ev.key === 'Enter') {
-              ev.preventDefault();
-              applyCombatDamage(row.id, combatDamageAmount(dmg), false);
-            }
+        let hpBox;
+        if (row.kind === 'player') {
+          hpBox = kampfPlayerLifeBlock(row);
+        } else {
+          hpBox = document.createElement('div');
+          hpBox.className = 'kampf-hp';
+          const hpRow = document.createElement('div');
+          hpRow.className = 'kampf-hp-row';
+          const hpNow = kampfNumberInput(row.hp, el => {
+            row.hp = Number(el.value) || 0;
+            refreshCombatantVisual(row);
+          });
+          const hpMax = kampfNumberInput(row.hpMax, el => {
+            row.hpMax = Math.max(0, Number(el.value) || 0);
+            refreshCombatantVisual(row);
+          });
+          const acInput = document.createElement('input');
+          acInput.value = row.ac;
+          acInput.placeholder = '—';
+          acInput.onchange = () => {
+            row.ac = (acInput.value || '').trim();
+            touchCombatant(row);
+            persistCombat();
           };
-          const hit = document.createElement('button');
-          hit.type = 'button';
-          hit.className = 'danger kampf-act-hit';
-          hit.textContent = '−';
-          hit.title = 'Schaden';
-          hit.onclick = () => applyCombatDamage(row.id, combatDamageAmount(dmg), false);
-          const heal = document.createElement('button');
-          heal.type = 'button';
-          heal.className = 'ghost';
-          heal.textContent = '+';
-          heal.title = 'Heilung';
-          heal.onclick = () => applyCombatDamage(row.id, combatDamageAmount(dmg), true);
-          hpRow.appendChild(kampfLabeledInput('Schaden', dmg));
-          hpRow.appendChild(hit);
-          hpRow.appendChild(heal);
-        }
-        const countInput = kampfNumberInput(row.count, el => {
-          row.count = Math.max(0, Number(el.value) || 0);
-          refreshCombatantVisual(row);
-        }, { min: '0' });
-        const countMax = kampfNumberInput(row.countMax, el => {
-          row.countMax = Math.max(1, Number(el.value) || 1);
-          refreshCombatantVisual(row);
-        }, { min: '1' });
-        const minus = document.createElement('button');
-        minus.type = 'button';
-        minus.className = 'ghost';
-        minus.textContent = 'Einer tot';
-        minus.onclick = () => {
-          row.count = Math.max(0, (Number(row.count) || 0) - 1);
-          countInput.value = row.count;
-          refreshCombatantVisual(row);
-        };
-        hpRow.appendChild(kampfLabeledInput('Anzahl', countInput));
-        const cSlash = document.createElement('span');
-        cSlash.textContent = '/';
-        cSlash.style.color = 'var(--muted)';
-        hpRow.appendChild(cSlash);
-        hpRow.appendChild(countMax);
-        hpRow.appendChild(minus);
+          const tempInput = kampfNumberInput(row.tempHp, el => {
+            row.tempHp = Math.max(0, Number(el.value) || 0);
+            refreshCombatantVisual(row);
+          }, { min: '0' });
+          hpRow.appendChild(kampfLabeledInput('TP', hpNow));
+          const slash = document.createElement('span');
+          slash.textContent = '/';
+          slash.style.color = 'var(--muted)';
+          hpRow.appendChild(slash);
+          hpRow.appendChild(hpMax);
+          hpRow.appendChild(kampfLabeledInput('Temp', tempInput));
+          hpRow.appendChild(kampfLabeledInput('Rüstung', acInput));
+          if (!combat.started) {
+            const dmg = kampfNumberInput('', () => {}, { min: '0', placeholder: '0' });
+            dmg.value = '';
+            dmg.onkeydown = ev => {
+              if (ev.key === 'Enter') {
+                ev.preventDefault();
+                applyCombatDamage(row.id, combatDamageAmount(dmg), false);
+              }
+            };
+            const hit = document.createElement('button');
+            hit.type = 'button';
+            hit.className = 'danger kampf-act-hit';
+            hit.textContent = '−';
+            hit.title = 'Schaden';
+            hit.onclick = () => applyCombatDamage(row.id, combatDamageAmount(dmg), false);
+            const heal = document.createElement('button');
+            heal.type = 'button';
+            heal.className = 'ghost';
+            heal.textContent = '+';
+            heal.title = 'Heilung';
+            heal.onclick = () => applyCombatDamage(row.id, combatDamageAmount(dmg), true);
+            hpRow.appendChild(kampfLabeledInput('Schaden', dmg));
+            hpRow.appendChild(hit);
+            hpRow.appendChild(heal);
+          }
+          const countInput = kampfNumberInput(row.count, el => {
+            row.count = Math.max(0, Number(el.value) || 0);
+            refreshCombatantVisual(row);
+          }, { min: '0' });
+          const countMax = kampfNumberInput(row.countMax, el => {
+            row.countMax = Math.max(1, Number(el.value) || 1);
+            refreshCombatantVisual(row);
+          }, { min: '1' });
+          const minus = document.createElement('button');
+          minus.type = 'button';
+          minus.className = 'ghost';
+          minus.textContent = 'Einer tot';
+          minus.onclick = () => {
+            row.count = Math.max(0, (Number(row.count) || 0) - 1);
+            countInput.value = row.count;
+            refreshCombatantVisual(row);
+          };
+          hpRow.appendChild(kampfLabeledInput('Anzahl', countInput));
+          const cSlash = document.createElement('span');
+          cSlash.textContent = '/';
+          cSlash.style.color = 'var(--muted)';
+          hpRow.appendChild(cSlash);
+          hpRow.appendChild(countMax);
+          hpRow.appendChild(minus);
 
-        hpBox.appendChild(hpRow);
-        hpBox.appendChild(combatHpBarEl(row));
+          hpBox.appendChild(hpRow);
+          hpBox.appendChild(combatHpBarEl(row));
+        }
 
         const deb = document.createElement('div');
         deb.className = 'kampf-debuffs';
