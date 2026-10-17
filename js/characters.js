@@ -2681,9 +2681,7 @@
         groups.push('<div class="dnd-slot-drop-group" data-level="' + level + '" title="Grad ' + level + '">' + drops + '</div>');
       }
       box.hidden = !groups.length;
-      box.innerHTML = groups.length
-        ? '<span class="dnd-slot-legend" title="Gefüllt = verfügbar; Verbrauch von rechts nach links">gefüllt = verfügbar · rechts zuerst</span>' + groups.join('')
-        : '';
+      box.innerHTML = groups.join('');
     }
 
     function renderDndSlots() {

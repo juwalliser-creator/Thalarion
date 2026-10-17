@@ -1192,13 +1192,6 @@ body.is-dm #charMainCard #dndHpDelta {
   padding-left: 1.85rem;
 }
 .dnd-life-slots[hidden] { display: none !important; }
-.dnd-slot-legend {
-  font-size: 0.62rem;
-  letter-spacing: 0.02em;
-  opacity: 0.55;
-  margin-right: 0.15rem;
-  white-space: nowrap;
-}
 .dnd-slot-drop-group {
   display: inline-flex;
   align-items: center;
