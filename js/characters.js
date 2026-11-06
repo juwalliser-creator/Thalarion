@@ -184,19 +184,33 @@
       return changed;
     }
 
+    function dndLooksLikeCaster(dnd, sheet) {
+      const klasse = String((dnd && dnd.klasse) || (sheet && sheet.klasse) || '');
+      if (/fighter|krieger|rogue|schurk|barbarian|barbar|mönch|monk|warrior/i.test(klasse) &&
+          !/eldritch|hexen|warlock|magie|wizard|sorcer|bard|cleric|klerik|druid|paladin|ranger|hexer/i.test(klasse)) {
+        return false;
+      }
+      if (/wizard|magier|sorcer|hexenmeister|warlock|bard|cleric|klerik|druid|druide|paladin|ranger|waldläufer/i.test(klasse)) return true;
+      const spells = (dnd && dnd.spells) || [];
+      return spells.some(s => s && String(s.name || '').trim());
+    }
+
     function ensureCasterSpellSlots(accs) {
       if (!accs) return false;
       let changed = false;
       const yuvi = accs[YUVI_ID];
       if (yuvi && yuvi.sheet) {
         yuvi.sheet.dnd = normalizeDndSheet(yuvi.sheet.dnd);
-        if (ensureMinSpellSlots(yuvi.sheet.dnd, { 1: 4, 2: 2 })) changed = true;
-        if (ensureKnownSpellLevels(yuvi.sheet.dnd)) changed = true;
+        if (dndLooksLikeCaster(yuvi.sheet.dnd, yuvi.sheet)) {
+          if (ensureMinSpellSlots(yuvi.sheet.dnd, { 1: 4, 2: 2 })) changed = true;
+          if (ensureKnownSpellLevels(yuvi.sheet.dnd)) changed = true;
+        }
       }
       Object.keys(accs).forEach(id => {
         const acc = accs[id];
         if (!accountMatchesName(id, acc, /nemeia/i) || !acc.sheet) return;
         acc.sheet.dnd = normalizeDndSheet(acc.sheet.dnd);
+        if (!dndLooksLikeCaster(acc.sheet.dnd, acc.sheet)) return;
         if (ensureMinSpellSlots(acc.sheet.dnd, { 1: 4, 2: 3 })) changed = true;
         if (ensureKnownSpellLevels(acc.sheet.dnd)) changed = true;
       });
@@ -229,6 +243,9 @@
       if (!acc || !acc.sheet) return false;
       if (!acc.sheet.dnd || typeof acc.sheet.dnd !== 'object') acc.sheet.dnd = emptyDndSheet();
       const dnd = acc.sheet.dnd;
+      const klasse = String(dnd.klasse || acc.sheet.klasse || '');
+      // Only patch the Echo-Knight loadout — not other PCs on this account (e.g. Black Wizard).
+      if (klasse && !/fighter|krieger|echo/i.test(klasse)) return false;
       let changed = false;
       const gear = String(dnd.gear || '');
       if (!/sunburst/i.test(gear)) {
