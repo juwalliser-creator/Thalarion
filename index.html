@@ -785,6 +785,27 @@
             <div class="seal">D</div>
             <h1>Dungeon</h1>
           </div>
+          <div class="kampf-bar dungeon-kampf-bar">
+            <span class="kampf-round" id="dungeonKampfRound">Erkundung</span>
+            <div class="battle-tools">
+              <span class="dm-only-tools">
+                <button class="primary" id="dungeonKampfStartBtn" type="button">Kampf starten</button>
+                <button class="ghost hidden" id="dungeonKampfInitAllBtn" type="button">Initiative würfeln</button>
+                <button class="ghost hidden" id="dungeonKampfPrevBtn" type="button">Zurück</button>
+                <button class="ghost hidden" id="dungeonKampfSkipBtn" type="button">Überspringen</button>
+                <button class="ghost" id="dungeonKampfEndBtn" type="button">Kampf beenden</button>
+              </span>
+              <button class="ghost hidden" id="dungeonKampfReadyBtn" type="button">Bereit</button>
+              <button class="ghost hidden" id="dungeonKampfDelayBtn" type="button">Aufschieben</button>
+              <button class="primary hidden" id="dungeonKampfNextBtn" type="button">Zug beenden</button>
+            </div>
+          </div>
+          <div class="kampf-act" id="dungeonKampfActBar">
+            <span class="kampf-econ" id="dungeonKampfEcon"></span>
+            <span class="kampf-act-name" id="dungeonKampfActHint"></span>
+            <button class="primary hidden" id="dungeonKampfResolveBtn" type="button">Wirken</button>
+            <button class="ghost hidden" id="dungeonKampfAimCancel" type="button">Abbrechen</button>
+          </div>
           <div class="dungeon-bar">
             <div class="battle-tools dungeon-tools">
               <span class="dm-only-tools dungeon-add-tools">
@@ -794,6 +815,7 @@
                     <div class="dungeon-add-row dungeon-fig-tabs">
                       <button class="primary" id="dungeonFigTabPlayers" type="button">Spieler</button>
                       <button class="ghost" id="dungeonFigTabNpcs" type="button">NPCs</button>
+                      <button class="ghost" id="dungeonFigTabMonsters" type="button">Monster</button>
                       <button class="ghost" id="dungeonFigTabTokens" type="button">Tokens</button>
                     </div>
                     <div id="dungeonFigPanePlayers" class="dungeon-fig-pane">
@@ -801,6 +823,9 @@
                     </div>
                     <div id="dungeonFigPaneNpcs" class="dungeon-fig-pane hidden">
                       <div class="dungeon-pick-list" id="dungeonNpcList"></div>
+                    </div>
+                    <div id="dungeonFigPaneMonsters" class="dungeon-fig-pane hidden">
+                      <div class="dungeon-pick-list" id="dungeonMonsterList"></div>
                     </div>
                     <div id="dungeonFigPaneTokens" class="dungeon-fig-pane hidden">
                       <div class="dungeon-menu-section">
@@ -829,7 +854,7 @@
                         <h4>Auf der Karte</h4>
                         <div class="dungeon-pick-list" id="dungeonTokenList"></div>
                         <button class="ghost" id="dungeonClearRevealsBtn" type="button">Erkundung zurücksetzen</button>
-                        <button class="ghost" id="dungeonToCombatBtn" type="button">In Kampf übernehmen</button>
+                        <button class="ghost" id="dungeonToCombatBtn" type="button">Figuren in Kampf laden</button>
                       </div>
                     </div>
                   </div>
@@ -900,22 +925,27 @@
               </span>
             </div>
           </div>
-          <div class="dungeon-stage-wrap">
-            <div class="dungeon-card">
-              <div class="battle-board" id="dungeonBoard">
-                <button class="dungeon-fog-toggle dm-only-tools hidden" id="dungeonFogBtn" type="button" title="Nebel an/aus" aria-label="Nebel an/aus">
-                  <svg class="dungeon-fog-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path fill="currentColor" d="M7.5 18a4.5 4.5 0 0 1-.4-9 6 6 0 0 1 11.5-1.6A4.2 4.2 0 0 1 19.5 18H7.5zm-2.2-2H19a2.2 2.2 0 0 0 .2-4.4 4 4 0 0 0-7.7-1.5A4 4 0 0 0 5.3 16z"/>
-                  </svg>
-                </button>
-                <p class="battle-empty" id="dungeonEmpty"></p>
-                <div class="battle-stage hidden" id="dungeonStage">
-                  <img class="battle-map" id="dungeonImg" alt="Dungeon" draggable="false" />
-                  <canvas class="battle-fog dungeon-fog hidden" id="dungeonFog" aria-hidden="true"></canvas>
-                  <div class="battle-tokens" id="dungeonTokens"></div>
+          <div class="dungeon-kampf-stage" id="dungeonKampfStage">
+            <div class="dungeon-stage-wrap">
+              <div class="dungeon-card">
+                <div class="kampf-init-strip hidden" id="dungeonKampfInitStrip" aria-label="Initiative"></div>
+                <div class="battle-board" id="dungeonBoard">
+                  <button class="dungeon-fog-toggle dm-only-tools hidden" id="dungeonFogBtn" type="button" title="Nebel an/aus" aria-label="Nebel an/aus">
+                    <svg class="dungeon-fog-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path fill="currentColor" d="M7.5 18a4.5 4.5 0 0 1-.4-9 6 6 0 0 1 11.5-1.6A4.2 4.2 0 0 1 19.5 18H7.5zm-2.2-2H19a2.2 2.2 0 0 0 .2-4.4 4 4 0 0 0-7.7-1.5A4 4 0 0 0 5.3 16z"/>
+                    </svg>
+                  </button>
+                  <p class="battle-empty" id="dungeonEmpty"></p>
+                  <div class="battle-stage hidden" id="dungeonStage">
+                    <img class="battle-map" id="dungeonImg" alt="Dungeon" draggable="false" />
+                    <canvas class="battle-fog dungeon-fog hidden" id="dungeonFog" aria-hidden="true"></canvas>
+                    <div class="battle-tokens" id="dungeonTokens"></div>
+                  </div>
                 </div>
               </div>
+              <div class="kampf-log hidden" id="dungeonKampfLog"></div>
             </div>
+            <div class="kampf-list" id="dungeonKampfList"></div>
           </div>
         </section>
 

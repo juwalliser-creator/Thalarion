@@ -359,14 +359,16 @@
     function applyBattleLinkHighlight() {
       const id = battleLinkHoverId || battleLinkPinnedId;
       document.querySelectorAll('.battle-token, .kampf-card, .kampf-side-item').forEach(el => {
-        el.classList.toggle('is-linked', !!(id && el.dataset.id === id));
+        const elId = el.dataset.combatId || el.dataset.id;
+        el.classList.toggle('is-linked', !!(id && elId === id));
       });
     }
 
     function applyBattleTurnHighlight() {
       document.querySelectorAll('.battle-token').forEach(el => {
-        el.classList.toggle('is-turn', isCombatantActiveTurn(el.dataset.id));
-        const row = combatantById(el.dataset.id);
+        const id = el.dataset.combatId || el.dataset.id;
+        el.classList.toggle('is-turn', isCombatantActiveTurn(id));
+        const row = combatantById(id);
         el.classList.toggle('is-down', !!(row && combatantDown(row)));
       });
       applyKampfAimHighlight();
@@ -380,8 +382,9 @@
 
     function applyKampfAimHighlight() {
       document.querySelectorAll('.battle-token, .kampf-card, .kampf-side-item, .kampf-init-item').forEach(el => {
-        el.classList.toggle('is-aim-from', !!(kampfAimFrom && el.dataset.id === kampfAimFrom));
-        el.classList.toggle('is-aim-to', kampfIsAimTarget(el.dataset.id));
+        const id = el.dataset.combatId || el.dataset.id;
+        el.classList.toggle('is-aim-from', !!(kampfAimFrom && id === kampfAimFrom));
+        el.classList.toggle('is-aim-to', kampfIsAimTarget(id));
       });
     }
 
@@ -421,7 +424,7 @@
           return;
         }
         setBattleLink(id, true);
-        const token = document.querySelector('.battle-token[data-id="' + CSS.escape(id) + '"]');
+        const token = combatTokenEl(id);
         if (token) token.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       });
     }
@@ -493,6 +496,8 @@
       if (currentPage === 'kampf') {
         renderKampf();
         renderBattleBoards();
+      } else if (currentPage === 'dungeon') {
+        renderKampf();
       }
     }
 
@@ -529,7 +534,7 @@
           combat = mergeCombatStates(wrote, combatPayload());
           persistCombatLocal();
           applyBattleTurnHighlight();
-          if (currentPage === 'kampf') renderKampf();
+          if (currentPage === 'kampf' || currentPage === 'dungeon') renderKampf();
         }
       } catch (err) {
         toast('Kampfstand konnte nicht gespeichert werden: ' + err.message);
@@ -2971,11 +2976,33 @@
       return Math.max(0, Math.round(Math.max(Math.abs(dx), Math.abs(dy)))) * 5;
     }
 
+    function combatUsesDungeonBoard() {
+      return currentPage === 'dungeon';
+    }
+
+    function kampfTokenPos(id) {
+      if (!id) return null;
+      if (combatUsesDungeonBoard() && typeof dungeonTokenByCombatId === 'function') {
+        const dt = dungeonTokenByCombatId(id);
+        if (dt) return dt;
+      }
+      return (battle.tokens || []).find(t => t.id === id) || null;
+    }
+
     function kampfTokenDistanceFeet(idA, idB) {
-      const a = (battle.tokens || []).find(t => t.id === idA);
-      const b = (battle.tokens || []).find(t => t.id === idB);
+      const a = kampfTokenPos(idA);
+      const b = kampfTokenPos(idB);
       if (!a || !b) return 0;
+      if (combatUsesDungeonBoard() && typeof dungeonPctDistanceFeet === 'function') {
+        return dungeonPctDistanceFeet(a, b);
+      }
       return kampfPctDistanceFeet(a, b);
+    }
+
+    function combatTokenEl(id) {
+      if (!id) return null;
+      return document.querySelector('.battle-token[data-id="' + CSS.escape(id) + '"]')
+        || document.querySelector('.battle-token[data-combat-id="' + CSS.escape(id) + '"]');
     }
 
     function kampfActionEconomy(action) {
@@ -3643,8 +3670,8 @@
       ensureKampfFloatHost(box);
       bindKampfFloatUi();
       const id = (kampfPowerPhase === 'intent' || kampfPowerPhase === 'effect') ? (kampfAimTo || kampfAimFrom) : kampfAimFrom;
-      const tokenEl = id ? document.querySelector('.battle-token[data-id="' + CSS.escape(id) + '"]') : null;
-      const board = document.getElementById('kampfBattleBoard');
+      const tokenEl = combatTokenEl(id);
+      const board = document.getElementById(combatUsesDungeonBoard() ? 'dungeonBoard' : 'kampfBattleBoard');
       const anchor = tokenEl || board;
       if (!anchor) return;
       const r = anchor.getBoundingClientRect();
@@ -3671,8 +3698,8 @@
       ensureKampfFloatHost(box);
       bindKampfFloatUi();
       const id = kampfAimTo || kampfAimFrom;
-      const tokenEl = id ? document.querySelector('.battle-token[data-id="' + CSS.escape(id) + '"]') : null;
-      const board = document.getElementById('kampfBattleBoard');
+      const tokenEl = combatTokenEl(id);
+      const board = document.getElementById(combatUsesDungeonBoard() ? 'dungeonBoard' : 'kampfBattleBoard');
       const anchor = tokenEl || board;
       if (!anchor) return;
       const r = anchor.getBoundingClientRect();
@@ -4068,6 +4095,7 @@
       renderKampfPowerOverlay();
       syncKampfAimUi();
       renderBattleBoards();
+      if (combatUsesDungeonBoard() && typeof renderDungeon === 'function') renderDungeon();
     }
 
     function fillKampfEffectSuggest() {
@@ -4087,35 +4115,34 @@
 
     function syncKampfAimUi() {
       applyKampfAimHighlight();
-      const hint = document.getElementById('kampfActHint');
-      const econ = document.getElementById('kampfEcon');
+      const hints = [document.getElementById('kampfActHint'), document.getElementById('dungeonKampfActHint')].filter(Boolean);
+      const econs = [document.getElementById('kampfEcon'), document.getElementById('dungeonKampfEcon')].filter(Boolean);
+      const cancels = [document.getElementById('kampfAimCancel'), document.getElementById('dungeonKampfAimCancel')].filter(Boolean);
+      const resolveBtns = [document.getElementById('kampfResolveBtn'), document.getElementById('dungeonKampfResolveBtn')].filter(Boolean);
       const panel = document.getElementById('kampfActionPanel');
-      const cancel = document.getElementById('kampfAimCancel');
-      const resolveBtn = document.getElementById('kampfResolveBtn');
       const effects = document.getElementById('kampfActionEffects');
       const who = document.getElementById('kampfActionWho');
       const from = combatantById(kampfAimFrom);
       const to = combatantById(kampfAimTo);
       const turnRow = combatantById(combat.activeId) || from;
-      if (econ) {
+      const setHints = text => hints.forEach(hint => { hint.textContent = text; });
+      econs.forEach(econ => {
         const show = !!(combat.started && turnRow && (isDM || isMyCombatTurn()));
         econ.textContent = show ? kampfEconLabel(turnRow) : '';
-      }
-      if (cancel) cancel.classList.toggle('hidden', !kampfAimFrom);
-      if (resolveBtn) {
-        const areaAim = kampfPowerPhase === 'aim' && kampfPowerAction && kampfActionIsArea(kampfPowerAction) && kampfAimTargets.length;
-        resolveBtn.classList.toggle('hidden', !areaAim);
-      }
+      });
+      cancels.forEach(cancel => cancel.classList.toggle('hidden', !kampfAimFrom));
+      const areaAim = kampfPowerPhase === 'aim' && kampfPowerAction && kampfActionIsArea(kampfPowerAction) && kampfAimTargets.length;
+      resolveBtns.forEach(resolveBtn => resolveBtn.classList.toggle('hidden', !areaAim));
       if (!combat.started) {
-        if (hint) hint.textContent = '';
+        setHints('');
         if (panel) panel.classList.remove('is-open');
-        if (cancel) cancel.classList.add('hidden');
-        if (resolveBtn) resolveBtn.classList.add('hidden');
+        cancels.forEach(cancel => cancel.classList.add('hidden'));
+        resolveBtns.forEach(resolveBtn => resolveBtn.classList.add('hidden'));
         if (effects) effects.classList.add('hidden');
         return;
       }
       if (!isDM && !isMyCombatTurn()) {
-        if (hint) hint.textContent = 'Warte auf deinen Zug.';
+        setHints('Warte auf deinen Zug.');
         if (panel) panel.classList.remove('is-open');
         if (effects) effects.classList.add('hidden');
         return;
@@ -4123,22 +4150,22 @@
       if (kampfPowerPhase) {
         if (panel) panel.classList.remove('is-open');
         if (effects) effects.classList.add('hidden');
-        if (hint && from) {
-          if (kampfPowerPhase === 'pick') hint.textContent = from.name + ': Aktion oder Bonusaktion wählen.';
+        if (from) {
+          if (kampfPowerPhase === 'pick') setHints(from.name + ': Aktion oder Bonusaktion wählen.');
           else if (kampfActionIsArea(kampfPowerAction) && kampfAimTargets.length) {
-            hint.textContent = from.name + ' · ' + (kampfPowerAction.name || 'Aktion') + ' · ' + kampfAimTargets.length + ' Ziel(e) · Wirken oder weiteres Ziel.';
-          } else hint.textContent = from.name + ' · ' + ((kampfPowerAction && kampfPowerAction.name) || 'Aktion') + ' → Ziel antippen.';
+            setHints(from.name + ' · ' + (kampfPowerAction.name || 'Aktion') + ' · ' + kampfAimTargets.length + ' Ziel(e) · Wirken oder weiteres Ziel.');
+          } else setHints(from.name + ' · ' + ((kampfPowerAction && kampfPowerAction.name) || 'Aktion') + ' → Ziel antippen.');
         }
         return;
       }
       if (!from) {
-        if (hint) hint.textContent = isDM ? '' : combatPlayerTurnHint();
+        setHints(isDM ? '' : combatPlayerTurnHint());
         if (panel) panel.classList.remove('is-open');
       } else if (!to) {
-        if (hint) hint.textContent = from.name + ' → Ziel antippen.';
+        setHints(from.name + ' → Ziel antippen.');
         if (panel) panel.classList.remove('is-open');
       } else {
-        if (hint) hint.textContent = kampfAimLabel();
+        setHints(kampfAimLabel());
         if (who) who.textContent = kampfAimLabel();
         if (panel) {
           panel.classList.add('is-open');
@@ -4631,38 +4658,52 @@
     }
 
     function syncKampfChrome() {
-      const round = document.getElementById('kampfRound');
-      if (round) {
-        if (!combat.started) round.textContent = 'Aufbau';
-        else {
+      const roundText = !combat.started
+        ? (combatUsesDungeonBoard() ? 'Erkundung' : 'Aufbau')
+        : ('Runde ' + combat.round + (() => {
           const label = combatGroupLabel(activeCombatGroupKey());
-          round.textContent = 'Runde ' + combat.round + (label ? ' · ' + label : '');
-        }
-      }
+          return label ? ' · ' + label : '';
+        })());
+      ['kampfRound', 'dungeonKampfRound'].forEach(id => {
+        const round = document.getElementById(id);
+        if (round) round.textContent = roundText;
+      });
       const add = document.getElementById('kampfAdd');
       if (add) add.classList.remove('hidden');
-      const startBtn = document.getElementById('kampfStartBtn');
-      if (startBtn) startBtn.classList.toggle('hidden', !isDM || combat.started);
-      const initAll = document.getElementById('kampfInitAllBtn');
-      if (initAll) {
-        initAll.classList.toggle('hidden', !isDM || combat.started || !combat.combatants.length);
-        initAll.disabled = !diceRollsEnabled();
-        initAll.title = diceRollsEnabled() ? '' : 'Würfel sind aus — Initiative selbst eintragen.';
+      const startHidden = !isDM || combat.started;
+      const initHidden = !isDM || combat.started || !combat.combatants.length;
+      [['kampfStartBtn', 'dungeonKampfStartBtn'], ['kampfInitAllBtn', 'dungeonKampfInitAllBtn']].forEach((ids, i) => {
+        ids.forEach(id => {
+          const btn = document.getElementById(id);
+          if (!btn) return;
+          btn.classList.toggle('hidden', i === 0 ? startHidden : initHidden);
+          if (i === 1) {
+            btn.disabled = !diceRollsEnabled();
+            btn.title = diceRollsEnabled() ? '' : 'Würfel sind aus — Initiative selbst eintragen.';
+          }
+        });
+      });
+      // Dungeon "Kampf starten" remains visible before combat to load+start.
+      const dungeonStart = document.getElementById('dungeonKampfStartBtn');
+      if (dungeonStart) {
+        dungeonStart.classList.toggle('hidden', !isDM || combat.started);
+        dungeonStart.textContent = combat.combatants.length && !combat.started ? 'Kampf starten' : 'Kampf starten';
       }
       const addToggle = document.getElementById('kampfAddToggleBtn');
       if (addToggle) addToggle.classList.toggle('hidden', !isDM || !combat.started);
-      const nextBtn = document.getElementById('kampfNextBtn');
-      if (nextBtn) nextBtn.classList.toggle('hidden', !canEndCombatTurn());
-      const readyBtn = document.getElementById('kampfReadyBtn');
-      if (readyBtn) readyBtn.classList.toggle('hidden', !canEndCombatTurn());
-      const delayBtn = document.getElementById('kampfDelayBtn');
-      if (delayBtn) delayBtn.classList.toggle('hidden', !canEndCombatTurn());
-      ['kampfPrevBtn', 'kampfSkipBtn'].forEach(id => {
+      const canEnd = canEndCombatTurn();
+      ['kampfNextBtn', 'dungeonKampfNextBtn', 'kampfReadyBtn', 'dungeonKampfReadyBtn', 'kampfDelayBtn', 'dungeonKampfDelayBtn'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.classList.toggle('hidden', !canEnd);
+      });
+      ['kampfPrevBtn', 'kampfSkipBtn', 'dungeonKampfPrevBtn', 'dungeonKampfSkipBtn'].forEach(id => {
         const btn = document.getElementById(id);
         if (btn) btn.classList.toggle('hidden', !isDM || !combat.started);
       });
-      const endBtn = document.getElementById('kampfEndBtn');
-      if (endBtn) endBtn.classList.toggle('hidden', !isDM);
+      ['kampfEndBtn', 'dungeonKampfEndBtn'].forEach(id => {
+        const endBtn = document.getElementById(id);
+        if (endBtn) endBtn.classList.toggle('hidden', !isDM || !combat.started);
+      });
       syncKampfAimUi();
       applyBattleTurnHighlight();
       document.querySelectorAll('.battle-stage').forEach(stage => {
@@ -4671,6 +4712,12 @@
       if (els.kampfView) els.kampfView.classList.toggle('is-live', !!combat.started);
       const stage = document.querySelector('#kampfView .kampf-stage');
       if (stage) stage.classList.toggle('is-live', !!combat.started);
+      if (els.dungeonView) {
+        els.dungeonView.classList.toggle('is-live', true);
+        els.dungeonView.classList.toggle('is-combat', !!combat.started || !!(combat.combatants && combat.combatants.length));
+      }
+      const dungeonStage = document.getElementById('dungeonKampfStage');
+      if (dungeonStage) dungeonStage.classList.toggle('is-live', !!combat.started || !!(combat.combatants && combat.combatants.length));
     }
 
     function addCombatDebuff(id, text, roundsRaw, kind, fromId) {
@@ -4726,8 +4773,13 @@
 
     function startKampf() {
       if (!isDM) return;
+      if (combatUsesDungeonBoard() && typeof transferDungeonToCombat === 'function' && (dungeon.tokens || []).length) {
+        transferDungeonToCombat({ stay: true });
+      }
       if (!combat.combatants.length) {
-        toast('Erst alle Figuren setzen und Initiative eintragen.');
+        toast(combatUsesDungeonBoard()
+          ? 'Zuerst Figuren auf die Dungeon-Karte setzen.'
+          : 'Erst alle Figuren setzen und Initiative eintragen.');
         return;
       }
       combat.started = true;
@@ -4738,6 +4790,7 @@
       persistCombat();
       renderKampf();
       renderBattleBoards();
+      if (combatUsesDungeonBoard() && typeof renderDungeon === 'function') renderDungeon();
       const who = combatGroupLabel(activeCombatGroupKey());
       toast('Kampf läuft' + (who ? ' · ' + who + (who.indexOf(' + ') >= 0 ? ' sind' : ' ist') + ' dran' : '') + '.');
     }
@@ -4928,9 +4981,10 @@
         cancelKampfAim();
         persistCombat();
         renderKampf();
+        if (typeof renderDungeon === 'function') renderDungeon();
         return;
       }
-      if (!confirm('Kampf beenden? Initiative und Kampfdaten werden gelöscht, Portraits und Gefahrenflächen bleiben auf der Karte stehen.')) return;
+      if (!confirm('Kampf beenden? Initiative und Kampfdaten werden gelöscht, Portraits bleiben auf der Karte stehen.')) return;
       combat = emptyCombat();
       combat.debuffTick = tick;
       combat.removed = removed;
@@ -4941,6 +4995,7 @@
       persistCombat();
       renderKampf();
       renderBattleBoards();
+      if (typeof renderDungeon === 'function') renderDungeon();
       toast('Kampf beendet.');
     }
 
@@ -5103,8 +5158,7 @@
       });
     }
 
-    function renderKampfInitStrip() {
-      const strip = document.getElementById('kampfInitStrip');
+    function fillKampfInitStrip(strip) {
       if (!strip) return;
       const rows = combat.combatants.length ? sortedCombatants() : [];
       strip.classList.toggle('hidden', !rows.length);
@@ -5129,6 +5183,38 @@
         bindKampfListLink(btn, row.id);
         strip.appendChild(btn);
       });
+    }
+
+    function renderKampfInitStrip() {
+      fillKampfInitStrip(document.getElementById('kampfInitStrip'));
+      fillKampfInitStrip(document.getElementById('dungeonKampfInitStrip'));
+      applyKampfAimHighlight();
+    }
+
+    function renderDungeonKampfUi() {
+      const list = document.getElementById('dungeonKampfList');
+      if (list) {
+        list.innerHTML = '';
+        list.classList.toggle('is-roster', !!combat.started);
+        const rows = combat.combatants.length ? sortedCombatants() : [];
+        rows.forEach(row => list.appendChild(kampfCompactItem(row)));
+      }
+      fillKampfInitStrip(document.getElementById('dungeonKampfInitStrip'));
+      const logBox = document.getElementById('dungeonKampfLog');
+      if (logBox) {
+        logBox.innerHTML = '';
+        if (!combat.log.length) logBox.classList.add('hidden');
+        else {
+          logBox.classList.remove('hidden');
+          combat.log.forEach(line => {
+            const div = document.createElement('div');
+            div.textContent = combatLogText(line);
+            if (!div.textContent) return;
+            logBox.appendChild(div);
+          });
+        }
+      }
+      applyBattleLinkHighlight();
       applyKampfAimHighlight();
     }
 
@@ -5154,9 +5240,14 @@
     }
 
     function renderKampf() {
-      if (!els.kampfView || els.kampfView.classList.contains('hidden')) return;
       ensureCombatTurn();
       syncKampfChrome();
+      if (combatUsesDungeonBoard()) {
+        renderDungeonKampfUi();
+        if (typeof renderDungeon === 'function') renderDungeon();
+        return;
+      }
+      if (!els.kampfView || els.kampfView.classList.contains('hidden')) return;
       if (!isDM) {
         renderPlayerKampfList();
         renderKampfInitStrip();
@@ -5574,19 +5665,21 @@
     }
 
     function renderKampfLog() {
-      const logBox = document.getElementById('kampfLog');
-      if (!logBox) return;
-      logBox.innerHTML = '';
-      if (!combat.log.length) {
-        logBox.classList.add('hidden');
-        return;
-      }
-      logBox.classList.remove('hidden');
-      combat.log.forEach(line => {
-        const div = document.createElement('div');
-        div.textContent = combatLogText(line);
-        if (!div.textContent) return;
-        logBox.appendChild(div);
+      ['kampfLog', 'dungeonKampfLog'].forEach(id => {
+        const logBox = document.getElementById(id);
+        if (!logBox) return;
+        logBox.innerHTML = '';
+        if (!combat.log.length) {
+          logBox.classList.add('hidden');
+          return;
+        }
+        logBox.classList.remove('hidden');
+        combat.log.forEach(line => {
+          const div = document.createElement('div');
+          div.textContent = combatLogText(line);
+          if (!div.textContent) return;
+          logBox.appendChild(div);
+        });
       });
     }
 

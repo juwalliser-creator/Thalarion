@@ -65,6 +65,8 @@
       if (typeof fillDungeonViewAsSelect === 'function') fillDungeonViewAsSelect();
       if (typeof fillDungeonAmbientSelect === 'function') fillDungeonAmbientSelect();
       if (typeof fillDungeonKindSelects === 'function') fillDungeonKindSelects();
+      if (typeof syncKampfChrome === 'function') syncKampfChrome();
+      if (typeof renderDungeonKampfUi === 'function') renderDungeonKampfUi();
       renderDungeon();
       const main = document.getElementById('main');
       if (main) main.scrollTop = 0;
@@ -164,8 +166,9 @@
         if (!els.entstehungView.classList.contains('hidden')) renderEntstehung();
         if (!els.sitzungView.classList.contains('hidden')) renderSitzung();
         if (currentPage === 'char' || currentPage === 'monster') renderCharakter();
-        if (currentPage === 'kampf') renderKampf();
+        if (currentPage === 'kampf' || currentPage === 'dungeon') renderKampf();
         if (currentPage === 'kampf') renderBattleBoards();
+        if (currentPage === 'dungeon' && typeof renderDungeon === 'function') renderDungeon();
         els.playerToEdit.classList.toggle('hidden', !on || currentIndex === null || els.viewer.classList.contains('hidden'));
         updateEntryToKarteBtn();
         updateExtraToolbars();
@@ -474,6 +477,14 @@
       safeBind('kampf', () => {
         onClick('kampfStartBtn', startKampf);
         onClick('kampfInitAllBtn', rollAllKampfInit);
+        onClick('dungeonKampfStartBtn', () => {
+          if (typeof startDungeonKampf === 'function') startDungeonKampf();
+          else startKampf();
+        });
+        onClick('dungeonKampfInitAllBtn', () => {
+          if (typeof transferDungeonToCombat === 'function') transferDungeonToCombat({ stay: true });
+          rollAllKampfInit();
+        });
         onClick('kampfAddToggleBtn', () => {
           const add = document.getElementById('kampfAdd');
           if (!add) return;
@@ -486,8 +497,16 @@
         onClick('kampfReadyBtn', () => markActiveKampfTurn('ready'));
         onClick('kampfDelayBtn', () => markActiveKampfTurn('delay'));
         onClick('kampfEndBtn', endCombat);
+        onClick('dungeonKampfNextBtn', nextCombatTurn);
+        onClick('dungeonKampfPrevBtn', prevCombatTurn);
+        onClick('dungeonKampfSkipBtn', skipCombatTurn);
+        onClick('dungeonKampfReadyBtn', () => markActiveKampfTurn('ready'));
+        onClick('dungeonKampfDelayBtn', () => markActiveKampfTurn('delay'));
+        onClick('dungeonKampfEndBtn', endCombat);
         onClick('kampfAimCancel', cancelKampfAim);
+        onClick('dungeonKampfAimCancel', cancelKampfAim);
         onClick('kampfResolveBtn', resolveKampfPower);
+        onClick('dungeonKampfResolveBtn', resolveKampfPower);
         onEv('kampfPowerOverlay', 'click', ev => ev.stopPropagation());
         onEv('kampfPowerOverlay', 'pointerdown', ev => ev.stopPropagation());
         onEv('kampfActionPanel', 'click', ev => ev.stopPropagation());

@@ -58,6 +58,7 @@
         name: String(raw.name || '').trim() || 'Figur',
         kind: kind,
         playerId: String(raw.playerId || ''),
+        combatId: String(raw.combatId || ''),
         portraitId: String(raw.portraitId || ''),
         x: dungeonClampPct(raw.x != null ? raw.x : 50),
         y: dungeonClampPct(raw.y != null ? raw.y : 50),
@@ -359,10 +360,37 @@
 
     function canMoveDungeonToken(token) {
       if (!token) return false;
-      if (typeof dungeonCanControlToken === 'function') return dungeonCanControlToken(token);
-      if (isDM) return true;
-      if (!currentPlayerId || !token.playerId) return false;
-      return sheetAccountId(token.playerId) === currentPlayerId || token.playerId === currentPlayerId;
+      const base = (typeof dungeonCanControlToken === 'function')
+        ? dungeonCanControlToken(token)
+        : (isDM || !!(currentPlayerId && token.playerId && (sheetAccountId(token.playerId) === currentPlayerId || token.playerId === currentPlayerId)));
+      if (!base) return false;
+      if (combat && combat.started && token.combatId && typeof isCombatantActiveTurn === 'function') {
+        if (isDM) return true;
+        return isCombatantActiveTurn(token.combatId);
+      }
+      return true;
+    }
+
+    function dungeonTokenByCombatId(combatId) {
+      if (!combatId) return null;
+      return (dungeon.tokens || []).find(t => t.combatId === combatId) || null;
+    }
+
+    function dungeonCombatIdForToken(token) {
+      if (!token) return '';
+      if (token.combatId && typeof combatantById === 'function' && combatantById(token.combatId)) return token.combatId;
+      if (token.playerId && typeof combatantById === 'function') {
+        const row = (combat.combatants || []).find(c => c.playerId && c.playerId === token.playerId);
+        if (row) return row.id;
+      }
+      return token.combatId || '';
+    }
+
+    function dungeonPctDistanceFeet(a, b) {
+      if (!a || !b || typeof dungeonScaleFt !== 'function') return 0;
+      const dx = Math.abs(Number(a.x) - Number(b.x));
+      const dy = Math.abs(Number(a.y) - Number(b.y));
+      return Math.max(0, Math.round(Math.max(dx, dy) * dungeonScaleFt()));
     }
 
     function dungeonViewerIsPlayerFog() {
@@ -589,6 +617,7 @@
       const tabs = {
         players: ['dungeonFigTabPlayers', 'dungeonFigPanePlayers'],
         npcs: ['dungeonFigTabNpcs', 'dungeonFigPaneNpcs'],
+        monsters: ['dungeonFigTabMonsters', 'dungeonFigPaneMonsters'],
         tokens: ['dungeonFigTabTokens', 'dungeonFigPaneTokens']
       };
       Object.keys(tabs).forEach(key => {
@@ -1053,6 +1082,15 @@
       const originX = ev.clientX;
       const originY = ev.clientY;
       const tapSlop = ev.pointerType === 'mouse' ? 8 : 16;
+      const startPos = { x: Number(token.x), y: Number(token.y) };
+      const combatId = dungeonCombatIdForToken(token);
+      const row = combatId && typeof combatantById === 'function' ? combatantById(combatId) : null;
+      if (row && combat.started && typeof isCombatantActiveTurn === 'function' && isCombatantActiveTurn(combatId) && typeof kampfEnsureMove === 'function') {
+        kampfEnsureMove(row);
+      }
+      const spendMove = !!(combat.started && row && combatId && typeof isCombatantActiveTurn === 'function' && isCombatantActiveTurn(combatId));
+      const moveBudget = spendMove ? Math.max(0, Number(row.moveLeft) || 0) : 9999;
+      const startNeighbors = spendMove && typeof kampfMeleeNeighbors === 'function' ? kampfMeleeNeighbors(combatId) : [];
       dungeonTokenDrag = { id: token.id, pointerId: ev.pointerId, el: el, stage: stage };
       el.classList.add('is-dragging');
       const move = e => {
@@ -1060,7 +1098,17 @@
         if (Math.abs(e.clientX - originX) + Math.abs(e.clientY - originY) > tapSlop) {
           dungeonTokenDragMoved = true;
         }
-        const pct = dungeonPctFromEvent(stage, e);
+        let pct = dungeonPctFromEvent(stage, e);
+        if (spendMove && moveBudget < 9999) {
+          const want = dungeonPctDistanceFeet(startPos, pct);
+          if (want > moveBudget && want > 0) {
+            const f = moveBudget / want;
+            pct = {
+              x: startPos.x + (pct.x - startPos.x) * f,
+              y: startPos.y + (pct.y - startPos.y) * f
+            };
+          }
+        }
         const t = dungeon.tokens.find(x => x.id === token.id);
         if (!t) return;
         t.x = pct.x;
@@ -1080,6 +1128,18 @@
         if (t) {
           t.movedAt = stampNow();
           if (dungeon.removedTokens) delete dungeon.removedTokens[t.id];
+          if (dungeonTokenDragMoved && spendMove && row) {
+            const used = dungeonPctDistanceFeet(startPos, t);
+            row.moveLeft = Math.max(0, (Number(row.moveLeft) || 0) - used);
+            if (typeof touchCombatant === 'function') touchCombatant(row);
+            if (typeof kampfOpportunity === 'function') {
+              const endNeighbors = typeof kampfMeleeNeighbors === 'function' ? kampfMeleeNeighbors(combatId) : [];
+              kampfOpportunity(combatId, startNeighbors, endNeighbors);
+            }
+            if (typeof persistCombat === 'function') persistCombat();
+            if (typeof syncKampfAimUi === 'function') syncKampfAimUi();
+            if (typeof renderDungeonKampfUi === 'function') renderDungeonKampfUi();
+          }
         }
         dungeon.tokensAt = stampNow();
         persistDungeonSoon();
@@ -1091,6 +1151,10 @@
           pendingDungeonSnap = null;
           applyDungeon(snap, true);
         }
+        if (!dungeonTokenDragMoved && combatId && typeof activateKampfFigure === 'function') {
+          activateKampfFigure(combatId);
+        }
+        dungeonTokenDragMoved = false;
       };
       document.addEventListener('pointermove', move);
       document.addEventListener('pointerup', up);
@@ -1110,29 +1174,77 @@
       if (!box || !stage) return;
       box.innerHTML = '';
       const asPlayer = dungeonViewerIsPlayerFog();
+      const inCombat = !!(combat && combat.started);
       dungeon.tokens.forEach(token => {
         const mine = canMoveDungeonToken(token);
         if (dungeonTokenHiddenByStealth(token)) return;
         if (asPlayer && dungeon.fogOn && !mine && !dungeonPointVisibleNow(token.x, token.y)) return;
+        const combatId = dungeonCombatIdForToken(token);
+        const row = combatId && typeof combatantById === 'function' ? combatantById(combatId) : null;
         const el = document.createElement('button');
         el.type = 'button';
         el.className = 'battle-token ' + (token.kind === 'player' ? 'is-player' : 'is-enemy');
         if (mine) el.classList.add('is-mine');
         if (token.stealth) el.classList.add('is-stealth');
         if (token.id === dungeonFocusTokenId) el.classList.add('is-focus');
-        el.dataset.id = token.id;
+        if (combatId && typeof isCombatantActiveTurn === 'function' && isCombatantActiveTurn(combatId)) el.classList.add('is-turn');
+        if (kampfAimFrom && combatId === kampfAimFrom) el.classList.add('is-aim-from');
+        if (combatId && typeof kampfIsAimTarget === 'function' && kampfIsAimTarget(combatId)) el.classList.add('is-aim-to');
+        if (row && typeof combatantDown === 'function' && combatantDown(row)) el.classList.add('is-down');
+        if (row && typeof combatantBloodied === 'function' && combatantBloodied(row)) el.classList.add('is-bloodied');
+        if (row && typeof combatantIsConcentrating === 'function' && combatantIsConcentrating(row)) el.classList.add('is-conc');
+        if (!mine) el.classList.add('is-locked');
+        el.dataset.dungeonId = token.id;
+        el.dataset.id = combatId || token.id;
+        if (combatId) el.dataset.combatId = combatId;
         el.style.left = token.x + '%';
         el.style.top = token.y + '%';
         el.style.setProperty('--dungeon-facing', (token.facing || 0) + 'rad');
-        el.title = token.name + (token.stealth ? ' (versteckt)' : '');
+        let title = token.name + (token.stealth ? ' (versteckt)' : '');
         const face = document.createElement('div');
         face.className = 'battle-token-face';
-        paintPortraitEl(face, token.portraitId, token.name);
+        paintPortraitEl(face, (row && row.portraitId) || token.portraitId, token.name);
         const label = document.createElement('span');
-        label.textContent = token.name || '—';
+        label.textContent = (row && row.name) || token.name || '—';
         el.appendChild(face);
+        if (row && typeof combatantIsConcentrating === 'function' && combatantIsConcentrating(row)) {
+          const conc = document.createElement('b');
+          conc.className = 'battle-token-conc';
+          conc.textContent = 'K';
+          conc.title = 'Konzentration';
+          el.appendChild(conc);
+        }
         el.appendChild(label);
-        if (mine || isDM) {
+        if (row) {
+          const hp = Math.max(0, Number(row.hp) || 0);
+          const hpMax = Math.max(0, Number(row.hpMax) || 0);
+          const pct = hpMax ? Math.max(0, Math.min(100, (hp / hpMax) * 100)) : 0;
+          const bar = document.createElement('div');
+          bar.className = 'battle-token-hp';
+          if ((typeof combatantDown === 'function' && combatantDown(row)) || pct <= 0) bar.classList.add('is-down');
+          else if ((typeof combatantBloodied === 'function' && combatantBloodied(row)) || pct <= 50) bar.classList.add('is-bloodied', 'is-mid');
+          else if (pct <= 25) bar.classList.add('is-low');
+          bar.style.setProperty('--hp', pct + '%');
+          bar.appendChild(document.createElement('i'));
+          el.appendChild(bar);
+          const hpTxt = document.createElement('em');
+          hpTxt.className = 'battle-token-hp-txt';
+          hpTxt.textContent = hpMax ? (hp + '/' + hpMax) : String(hp);
+          if (row.tempHp) hpTxt.textContent += ' +' + row.tempHp;
+          el.appendChild(hpTxt);
+          if (inCombat && typeof isCombatantActiveTurn === 'function' && isCombatantActiveTurn(combatId) && typeof kampfEnsureMove === 'function') {
+            kampfEnsureMove(row);
+          }
+          title = ((row && row.name) || token.name || '') + ' · ' + hpTxt.textContent + (row.ac ? ' · RK ' + row.ac : '') +
+            (inCombat && typeof isCombatantActiveTurn === 'function' && isCombatantActiveTurn(combatId)
+              ? ' · ' + Math.max(0, Number(row.moveLeft) || 0) + ' ft.'
+              : '');
+        }
+        if (inCombat && combatId && typeof kampfPowerPhase !== 'undefined' && kampfPowerPhase === 'aim' && kampfPowerAction && combatId !== kampfAimFrom && typeof kampfInRange === 'function') {
+          el.classList.add(kampfInRange(kampfAimFrom, combatId, kampfPowerAction) ? 'is-range-ok' : 'is-range-no');
+        }
+        el.title = title;
+        if (!inCombat && (mine || isDM)) {
           const torch = document.createElement('span');
           torch.className = 'dungeon-token-torch' + (token.lightSource && token.lightSource.enabled ? ' is-on' : '');
           torch.textContent = 'L';
@@ -1145,7 +1257,7 @@
           });
           el.appendChild(torch);
         }
-        if (isDM && !dungeonViewAsId) {
+        if (!inCombat && isDM && !dungeonViewAsId) {
           const stealthBtn = document.createElement('span');
           stealthBtn.className = 'dungeon-token-torch' + (token.stealth ? ' is-on' : '');
           stealthBtn.style.left = 'calc(50% + var(--battle-token-face, 48px) / 2 - 0.55rem)';
@@ -1172,15 +1284,28 @@
         }
         if (mine) {
           el.addEventListener('pointerdown', ev => startDungeonTokenDrag(ev, token, stage, el));
-          el.addEventListener('click', () => {
+          el.addEventListener('click', ev => {
+            if (dungeonTokenDragMoved) return;
             dungeonFocusTokenId = token.id;
             if (typeof syncDungeonAmbient === 'function') syncDungeonAmbient();
+            if (combatId && typeof activateKampfFigure === 'function') {
+              ev.stopPropagation();
+              activateKampfFigure(combatId);
+            }
+          });
+        } else if (combatId && typeof activateKampfFigure === 'function') {
+          el.style.cursor = 'pointer';
+          el.addEventListener('click', ev => {
+            ev.stopPropagation();
+            if (typeof activateKampfFigure === 'function') activateKampfFigure(combatId);
           });
         } else {
           el.style.cursor = 'default';
         }
         box.appendChild(el);
       });
+      if (typeof applyBattleLinkHighlight === 'function') applyBattleLinkHighlight();
+      if (typeof applyKampfAimHighlight === 'function') applyKampfAimHighlight();
     }
 
     function toggleDungeonTokenStealth(id) {
@@ -1614,6 +1739,7 @@
     function renderDungeonPickLists() {
       const playersBox = document.getElementById('dungeonPlayerList');
       const npcsBox = document.getElementById('dungeonNpcList');
+      const monstersBox = document.getElementById('dungeonMonsterList');
       if (playersBox) {
         playersBox.innerHTML = '';
         const owners = typeof combatSheetOwners === 'function' ? combatSheetOwners() : Object.keys(playerAccounts || {});
@@ -1666,6 +1792,34 @@
           empty.className = 'dungeon-side-note';
           empty.textContent = 'Keine NPCs angelegt.';
           npcsBox.appendChild(empty);
+        }
+      }
+      if (monstersBox) {
+        monstersBox.innerHTML = '';
+        const ids = Object.keys(monsterAccounts || {}).sort((a, b) =>
+          String((monsterAccounts[a] && monsterAccounts[a].name) || '').localeCompare(String((monsterAccounts[b] && monsterAccounts[b].name) || ''), 'de')
+        );
+        ids.forEach(id => {
+          const mon = monsterAccounts[id];
+          if (!mon) return;
+          const name = (mon.sheet && mon.sheet.name) || mon.name || 'Monster';
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'ghost';
+          btn.textContent = name;
+          btn.onclick = () => beginDungeonPlace({
+            name: name,
+            kind: 'npc',
+            playerId: typeof MONSTER_PREFIX === 'string' ? (MONSTER_PREFIX + id) : ('monster:' + id),
+            portraitId: (mon.sheet && mon.sheet.portraitId) || ''
+          });
+          monstersBox.appendChild(btn);
+        });
+        if (!ids.length) {
+          const empty = document.createElement('p');
+          empty.className = 'dungeon-side-note';
+          empty.textContent = 'Keine Monster angelegt.';
+          monstersBox.appendChild(empty);
         }
       }
     }
@@ -2008,6 +2162,7 @@
       onClick('dungeonMapMenuBtn', () => toggleDungeonMenu('dungeonMapPanel', 'dungeonMapMenuBtn'));
       onClick('dungeonFigTabPlayers', () => setDungeonFigTab('players'));
       onClick('dungeonFigTabNpcs', () => setDungeonFigTab('npcs'));
+      onClick('dungeonFigTabMonsters', () => setDungeonFigTab('monsters'));
       onClick('dungeonFigTabTokens', () => setDungeonFigTab('tokens'));
       onClick('dungeonWallBtn', () => {
         setDungeonDrawMode('wall');

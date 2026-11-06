@@ -151,22 +151,35 @@
       toast('Raum / Rechteck gesetzt.');
     }
 
-    function transferDungeonToCombat() {
-      if (!isDM) return;
-      if (!(dungeon.tokens || []).length) return toast('Keine Tokens im Dungeon.');
+    function transferDungeonToCombat(opts) {
+      if (!isDM) return 0;
+      const stay = !!(opts && opts.stay);
+      if (!(dungeon.tokens || []).length) {
+        toast('Keine Tokens im Dungeon.');
+        return 0;
+      }
       let n = 0;
+      let linked = false;
       (dungeon.tokens || []).forEach(tok => {
         if (tok.playerId === ILLUSION_OWNER) return;
-        const existing = combat.combatants.find(c =>
-          (tok.playerId && c.playerId === tok.playerId) ||
-          (!tok.playerId && c.name === tok.name && c.kind === (tok.kind === 'player' ? 'player' : 'enemy'))
-        );
-        let row = existing;
+        let row = null;
+        if (tok.combatId) row = combat.combatants.find(c => c.id === tok.combatId) || null;
+        if (!row && tok.playerId) {
+          row = combat.combatants.find(c => c.playerId === tok.playerId) || null;
+        }
+        if (!row) {
+          row = combat.combatants.find(c =>
+            !tok.playerId && c.name === tok.name && c.kind === (tok.kind === 'player' ? 'player' : 'enemy')
+          ) || null;
+        }
         if (!row) {
           if (tok.playerId && tok.kind === 'player' && typeof addPlayerToCombat === 'function') {
             addPlayerToCombat(tok.playerId, true);
             row = combat.combatants.find(c => c.playerId === tok.playerId);
-          } else if (tok.playerId && String(tok.playerId).indexOf(NPC_PREFIX) === 0 && typeof addNpcToCombat === 'function') {
+          } else if (tok.playerId && typeof MONSTER_PREFIX === 'string' && String(tok.playerId).indexOf(MONSTER_PREFIX) === 0 && typeof addMonsterToCombat === 'function') {
+            addMonsterToCombat(String(tok.playerId).slice(MONSTER_PREFIX.length), true);
+            row = combat.combatants.find(c => c.playerId === tok.playerId);
+          } else if (tok.playerId && typeof NPC_PREFIX === 'string' && String(tok.playerId).indexOf(NPC_PREFIX) === 0 && typeof addNpcToCombat === 'function') {
             addNpcToCombat(String(tok.playerId).slice(NPC_PREFIX.length), true);
             row = combat.combatants.find(c => c.playerId === tok.playerId);
           } else {
@@ -181,7 +194,11 @@
           }
         }
         if (!row) return;
-        if (typeof upsertBattleToken === 'function') {
+        if (tok.combatId !== row.id) {
+          tok.combatId = row.id;
+          linked = true;
+        }
+        if (!stay && typeof upsertBattleToken === 'function') {
           const t = (battle.tokens || []).find(x => x.id === row.id);
           if (t) {
             t.x = tok.x;
@@ -198,11 +215,40 @@
         }
         n++;
       });
+      if (linked) {
+        dungeon.tokensAt = stampNow();
+        persistDungeonSoon();
+      }
       if (typeof persistCombat === 'function') persistCombat();
-      if (typeof persistBattleSoon === 'function') persistBattleSoon();
-      else if (typeof persistBattle === 'function') persistBattle();
-      toast(n + ' Figur(en) in den Kampf übernommen.');
-      if (typeof showKampf === 'function') showKampf();
+      if (!stay) {
+        if (typeof persistBattleSoon === 'function') persistBattleSoon();
+        else if (typeof persistBattle === 'function') persistBattle();
+      }
+      toast(n + ' Figur(en) für den Kampf geladen.');
+      if (stay) {
+        if (typeof renderDungeonKampfUi === 'function') renderDungeonKampfUi();
+        if (typeof renderDungeon === 'function') renderDungeon();
+        if (typeof syncKampfChrome === 'function') syncKampfChrome();
+      } else if (typeof showKampf === 'function') {
+        showKampf();
+      }
+      return n;
+    }
+
+    function startDungeonKampf() {
+      if (!isDM) return;
+      if (!(dungeon.tokens || []).length && !(combat.combatants || []).length) {
+        toast('Zuerst Figuren auf die Karte setzen.');
+        return;
+      }
+      transferDungeonToCombat({ stay: true });
+      if (!(combat.combatants || []).length) return;
+      if (!combat.started && typeof startKampf === 'function') startKampf();
+      else {
+        if (typeof renderDungeonKampfUi === 'function') renderDungeonKampfUi();
+        if (typeof renderDungeon === 'function') renderDungeon();
+        if (typeof syncKampfChrome === 'function') syncKampfChrome();
+      }
     }
 
     function syncDungeonAmbient() {
@@ -437,7 +483,7 @@
         closeDungeonMenus();
       });
       onClick('dungeonToCombatBtn', () => {
-        transferDungeonToCombat();
+        transferDungeonToCombat({ stay: true });
         closeDungeonMenus();
       });
       onClick('dungeonGalleryBtn', () => {
