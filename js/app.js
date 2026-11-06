@@ -32,16 +32,17 @@
       if (els.dmMenuSitzung) els.dmMenuSitzung.classList.toggle('active', page === 'sitzung');
       els.navMap.classList.toggle('active', page === 'map');
       els.navCharakter.classList.toggle('active', page === 'char');
+      if (els.navMonster) els.navMonster.classList.toggle('active', page === 'monster');
       els.navKampf.classList.toggle('active', page === 'kampf');
       if (els.navDungeon) els.navDungeon.classList.toggle('active', page === 'dungeon');
       els.mapView.classList.toggle('hidden', page !== 'map');
       if (page !== 'map') setMapFullscreen(false);
-      els.charView.classList.toggle('hidden', page !== 'char');
+      els.charView.classList.toggle('hidden', page !== 'char' && page !== 'monster');
       els.kampfView.classList.toggle('hidden', page !== 'kampf');
       if (els.dungeonView) els.dungeonView.classList.toggle('hidden', page !== 'dungeon');
       if (page !== 'kampf') closeStatSheetOverlay();
       updateSidebarVisibility(page);
-      if (page === 'map' || page === 'char' || page === 'kampf' || page === 'dungeon') {
+      if (page === 'map' || page === 'char' || page === 'monster' || page === 'kampf' || page === 'dungeon') {
         els.homeView.classList.add('hidden');
         els.viewer.classList.add('hidden');
         els.editorView.classList.add('hidden');
@@ -154,6 +155,7 @@
         else if (currentPage === 'kampf') showKampf();
         else if (currentPage === 'dungeon') showDungeon();
         else if (currentPage === 'char') showCharakter();
+        else if (currentPage === 'monster') showMonster();
         else if (currentPage === 'map') showMap();
         else showCodex();
       } else {
@@ -161,7 +163,7 @@
         renderSidebar();
         if (!els.entstehungView.classList.contains('hidden')) renderEntstehung();
         if (!els.sitzungView.classList.contains('hidden')) renderSitzung();
-        if (currentPage === 'char') renderCharakter();
+        if (currentPage === 'char' || currentPage === 'monster') renderCharakter();
         if (currentPage === 'kampf') renderKampf();
         if (currentPage === 'kampf') renderBattleBoards();
         els.playerToEdit.classList.toggle('hidden', !on || currentIndex === null || els.viewer.classList.contains('hidden'));
@@ -326,6 +328,7 @@
       }
       if (page === 'kampf') showKampf();
       else if (page === 'char') showCharakter();
+      else if (page === 'monster') showMonster();
       else if (page === 'dungeon') showDungeon();
       else if (page === 'chronik') showChronik();
       else if (page === 'entstehung') showEntstehung();
@@ -365,6 +368,7 @@
         onClick('navCodex', showCodex);
         onClick('navMap', showMap);
         onClick('navCharakter', showCharakter);
+        onClick('navMonster', showMonster);
         onClick('navKampf', showKampf);
         onClick('navDungeon', showDungeon);
         onClick('menuBtn', () => setSidebarOpen(!(els.sidebar && els.sidebar.classList.contains('open'))));
@@ -1093,6 +1097,7 @@
           else if (currentPage === 'kampf') showKampf();
           else if (currentPage === 'dungeon') showDungeon();
           else if (currentPage === 'char') showCharakter();
+          else if (currentPage === 'monster') showMonster();
           else if (currentPage === 'map') showMap();
           else showCodex();
         });
@@ -1193,10 +1198,10 @@
         });
         onClick('playerButton', () => {
           if (currentPlayerId) {
-            if (currentPage === 'char' && sheetDirty && !confirm('Das Charakterblatt ist nicht gespeichert. Wirklich abmelden?')) return;
+            if ((currentPage === 'char' || currentPage === 'monster') && sheetDirty && !confirm('Das Charakterblatt ist nicht gespeichert. Wirklich abmelden?')) return;
             sheetDirty = false;
             setPlayer(null);
-            if (currentPage === 'char') renderCharakter();
+            if (currentPage === 'char' || currentPage === 'monster') renderCharakter();
             toast('Spieler abgemeldet.');
           } else {
             openPlayerLogin('login');

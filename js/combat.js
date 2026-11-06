@@ -2320,8 +2320,15 @@
       return { hp: hp.hp, hpMax: hp.hpMax, tempHp: 0, ac: ac || String(sheet.armor || '') };
     }
 
+    function isSheetLinkedCombatant(row) {
+      if (!row || !row.playerId || row.playerId === ILLUSION_OWNER) return false;
+      if (typeof usesDndSheet === 'function' && !usesDndSheet(row.playerId)) return false;
+      return !!sheetOwnerRecord(row.playerId);
+    }
+
     function syncCombatantHpToSheet(row) {
-      if (!row || row.kind !== 'player' || !row.playerId || row.playerId === ILLUSION_OWNER) return;
+      if (!row || !row.playerId || row.playerId === ILLUSION_OWNER) return;
+      if (row.kind !== 'player' && !isSheetLinkedCombatant(row)) return;
       const rec = sheetOwnerRecord(row.playerId);
       if (!rec || !rec.sheet) return;
       rec.sheet.hp = row.hpMax ? (row.hp + '/' + row.hpMax) : String(row.hp || '');
@@ -2352,7 +2359,8 @@
     }
 
     function combatantInitBonus(row) {
-      if (!row || row.kind !== 'player' || !row.playerId || row.playerId === ILLUSION_OWNER) return 0;
+      if (!row || !row.playerId || row.playerId === ILLUSION_OWNER) return 0;
+      if (row.kind !== 'player' && !isSheetLinkedCombatant(row)) return 0;
       const rec = sheetOwnerRecord(row.playerId);
       const dnd = rec && rec.sheet && rec.sheet.dnd;
       if (!dnd || !dnd.abilities || !dnd.abilities.dex) return 0;
@@ -2562,7 +2570,8 @@
       if (!combat || !Array.isArray(combat.combatants) || !combat.combatants.length) return;
       let changed = false;
       combat.combatants.forEach(c => {
-        if (!c || c.kind !== 'player' || !c.playerId || c.playerId === ILLUSION_OWNER) return;
+        if (!c || !c.playerId || c.playerId === ILLUSION_OWNER) return;
+        if (c.kind !== 'player' && !isSheetLinkedCombatant(c)) return;
         const rec = sheetOwnerRecord(c.playerId);
         if (!rec) return;
         const next = (rec.sheet && rec.sheet.name) || rec.name;
@@ -2616,6 +2625,30 @@
 
     function addNpcToCombat(npcId, quiet) {
       const owner = NPC_PREFIX + npcId;
+      const rec = sheetOwnerRecord(owner);
+      if (!rec) return;
+      if (combat.combatants.some(c => c.playerId === owner)) {
+        if (!quiet) toast(rec.name + ' ist schon im Kampf.');
+        return;
+      }
+      const sheet = rec.sheet || {};
+      const hp = combatHpFromOwner(owner);
+      addCombatant({
+        name: sheet.name || rec.name,
+        kind: 'enemy',
+        playerId: owner,
+        init: 0,
+        hp: hp.hp,
+        hpMax: hp.hpMax,
+        tempHp: hp.tempHp,
+        ac: hp.ac,
+        portraitId: sheet.portraitId || ''
+      }, quiet);
+      if (!quiet) toast(rec.name + ' übernommen. Initiative noch eintragen oder oben würfeln.');
+    }
+
+    function addMonsterToCombat(monsterId, quiet) {
+      const owner = MONSTER_PREFIX + monsterId;
       const rec = sheetOwnerRecord(owner);
       if (!rec) return;
       if (combat.combatants.some(c => c.playerId === owner)) {
@@ -3579,7 +3612,7 @@
       }
       if (!canControlCombatant(row)) return false;
       if (!combatantHasPowers(row)) {
-        if (row.kind === 'player') {
+        if (row.kind === 'player' || isSheetLinkedCombatant(row)) {
           toast('Keine Angriffe, Zauber oder Merkmale auf dem Blatt.');
           return true;
         }
@@ -5201,6 +5234,35 @@
         }
       }
 
+      const monstersBox = document.getElementById('kampfMonsters');
+      if (monstersBox) {
+        monstersBox.innerHTML = '';
+        const monIds = Object.keys(monsterAccounts || {});
+        const freeMons = monIds.filter(id => !combat.combatants.some(c => c.playerId === MONSTER_PREFIX + id));
+        if (!monIds.length) {
+          const empty = document.createElement('p');
+          empty.className = 'kampf-empty';
+          empty.style.padding = '0';
+          empty.textContent = 'Noch keine Monster angelegt.';
+          monstersBox.appendChild(empty);
+        } else if (!freeMons.length) {
+          const empty = document.createElement('p');
+          empty.className = 'kampf-empty';
+          empty.style.padding = '0';
+          empty.textContent = 'Alle Monster sind schon in der Liste.';
+          monstersBox.appendChild(empty);
+        } else {
+          freeMons.forEach(id => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'ghost';
+            btn.textContent = monsterAccounts[id].name || 'Monster';
+            btn.onclick = () => addMonsterToCombat(id);
+            monstersBox.appendChild(btn);
+          });
+        }
+      }
+
       const tplBox = document.getElementById('kampfTplList');
       if (!tplBox) return;
       tplBox.innerHTML = '';
@@ -5294,7 +5356,13 @@
           renderKampf();
         };
         const meta = document.createElement('em');
-        const bits = [row.kind === 'player' ? 'Spieler' : 'Gegner'];
+        const bits = [
+          row.kind === 'player'
+            ? 'Spieler'
+            : (typeof isMonsterOwner === 'function' && isMonsterOwner(row.playerId)
+              ? 'Monster'
+              : (typeof isNpcOwner === 'function' && isNpcOwner(row.playerId) ? 'NPC' : 'Gegner'))
+        ];
         if (row.note) bits.push(row.note);
         if (combatantDown(row)) bits.push('kampfunfähig');
         if (isCombatantActiveTurn(row.id)) bits.push('dran');
@@ -5322,7 +5390,7 @@
         tools.appendChild(down);
         const sheetBtn = makeStatSheetBtn(row);
         if (sheetBtn) tools.appendChild(sheetBtn);
-        if (!combat.started && row.kind !== 'player') {
+        if (!combat.started && row.kind !== 'player' && !isSheetLinkedCombatant(row)) {
           const dup = document.createElement('button');
           dup.type = 'button';
           dup.className = 'ghost';
@@ -5344,7 +5412,7 @@
         top.appendChild(tools);
 
         let hpBox;
-        if (row.kind === 'player') {
+        if (row.kind === 'player' || isSheetLinkedCombatant(row)) {
           hpBox = kampfPlayerLifeBlock(row);
         } else {
           hpBox = document.createElement('div');

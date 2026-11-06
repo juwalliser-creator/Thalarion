@@ -474,7 +474,7 @@
         renderSidebar();
         return;
       }
-      if (currentPage === 'char') {
+      if (currentPage === 'char' || currentPage === 'monster') {
         renderCharakter();
         return;
       }

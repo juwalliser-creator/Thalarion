@@ -70,6 +70,8 @@
     var sheetDirty = false;
     var playerAccounts = {};
     var npcAccounts = {};
+    var monsterAccounts = {};
+    var sheetHub = 'char';
     var dmNotes = '';
     var playersUpdatedAt = 0;
     var writingPlayers = false;
@@ -261,6 +263,7 @@
       dmMenuSitzung: document.getElementById('dmMenuSitzung'),
       navMap: document.getElementById('navMap'),
       navCharakter: document.getElementById('navCharakter'),
+      navMonster: document.getElementById('navMonster'),
       navKampf: document.getElementById('navKampf'),
       navDungeon: document.getElementById('navDungeon'),
       charView: document.getElementById('charView'),

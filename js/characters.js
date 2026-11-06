@@ -274,9 +274,21 @@
       return 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     }
 
+    function isMonsterOwner(owner) {
+      return typeof owner === 'string' && owner.indexOf(MONSTER_PREFIX) === 0;
+    }
+
+    function monsterIdFromOwner(owner) {
+      return isMonsterOwner(owner) ? String(owner).slice(MONSTER_PREFIX.length) : '';
+    }
+
+    function newMonsterId() {
+      return 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    }
+
     function usesDndSheet(owner) {
       if (!owner || isDmNotesOwner(owner)) return false;
-      if (isNpcOwner(owner)) return true;
+      if (isNpcOwner(owner) || isMonsterOwner(owner)) return true;
       if (owner === ILLUSION_OWNER) return false;
       if (owner === VEYR_OWNER) return true;
       return String(owner).indexOf(':') < 0;
@@ -302,7 +314,12 @@
       if (isNpcOwner(owner)) {
         const npc = npcAccounts[npcIdFromOwner(owner)];
         if (!npc) return null;
-        return { name: npc.name, sheet: npc.sheet, isAlt: false, isNpc: true, accountId: owner };
+        return { name: npc.name, sheet: npc.sheet, isAlt: false, isNpc: true, isMonster: false, accountId: owner };
+      }
+      if (isMonsterOwner(owner)) {
+        const mon = monsterAccounts[monsterIdFromOwner(owner)];
+        if (!mon) return null;
+        return { name: mon.name, sheet: mon.sheet, isAlt: false, isNpc: false, isMonster: true, accountId: owner };
       }
       const parts = String(owner).split(':');
       const acc = playerAccounts[parts[0]];
@@ -319,6 +336,11 @@
       if (isNpcOwner(owner)) {
         const npc = npcAccounts[npcIdFromOwner(owner)];
         if (npc) npc.sheet = sheet;
+        return;
+      }
+      if (isMonsterOwner(owner)) {
+        const mon = monsterAccounts[monsterIdFromOwner(owner)];
+        if (mon) mon.sheet = sheet;
         return;
       }
       const rec = sheetOwnerRecord(owner);
@@ -2984,6 +3006,25 @@
       return out;
     }
 
+    function normalizeMonsterAccounts(raw) {
+      const out = {};
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+      Object.keys(raw).forEach(id => {
+        if (!id) return;
+        const a = raw[id] || {};
+        const sheet = normalizeSheet(a.sheet);
+        const dnd = normalizeDndSheet(sheet.dnd);
+        if (!dnd.name) dnd.name = sheet.name || a.name || 'Monster';
+        sheet.dnd = dnd;
+        out[id] = {
+          name: (a.name || sheet.name || dnd.name || 'Monster').trim() || 'Monster',
+          sheet: sheet,
+          createdAt: Number(a.createdAt) || 0
+        };
+      });
+      return out;
+    }
+
     function applyPlayers(data) {
       if (!data) return;
       const at = Number(data.updatedAt) || 0;
@@ -2994,7 +3035,7 @@
         (rawChris.sheet && rawChris.sheet.name !== 'Björn' && (!String(rawChris.sheet.name || '').trim() || isReptileName(rawChris.sheet.name)))
       ));
       const incoming = normalizeAccounts(data.accounts);
-      if ((sheetDirty || veyrEntryEditing) && currentSheetOwner && !isNpcOwner(currentSheetOwner)) {
+      if ((sheetDirty || veyrEntryEditing) && currentSheetOwner && !isNpcOwner(currentSheetOwner) && !isMonsterOwner(currentSheetOwner)) {
         const accId = sheetAccountId(currentSheetOwner);
         if (accId && playerAccounts[accId]) incoming[accId] = playerAccounts[accId];
       }
@@ -3003,13 +3044,22 @@
         const npcId = npcIdFromOwner(currentSheetOwner);
         if (npcId && npcAccounts[npcId]) incomingNpcs[npcId] = npcAccounts[npcId];
       }
+      const incomingMonsters = normalizeMonsterAccounts(data.monsters);
+      if (sheetDirty && currentSheetOwner && isMonsterOwner(currentSheetOwner)) {
+        const monId = monsterIdFromOwner(currentSheetOwner);
+        if (monId && monsterAccounts[monId]) incomingMonsters[monId] = monsterAccounts[monId];
+      }
       if (!(sheetDirty && isDmNotesOwner(currentSheetOwner))) {
         dmNotes = typeof data.dmNotes === 'string' ? data.dmNotes : '';
       }
       playersUpdatedAt = at;
       playerAccounts = incoming;
       npcAccounts = incomingNpcs;
+      monsterAccounts = incomingMonsters;
       if (currentSheetOwner && isNpcOwner(currentSheetOwner) && !npcAccounts[npcIdFromOwner(currentSheetOwner)]) {
+        currentSheetOwner = null;
+      }
+      if (currentSheetOwner && isMonsterOwner(currentSheetOwner) && !monsterAccounts[monsterIdFromOwner(currentSheetOwner)]) {
         currentSheetOwner = null;
       }
       if (currentPlayerId && !playerAccounts[currentPlayerId]) setPlayer(null);
@@ -3023,7 +3073,7 @@
       }
       syncChatListeners();
       renderChatChrome();
-      if (currentPage === 'char') renderCharakter();
+      if (currentPage === 'char' || currentPage === 'monster') renderCharakter();
       else if (currentPage === 'kampf') renderKampf();
       else updatePlayerChrome();
     }
@@ -3056,6 +3106,10 @@
       const cloudNpcs = normalizeNpcAccounts(raw.npcs);
       Object.keys(cloudNpcs).forEach(id => {
         if (!npcAccounts[id]) npcAccounts[id] = cloudNpcs[id];
+      });
+      const cloudMonsters = normalizeMonsterAccounts(raw.monsters);
+      Object.keys(cloudMonsters).forEach(id => {
+        if (!monsterAccounts[id]) monsterAccounts[id] = cloudMonsters[id];
       });
       if (!(sheetDirty && isDmNotesOwner(currentSheetOwner)) && typeof raw.dmNotes === 'string' && !dmNotes) {
         dmNotes = raw.dmNotes;
@@ -3104,6 +3158,7 @@
           updatedAt: nextAt,
           accounts: playerAccounts,
           npcs: npcAccounts,
+          monsters: monsterAccounts,
           dmNotes: typeof dmNotes === 'string' ? dmNotes : ''
         }, { merge: true });
         playersUpdatedAt = nextAt;
@@ -3533,7 +3588,23 @@
       dirty = false;
       sheetDirty = false;
       veyrEntryEditing = false;
+      sheetHub = 'char';
+      if (isMonsterOwner(currentSheetOwner)) currentSheetOwner = null;
       showPage('char');
+      currentIndex = null;
+      currentTitle = null;
+      renderCharakter();
+      persistView();
+    }
+
+    function showMonster() {
+      if (!confirmLeaveEditor()) return;
+      dirty = false;
+      sheetDirty = false;
+      veyrEntryEditing = false;
+      sheetHub = 'monster';
+      if (currentSheetOwner && !isMonsterOwner(currentSheetOwner)) currentSheetOwner = null;
+      showPage('monster');
       currentIndex = null;
       currentTitle = null;
       renderCharakter();
@@ -3761,127 +3832,186 @@
     function renderCharakter() {
       const guest = document.getElementById('charGuest');
       const app = document.getElementById('charApp');
-      const canUse = isDM || !!currentPlayerId;
-      guest.classList.toggle('hidden', canUse);
-      app.classList.toggle('hidden', !canUse);
-      if (!canUse) {
-        document.getElementById('charView').classList.remove('is-dnd-wide');
-        applySheetEditLock();
-        return;
-      }
+      const monsterHub = sheetHub === 'monster' || currentPage === 'monster';
+      if (monsterHub) sheetHub = 'monster';
+      else sheetHub = 'char';
 
-      ensureVeyrAlt(playerAccounts);
-      const roster = document.getElementById('charRoster');
-      const layout = document.getElementById('charLayout');
-      const ids = Object.keys(playerAccounts).sort((a, b) =>
-        playerAccounts[a].name.localeCompare(playerAccounts[b].name, 'de')
-      );
-      const yuviPlayer = !isDM && currentPlayerId === YUVI_ID;
-      const showRoster = isDM || yuviPlayer;
-      if (showRoster) {
+      if (monsterHub) {
+        const canUse = !!isDM;
+        guest.classList.toggle('hidden', canUse);
+        app.classList.toggle('hidden', !canUse);
+        if (!canUse) {
+          const title = guest.querySelector('h1');
+          if (title) title.textContent = 'Monster';
+          document.getElementById('charView').classList.remove('is-dnd-wide');
+          applySheetEditLock();
+          return;
+        }
+        const title = guest.querySelector('h1');
+        if (title) title.textContent = 'Dein Charakter';
+
+        const roster = document.getElementById('charRoster');
+        const layout = document.getElementById('charLayout');
         roster.classList.remove('hidden');
         layout.classList.remove('solo');
-        roster.querySelector('h3').textContent = yuviPlayer ? 'Charaktere' : 'Kategorien';
+        roster.querySelector('h3').textContent = 'Monster';
         const list = document.getElementById('charRosterList');
         list.innerHTML = '';
-        if (isDM) {
-          const dmGroup = document.createElement('div');
-          dmGroup.className = 'char-roster-group';
-          const dmLabel = document.createElement('div');
-          dmLabel.className = 'char-roster-label';
-          dmLabel.textContent = 'DM';
-          dmGroup.appendChild(dmLabel);
-          const dmBtn = document.createElement('button');
-          dmBtn.type = 'button';
-          dmBtn.className = 'char-dm-notes' + (isDmNotesOwner(currentSheetOwner) ? ' active' : '');
-          dmBtn.textContent = 'DM-Notizen';
-          dmBtn.onclick = () => selectSheetOwner(DM_NOTES_OWNER);
-          dmGroup.appendChild(dmBtn);
-          list.appendChild(dmGroup);
-        }
-        const rosterIds = yuviPlayer ? [YUVI_ID] : ids;
-        const playerGroup = document.createElement('div');
-        playerGroup.className = 'char-roster-group';
-        if (isDM) {
-          const playerLabel = document.createElement('div');
-          playerLabel.className = 'char-roster-label';
-          playerLabel.textContent = 'Spieler';
-          playerGroup.appendChild(playerLabel);
-        }
-        if (!rosterIds.length) {
+        const monGroup = document.createElement('div');
+        monGroup.className = 'char-roster-group';
+        const monIds = Object.keys(monsterAccounts).sort((a, b) =>
+          (monsterAccounts[a].name || '').localeCompare(monsterAccounts[b].name || '', 'de')
+        );
+        if (!monIds.length) {
           const empty = document.createElement('p');
-          empty.style.color = 'var(--muted)';
-          empty.style.margin = '0';
-          empty.textContent = 'Noch keine Spieler.';
-          playerGroup.appendChild(empty);
+          empty.className = 'char-npc-empty';
+          empty.textContent = 'Noch keine Monster.';
+          monGroup.appendChild(empty);
         }
-        rosterIds.forEach(id => {
+        monIds.forEach(id => {
+          const owner = MONSTER_PREFIX + id;
           const btn = document.createElement('button');
           btn.type = 'button';
-          btn.className = currentSheetOwner === id ? 'active' : '';
-          btn.textContent = playerAccounts[id].name;
-          btn.onclick = () => selectSheetOwner(id);
-          playerGroup.appendChild(btn);
-          const showVeyr = id === YUVI_ID && (yuviPlayer || sheetAccountId(currentSheetOwner) === YUVI_ID);
-          if (showVeyr && playerAccounts[YUVI_ID] && playerAccounts[YUVI_ID].alts && playerAccounts[YUVI_ID].alts[VEYR_ALT]) {
-            const wrap = document.createElement('div');
-            wrap.className = 'char-alts';
-            const altBtn = document.createElement('button');
-            altBtn.type = 'button';
-            altBtn.className = 'char-alt' + (currentSheetOwner === VEYR_OWNER ? ' active' : '');
-            altBtn.textContent = playerAccounts[YUVI_ID].alts[VEYR_ALT].name;
-            altBtn.onclick = () => selectSheetOwner(VEYR_OWNER);
-            wrap.appendChild(altBtn);
-            playerGroup.appendChild(wrap);
-          }
+          btn.className = currentSheetOwner === owner ? 'active' : '';
+          btn.textContent = monsterAccounts[id].name || 'Monster';
+          btn.onclick = () => selectSheetOwner(owner);
+          monGroup.appendChild(btn);
         });
-        list.appendChild(playerGroup);
-        if (isDM) {
-          const npcGroup = document.createElement('div');
-          npcGroup.className = 'char-roster-group';
-          const npcLabel = document.createElement('div');
-          npcLabel.className = 'char-roster-label';
-          npcLabel.textContent = 'NPCs';
-          npcGroup.appendChild(npcLabel);
-          const npcIds = Object.keys(npcAccounts).sort((a, b) =>
-            (npcAccounts[a].name || '').localeCompare(npcAccounts[b].name || '', 'de')
-          );
-          if (!npcIds.length) {
-            const empty = document.createElement('p');
-            empty.className = 'char-npc-empty';
-            empty.textContent = 'Noch keine NPCs.';
-            npcGroup.appendChild(empty);
-          }
-          npcIds.forEach(id => {
-            const owner = NPC_PREFIX + id;
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = currentSheetOwner === owner ? 'active' : '';
-            btn.textContent = npcAccounts[id].name || 'NPC';
-            btn.onclick = () => selectSheetOwner(owner);
-            npcGroup.appendChild(btn);
-          });
-          const addNpcBtn = document.createElement('button');
-          addNpcBtn.type = 'button';
-          addNpcBtn.className = 'char-add-npc';
-          addNpcBtn.textContent = '+ Neuer NPC';
-          addNpcBtn.onclick = () => addNewNpc();
-          npcGroup.appendChild(addNpcBtn);
-          list.appendChild(npcGroup);
-        }
-        if (!currentSheetOwner || !(sheetOwnerRecord(currentSheetOwner) || (isDM && isDmNotesOwner(currentSheetOwner)))) {
-          currentSheetOwner = rosterIds[0] || (isDM ? DM_NOTES_OWNER : null);
+        const addMonBtn = document.createElement('button');
+        addMonBtn.type = 'button';
+        addMonBtn.className = 'char-add-npc';
+        addMonBtn.textContent = '+ Neues Monster';
+        addMonBtn.onclick = () => addNewMonster();
+        monGroup.appendChild(addMonBtn);
+        list.appendChild(monGroup);
+        if (!currentSheetOwner || !isMonsterOwner(currentSheetOwner) || !monsterAccounts[monsterIdFromOwner(currentSheetOwner)]) {
+          currentSheetOwner = monIds.length ? (MONSTER_PREFIX + monIds[0]) : null;
         }
       } else {
-        roster.classList.add('hidden');
-        layout.classList.add('solo');
-        currentSheetOwner = currentPlayerId;
+        const canUse = isDM || !!currentPlayerId;
+        guest.classList.toggle('hidden', canUse);
+        app.classList.toggle('hidden', !canUse);
+        if (!canUse) {
+          const title = guest.querySelector('h1');
+          if (title) title.textContent = 'Dein Charakter';
+          document.getElementById('charView').classList.remove('is-dnd-wide');
+          applySheetEditLock();
+          return;
+        }
+
+        ensureVeyrAlt(playerAccounts);
+        const roster = document.getElementById('charRoster');
+        const layout = document.getElementById('charLayout');
+        const ids = Object.keys(playerAccounts).sort((a, b) =>
+          playerAccounts[a].name.localeCompare(playerAccounts[b].name, 'de')
+        );
+        const yuviPlayer = !isDM && currentPlayerId === YUVI_ID;
+        const showRoster = isDM || yuviPlayer;
+        if (showRoster) {
+          roster.classList.remove('hidden');
+          layout.classList.remove('solo');
+          roster.querySelector('h3').textContent = yuviPlayer ? 'Charaktere' : 'Kategorien';
+          const list = document.getElementById('charRosterList');
+          list.innerHTML = '';
+          if (isDM) {
+            const dmGroup = document.createElement('div');
+            dmGroup.className = 'char-roster-group';
+            const dmLabel = document.createElement('div');
+            dmLabel.className = 'char-roster-label';
+            dmLabel.textContent = 'DM';
+            dmGroup.appendChild(dmLabel);
+            const dmBtn = document.createElement('button');
+            dmBtn.type = 'button';
+            dmBtn.className = 'char-dm-notes' + (isDmNotesOwner(currentSheetOwner) ? ' active' : '');
+            dmBtn.textContent = 'DM-Notizen';
+            dmBtn.onclick = () => selectSheetOwner(DM_NOTES_OWNER);
+            dmGroup.appendChild(dmBtn);
+            list.appendChild(dmGroup);
+          }
+          const rosterIds = yuviPlayer ? [YUVI_ID] : ids;
+          const playerGroup = document.createElement('div');
+          playerGroup.className = 'char-roster-group';
+          if (isDM) {
+            const playerLabel = document.createElement('div');
+            playerLabel.className = 'char-roster-label';
+            playerLabel.textContent = 'Spieler';
+            playerGroup.appendChild(playerLabel);
+          }
+          if (!rosterIds.length) {
+            const empty = document.createElement('p');
+            empty.style.color = 'var(--muted)';
+            empty.style.margin = '0';
+            empty.textContent = 'Noch keine Spieler.';
+            playerGroup.appendChild(empty);
+          }
+          rosterIds.forEach(id => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = currentSheetOwner === id ? 'active' : '';
+            btn.textContent = playerAccounts[id].name;
+            btn.onclick = () => selectSheetOwner(id);
+            playerGroup.appendChild(btn);
+            const showVeyr = id === YUVI_ID && (yuviPlayer || sheetAccountId(currentSheetOwner) === YUVI_ID);
+            if (showVeyr && playerAccounts[YUVI_ID] && playerAccounts[YUVI_ID].alts && playerAccounts[YUVI_ID].alts[VEYR_ALT]) {
+              const wrap = document.createElement('div');
+              wrap.className = 'char-alts';
+              const altBtn = document.createElement('button');
+              altBtn.type = 'button';
+              altBtn.className = 'char-alt' + (currentSheetOwner === VEYR_OWNER ? ' active' : '');
+              altBtn.textContent = playerAccounts[YUVI_ID].alts[VEYR_ALT].name;
+              altBtn.onclick = () => selectSheetOwner(VEYR_OWNER);
+              wrap.appendChild(altBtn);
+              playerGroup.appendChild(wrap);
+            }
+          });
+          list.appendChild(playerGroup);
+          if (isDM) {
+            const npcGroup = document.createElement('div');
+            npcGroup.className = 'char-roster-group';
+            const npcLabel = document.createElement('div');
+            npcLabel.className = 'char-roster-label';
+            npcLabel.textContent = 'NPCs';
+            npcGroup.appendChild(npcLabel);
+            const npcIds = Object.keys(npcAccounts).sort((a, b) =>
+              (npcAccounts[a].name || '').localeCompare(npcAccounts[b].name || '', 'de')
+            );
+            if (!npcIds.length) {
+              const empty = document.createElement('p');
+              empty.className = 'char-npc-empty';
+              empty.textContent = 'Noch keine NPCs.';
+              npcGroup.appendChild(empty);
+            }
+            npcIds.forEach(id => {
+              const owner = NPC_PREFIX + id;
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = currentSheetOwner === owner ? 'active' : '';
+              btn.textContent = npcAccounts[id].name || 'NPC';
+              btn.onclick = () => selectSheetOwner(owner);
+              npcGroup.appendChild(btn);
+            });
+            const addNpcBtn = document.createElement('button');
+            addNpcBtn.type = 'button';
+            addNpcBtn.className = 'char-add-npc';
+            addNpcBtn.textContent = '+ Neuer NPC';
+            addNpcBtn.onclick = () => addNewNpc();
+            npcGroup.appendChild(addNpcBtn);
+            list.appendChild(npcGroup);
+          }
+          if (!currentSheetOwner || isMonsterOwner(currentSheetOwner) || !(sheetOwnerRecord(currentSheetOwner) || (isDM && isDmNotesOwner(currentSheetOwner)))) {
+            currentSheetOwner = rosterIds[0] || (isDM ? DM_NOTES_OWNER : null);
+          }
+        } else {
+          roster.classList.add('hidden');
+          layout.classList.add('solo');
+          currentSheetOwner = currentPlayerId;
+        }
       }
 
       const rec = currentSheetOwner ? sheetOwnerRecord(currentSheetOwner) : null;
       const del = document.getElementById('deletePlayerBtn');
       const isVeyr = currentSheetOwner === VEYR_OWNER;
-      const isNotes = isDM && isDmNotesOwner(currentSheetOwner);
+      const isNotes = !monsterHub && isDM && isDmNotesOwner(currentSheetOwner);
       const isDnd = usesDndSheet(currentSheetOwner);
       document.getElementById('charSheetBlock').classList.toggle('hidden', isNotes || isDnd);
       const dndBlock = document.getElementById('charDndBlock');
@@ -3903,7 +4033,7 @@
       const extraLabel = document.getElementById('sheetExtraLabel');
       if (extraLabel) extraLabel.textContent = isVeyr ? 'Text' : 'Ausrüstung & mehr';
       del.classList.toggle('hidden', !isDM || !rec || rec.isAlt || isNotes);
-      del.textContent = rec && rec.isNpc ? 'NPC entfernen' : 'Spieler entfernen';
+      del.textContent = rec && rec.isMonster ? 'Monster entfernen' : (rec && rec.isNpc ? 'NPC entfernen' : 'Spieler entfernen');
       if (isNotes) {
         document.getElementById('charHeading').textContent = 'DM-Notizen';
         if (!sheetDirty) {
@@ -3914,12 +4044,12 @@
         return;
       }
       if (!rec) {
-        document.getElementById('charHeading').textContent = 'Charakterblatt';
+        document.getElementById('charHeading').textContent = monsterHub ? 'Monsterblatt' : 'Charakterblatt';
         clearSheetForm();
         applySheetEditLock();
         return;
       }
-      document.getElementById('charHeading').textContent = 'Charakterblatt · ' + rec.name;
+      document.getElementById('charHeading').textContent = (monsterHub || rec.isMonster ? 'Monsterblatt' : 'Charakterblatt') + ' · ' + rec.name;
       if (!sheetDirty) fillSheetForm(rec.sheet);
       applySheetEditLock();
     }
@@ -3964,7 +4094,15 @@
           sheetPortraitId = imageId;
           pendingSheetPortrait = null;
         }
-        setOwnerSheet(currentSheetOwner, readSheetForm());
+        const nextSheet = readSheetForm();
+        setOwnerSheet(currentSheetOwner, nextSheet);
+        if (rec.isMonster) {
+          const mon = monsterAccounts[monsterIdFromOwner(currentSheetOwner)];
+          if (mon) mon.name = nextSheet.name || mon.name;
+        } else if (rec.isNpc) {
+          const npc = npcAccounts[npcIdFromOwner(currentSheetOwner)];
+          if (npc) npc.name = nextSheet.name || npc.name;
+        }
         if (currentSheetOwner === VEYR_OWNER) {
           ensureVeyrAlt(playerAccounts);
           const alt = playerAccounts[YUVI_ID] && playerAccounts[YUVI_ID].alts && playerAccounts[YUVI_ID].alts[VEYR_ALT];
@@ -4000,7 +4138,7 @@
           renderDndLists();
         }
         sheetDirty = false;
-        toast('Charakterblatt gespeichert.');
+        toast((rec && rec.isMonster) || isMonsterOwner(currentSheetOwner) ? 'Monsterblatt gespeichert.' : 'Charakterblatt gespeichert.');
       } catch (err) {
         setOwnerSheet(currentSheetOwner, previous);
         toast('Speichern fehlgeschlagen: ' + err.message);
@@ -4014,6 +4152,24 @@
       if (!isDM || !currentSheetOwner || !sheetOwnerRecord(currentSheetOwner)) return;
       const rec = sheetOwnerRecord(currentSheetOwner);
       if (rec.isAlt) return;
+      if (rec.isMonster) {
+        if (!confirm('Monster „' + rec.name + '“ und das Stat-Sheet wirklich entfernen?')) return;
+        const previousMonsters = monsterAccounts;
+        const removedMonsterId = monsterIdFromOwner(currentSheetOwner);
+        monsterAccounts = Object.assign({}, monsterAccounts);
+        delete monsterAccounts[removedMonsterId];
+        try {
+          await persistPlayers();
+          currentSheetOwner = null;
+          sheetDirty = false;
+          toast('Monster entfernt.');
+          renderCharakter();
+        } catch (err) {
+          monsterAccounts = previousMonsters;
+          toast('Löschen fehlgeschlagen: ' + err.message);
+        }
+        return;
+      }
       if (rec.isNpc) {
         if (!confirm('NPC „' + rec.name + '“ und das Charakterblatt wirklich entfernen?')) return;
         const previousNpcs = npcAccounts;
@@ -4063,6 +4219,28 @@
         }
       });
       currentSheetOwner = NPC_PREFIX + id;
+      sheetDirty = false;
+      renderCharakter();
+      persistPlayersSoon();
+      toast(name + ' angelegt.');
+    }
+
+    function addNewMonster() {
+      if (!isDM) return;
+      const name = (window.prompt('Name des Monsters:', '') || '').trim();
+      if (!name) return;
+      const id = newMonsterId();
+      const sheet = Object.assign({}, EMPTY_SHEET, { name: name });
+      sheet.dnd = normalizeDndSheet(Object.assign(emptyDndSheet(), { name: name }));
+      monsterAccounts = Object.assign({}, monsterAccounts, {
+        [id]: {
+          name: name,
+          sheet: sheet,
+          createdAt: Date.now()
+        }
+      });
+      sheetHub = 'monster';
+      currentSheetOwner = MONSTER_PREFIX + id;
       sheetDirty = false;
       renderCharakter();
       persistPlayersSoon();

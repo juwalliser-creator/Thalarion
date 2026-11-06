@@ -164,6 +164,7 @@ var ILLUSION_ALT = 'illusion';
 var ILLUSION_OWNER = CHRIS_ID + ':' + ILLUSION_ALT;
 var DM_NOTES_OWNER = 'dm-notes';
 var NPC_PREFIX = 'npc:';
+var MONSTER_PREFIX = 'monster:';
 var DND_ABS = [
   { id: 'str', label: 'Stärke', short: 'STÄ' },
   { id: 'dex', label: 'Geschicklichkeit', short: 'GES' },
