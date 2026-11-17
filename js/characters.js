@@ -3747,7 +3747,7 @@
       sheetDirty = false;
       veyrEntryEditing = false;
       sheetHub = 'monster';
-      if (currentSheetOwner && !isMonsterOwner(currentSheetOwner)) currentSheetOwner = null;
+      currentSheetOwner = null;
       showPage('monster');
       currentIndex = null;
       currentTitle = null;
@@ -4021,56 +4021,61 @@
         }
         const monIds = allMonIds.filter(id => monsterMatchesFilters(monsterAccounts[id]));
 
-        const filters = document.createElement('div');
-        filters.className = 'char-monster-filters';
+        const filterBar = document.getElementById('charMonsterFilterBar');
+        if (filterBar) {
+          filterBar.classList.remove('hidden');
+          filterBar.innerHTML = '';
+          const filters = document.createElement('div');
+          filters.className = 'char-monster-filters';
 
-        const crRow = document.createElement('div');
-        crRow.className = 'char-monster-filter-row';
-        const crLabel = document.createElement('div');
-        crLabel.className = 'char-roster-label';
-        crLabel.textContent = 'Challenge Rating';
-        crRow.appendChild(crLabel);
-        const crChips = document.createElement('div');
-        crChips.className = 'char-monster-filter-chips';
-        MONSTER_CR_BANDS.forEach(band => {
-          if (band.id !== 'all' && !crPresent[band.id] && band.id !== 'unknown') return;
-          if (band.id === 'unknown' && !crPresent.unknown) return;
-          const chip = document.createElement('button');
-          chip.type = 'button';
-          chip.className = 'char-monster-chip' + (monsterCrFilter === band.id ? ' active' : '');
-          chip.textContent = band.label;
-          chip.onclick = () => setMonsterCrFilter(band.id);
-          crChips.appendChild(chip);
-        });
-        crRow.appendChild(crChips);
-        filters.appendChild(crRow);
+          const crRow = document.createElement('div');
+          crRow.className = 'char-monster-filter-row';
+          const crLabel = document.createElement('div');
+          crLabel.className = 'char-roster-label';
+          crLabel.textContent = 'Challenge Rating';
+          crRow.appendChild(crLabel);
+          const crChips = document.createElement('div');
+          crChips.className = 'char-monster-filter-chips';
+          MONSTER_CR_BANDS.forEach(band => {
+            if (band.id !== 'all' && !crPresent[band.id] && band.id !== 'unknown') return;
+            if (band.id === 'unknown' && !crPresent.unknown) return;
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'char-monster-chip' + (monsterCrFilter === band.id ? ' active' : '');
+            chip.textContent = band.label;
+            chip.onclick = () => setMonsterCrFilter(band.id);
+            crChips.appendChild(chip);
+          });
+          crRow.appendChild(crChips);
+          filters.appendChild(crRow);
 
-        const typeRow = document.createElement('div');
-        typeRow.className = 'char-monster-filter-row';
-        const typeLabel = document.createElement('div');
-        typeLabel.className = 'char-roster-label';
-        typeLabel.textContent = 'Kreatur';
-        typeRow.appendChild(typeLabel);
-        const typeChips = document.createElement('div');
-        typeChips.className = 'char-monster-filter-chips';
-        const typeAll = document.createElement('button');
-        typeAll.type = 'button';
-        typeAll.className = 'char-monster-chip' + (monsterTypeFilter === 'all' ? ' active' : '');
-        typeAll.textContent = 'Alle';
-        typeAll.onclick = () => setMonsterTypeFilter('all');
-        typeChips.appendChild(typeAll);
-        MONSTER_TYPE_ORDER.forEach(typeId => {
-          if (!typePresent[typeId]) return;
-          const chip = document.createElement('button');
-          chip.type = 'button';
-          chip.className = 'char-monster-chip' + (monsterTypeFilter === typeId ? ' active' : '');
-          chip.textContent = typeId === 'Other' ? 'Sonstige' : typeId;
-          chip.onclick = () => setMonsterTypeFilter(typeId);
-          typeChips.appendChild(chip);
-        });
-        typeRow.appendChild(typeChips);
-        filters.appendChild(typeRow);
-        list.appendChild(filters);
+          const typeRow = document.createElement('div');
+          typeRow.className = 'char-monster-filter-row';
+          const typeLabel = document.createElement('div');
+          typeLabel.className = 'char-roster-label';
+          typeLabel.textContent = 'Kreatur';
+          typeRow.appendChild(typeLabel);
+          const typeChips = document.createElement('div');
+          typeChips.className = 'char-monster-filter-chips';
+          const typeAll = document.createElement('button');
+          typeAll.type = 'button';
+          typeAll.className = 'char-monster-chip' + (monsterTypeFilter === 'all' ? ' active' : '');
+          typeAll.textContent = 'Alle';
+          typeAll.onclick = () => setMonsterTypeFilter('all');
+          typeChips.appendChild(typeAll);
+          MONSTER_TYPE_ORDER.forEach(typeId => {
+            if (!typePresent[typeId]) return;
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'char-monster-chip' + (monsterTypeFilter === typeId ? ' active' : '');
+            chip.textContent = typeId === 'Other' ? 'Sonstige' : typeId;
+            chip.onclick = () => setMonsterTypeFilter(typeId);
+            typeChips.appendChild(chip);
+          });
+          typeRow.appendChild(typeChips);
+          filters.appendChild(typeRow);
+          filterBar.appendChild(filters);
+        }
 
         const monGroup = document.createElement('div');
         monGroup.className = 'char-roster-group';
@@ -4092,11 +4097,7 @@
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = currentSheetOwner === owner ? 'active' : '';
-          const crTxt = fields.stufe ? String(fields.stufe).replace(/^CR\s*/i, 'CR ') : '';
-          btn.innerHTML = '<span class="char-monster-name"></span>' +
-            (crTxt ? '<span class="char-monster-cr"></span>' : '');
-          btn.querySelector('.char-monster-name').textContent = fields.name || 'Monster';
-          if (crTxt) btn.querySelector('.char-monster-cr').textContent = crTxt;
+          btn.textContent = fields.name || 'Monster';
           btn.onclick = () => selectSheetOwner(owner);
           monGroup.appendChild(btn);
         });
@@ -4107,14 +4108,18 @@
         addMonBtn.onclick = () => addNewMonster();
         monGroup.appendChild(addMonBtn);
         list.appendChild(monGroup);
-        if (!currentSheetOwner || !isMonsterOwner(currentSheetOwner) || !monsterAccounts[monsterIdFromOwner(currentSheetOwner)]) {
-          currentSheetOwner = monIds.length
-            ? (MONSTER_PREFIX + monIds[0])
-            : (allMonIds.length ? (MONSTER_PREFIX + allMonIds[0]) : null);
-        } else if (isMonsterOwner(currentSheetOwner) && !monIds.includes(monsterIdFromOwner(currentSheetOwner))) {
-          currentSheetOwner = monIds.length ? (MONSTER_PREFIX + monIds[0]) : currentSheetOwner;
+        if (currentSheetOwner && isMonsterOwner(currentSheetOwner)) {
+          const mid = monsterIdFromOwner(currentSheetOwner);
+          if (!monsterAccounts[mid] || !monIds.includes(mid)) currentSheetOwner = null;
+        } else {
+          currentSheetOwner = null;
         }
       } else {
+        const monsterFilterBar = document.getElementById('charMonsterFilterBar');
+        if (monsterFilterBar) {
+          monsterFilterBar.classList.add('hidden');
+          monsterFilterBar.innerHTML = '';
+        }
         const canUse = isDM || !!currentPlayerId;
         guest.classList.toggle('hidden', canUse);
         app.classList.toggle('hidden', !canUse);
@@ -4239,12 +4244,13 @@
       const del = document.getElementById('deletePlayerBtn');
       const isVeyr = currentSheetOwner === VEYR_OWNER;
       const isNotes = !monsterHub && isDM && isDmNotesOwner(currentSheetOwner);
-      const isDnd = usesDndSheet(currentSheetOwner);
-      document.getElementById('charSheetBlock').classList.toggle('hidden', isNotes || isDnd);
+      const monsterPick = monsterHub && !rec;
+      const isDnd = !monsterPick && usesDndSheet(currentSheetOwner);
+      document.getElementById('charSheetBlock').classList.toggle('hidden', isNotes || isDnd || monsterPick);
       const dndBlock = document.getElementById('charDndBlock');
-      if (dndBlock) dndBlock.classList.toggle('hidden', isNotes || !isDnd);
+      if (dndBlock) dndBlock.classList.toggle('hidden', isNotes || !isDnd || monsterPick);
       const sheetActions = document.getElementById('charSheetActions');
-      if (sheetActions) sheetActions.classList.toggle('hidden', isNotes);
+      if (sheetActions) sheetActions.classList.toggle('hidden', isNotes || monsterPick);
       document.getElementById('charEntryBlock').classList.add('hidden');
       const notesBlock = document.getElementById('charDmNotesBlock');
       if (notesBlock) notesBlock.classList.toggle('hidden', !isNotes);
@@ -4254,12 +4260,14 @@
       document.getElementById('charMainCard').classList.toggle('is-veyr-sheet', isVeyr && !isNotes);
       document.getElementById('charMainCard').classList.toggle('is-dm-notes', isNotes);
       document.getElementById('charMainCard').classList.toggle('is-dnd', isDnd && !isNotes);
+      document.getElementById('charMainCard').classList.toggle('is-monster-empty', monsterPick);
       document.getElementById('charView').classList.toggle('is-dnd-wide', isDnd && !isNotes);
+      document.getElementById('charView').classList.toggle('is-monster-hub', !!monsterHub);
       const notesField = document.getElementById('sheetNotesField');
       if (notesField) notesField.classList.toggle('hidden', isVeyr || isNotes);
       const extraLabel = document.getElementById('sheetExtraLabel');
       if (extraLabel) extraLabel.textContent = isVeyr ? 'Text' : 'Ausrüstung & mehr';
-      del.classList.toggle('hidden', !isDM || !rec || rec.isAlt || isNotes);
+      del.classList.toggle('hidden', !isDM || !rec || rec.isAlt || isNotes || monsterPick);
       del.textContent = rec && rec.isMonster ? 'Monster entfernen' : (rec && rec.isNpc ? 'NPC entfernen' : 'Spieler entfernen');
       if (isNotes) {
         document.getElementById('charHeading').textContent = 'DM-Notizen';
@@ -4271,7 +4279,7 @@
         return;
       }
       if (!rec) {
-        document.getElementById('charHeading').textContent = monsterHub ? 'Monsterblatt' : 'Charakterblatt';
+        document.getElementById('charHeading').textContent = monsterHub ? 'Monster wählen' : 'Charakterblatt';
         clearSheetForm();
         applySheetEditLock();
         return;
