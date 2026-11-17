@@ -627,6 +627,37 @@ body.is-dm .dm-only-nav { display: inline-flex !important; }
   margin: 0 0 0.85rem;
   padding: 0.55rem 0 0.75rem;
   border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 0.65rem;
+}
+.char-monster-search-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.75rem;
+}
+.char-monster-search-wrap .char-roster-label {
+  margin: 0;
+  min-width: 7.5rem;
+}
+.char-monster-search-wrap input {
+  flex: 1 1 12rem;
+  max-width: 18rem;
+  margin: 0;
+  padding: 0.38rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+}
+.char-monster-search-wrap input::placeholder {
+  color: var(--muted);
+}
+.char-monster-search-wrap input:focus {
+  outline: none;
+  border-color: var(--gold-dim);
 }
 .char-monster-filters {
   display: grid;

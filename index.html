@@ -341,7 +341,13 @@
             </div>
           </div>
           <div id="charApp" class="hidden">
-            <div id="charMonsterFilterBar" class="char-monster-filter-bar hidden" aria-label="Monster-Filter"></div>
+            <div id="charMonsterFilterBar" class="char-monster-filter-bar hidden" aria-label="Monster-Filter">
+              <div class="char-monster-search-wrap">
+                <label class="char-roster-label" for="charMonsterSearch">Suche</label>
+                <input id="charMonsterSearch" type="search" placeholder="Monstername…" autocomplete="off" spellcheck="false" />
+              </div>
+              <div id="charMonsterFilterChips" class="char-monster-filters"></div>
+            </div>
             <div class="char-layout" id="charLayout">
               <div class="char-roster hidden" id="charRoster">
                 <h3>Spieler</h3>

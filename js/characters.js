@@ -770,6 +770,8 @@
     var dndItemPackId = '';
     var monsterCrFilter = 'all';
     var monsterTypeFilter = 'all';
+    var monsterSearchQuery = '';
+    var monsterSearchBound = false;
     var MONSTER_CR_BANDS = [
       { id: 'all', label: 'Alle CR' },
       { id: '0-4', label: 'CR 0–4' },
@@ -835,6 +837,11 @@
     function monsterMatchesFilters(mon) {
       if (monsterCrFilter !== 'all' && monsterCrBandId(mon) !== monsterCrFilter) return false;
       if (monsterTypeFilter !== 'all' && monsterCreatureTypeId(mon) !== monsterTypeFilter) return false;
+      const q = String(monsterSearchQuery || '').trim().toLowerCase();
+      if (q) {
+        const name = String(monsterSheetFields(mon).name || '').toLowerCase();
+        if (!name.includes(q)) return false;
+      }
       return true;
     }
 
@@ -848,6 +855,26 @@
     function setMonsterTypeFilter(id) {
       monsterTypeFilter = String(id || 'all');
       renderCharakter();
+    }
+
+    function setMonsterSearchQuery(raw) {
+      monsterSearchQuery = String(raw || '');
+      renderCharakter();
+    }
+
+    function bindMonsterSearch() {
+      if (monsterSearchBound) return;
+      const input = document.getElementById('charMonsterSearch');
+      if (!input) return;
+      monsterSearchBound = true;
+      input.addEventListener('input', () => setMonsterSearchQuery(input.value));
+      input.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape') {
+          ev.preventDefault();
+          input.value = '';
+          setMonsterSearchQuery('');
+        }
+      });
     }
 
     function dndItemCategoryId(raw) {
@@ -4024,9 +4051,13 @@
         const filterBar = document.getElementById('charMonsterFilterBar');
         if (filterBar) {
           filterBar.classList.remove('hidden');
-          filterBar.innerHTML = '';
-          const filters = document.createElement('div');
-          filters.className = 'char-monster-filters';
+          bindMonsterSearch();
+          const searchInput = document.getElementById('charMonsterSearch');
+          if (searchInput && searchInput.value !== monsterSearchQuery) {
+            searchInput.value = monsterSearchQuery;
+          }
+          const filters = document.getElementById('charMonsterFilterChips') || filterBar;
+          filters.innerHTML = '';
 
           const crRow = document.createElement('div');
           crRow.className = 'char-monster-filter-row';
@@ -4074,7 +4105,6 @@
           });
           typeRow.appendChild(typeChips);
           filters.appendChild(typeRow);
-          filterBar.appendChild(filters);
         }
 
         const monGroup = document.createElement('div');
@@ -4087,7 +4117,9 @@
         } else if (!monIds.length) {
           const empty = document.createElement('p');
           empty.className = 'char-npc-empty';
-          empty.textContent = 'Keine Monster für diesen Filter.';
+          empty.textContent = String(monsterSearchQuery || '').trim()
+            ? 'Keine Monster gefunden.'
+            : 'Keine Monster für diesen Filter.';
           monGroup.appendChild(empty);
         }
         monIds.forEach(id => {
@@ -4116,10 +4148,12 @@
         }
       } else {
         const monsterFilterBar = document.getElementById('charMonsterFilterBar');
-        if (monsterFilterBar) {
-          monsterFilterBar.classList.add('hidden');
-          monsterFilterBar.innerHTML = '';
-        }
+        if (monsterFilterBar) monsterFilterBar.classList.add('hidden');
+        const monsterFilterChips = document.getElementById('charMonsterFilterChips');
+        if (monsterFilterChips) monsterFilterChips.innerHTML = '';
+        monsterSearchQuery = '';
+        const monsterSearchInput = document.getElementById('charMonsterSearch');
+        if (monsterSearchInput) monsterSearchInput.value = '';
         const canUse = isDM || !!currentPlayerId;
         guest.classList.toggle('hidden', canUse);
         app.classList.toggle('hidden', !canUse);
