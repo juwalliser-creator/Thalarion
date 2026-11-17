@@ -2061,18 +2061,63 @@
       return raw + (add >= 0 ? '+' : '') + add;
     }
 
+    function monsterCrInputValue(raw) {
+      return String(raw || '').replace(/^CR\s*/i, '').trim();
+    }
+
+    function normalizeMonsterCrValue(raw) {
+      const v = monsterCrInputValue(raw);
+      return v ? ('CR ' + v) : '';
+    }
+
+    function syncDndStufeEmblem() {
+      const block = document.getElementById('charDndBlock');
+      const stufeEl = document.querySelector('#charDndBlock [data-dnd-field="stufe"]');
+      const emblem = document.querySelector('#charDndBlock .dnd-emblem-stufe');
+      if (!stufeEl) return;
+      const asCr = isMonsterOwner(currentSheetOwner);
+      if (block) block.classList.toggle('is-monster-cr', asCr);
+      if (emblem) {
+        emblem.title = asCr ? 'Challenge Rating' : 'Stufe';
+      }
+      if (asCr) {
+        stufeEl.removeAttribute('maxlength');
+        stufeEl.removeAttribute('min');
+        stufeEl.removeAttribute('max');
+        stufeEl.setAttribute('inputmode', 'text');
+        stufeEl.setAttribute('placeholder', '—');
+        stufeEl.setAttribute('aria-label', 'Challenge Rating');
+        stufeEl.setAttribute('title', 'Challenge Rating');
+        const shown = monsterCrInputValue(dndState.stufe);
+        if (stufeEl.value !== shown) stufeEl.value = shown;
+      } else {
+        stufeEl.setAttribute('maxlength', '2');
+        stufeEl.setAttribute('min', '1');
+        stufeEl.setAttribute('max', '99');
+        stufeEl.setAttribute('inputmode', 'numeric');
+        stufeEl.setAttribute('placeholder', '1');
+        stufeEl.setAttribute('aria-label', 'Stufe');
+        stufeEl.setAttribute('title', 'Stufe (1–99)');
+      }
+    }
+
     function collectDndFields() {
       document.querySelectorAll('#charDndBlock [data-dnd-field]').forEach(el => {
         const key = el.getAttribute('data-dnd-field');
         if (el.type === 'checkbox') dndState[key] = el.checked;
         else dndState[key] = el.value;
       });
-      const stufeRaw = String(dndState.stufe == null ? '' : dndState.stufe).replace(/\D/g, '');
-      if (stufeRaw) {
-        const lvl = Math.min(99, Math.max(1, Number(stufeRaw) || 1));
-        dndState.stufe = String(lvl);
-        const stufeEl = document.querySelector('#charDndBlock [data-dnd-field="stufe"]');
-        if (stufeEl && stufeEl.value !== dndState.stufe) stufeEl.value = dndState.stufe;
+      const stufeEl = document.querySelector('#charDndBlock [data-dnd-field="stufe"]');
+      if (isMonsterOwner(currentSheetOwner)) {
+        dndState.stufe = normalizeMonsterCrValue(dndState.stufe);
+        if (stufeEl) stufeEl.value = monsterCrInputValue(dndState.stufe);
+      } else {
+        const stufeRaw = String(dndState.stufe == null ? '' : dndState.stufe).replace(/\D/g, '');
+        if (stufeRaw) {
+          const lvl = Math.min(99, Math.max(1, Number(stufeRaw) || 1));
+          dndState.stufe = String(lvl);
+          if (stufeEl && stufeEl.value !== dndState.stufe) stufeEl.value = dndState.stufe;
+        }
       }
       document.querySelectorAll('#charDndBlock [data-dnd-attune]').forEach(el => {
         dndState.attunement[Number(el.getAttribute('data-dnd-attune'))] = el.value;
@@ -2135,6 +2180,7 @@
       });
       const nameEl = document.querySelector('#charDndBlock [data-dnd-field="name"]');
       if (nameEl && !nameEl.value) nameEl.value = dndOwnerName();
+      syncDndStufeEmblem();
     }
 
     function renderDndAbilityCol() {

@@ -916,6 +916,26 @@ body.is-dm .dm-only-nav { display: inline-flex !important; }
   max-width: 3.6rem !important;
   height: 2.325rem !important;
 }
+#charDndBlock.is-monster-cr .dnd-emblem.dnd-emblem-stufe input:not([type="hidden"]) {
+  font-size: 1.35rem !important;
+  width: 4.6rem !important;
+  max-width: 5rem !important;
+  height: 1.6rem !important;
+  letter-spacing: 0.02em;
+}
+#charDndBlock.is-monster-cr .dnd-emblem-stufe::after {
+  content: "CR";
+  position: absolute;
+  left: 55%;
+  top: calc(50% + 1.35rem);
+  transform: translateX(-50%);
+  font-family: Cinzel, serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  color: #5a3a24;
+  opacity: 0.85;
+  pointer-events: none;
+}
 .dnd-emblem-ac {
   width: 7.6rem;
   height: 8rem;
