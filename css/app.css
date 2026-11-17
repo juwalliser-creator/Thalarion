@@ -623,6 +623,51 @@ body.is-dm .dm-only-nav { display: inline-flex !important; }
   margin: 0 0 0.3rem 0.5rem;
   font-size: 0.9em;
 }
+.char-monster-filters {
+  margin: 0 0 0.65rem;
+  display: grid;
+  gap: 0.55rem;
+}
+.char-monster-filter-row .char-roster-label {
+  margin-left: 0;
+}
+.char-monster-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.2rem;
+}
+.char-monster-chip {
+  width: auto !important;
+  padding: 0.22rem 0.55rem !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 999px !important;
+  color: var(--muted) !important;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  background: rgba(0, 0, 0, 0.18) !important;
+}
+.char-monster-chip:hover {
+  background: rgba(212, 179, 106, 0.1) !important;
+  color: var(--ink) !important;
+}
+.char-monster-chip.active {
+  background: rgba(212, 179, 106, 0.18) !important;
+  border-color: var(--gold-dim) !important;
+  color: var(--gold) !important;
+}
+.char-roster button .char-monster-name {
+  display: block;
+}
+.char-roster button .char-monster-cr {
+  display: block;
+  font-size: 0.78em;
+  color: var(--muted);
+  margin-top: 0.05rem;
+}
+.char-roster button.active .char-monster-cr {
+  color: rgba(212, 179, 106, 0.75);
+}
 .char-main.is-dm-notes .editor-canvas { min-height: 22rem; }
 .sheet-grid {
   display: grid;

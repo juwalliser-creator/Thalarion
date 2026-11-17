@@ -768,6 +768,87 @@
     var dndSpellEditId = '';
     var dndItemEditId = '';
     var dndItemPackId = '';
+    var monsterCrFilter = 'all';
+    var monsterTypeFilter = 'all';
+    var MONSTER_CR_BANDS = [
+      { id: 'all', label: 'Alle CR' },
+      { id: '0-4', label: 'CR 0–4' },
+      { id: '5-10', label: 'CR 5–10' },
+      { id: '11-16', label: 'CR 11–16' },
+      { id: '17+', label: 'CR 17+' },
+      { id: 'unknown', label: 'Ohne CR' }
+    ];
+    var MONSTER_TYPE_ORDER = [
+      'Aberration', 'Beast', 'Celestial', 'Construct', 'Dragon', 'Elemental',
+      'Fey', 'Fiend', 'Giant', 'Humanoid', 'Monstrosity', 'Ooze', 'Plant', 'Undead', 'Other'
+    ];
+
+    function monsterSheetFields(mon) {
+      const sheet = (mon && mon.sheet) || {};
+      const dnd = sheet.dnd || {};
+      return {
+        name: (mon && mon.name) || sheet.name || dnd.name || 'Monster',
+        stufe: String(dnd.stufe || sheet.stufe || ''),
+        volk: String(dnd.volk || sheet.volk || '')
+      };
+    }
+
+    function monsterCrValue(mon) {
+      const raw = monsterSheetFields(mon).stufe;
+      const frac = raw.match(/(\d+)\s*\/\s*(\d+)/);
+      if (frac) {
+        const a = Number(frac[1]);
+        const b = Number(frac[2]);
+        if (b) return a / b;
+      }
+      const whole = raw.match(/(\d+(?:[.,]\d+)?)/);
+      if (!whole) return null;
+      const n = Number(String(whole[1]).replace(',', '.'));
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function monsterCrBandId(mon) {
+      const val = monsterCrValue(mon);
+      if (val == null || Number.isNaN(val)) return 'unknown';
+      if (val <= 4) return '0-4';
+      if (val <= 10) return '5-10';
+      if (val <= 16) return '11-16';
+      return '17+';
+    }
+
+    function monsterCreatureTypeId(mon) {
+      const volk = monsterSheetFields(mon).volk;
+      const known = [
+        'Giant', 'Elemental', 'Undead', 'Aberration', 'Construct', 'Dragon',
+        'Monstrosity', 'Beast', 'Dinosaur', 'Fiend', 'Celestial', 'Ooze',
+        'Plant', 'Humanoid', 'Fey'
+      ];
+      for (let i = 0; i < known.length; i++) {
+        const t = known[i];
+        if (new RegExp('\\b' + t + '\\b', 'i').test(volk)) {
+          return t === 'Dinosaur' ? 'Beast' : t;
+        }
+      }
+      return 'Other';
+    }
+
+    function monsterMatchesFilters(mon) {
+      if (monsterCrFilter !== 'all' && monsterCrBandId(mon) !== monsterCrFilter) return false;
+      if (monsterTypeFilter !== 'all' && monsterCreatureTypeId(mon) !== monsterTypeFilter) return false;
+      return true;
+    }
+
+    function setMonsterCrFilter(id) {
+      monsterCrFilter = String(id || 'all');
+      // Reset type subfilter when CR changes, then keep only types still present
+      monsterTypeFilter = 'all';
+      renderCharakter();
+    }
+
+    function setMonsterTypeFilter(id) {
+      monsterTypeFilter = String(id || 'all');
+      renderCharakter();
+    }
 
     function dndItemCategoryId(raw) {
       const id = String(raw || '');
@@ -3874,23 +3955,102 @@
         roster.querySelector('h3').textContent = 'Monster';
         const list = document.getElementById('charRosterList');
         list.innerHTML = '';
-        const monGroup = document.createElement('div');
-        monGroup.className = 'char-roster-group';
-        const monIds = Object.keys(monsterAccounts).sort((a, b) =>
+        const allMonIds = Object.keys(monsterAccounts).sort((a, b) =>
           (monsterAccounts[a].name || '').localeCompare(monsterAccounts[b].name || '', 'de')
         );
-        if (!monIds.length) {
+        const crPresent = {};
+        const typePresent = {};
+        allMonIds.forEach(id => {
+          const mon = monsterAccounts[id];
+          crPresent[monsterCrBandId(mon)] = true;
+          if (monsterCrFilter === 'all' || monsterCrBandId(mon) === monsterCrFilter) {
+            typePresent[monsterCreatureTypeId(mon)] = true;
+          }
+        });
+        if (monsterCrFilter !== 'all' && !crPresent[monsterCrFilter] && allMonIds.length) {
+          monsterCrFilter = 'all';
+        }
+        if (monsterTypeFilter !== 'all' && !typePresent[monsterTypeFilter]) {
+          monsterTypeFilter = 'all';
+        }
+        const monIds = allMonIds.filter(id => monsterMatchesFilters(monsterAccounts[id]));
+
+        const filters = document.createElement('div');
+        filters.className = 'char-monster-filters';
+
+        const crRow = document.createElement('div');
+        crRow.className = 'char-monster-filter-row';
+        const crLabel = document.createElement('div');
+        crLabel.className = 'char-roster-label';
+        crLabel.textContent = 'Challenge Rating';
+        crRow.appendChild(crLabel);
+        const crChips = document.createElement('div');
+        crChips.className = 'char-monster-filter-chips';
+        MONSTER_CR_BANDS.forEach(band => {
+          if (band.id !== 'all' && !crPresent[band.id] && band.id !== 'unknown') return;
+          if (band.id === 'unknown' && !crPresent.unknown) return;
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'char-monster-chip' + (monsterCrFilter === band.id ? ' active' : '');
+          chip.textContent = band.label;
+          chip.onclick = () => setMonsterCrFilter(band.id);
+          crChips.appendChild(chip);
+        });
+        crRow.appendChild(crChips);
+        filters.appendChild(crRow);
+
+        const typeRow = document.createElement('div');
+        typeRow.className = 'char-monster-filter-row';
+        const typeLabel = document.createElement('div');
+        typeLabel.className = 'char-roster-label';
+        typeLabel.textContent = 'Kreatur';
+        typeRow.appendChild(typeLabel);
+        const typeChips = document.createElement('div');
+        typeChips.className = 'char-monster-filter-chips';
+        const typeAll = document.createElement('button');
+        typeAll.type = 'button';
+        typeAll.className = 'char-monster-chip' + (monsterTypeFilter === 'all' ? ' active' : '');
+        typeAll.textContent = 'Alle';
+        typeAll.onclick = () => setMonsterTypeFilter('all');
+        typeChips.appendChild(typeAll);
+        MONSTER_TYPE_ORDER.forEach(typeId => {
+          if (!typePresent[typeId]) return;
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'char-monster-chip' + (monsterTypeFilter === typeId ? ' active' : '');
+          chip.textContent = typeId === 'Other' ? 'Sonstige' : typeId;
+          chip.onclick = () => setMonsterTypeFilter(typeId);
+          typeChips.appendChild(chip);
+        });
+        typeRow.appendChild(typeChips);
+        filters.appendChild(typeRow);
+        list.appendChild(filters);
+
+        const monGroup = document.createElement('div');
+        monGroup.className = 'char-roster-group';
+        if (!allMonIds.length) {
           const empty = document.createElement('p');
           empty.className = 'char-npc-empty';
           empty.textContent = 'Noch keine Monster.';
           monGroup.appendChild(empty);
+        } else if (!monIds.length) {
+          const empty = document.createElement('p');
+          empty.className = 'char-npc-empty';
+          empty.textContent = 'Keine Monster für diesen Filter.';
+          monGroup.appendChild(empty);
         }
         monIds.forEach(id => {
           const owner = MONSTER_PREFIX + id;
+          const mon = monsterAccounts[id];
+          const fields = monsterSheetFields(mon);
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = currentSheetOwner === owner ? 'active' : '';
-          btn.textContent = monsterAccounts[id].name || 'Monster';
+          const crTxt = fields.stufe ? String(fields.stufe).replace(/^CR\s*/i, 'CR ') : '';
+          btn.innerHTML = '<span class="char-monster-name"></span>' +
+            (crTxt ? '<span class="char-monster-cr"></span>' : '');
+          btn.querySelector('.char-monster-name').textContent = fields.name || 'Monster';
+          if (crTxt) btn.querySelector('.char-monster-cr').textContent = crTxt;
           btn.onclick = () => selectSheetOwner(owner);
           monGroup.appendChild(btn);
         });
@@ -3902,7 +4062,11 @@
         monGroup.appendChild(addMonBtn);
         list.appendChild(monGroup);
         if (!currentSheetOwner || !isMonsterOwner(currentSheetOwner) || !monsterAccounts[monsterIdFromOwner(currentSheetOwner)]) {
-          currentSheetOwner = monIds.length ? (MONSTER_PREFIX + monIds[0]) : null;
+          currentSheetOwner = monIds.length
+            ? (MONSTER_PREFIX + monIds[0])
+            : (allMonIds.length ? (MONSTER_PREFIX + allMonIds[0]) : null);
+        } else if (isMonsterOwner(currentSheetOwner) && !monIds.includes(monsterIdFromOwner(currentSheetOwner))) {
+          currentSheetOwner = monIds.length ? (MONSTER_PREFIX + monIds[0]) : currentSheetOwner;
         }
       } else {
         const canUse = isDM || !!currentPlayerId;
