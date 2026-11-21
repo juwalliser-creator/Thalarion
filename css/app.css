@@ -6275,6 +6275,9 @@ body:not(.is-dm) .dungeon-fog-toggle { display: none !important; }
   background: rgba(212, 179, 106, 0.16);
   color: var(--gold);
 }
+.arena-init-item.is-turn {
+  box-shadow: inset 3px 0 0 var(--gold);
+}
 .arena-init-name {
   font-weight: 600;
 }
@@ -6282,8 +6285,71 @@ body:not(.is-dm) .dungeon-fog-toggle { display: none !important; }
   font-size: 0.78em;
   color: var(--muted);
 }
+.arena-init-conds {
+  display: block;
+  font-size: 0.72em;
+  color: #c9a27a;
+}
 .arena-init-item.active .arena-init-meta {
   color: rgba(212, 179, 106, 0.75);
+}
+.arena-add {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+.arena-add h3 {
+  font-family: Cinzel, serif;
+  font-size: 0.9rem;
+  margin: 0 0 0.5rem;
+  color: var(--gold);
+}
+.arena-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.65rem;
+}
+.arena-add-row input {
+  flex: 1 1 4.5rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
+}
+.arena-add-row input.arena-num,
+.arena-num {
+  width: 3.6rem;
+  flex: 0 0 3.6rem;
+}
+.arena-add-block { margin-bottom: 0.55rem; }
+.arena-add-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+.arena-pick-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  max-height: 9rem;
+  overflow: auto;
+}
+.arena-pick-btn {
+  width: auto !important;
+  padding: 0.28rem 0.5rem !important;
+  font-size: 0.78rem;
+  min-height: 2rem;
+}
+.arena-pick-btn:disabled {
+  opacity: 0.45;
 }
 .arena-main {
   display: grid;
@@ -6338,6 +6404,127 @@ body:not(.is-dm) .dungeon-fog-toggle { display: none !important; }
 .arena-stat-grid strong {
   font-size: 1.25rem;
   color: var(--ink);
+}
+.arena-stat-grid input {
+  width: 100%;
+  margin: 0;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.arena-section {
+  margin-top: 0.9rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+.arena-section-head {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+.arena-cond-list {
+  display: grid;
+  gap: 0.3rem;
+  margin-bottom: 0.45rem;
+}
+.arena-cond-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.28rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.14);
+  font-size: 0.9rem;
+}
+.arena-cond-row button {
+  width: auto;
+  min-width: 2rem;
+  padding: 0.15rem 0.45rem;
+}
+.arena-cond-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+.arena-cond-add input {
+  margin: 0;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--ink);
+  font: inherit;
+}
+.arena-cond-add input:first-child {
+  flex: 1 1 8rem;
+}
+.arena-attack-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.arena-attack-btn {
+  width: auto;
+  text-align: left;
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.18);
+  color: var(--ink);
+  min-width: 8rem;
+}
+.arena-attack-btn:hover {
+  background: rgba(212, 179, 106, 0.1);
+  border-color: var(--gold-dim);
+}
+.arena-attack-btn strong {
+  color: var(--gold);
+  font-size: 0.92rem;
+}
+.arena-attack-btn span {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.arena-detail-actions {
+  margin-top: 0.85rem;
+}
+.arena-hp-panel {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 0.55rem;
+}
+.arena-hp-quick,
+.arena-hp-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+.arena-hp-quick button,
+.arena-hp-row button {
+  min-height: 2.4rem;
+}
+.arena-hp-row input {
+  width: 5.5rem;
+  margin: 0;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--ink);
+  font: inherit;
 }
 .arena-notes {
   margin: 0.85rem 0 0;

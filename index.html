@@ -1131,6 +1131,24 @@
             <aside class="arena-roster" aria-label="Initiative">
               <h3>Initiative</h3>
               <div id="arenaInitList"></div>
+              <div class="arena-add" id="arenaAddPanel">
+                <h3>Kämpfer dazu</h3>
+                <div class="arena-add-row">
+                  <input id="arenaAddName" placeholder="Name" />
+                  <input id="arenaAddInit" class="arena-num" type="number" step="1" placeholder="Init" />
+                  <input id="arenaAddHp" class="arena-num" type="number" min="1" placeholder="TP" />
+                  <input id="arenaAddAc" class="arena-num" type="number" min="0" placeholder="RK" />
+                  <button class="primary" id="arenaAddBlankBtn" type="button">Leer</button>
+                </div>
+                <div class="arena-add-block">
+                  <div class="arena-add-label">Charaktere</div>
+                  <div class="arena-pick-list" id="arenaPlayerList"></div>
+                </div>
+                <div class="arena-add-block">
+                  <div class="arena-add-label">Monster</div>
+                  <div class="arena-pick-list" id="arenaMonsterList"></div>
+                </div>
+              </div>
             </aside>
             <div class="arena-main">
               <div class="arena-detail" id="arenaDetail">
