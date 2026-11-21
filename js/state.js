@@ -265,9 +265,11 @@
       navCharakter: document.getElementById('navCharakter'),
       navMonster: document.getElementById('navMonster'),
       navKampf: document.getElementById('navKampf'),
+      navArena: document.getElementById('navArena'),
       navDungeon: document.getElementById('navDungeon'),
       charView: document.getElementById('charView'),
       kampfView: document.getElementById('kampfView'),
+      arenaView: document.getElementById('arenaView'),
       dungeonView: document.getElementById('dungeonView'),
       sitzungView: document.getElementById('sitzungView')
     };

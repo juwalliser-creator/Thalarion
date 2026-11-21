@@ -46,6 +46,7 @@
           <button type="button" id="navCharakter">Charakter</button>
           <button type="button" id="navMonster" class="dm-only-nav">Monster</button>
           <button type="button" id="navKampf">Kampf</button>
+          <button type="button" id="navArena" class="dm-only-nav">Arena</button>
           <button type="button" id="navDungeon">Dungeon</button>
         </span>
       </nav>
@@ -1112,6 +1113,33 @@
             </div>
           </div>
         </section>
+
+        <section id="arenaView" class="panel hidden">
+          <div class="hero">
+            <div class="seal">A</div>
+            <h1>Arena</h1>
+          </div>
+          <div class="arena-bar">
+            <span class="arena-round" id="arenaRound">Aufbau</span>
+            <div class="arena-tools">
+              <button class="primary" id="arenaStartBtn" type="button">Kampf starten</button>
+              <button class="ghost hidden" id="arenaNextBtn" type="button">Nächster Zug</button>
+              <button class="ghost" id="arenaEndBtn" type="button">Kampf beenden</button>
+            </div>
+          </div>
+          <div class="arena-layout">
+            <aside class="arena-roster" aria-label="Initiative">
+              <h3>Initiative</h3>
+              <div id="arenaInitList"></div>
+            </aside>
+            <div class="arena-main">
+              <div class="arena-detail" id="arenaDetail">
+                <p class="arena-empty">Noch kein aktiver Kämpfer.</p>
+              </div>
+              <div class="arena-log" id="arenaLog" aria-label="Kampflog"></div>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   </div>
@@ -1549,6 +1577,7 @@
   <script src="js/characters.js"></script>
   <script src="js/sound.js"></script>
   <script src="js/combat.js"></script>
+  <script src="js/arena.js"></script>
   <script src="js/dungeon-vision.js"></script>
   <script src="js/dungeon.js"></script>
   <script src="js/dungeon-extras.js"></script>

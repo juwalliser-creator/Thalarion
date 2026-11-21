@@ -6217,4 +6217,152 @@ body:not(.is-dm) .dungeon-fog-toggle { display: none !important; }
   .page-toolbar button {
     min-height: 2.5rem;
   }
+  .arena-layout { grid-template-columns: 1fr; }
+  .arena-init-item { min-height: 2.6rem; }
+}
+
+/* Arena – kartenloser Kampfmodus */
+.arena-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+  margin: 0 0 0.9rem;
+}
+.arena-round {
+  font-family: Cinzel, serif;
+  color: var(--gold);
+  letter-spacing: 0.04em;
+}
+.arena-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.arena-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 0.9rem;
+  align-items: start;
+}
+.arena-roster {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.8rem;
+  box-shadow: var(--shadow);
+}
+.arena-roster h3 {
+  font-family: Cinzel, serif;
+  font-size: 0.95rem;
+  margin: 0 0 0.55rem;
+  color: var(--gold);
+}
+.arena-init-item {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  color: var(--ink);
+  padding: 0.5rem 0.55rem;
+  border-radius: 8px;
+  display: grid;
+  gap: 0.12rem;
+}
+.arena-init-item:hover { background: rgba(212, 179, 106, 0.08); }
+.arena-init-item.active {
+  background: rgba(212, 179, 106, 0.16);
+  color: var(--gold);
+}
+.arena-init-name {
+  font-weight: 600;
+}
+.arena-init-meta {
+  font-size: 0.78em;
+  color: var(--muted);
+}
+.arena-init-item.active .arena-init-meta {
+  color: rgba(212, 179, 106, 0.75);
+}
+.arena-main {
+  display: grid;
+  gap: 0.75rem;
+}
+.arena-detail {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  box-shadow: var(--shadow);
+  min-height: 10rem;
+}
+.arena-detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem 0.8rem;
+  margin-bottom: 0.85rem;
+}
+.arena-detail-head h2 {
+  margin: 0;
+  font-family: Cinzel, serif;
+  font-size: 1.35rem;
+  color: var(--gold);
+}
+.arena-pill {
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.18rem 0.55rem;
+}
+.arena-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+.arena-stat-grid div {
+  display: grid;
+  gap: 0.2rem;
+}
+.arena-stat-grid span {
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.arena-stat-grid strong {
+  font-size: 1.25rem;
+  color: var(--ink);
+}
+.arena-notes {
+  margin: 0.85rem 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+.arena-log {
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+  max-height: 10rem;
+  overflow: auto;
+}
+.arena-log p {
+  margin: 0 0 0.35rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+.arena-log p:last-child { margin-bottom: 0; }
+.arena-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+@media (max-width: 860px) {
+  .arena-stat-grid { grid-template-columns: 1fr; }
 }

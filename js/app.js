@@ -34,15 +34,17 @@
       els.navCharakter.classList.toggle('active', page === 'char');
       if (els.navMonster) els.navMonster.classList.toggle('active', page === 'monster');
       els.navKampf.classList.toggle('active', page === 'kampf');
+      if (els.navArena) els.navArena.classList.toggle('active', page === 'arena');
       if (els.navDungeon) els.navDungeon.classList.toggle('active', page === 'dungeon');
       els.mapView.classList.toggle('hidden', page !== 'map');
       if (page !== 'map') setMapFullscreen(false);
       els.charView.classList.toggle('hidden', page !== 'char' && page !== 'monster');
       els.kampfView.classList.toggle('hidden', page !== 'kampf');
+      if (els.arenaView) els.arenaView.classList.toggle('hidden', page !== 'arena');
       if (els.dungeonView) els.dungeonView.classList.toggle('hidden', page !== 'dungeon');
       if (page !== 'kampf') closeStatSheetOverlay();
       updateSidebarVisibility(page);
-      if (page === 'map' || page === 'char' || page === 'monster' || page === 'kampf' || page === 'dungeon') {
+      if (page === 'map' || page === 'char' || page === 'monster' || page === 'kampf' || page === 'arena' || page === 'dungeon') {
         els.homeView.classList.add('hidden');
         els.viewer.classList.add('hidden');
         els.editorView.classList.add('hidden');
@@ -155,6 +157,7 @@
         else if (currentPage === 'entstehung') showEntstehung();
         else if (currentPage === 'sitzung') showSitzung();
         else if (currentPage === 'kampf') showKampf();
+        else if (currentPage === 'arena') showMap();
         else if (currentPage === 'dungeon') showDungeon();
         else if (currentPage === 'char') showCharakter();
         else if (currentPage === 'monster') showMonster();
@@ -168,6 +171,7 @@
         if (currentPage === 'char' || currentPage === 'monster') renderCharakter();
         if (currentPage === 'kampf' || currentPage === 'dungeon') renderKampf();
         if (currentPage === 'kampf') renderBattleBoards();
+        if (currentPage === 'arena' && typeof renderArena === 'function') renderArena();
         if (currentPage === 'dungeon' && typeof renderDungeon === 'function') renderDungeon();
         els.playerToEdit.classList.toggle('hidden', !on || currentIndex === null || els.viewer.classList.contains('hidden'));
         updateEntryToKarteBtn();
@@ -330,6 +334,7 @@
         return;
       }
       if (page === 'kampf') showKampf();
+      else if (page === 'arena') showArena();
       else if (page === 'char') showCharakter();
       else if (page === 'monster') showMonster();
       else if (page === 'dungeon') showDungeon();
@@ -373,6 +378,7 @@
         onClick('navCharakter', showCharakter);
         onClick('navMonster', showMonster);
         onClick('navKampf', showKampf);
+        onClick('navArena', showArena);
         onClick('navDungeon', showDungeon);
         onClick('menuBtn', () => setSidebarOpen(!(els.sidebar && els.sidebar.classList.contains('open'))));
       });
@@ -1114,6 +1120,7 @@
           else if (currentPage === 'entstehung') showEntstehung();
           else if (currentPage === 'sitzung') showSitzung();
           else if (currentPage === 'kampf') showKampf();
+          else if (currentPage === 'arena') showArena();
           else if (currentPage === 'dungeon') showDungeon();
           else if (currentPage === 'char') showCharakter();
           else if (currentPage === 'monster') showMonster();
